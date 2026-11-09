@@ -79,12 +79,13 @@ $('#tHow').addEventListener('click', () => uiOpenDialog($('#howto')));
 /* ---------- leaderboard ---------- */
 function uiGta(){ try { return JSON.parse(uiGet('xmum-gta-v1') || 'null') || {}; } catch(e){ return {}; } }
 const UI_BOARDS = {
-  hole:  {fmt:v => (+v || 0).toFixed(1) + '%', what:'黑洞一局吞掉校园的最高比例', local:() => +uiGet('xmum-hole-best') || 0, empty:'还没玩过黑洞，去吞一局'},
+  hole2: {fmt:v => (+v || 0).toFixed(1) + '%', what:'黑洞 2.0（有道具和连吞）一局吞掉校园的最高比例', local:() => +uiGet('xmum-hole2-best') || 0, empty:'还没玩过黑洞 2.0，去吞一局'},
+  hole:  {fmt:v => (+v || 0).toFixed(1) + '%', what:'旧版黑洞的成绩，已停止更新，留作纪念', local:() => +uiGet('xmum-hole-best') || 0, empty:'没有旧版黑洞的成绩'},
   stunt: {fmt:v => Math.round(+v || 0).toLocaleString() + ' 分', what:'奶娃累计特技分', local:() => +uiGta().stunt || 0, empty:'还没攒到特技分，去漂移一下'},
   rich:  {fmt:v => 'RM ' + (+v || 0).toFixed(2), what:'奶娃钱包', local:() => +uiGta().money || 0, empty:'钱包空空，去送外卖'}
 };
 const lbEl = $('#lb'), lbBody = $('#lbBody'), lbTabs = [...lbEl.querySelectorAll('[role="tab"]')];
-let lbBoard = 'hole', lbReq = 0;
+let lbBoard = 'hole2', lbReq = 0;
 function uiEl(tag, cls, text){ const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 function uiLocalCard(board){
   const B = UI_BOARDS[board], v = B.local(), box = uiEl('div', 'lb-local');
@@ -140,8 +141,8 @@ function openLeaderboard(board){
   uiOpenDialog(lbEl);
   const sel = lbTabs.find(t => t.dataset.board === lbBoard); if (sel) sel.focus({preventScroll:true});
 }
-$('#tLb').addEventListener('click', () => openLeaderboard('hole'));
-$('#hlb').addEventListener('click', () => openLeaderboard('hole'));
+$('#tLb').addEventListener('click', () => openLeaderboard('hole2'));
+$('#hlb').addEventListener('click', () => openLeaderboard('hole2'));
 
 window.XUI = {
   playerName: () => uiName,
