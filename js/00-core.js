@@ -33,6 +33,8 @@ controls.autoRotate = !REDUCED; controls.autoRotateSpeed = 0.3;
 const UP = new THREE.Vector3(0, 1, 0);
 let seed = 20250901;
 function rnd(){ seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }
+/* private generator for model details, so decorating never shifts the shared rnd() sequence that places things */
+function mkRng(s){ return () => { s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
 /* ---------- lights ---------- */
 const hemi = new THREE.HemisphereLight('#dff0ff', '#5d7340', 0.72); scene.add(hemi);
@@ -63,12 +65,78 @@ const tileTex = (() => {
 const roofMat = c => roofCache[c] || (roofCache[c] = M(c, {roughness:.62, side:THREE.DoubleSide, map:tileTex}));
 function flatMat(c, po, extra){ return M(c, Object.assign({polygonOffset:true, polygonOffsetFactor:-po, polygonOffsetUnits:-po * 4, side:THREE.DoubleSide}, extra || {})); }
 
-/* ---------- facade textures: 0 teaching (rect), 1 teaching (arched), 2 dorm ---------- */
-function facadePair(kind){
+/* ---------- shared low-poly geometry helpers (merge parts so a model costs one draw call per material) ---------- */
+const _gc = new THREE.Color();
+/* paint a whole geometry one colour (for vertexColors materials) */
+function geoTint(geo, col){
+  _gc.set(col); const n = geo.attributes.position.count, a = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++){ a[i * 3] = _gc.r; a[i * 3 + 1] = _gc.g; a[i * 3 + 2] = _gc.b; }
+  geo.setAttribute('color', new THREE.BufferAttribute(a, 3)); return geo;
+}
+/* merge geometries into one non-indexed geometry (position + normal, plus colour if every part has one) */
+function geoMerge(list){
+  const gs = list.map(g => g.index ? g.toNonIndexed() : g);
+  let n = 0; for (const g of gs){ if (!g.attributes.normal) g.computeVertexNormals(); n += g.attributes.position.count; }
+  const col = gs.every(g => g.attributes.color), pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), cl = col ? new Float32Array(n * 3) : null;
+  let o = 0;
+  for (const g of gs){ pos.set(g.attributes.position.array, o * 3); nor.set(g.attributes.normal.array, o * 3); if (cl) cl.set(g.attributes.color.array, o * 3); o += g.attributes.position.count; }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+  if (cl) g.setAttribute('color', new THREE.BufferAttribute(cl, 3));
+  return g;
+}
+/* average normals of coincident vertices whose faces bend less than maxDeg (smooths seams/bevels, keeps hard creases) */
+function smoothNormals(geo, maxDeg){
+  geo.computeVertexNormals();
+  const p = geo.attributes.position, nm = geo.attributes.normal, n = p.count, cosT = Math.cos((maxDeg == null ? 60 : maxDeg) * D2R), map = new Map(), out = new Float32Array(n * 3);
+  /* non-indexed: weight each corner by its triangle's area, so big flat faces keep crisp normals next to small bevel faces */
+  const wt = new Float32Array(n).fill(1);
+  if (!geo.index) for (let t = 0; t + 2 < n; t += 3){
+    const ax = p.getX(t + 1) - p.getX(t), ay = p.getY(t + 1) - p.getY(t), az = p.getZ(t + 1) - p.getZ(t), bx = p.getX(t + 2) - p.getX(t), by = p.getY(t + 2) - p.getY(t), bz = p.getZ(t + 2) - p.getZ(t);
+    wt[t] = wt[t + 1] = wt[t + 2] = Math.hypot(ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx) + 1e-7;
+  }
+  const key = i => Math.round(p.getX(i) * 1e3) + ',' + Math.round(p.getY(i) * 1e3) + ',' + Math.round(p.getZ(i) * 1e3);
+  for (let i = 0; i < n; i++){ const k = key(i); let a = map.get(k); if (!a) map.set(k, a = []); a.push(i); }
+  map.forEach(a => {
+    for (const i of a){
+      let x = 0, y = 0, z = 0; const ix = nm.getX(i), iy = nm.getY(i), iz = nm.getZ(i);
+      for (const j of a){ const jx = nm.getX(j), jy = nm.getY(j), jz = nm.getZ(j); if (ix * jx + iy * jy + iz * jz >= cosT){ x += jx * wt[j]; y += jy * wt[j]; z += jz * wt[j]; } }
+      const l = Math.hypot(x, y, z) || 1; out[i * 3] = x / l; out[i * 3 + 1] = y / l; out[i * 3 + 2] = z / l;
+    }
+  });
+  geo.setAttribute('normal', new THREE.BufferAttribute(out, 3)); return geo;
+}
+/* box with rounded edges (r = corner radius), centred on the origin */
+function roundBox(w, h, d, r, seg){
+  seg = seg || 3;
+  r = Math.max(.002, Math.min(r, w / 2 - .003, h / 2 - .003, d / 2 - .003));
+  const b = r * .75, x = w / 2 - r, y = h / 2 - r, pts = [];
+  /* corner arcs only (no duplicate points, which would make the bevel spike) */
+  for (const [cx, cy, a0] of [[x, -y, -Math.PI / 2], [x, y, 0], [-x, y, Math.PI / 2], [-x, -y, Math.PI]])
+    for (let i = 0; i <= seg; i++){ const a = a0 + i / seg * Math.PI / 2; pts.push(new THREE.Vector2(cx + Math.cos(a) * r, cy + Math.sin(a) * r)); }
+  const g = new THREE.ExtrudeGeometry(new THREE.Shape(pts), {depth:d - 2 * b, bevelEnabled:true, bevelThickness:b, bevelSize:b, bevelOffset:-b, bevelSegments:seg, curveSegments:seg});
+  g.translate(0, 0, -(d - 2 * b) / 2); g.deleteAttribute('uv'); return smoothNormals(g, 50);
+}
+/* tapered cylinder from point a to point b */
+function rodGeo(r0, r1, a, b, seg){
+  const A = new THREE.Vector3(a[0], a[1], a[2]), d = new THREE.Vector3(b[0], b[1], b[2]).sub(A), L = d.length();
+  const m = new THREE.Matrix4().compose(A.addScaledVector(d, .5), new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()), new THREE.Vector3(1, 1, 1));
+  return new THREE.CylinderGeometry(r1, r0, L, seg || 8, 1, true).applyMatrix4(m);
+}
+/* place a geometry: translate, then rotate (Euler XYZ), returns it */
+const _gm = new THREE.Matrix4(), _ge = new THREE.Euler();
+function geoAt(geo, x, y, z, rx, ry, rz, sx, sy, sz){
+  _gm.compose(_cp.set(x || 0, y || 0, z || 0), _cq.setFromEuler(_ge.set(rx || 0, ry || 0, rz || 0)), _cs.set(sx || 1, sy || sx || 1, sz || sx || 1));
+  return geo.applyMatrix4(_gm);
+}
+
+/* ---------- facade textures: 0 teaching (rect), 1 teaching (arched), 2 dorm; tone 0-2 = slightly different plaster ---------- */
+const WALL_TONES = [['#efe8da', '#f3eee4'], ['#f2e6cf', '#f5ecdb'], ['#ebe8e1', '#eeece7']];
+function facadePair(kind, tone, R){
+  R = R || rnd;
   const S2 = 256, cell = 64;
   const a = document.createElement('canvas'); a.width = a.height = S2; const g = a.getContext('2d');
   const b = document.createElement('canvas'); b.width = b.height = S2; const e = b.getContext('2d');
-  g.fillStyle = kind === 2 ? '#f3eee4' : '#efe8da'; g.fillRect(0, 0, S2, S2);
+  g.fillStyle = WALL_TONES[tone || 0][kind === 2 ? 1 : 0]; g.fillRect(0, 0, S2, S2);
   e.fillStyle = '#000'; e.fillRect(0, 0, S2, S2);
   const glass = (ctx, x, y, w, h) => { const gr = ctx.createLinearGradient(0, y, 0, y + h); gr.addColorStop(0, '#6f8c9b'); gr.addColorStop(1, '#2c4250'); ctx.fillStyle = gr; ctx.fillRect(x, y, w, h); };
   const archPath = (ctx, x, y, w, h) => { ctx.beginPath(); ctx.moveTo(x, y + h); ctx.lineTo(x, y + w / 2); ctx.arc(x + w / 2, y + w / 2, w / 2, Math.PI, 0); ctx.lineTo(x + w, y + h); ctx.closePath(); };
@@ -80,23 +148,29 @@ function facadePair(kind){
       for (const ox of [7, 35]){
         g.fillStyle = '#dcd2c1'; g.fillRect(x + ox - 2, y + 9, 26, 37);
         glass(g, x + ox, y + 11, 22, 33);
+        g.fillStyle = 'rgba(48,38,28,.34)'; g.fillRect(x + ox, y + 11, 22, 4); g.fillRect(x + ox, y + 15, 3, 29);
+        g.fillStyle = 'rgba(255,255,255,.13)'; g.beginPath(); g.moveTo(x + ox + 13, y + 15); g.lineTo(x + ox + 20, y + 15); g.lineTo(x + ox + 8, y + 44); g.lineTo(x + ox + 3, y + 44); g.fill();
         g.fillStyle = '#e8e1d3'; g.fillRect(x + ox + 10, y + 11, 2, 33);
-        if (rnd() < .6){ e.fillStyle = rnd() < .75 ? '#ffd08a' : '#eaf4ff'; e.fillRect(x + ox, y + 11, 22, 33); }
+        if (R() < .6){ e.fillStyle = R() < .75 ? '#ffd08a' : '#eaf4ff'; e.fillRect(x + ox, y + 11, 22, 33); }
       }
       g.fillStyle = '#d6ccbb'; g.fillRect(x + 2, y + 45, 60, 6);
       g.fillStyle = '#b9ae9b'; for (let k = 0; k < 8; k++) g.fillRect(x + 4 + k * 7.5, y + 45, 1.5, 6);
-      if (rnd() < .45){ g.fillStyle = '#c8c8c4'; g.fillRect(x + 46, y + 47, 12, 7); g.fillStyle = '#9a9a96'; g.fillRect(x + 48, y + 49, 8, 1); }
+      if (R() < .45){ g.fillStyle = '#c8c8c4'; g.fillRect(x + 46, y + 47, 12, 7); g.fillStyle = '#9a9a96'; g.fillRect(x + 48, y + 49, 8, 1); }
     } else {
       const arch = kind === 1;
       g.fillStyle = '#e6ddcc'; g.fillRect(x, y, 4, cell - 7); g.fillRect(x + 60, y, 4, cell - 7);
       g.fillStyle = '#f8f3ea'; if (arch) archPath(g, x + 12, y + 7, 40, 47); else g.fillRect(x + 12, y + 8, 40, 46); g.fill && arch && g.fill();
       g.fillStyle = '#b5a88f'; if (arch){ archPath(g, x + 15, y + 10, 34, 42); g.fill(); } else g.fillRect(x + 15, y + 11, 34, 41);
-      g.save(); if (arch){ archPath(g, x + 17, y + 12, 30, 39); g.clip(); } glass(g, x + 17, y + 12, 30, 39); g.restore();
+      g.save(); if (arch){ archPath(g, x + 17, y + 12, 30, 39); g.clip(); } glass(g, x + 17, y + 12, 30, 39);
+      /* deep reveal: shadow along the top/left inside edge, faint reflection streak */
+      g.fillStyle = 'rgba(255,255,255,.12)'; g.beginPath(); g.moveTo(x + 36, y + 12); g.lineTo(x + 45, y + 12); g.lineTo(x + 27, y + 51); g.lineTo(x + 18, y + 51); g.fill();
+      g.strokeStyle = 'rgba(48,38,28,.42)'; g.lineWidth = 6; if (arch){ archPath(g, x + 18.5, y + 13.5, 30, 39); g.stroke(); } else { g.fillStyle = 'rgba(48,38,28,.42)'; g.fillRect(x + 17, y + 12, 30, 4); g.fillRect(x + 17, y + 16, 3, 35); }
+      g.restore();
       g.fillStyle = '#ece5d6'; g.fillRect(x + 31, y + 12, 2, 39); g.fillRect(x + 17, y + 31, 30, 2);
       g.fillStyle = '#d4c7af'; g.fillRect(x + 11, y + 53, 42, 3);
       if (arch){ g.fillStyle = '#d4c7af'; g.beginPath(); g.moveTo(x + 29, y + 7); g.lineTo(x + 35, y + 7); g.lineTo(x + 34, y + 13); g.lineTo(x + 30, y + 13); g.fill(); }
-      if (rnd() < .64){
-        e.fillStyle = rnd() < .78 ? '#ffcf86' : '#eaf4ff';
+      if (R() < .64){
+        e.fillStyle = R() < .78 ? '#ffcf86' : '#eaf4ff';
         if (arch){ archPath(e, x + 17, y + 12, 30, 39); e.fill(); } else e.fillRect(x + 17, y + 12, 30, 39);
         e.fillStyle = '#000'; e.fillRect(x + 31, y + 12, 2, 39); e.fillRect(x + 17, y + 31, 30, 2);
       }
@@ -106,6 +180,8 @@ function facadePair(kind){
   return new THREE.MeshStandardMaterial({map:mk(a), emissiveMap:mk(b), emissive:0xffffff, emissiveIntensity:0, roughness:.85});
 }
 const wallMats = [facadePair(0), facadePair(1), facadePair(2)];
+for (const t of [1, 2]) for (const k of [0, 1, 2]) wallMats.push(facadePair(k, t, mkRng(900 + t * 10 + k)));
+const wallTone = (x, z) => ((Math.round(x) * 73856093 ^ Math.round(z) * 19349663) >>> 0) % 3;
 function wallBox(w, h, d, floors){
   const g = new THREE.BoxGeometry(w, h, d), uv = g.attributes.uv, spans = [d, d, 0, 0, w, w];
   for (let f = 0; f < 6; f++){
@@ -184,6 +260,9 @@ function roofGeometry(w, d, h, over){
   }
   const z2 = [0, 0], t = rings[N], b = rings[0];
   quad(t[0], t[1], t[2], t[3], z2, z2, z2, z2); quad(b[3], b[2], b[1], b[0], z2, z2, z2, z2);
+  /* eave fascia: gives the tiled sheet a visible thickness along its edges */
+  const ft = Math.min(.6, .2 + over * .11);
+  for (let j = 0; j < 4; j++){ const a = b[j], c = b[(j + 1) % 4]; quad(a, c, [c[0], c[1] - ft, c[2]], [a[0], a[1] - ft, a[2]], z2, z2, z2, z2); }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
   geo.computeVertexNormals(); return geo;
@@ -228,7 +307,8 @@ function building(o){
   const H = o.floors * 3.6, y0 = 1, rmat = roofMat(o.roof || '#c4502a');
   const parts = [];
   if (!o.y0){ parts.push(box(w + 1.4, 1, d + 1.4, granite, 0, .5, 0, g)); parts.push(box(w + .3, 1.3, d + .3, granite, 0, 1.6, 0, g)); }
-  const body = new THREE.Mesh(wallBox(w, H, d, o.floors), wallMats[o.variant || 0]);
+  const wmat = wallMats[(o.variant || 0) + 3 * wallTone(x, z)];
+  const body = new THREE.Mesh(wallBox(w, H, d, o.floors), wmat);
   body.position.y = y0 + H / 2; body.castShadow = body.receiveShadow = true; g.add(body); parts.push(body);
   parts.push(box(w + .8, .6, d + .8, trim, 0, y0 + H + .3, 0, g));
   const rh = o.roofH != null ? o.roofH : Math.min(Math.min(w, d) * 0.3, 13);
@@ -238,7 +318,7 @@ function building(o){
   const bw = Math.max(10, w * .26);
   if (o.bay){
     const bf = o.floors + 1.3, bH = bf * 3.6;
-    const bay = new THREE.Mesh(wallBox(bw, bH, 5, bf), wallMats[o.variant || 0]); bay.position.set(0, y0 + bH / 2, d / 2 + 1);
+    const bay = new THREE.Mesh(wallBox(bw, bH, 5, bf), wmat); bay.position.set(0, y0 + bH / 2, d / 2 + 1);
     bay.castShadow = bay.receiveShadow = true; g.add(bay); parts.push(bay);
     parts.push(box(bw + .8, .6, 5.8, trim, 0, y0 + bH + .3, d / 2 + 1, g));
     const br = makeRoof(bw + .8, 9, Math.min(7, bw * .34), 2.2, rmat); br.position.set(0, y0 + bH + .6, d / 2 - 1); g.add(br); parts.push(...br.children);

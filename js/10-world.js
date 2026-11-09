@@ -280,27 +280,58 @@ structBlock(function(){
 })();
 
 /* ---------- vegetation ---------- */
-const trunkGeo = new THREE.CylinderGeometry(.22, .4, 8.4, 7, 6); trunkGeo.translate(0, 4.2, 0);
-(function(){ const p = trunkGeo.attributes.position; for (let i = 0; i < p.count; i++){ const y = p.getY(i); p.setX(i, p.getX(i) + .018 * y * y); } trunkGeo.computeVertexNormals(); })();
+/* coconut palm: ringed, gently curving trunk; two layers of drooping, leafleted fronds; a coconut cluster (vertex colours) */
+const trunkGeo = (() => {
+  const pts = [], cols = [], N = 24;
+  for (let i = 0; i <= N; i++){
+    const y = 8.4 * i / N, t = y / 8.4, r = (.4 + (.22 - .4) * t) * (1 + .35 * Math.max(0, 1 - y / .7) ** 2) * (i % 2 ? .93 : 1.04);
+    pts.push(new THREE.Vector2(i === N ? 0 : r, y));
+  }
+  const g = new THREE.LatheGeometry(pts, 6), p = g.attributes.position, c = new Float32Array(p.count * 3), A = new THREE.Color('#8f7559'), B = new THREE.Color('#6b5643'), C = new THREE.Color();
+  for (let i = 0; i < p.count; i++){
+    const j = i % pts.length, y = p.getY(i); p.setX(i, p.getX(i) + .018 * y * y);
+    C.copy(j % 2 ? B : A).lerp(new THREE.Color('#7d7a5a'), Math.max(0, (y - 7) / 1.4) * .6); c[i * 3] = C.r; c[i * 3 + 1] = C.g; c[i * 3 + 2] = C.b;
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(c, 3)); g.computeVertexNormals(); return g;
+})();
 function crownGeometry(){
-  const pos = [], F = 10;
-  for (let k = 0; k < F; k++){
-    const a = k / F * Math.PI * 2 + rnd() * .3, L = 4 + rnd() * 1.2, ca = Math.cos(a), sa = Math.sin(a), pts = [];
-    for (let i = 0; i <= 6; i++){
-      const s = i / 6, r = L * s, y = 1.1 * s - 2.1 * s * s, w = .85 * Math.sin(Math.PI * Math.min(1, s * 1.1)) + .04;
-      pts.push([ca * r - sa * w, y, sa * r + ca * w], [ca * r, y + .18 * w, sa * r], [ca * r + sa * w, y, sa * r - ca * w]);
+  for (let i = 0; i < 20; i++) rnd(); /* keep the shared random sequence (tree/lamp placement) exactly as before */
+  const rr = mkRng(7331), pos = [], col = [], C = new THREE.Color(), base = new THREE.Color('#2d6a2c'), tip = new THREE.Color('#62a043'), old = new THREE.Color('#8a9a40');
+  const frond = (a, L, rise, droop, wid, age) => {
+    const ca = Math.cos(a), sa = Math.sin(a), pts = [], n = 6;
+    for (let i = 0; i <= n; i++){
+      const s = i / n, r = L * s, y = rise * s - droop * s * s, w = (wid * Math.sin(Math.PI * Math.min(1, s * 1.08)) + .04) * (i % 2 ? .72 : 1), fold = .22 * w, ey = y - .12 * w;
+      pts.push([ca * r - sa * w, ey, sa * r + ca * w], [ca * r, y + fold, sa * r], [ca * r + sa * w, ey, sa * r - ca * w]);
     }
-    for (let i = 0; i < 6; i++){
+    for (let i = 0; i < n; i++){
       const [l0, c0, r0] = pts.slice(i * 3, i * 3 + 3), [l1, c1, r1] = pts.slice(i * 3 + 3, i * 3 + 6);
       pos.push(...l0, ...c0, ...c1, ...l0, ...c1, ...l1, ...c0, ...r0, ...r1, ...c0, ...r1, ...c1);
+      C.copy(base).lerp(tip, (i + .5) / n).lerp(old, age); for (let k = 0; k < 12; k++) col.push(C.r, C.g, C.b);
     }
-  }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.computeVertexNormals();
-  g.translate(.018 * 64, 8.2, 0); return g;
+  };
+  for (let k = 0; k < 8; k++) frond(k / 8 * Math.PI * 2 + rr() * .3, 4.2 + rr() * 1.1, 1.0, 2.4 + rr() * .5, .9, .15 + rr() * .35);
+  for (let k = 0; k < 4; k++) frond(k / 4 * Math.PI * 2 + .35 + rr() * .3, 3.2 + rr() * .6, 2.0, 1.6, .7, 0);
+  const g0 = new THREE.BufferGeometry(); g0.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g0.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g0.computeVertexNormals();
+  const nuts = [];
+  for (let k = 0; k < 4; k++){ const a = k / 4 * Math.PI * 2 + .4; nuts.push(geoTint(new THREE.IcosahedronGeometry(.18, 0).translate(Math.cos(a) * .27, -.3 - (k % 2) * .12, Math.sin(a) * .27), k % 3 ? '#5f7a2a' : '#7a5a2a')); }
+  nuts.push(geoTint(new THREE.CylinderGeometry(.17, .23, .55, 6, 1, true).translate(0, -.15, 0), '#56703a'));
+  const g = geoMerge([g0, ...nuts]); g.translate(.018 * 64, 8.2, 0); return g;
 }
 const crownGeo = crownGeometry();
-const canopyGeo = new THREE.IcosahedronGeometry(3.1, 1); canopyGeo.scale(1.25, .85, 1.25); canopyGeo.translate(0, 5.4, 0);
-const stumpGeo = new THREE.CylinderGeometry(.3, .45, 3.6, 6); stumpGeo.translate(0, 1.8, 0);
+/* rain tree: wide umbrella canopy built from jittered faceted lumps (lighter on top), a trunk that forks into limbs */
+const canopyGeo = (() => {
+  const lumps = [geoAt(new THREE.IcosahedronGeometry(3.1, 1), 0, 5.6, 0, 0, 0, 0, 1.3, .62, 1.3), geoAt(new THREE.IcosahedronGeometry(1.9, 0), .2, 6.5, -.3, 0, 0, 0, 1, .75, 1)];
+  for (let k = 0; k < 3; k++){ const a = k / 3 * Math.PI * 2 + .3; lumps.push(geoAt(new THREE.IcosahedronGeometry(1.75 + (k % 2) * .3, 0), Math.cos(a) * 2.5, 5.15 + (k % 3) * .3, Math.sin(a) * 2.5, 0, 0, 0, 1.1, .66, 1.1)); }
+  const g = geoMerge(lumps), p = g.attributes.position, c = new Float32Array(p.count * 3), rr = mkRng(4242);
+  for (let i = 0; i < p.count; i++){ const x = p.getX(i), y = p.getY(i), z = p.getZ(i), h = Math.sin(x * 3.1 + z * 1.7) * Math.cos(z * 2.3 - y * 1.3); p.setXYZ(i, x + h * .22, y + h * .16, z - h * .2); }
+  for (let t = 0; t < p.count; t += 3){
+    const y = (p.getY(t) + p.getY(t + 1) + p.getY(t + 2)) / 3, v = Math.min(1.08, .62 + .2 * (y - 4.4) + (rr() - .5) * .12);
+    for (let k = 0; k < 3; k++){ c[(t + k) * 3] = v; c[(t + k) * 3 + 1] = v; c[(t + k) * 3 + 2] = v; }
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(c, 3)); g.computeVertexNormals(); return g;
+})();
+const stumpGeo = geoMerge([new THREE.CylinderGeometry(.3, .48, 3.4, 7, 1, true).translate(0, 1.7, 0), rodGeo(.26, .16, [0, 3.0, 0], [1.5, 4.9, .5], 5), rodGeo(.26, .16, [0, 3.0, 0], [-1.2, 5.0, .9], 5),
+  rodGeo(.24, .14, [0, 3.1, 0], [-.3, 5.1, -1.5], 5)]);
 function free(x, z, pad){
   if (hitsBuilding(x, z, pad)) return false;
   if (onRoad(x, z, pad)) return false;
@@ -347,9 +378,9 @@ function instanced(geo, mat, spots){
 }
 const bark = M('#8a6f55');
 const knockSets = [
-  {kind:'tree', spots:palms,  ims:[instanced(trunkGeo, bark, palms), instanced(crownGeo, M('#3f7d38', {side:THREE.DoubleSide, roughness:.8}), palms)]},
-  {kind:'tree', spots:trees,  ims:[instanced(stumpGeo, bark, trees), instanced(canopyGeo, M('#4b8a3b', {flatShading:true}), trees)]},
-  {kind:'tree', spots:blooms, ims:[instanced(stumpGeo, bark, blooms), instanced(canopyGeo, M('#d8652e', {flatShading:true}), blooms)]}
+  {kind:'tree', spots:palms,  ims:[instanced(trunkGeo, M('#ffffff', {vertexColors:true, roughness:.95}), palms), instanced(crownGeo, M('#ffffff', {side:THREE.DoubleSide, roughness:.8, vertexColors:true}), palms)]},
+  {kind:'tree', spots:trees,  ims:[instanced(stumpGeo, bark, trees), instanced(canopyGeo, M('#4f8f3c', {flatShading:true, vertexColors:true}), trees)]},
+  {kind:'tree', spots:blooms, ims:[instanced(stumpGeo, bark, blooms), instanced(canopyGeo, M('#e2662c', {flatShading:true, vertexColors:true}), blooms)]}
 ];
 
 /* lamps */
@@ -360,8 +391,12 @@ for (let z = 140; z <= 206; z += 16) for (const sx of [-1, 1]) lampSpots.push({x
   out.forEach(o => lampSpots.push({x:o.x, z:o.z, r:0, s:1}));
   lakeRims.forEach(rim => { for (let i = 0; i < rim.length; i += 4) lampSpots.push({x:rim[i][0], z:rim[i][1], r:0, s:1}); });
 })();
-const postGeo = new THREE.CylinderGeometry(.09, .12, 4.4, 6); postGeo.translate(0, 2.2, 0);
-const bulbGeo = new THREE.SphereGeometry(.34, 10, 8); bulbGeo.translate(0, 4.55, 0);
+/* lamp: stepped plinth, slim fluted post with collars, and a hexagonal lantern under a cap */
+const postGeo = geoMerge([new THREE.CylinderGeometry(.2, .24, .35, 6).translate(0, .175, 0), new THREE.CylinderGeometry(.13, .17, .3, 6).translate(0, .5, 0),
+  new THREE.CylinderGeometry(.065, .085, 3.6, 6, 1, true).translate(0, 2.4, 0), new THREE.CylinderGeometry(.1, .1, .08, 6, 1, true).translate(0, 1.4, 0),
+  new THREE.CylinderGeometry(.12, .08, .18, 6).translate(0, 4.22, 0), new THREE.CylinderGeometry(.05, .3, .2, 6).translate(0, 4.92, 0), new THREE.ConeGeometry(.06, .22, 6).translate(0, 5.12, 0),
+  ...[0, 1, 2, 3, 4, 5].map(k => new THREE.BoxGeometry(.025, .5, .025).translate(Math.cos(k * Math.PI / 3 + Math.PI / 6) * .24, 4.56, Math.sin(k * Math.PI / 3 + Math.PI / 6) * .24))]);
+const bulbGeo = new THREE.CylinderGeometry(.26, .2, .48, 6); bulbGeo.translate(0, 4.56, 0);
 const bulbMat = new THREE.MeshStandardMaterial({color:'#fff8ea', emissive:'#ffd59a', emissiveIntensity:0});
 knockSets.push({kind:'lamp', spots:lampSpots, ims:[instanced(postGeo, M('#3b3f44', {metalness:.4, roughness:.5}), lampSpots), instanced(bulbGeo, bulbMat, lampSpots)]});
 

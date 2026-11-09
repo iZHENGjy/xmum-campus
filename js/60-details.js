@@ -7,9 +7,21 @@ function mergeGeos(list){
   for (const g0 of list){ const g = g0.index ? g0.toNonIndexed() : g0; pos.push(...g.attributes.position.array); nor.push(...g.attributes.normal.array); }
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); return g;
 }
-const benchGeo = mergeGeos([new THREE.BoxGeometry(1.8, .08, .5).translate(0, .45, 0), new THREE.BoxGeometry(1.8, .38, .06).translate(0, .74, -.22),
-  new THREE.BoxGeometry(.08, .45, .45).translate(-.8, .22, 0), new THREE.BoxGeometry(.08, .45, .45).translate(.8, .22, 0)]);
-const binGeo = new THREE.CylinderGeometry(.28, .24, .9, 10).translate(0, .45, 0);
+/* park bench: wooden slats on cast-iron side frames; litter bin with rim and lid (vertex-coloured, one draw call each) */
+const benchGeo = (() => {
+  const wood = ['#9b6a43', '#8d5f3b', '#a5724a', '#93643f'], iron = '#2c2e30', P = [];
+  [-.17, -.057, .057, .17].forEach((z, i) => P.push(geoTint(new THREE.BoxGeometry(1.8, .045, .1).translate(0, .46, z), wood[i])));
+  [.62, .75, .88].forEach((y, i) => P.push(geoTint(geoAt(new THREE.BoxGeometry(1.8, .085, .035), 0, y, -.25 - (y - .62) * .14, -.14), wood[(i + 1) % 4])));
+  for (const x of [-.8, .8]){
+    P.push(geoTint(geoAt(new THREE.BoxGeometry(.06, .45, .06), x, .225, .19), iron), geoTint(geoAt(new THREE.BoxGeometry(.06, .96, .06), x, .47, -.24, -.14), iron),
+      geoTint(geoAt(new THREE.BoxGeometry(.06, .05, .46), x, .425, -.02), iron), geoTint(geoAt(new THREE.BoxGeometry(.07, .05, .5), x, .66, -.01), iron),
+      geoTint(geoAt(new THREE.BoxGeometry(.06, .2, .06), x, .56, .19), iron));
+  }
+  return geoMerge(P);
+})();
+const binGeo = geoMerge([geoTint(new THREE.CylinderGeometry(.27, .24, .82, 10, 1, true).translate(0, .43, 0), '#2f6b4f'),
+  geoTint(geoAt(new THREE.TorusGeometry(.27, .03, 4, 10), 0, .84, 0, Math.PI / 2), '#24563f'),
+  geoTint(new THREE.CylinderGeometry(.2, .29, .1, 10).translate(0, .9, 0), '#1f2a26')]);
 const benches = [], bins = [];
 function sampleLine(pxLine, step, off, cb){
   const pts = pxPts(pxLine);
@@ -29,8 +41,8 @@ lakeRims.forEach(rim => {
   const cx = rim.reduce((a, p) => a + p[0], 0) / rim.length, cz = rim.reduce((a, p) => a + p[1], 0) / rim.length;
   for (let i = 2; i < rim.length; i += 7){ const [x, z] = rim[i], h = Math.atan2(cx - x, cz - z); const bx = x + Math.sin(h) * -1.4, bz = z + Math.cos(h) * -1.4; if (okSpot(bx, bz)) benches.push({x:bx, z:bz, r:h, s:1}); }
 });
-knockSets.push({kind:'bench', spots:benches, ims:[instanced(benchGeo, M('#8a5a3b', {roughness:.8}), benches)]});
-knockSets.push({kind:'bin', spots:bins, ims:[instanced(binGeo, M('#2f6b4f', {roughness:.6}), bins)]});
+knockSets.push({kind:'bench', spots:benches, ims:[instanced(benchGeo, M('#ffffff', {roughness:.75, vertexColors:true}), benches)]});
+knockSets.push({kind:'bin', spots:bins, ims:[instanced(binGeo, M('#ffffff', {roughness:.6, vertexColors:true}), bins)]});
 
 /* ---------- parking lots (every car can be driven) ---------- */
 function clearArea(cx, cz, hw, hd){
@@ -75,12 +87,29 @@ function updateFountain(dt){
 
 /* ---------- students walking around ---------- */
 const NPC_N = 80;
-const npcBodyGeo = mergeGeos([new THREE.CylinderGeometry(.24, .3, .78, 8).translate(0, 1.12, 0), new THREE.CylinderGeometry(.11, .11, .76, 6).translate(-.12, .38, 0), new THREE.CylinderGeometry(.11, .11, .76, 6).translate(.12, .38, 0),
-  new THREE.BoxGeometry(.4, .42, .18).translate(0, 1.15, -.27)]);
-const npcHeadGeo = mergeGeos([new THREE.SphereGeometry(.19, 10, 8).translate(0, 1.72, 0)]);
+/* students: shirt (instance colour), skin (instance colour), and hair/trousers/shoes/backpack (vertex colours) — three instanced meshes */
+const npcBodyGeo = (() => {
+  const torso = new THREE.LatheGeometry([[0,.86],[.17,.87],[.18,.95],[.165,1.08],[.185,1.25],[.2,1.36],[.15,1.44],[.07,1.475],[0,1.48]].map(([r, y]) => new THREE.Vector2(r, y)), 8);
+  torso.scale(1, 1, .62);
+  return geoMerge([torso, ...[-1, 1].map(s => geoAt(nwCapsule(.072, .066, .17, 6, 2), s * .215, 1.39, 0, 0, 0, s * .12))]);
+})();
+const npcHeadGeo = geoMerge([nwBlob(.14, 1, 1.08, 1, 0, 1.62, 0, 0, 0, 0, 10, 7), new THREE.CylinderGeometry(.055, .06, .12, 6, 1, true).translate(0, 1.49, 0),
+  ...[-1, 1].map(s => geoAt(nwCapsule(.05, .045, .25, 6, 2), s * .24, 1.19, 0, 0, 0, s * .06)), ...[-1, 1].map(s => nwBlob(.055, 1, 1.15, .85, s * .257, .9, .01, 0, 0, 0, 6, 4))]);
+const npcGearGeo = (() => {
+  const P = [], pants = '#2e3a52', hair = '#1d1814';
+  for (const s of [-1, 1]){
+    P.push(geoTint(geoAt(nwCapsule(.085, .07, .74, 7, 2), s * .09, .92, 0), pants), geoTint(geoAt(roundBox(.12, .08, .25, .035, 1), s * .09, .045, .035), '#ece9e2'),
+      geoTint(new THREE.BoxGeometry(.035, .34, .02).translate(s * .1, 1.22, .11), '#2b2b2b'));
+  }
+  P.push(geoTint(geoAt(roundBox(.33, .14, .19, .06, 1), 0, .87, 0), pants));
+  P.push(geoTint(geoAt(new THREE.SphereGeometry(.153, 10, 4, 0, Math.PI * 2, 0, Math.PI * .56), 0, 1.635, -.01, -.38, 0, 0, 1, 1.06, 1), hair));
+  P.push(geoTint(geoAt(roundBox(.3, .36, .14, .05, 1), 0, 1.19, -.19), '#3a4f66'), geoTint(new THREE.BoxGeometry(.22, .14, .05).translate(0, 1.09, -.27), '#33465b'));
+  return geoMerge(P);
+})();
 const npcBodyIm = new THREE.InstancedMesh(npcBodyGeo, new THREE.MeshStandardMaterial({roughness:.8}), NPC_N);
 const npcHeadIm = new THREE.InstancedMesh(npcHeadGeo, new THREE.MeshStandardMaterial({roughness:.7}), NPC_N);
-[npcBodyIm, npcHeadIm].forEach(im => { im.castShadow = true; im.frustumCulled = false; im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(im); });
+const npcGearIm = new THREE.InstancedMesh(npcGearGeo, new THREE.MeshStandardMaterial({roughness:.8, vertexColors:true}), NPC_N);
+[npcBodyIm, npcHeadIm, npcGearIm].forEach(im => { im.castShadow = true; im.frustumCulled = false; im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(im); });
 const SHIRTS = ['#c0392b', '#2d5d8a', '#f1c40f', '#ecf0f1', '#27ae60', '#8e44ad', '#e67e22', '#34495e', '#ff8fab', '#16a085'], SKIN = ['#f1c9a5', '#d9a37c', '#a8734f', '#e8b98f'];
 const npcPaths = ROADS_W.slice(1).map(r => ({p:r.p, off:r.m === asphalt ? r.w / 2 + 1.3 : r.m === paving ? r.w / 2 - 1.4 : .6}));
 const npcs = [];
@@ -122,7 +151,7 @@ function updateNPCs(dt, T){
     _cp.set(n.x, y, n.z); _cq.setFromAxisAngle(UP, n.h);
     if (tiltX){ _cq2.setFromAxisAngle(_ax.set(n.tdz, 0, -n.tdx).normalize(), tiltX); _cq.premultiply(_cq2); }
     _cs.setScalar(sc); _cm.compose(_cp, _cq, _cs);
-    npcBodyIm.setMatrixAt(i, _cm); npcHeadIm.setMatrixAt(i, _cm);
+    npcBodyIm.setMatrixAt(i, _cm); npcHeadIm.setMatrixAt(i, _cm); npcGearIm.setMatrixAt(i, _cm);
   }
-  npcBodyIm.instanceMatrix.needsUpdate = npcHeadIm.instanceMatrix.needsUpdate = true;
+  npcBodyIm.instanceMatrix.needsUpdate = npcHeadIm.instanceMatrix.needsUpdate = npcGearIm.instanceMatrix.needsUpdate = true;
 }
