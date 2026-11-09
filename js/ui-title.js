@@ -145,11 +145,12 @@ $('#tLb').addEventListener('click', () => openLeaderboard('hole2'));
 $('#hlb').addEventListener('click', () => openLeaderboard('hole2'));
 
 /* ---------- 账号：可选的 Google 登录（换设备也能保留进度） ---------- */
-const acctEl = $('#tAcct'), acctText = $('#tAcctText'), acctBtn = $('#tGoogle'), acctBtnText = acctBtn.querySelector('span');
+const acctEl = $('#tAcct'), acctText = $('#tAcctText'), acctBtn = $('#tGoogle'), acctBtnText = acctBtn && acctBtn.querySelector('span');
 const UI_EMBEDDED = /MicroMessenger|QQ\/|Weibo|FBAN|FBAV|Instagram|Line\/|DingTalk|AlipayClient|XiaoHongShu|aweme|Bytedance/i.test(navigator.userAgent);
 let acctBusy = false;
 function uiSyncAcct(){
   const N = window.XNet;
+  if (!acctEl || !acctBtn) return;                     /* page without the account row */
   if (!N || !N.online || !N.account){ acctEl.hidden = true; return; }
   acctEl.hidden = false; acctBtn.hidden = false; acctBtn.disabled = acctBusy;
   if (N.account.google){
@@ -177,7 +178,7 @@ function uiLoginError(e){
   return '登录没成功：' + (e && e.message || c || '未知原因');
 }
 window.addEventListener('xnet', uiSyncAcct);
-acctBtn.addEventListener('click', async () => {
+if (acctBtn) acctBtn.addEventListener('click', async () => {
   const N = window.XNet; if (!N || acctBusy) return;
   acctBusy = true; uiSyncAcct(); let err = null;
   try { if (acctBtn.dataset.act === 'out') await N.signOut(); else await N.signInGoogle(); }
