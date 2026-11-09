@@ -68,5 +68,6 @@ python -m http.server 8000
 - [three.js](https://threejs.org/)（MIT）
 - 字体：Noto Sans SC / Noto Serif SC（Google Fonts, OFL）
 - 「奶娃」形象致敬原作者，游戏里的模型是用代码拼出来的低多边形二创，不是原作素材。本项目是非商业的粉丝作品，原作者如有异议请开 issue，我们会撤下。
+- 奶娃的笑声剪自 B 站视频[《奶龙捧腹大笑原版》](https://www.bilibili.com/video/BV1auFZzaE4W/)（UP 主：坦克兵三哥小号）开头约 3 秒，仅作非商业二创使用，原作者如有异议请开 issue，我们会立即撤下。
 - 车行里的车名都是谐音恶搞名，与任何真实汽车品牌无关。
 - 校名、楼名仅用于还原校园，本项目与厦门大学马来西亚分校无官方关系。

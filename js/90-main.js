@@ -252,6 +252,7 @@ function drawMini(cx, cz, yaw){
     for (const c of cars) if (c !== driving && c.root.visible){ mg.save(); mg.translate(X(c.x), Z(c.z)); mg.rotate(-c.h); mg.fillStyle = c.patrol ? '#e74c3c' : '#ffffff'; mg.fillRect(-c.T.W * k * 1.5, -c.T.L * k * .75, c.T.W * k * 3, c.T.L * k * 1.5); mg.restore(); }
     if (mission.on) dot(mission.to.x, mission.to.z, '#4fd18b', 9); else for (const pk of PICKUPS) dot(pk.x, pk.z, '#ff8a3d', 8);
   }
+  if (mode === 'hole') holeMiniPUs(mg, X, Z);   /* black-hole power-ups on the minimap (js/70-hole.js) */
   if (mode === 'hole'){ for (const h of HOLES){ if (!h.alive) continue; mg.fillStyle = '#120a22'; mg.strokeStyle = h.color; mg.lineWidth = h.you ? 3 : 2; mg.beginPath(); mg.arc(X(h.x), Z(h.z), Math.max(4, h.r * k), 0, 7); mg.fill(); mg.stroke(); } }
   else for (const cp of CPS) if (!cp.done) dot(cp.x, cp.z, '#ffd24a', 6);
   mg.save(); mg.translate(Sz / 2, Sz / 2); mg.rotate(-yaw);
