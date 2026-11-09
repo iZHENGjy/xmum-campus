@@ -301,6 +301,11 @@
       const v = (await timeout(db.ref('saves/' + XNet.uid).once('value'), 10000, '读取云存档')).val();
       if (v && typeof v.data === 'string'){
         let cloud = {}; try { cloud = JSON.parse(v.data) || {}; } catch(e){}
+        /* 昵称跟着 Google 账号走：云端有昵称就用云端的（本机的可能只是这个网址上随机起的） */
+        const cn = typeof cloud['xmum-name'] === 'string' ? cloud['xmum-name'] : '';
+        if (cn && cn !== localStorage.getItem('xmum-name')){
+          localStorage.setItem('xmum-name', cn); g(() => XUI.setName(cn)); lastSent = null;
+        }
         if (blobScore(cloud) > blobScore(localBlob()) + .5){
           for (const k of Object.keys(cloud)) if (SAVE_KEY(k) && typeof cloud[k] === 'string') localStorage.setItem(k, cloud[k]);
           try { sessionStorage.setItem('xmum-restored', '1'); } catch(e){}
@@ -346,6 +351,7 @@
       throw e;
     }
   };
+  window.addEventListener('xmum-name', () => { cloudPush(); });   // 改了昵称马上存到云端
   XNet.signOut = async () => {
     if (!XNet.online) return;
     await cloudPush();

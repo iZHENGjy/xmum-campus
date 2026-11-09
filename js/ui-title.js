@@ -15,7 +15,7 @@ if (!uiName){ uiName = uiRandomName(); uiSet('xmum-name', uiName); }
 uiNameIn.value = uiName;
 function uiSaveName(){
   const v = uiClean(uiNameIn.value);
-  if (v){ uiName = v; uiSet('xmum-name', v); }
+  if (v){ const changed = v !== uiName; uiName = v; uiSet('xmum-name', v); if (changed) try { window.dispatchEvent(new Event('xmum-name')); } catch(e){} }
   else uiNameIn.value = uiName;
 }
 uiNameIn.addEventListener('change', uiSaveName);
@@ -188,6 +188,7 @@ acctBtn.addEventListener('click', async () => {
 
 window.XUI = {
   playerName: () => uiName,
+  setName: n => { const v = uiClean(n); if (v && v !== uiName){ uiName = v; uiNameIn.value = v; uiSet('xmum-name', v); } },
   openLeaderboard,
   openTitle,
   closeTitle
