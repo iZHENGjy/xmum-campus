@@ -403,6 +403,16 @@ body.titled #labels{opacity:0}
   #combo{top:31%;bottom:auto;font-size:16px}
 }
 @media (prefers-reduced-motion: reduce){ .bar i,#toast,#title,.t-card{transition:none} #combo{animation:none} }
+/* optional Google account row under the nickname */
+.t-acct{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:var(--muted);line-height:1.5}
+.t-acct-text{flex:1 1 180px;min-width:0}
+.t-acct.on .t-acct-text{color:var(--ink)}
+.t-acct-btn{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 13px;border-radius:999px;border:1px solid var(--line);background:var(--card-bg);color:var(--ink);font:inherit;font-size:12.5px;font-weight:500;cursor:pointer;white-space:nowrap}
+.t-acct-btn svg{width:15px;height:15px;flex:none}
+.t-acct-btn:hover{border-color:var(--tile)}
+.t-acct-btn:disabled{opacity:.55;cursor:default}
+.t-acct.on .t-acct-btn svg{display:none}
+
 
 /* ---------- 奶娃 extras: callouts, achievements, pause / session summary, upgrades ---------- */
 .gx-bump{animation:gxBump .45s ease-out}
