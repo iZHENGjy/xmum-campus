@@ -48,7 +48,10 @@ python -m http.server 8000
 | `js/90-main.js` | 模式切换、输入、镜头、小地图、主循环 |
 | `js/net.js` | 联机与排行榜（Firebase） |
 
-## 致谢
+## 致谢与声明
 
 - [three.js](https://threejs.org/)（MIT）
 - 字体：Noto Sans SC / Noto Serif SC（Google Fonts, OFL）
+- 「奶娃」形象致敬原作者，游戏里的模型是用代码拼出来的低多边形二创，不是原作素材。本项目是非商业的粉丝作品，原作者如有异议请开 issue，我们会撤下。
+- 车行里的车名都是谐音恶搞名，与任何真实汽车品牌无关。
+- 校名、楼名仅用于还原校园，本项目与厦门大学马来西亚分校无官方关系。

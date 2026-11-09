@@ -103,10 +103,10 @@ function judgeCrash(c, impact){
 /* ---------- XMUM 车行 ---------- */
 const SHOP = [
   {kind:'myvi',  name:'Perodua Myvi', desc:'大马国民小车，皮实好停', price:60,   color:'#c0392b'},
-  {kind:'p911',  name:'保时捷 911',   desc:'后置引擎，过弯很灵',     price:500,  color:'#f0eee8'},
-  {kind:'mase',  name:'玛莎拉蒂 GT',  desc:'意式长车头，声浪好听',   price:900,  color:'#1f3a6b'},
-  {kind:'lambo', name:'兰博基尼',     desc:'楔形车身，全校最快',     price:1600, color:'#f2c230'},
-  {kind:'rr',    name:'劳斯莱斯',     desc:'又长又稳又抗撞，奶娃坐进去像老板', price:3000, color:'#2b2b2e'}
+  {kind:'p911',  name:'保时洁 911',   desc:'后置引擎，过弯很灵',     price:500,  color:'#f0eee8'},
+  {kind:'mase',  name:'玛莎拉弟 GT',  desc:'意式长车头，声浪好听',   price:900,  color:'#1f3a6b'},
+  {kind:'lambo', name:'兰博鸡尼',     desc:'楔形车身，全校最快',     price:1600, color:'#f2c230'},
+  {kind:'rr',    name:'劳斯来斯',     desc:'又长又稳又抗撞，奶娃坐进去像老板', price:3000, color:'#2b2b2e'}
 ];
 const owned = new Set(); let myCar = null;
 function saveGame(){ try { localStorage.setItem('xmum-gta-v1', JSON.stringify({money, owned:[...owned], stunt:stunt.total, my:myCar ? myCar.kind : null})); } catch(e){} }

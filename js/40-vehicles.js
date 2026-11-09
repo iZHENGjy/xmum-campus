@@ -31,10 +31,10 @@ const CAR_T = {
   sedan: {L:4.4, W:1.85, H:1.45, wb:2.7, r:.36, maxV:44, acc:15, grip:6.5, steer:.55, mass:1.5, seat:[0, .4, -.2], name:'小车'},
   cart:  {L:2.8, W:1.45, H:1.95, wb:1.9, r:.26, maxV:17, acc:10, grip:8,  steer:.6,  mass:.8,  seat:[.22, .5, -.3], name:'高尔夫球车'},
   myvi:  {L:3.7, W:1.7, H:1.55, wb:2.4, r:.32, maxV:38, acc:13, grip:7,  steer:.58, mass:1.1, seat:[0, .4, -.25], name:'Perodua Myvi'},
-  p911:  {L:4.5, W:1.85, H:1.25, wb:2.45, r:.35, maxV:62, acc:24, grip:8.2, steer:.56, mass:1.4, seat:[0, .25, -.45], name:'保时捷 911'},
-  mase:  {L:5.0, W:1.95, H:1.4, wb:3.0, r:.37, maxV:66, acc:22, grip:7.6, steer:.5,  mass:1.8, seat:[0, .3, -.35], name:'玛莎拉蒂 GT'},
-  lambo: {L:4.6, W:2.05, H:1.1, wb:2.7, r:.36, maxV:80, acc:30, grip:8.6, steer:.52, mass:1.5, seat:[0, .18, -.25], name:'兰博基尼'},
-  rr:    {L:5.6, W:2.05, H:1.75, wb:3.4, r:.42, maxV:60, acc:17, grip:6.6, steer:.46, mass:2.6, seat:[0, .45, -.45], name:'劳斯莱斯', armor:.6},
+  p911:  {L:4.5, W:1.85, H:1.25, wb:2.45, r:.35, maxV:62, acc:24, grip:8.2, steer:.56, mass:1.4, seat:[0, .25, -.45], name:'保时洁 911'},
+  mase:  {L:5.0, W:1.95, H:1.4, wb:3.0, r:.37, maxV:66, acc:22, grip:7.6, steer:.5,  mass:1.8, seat:[0, .3, -.35], name:'玛莎拉弟 GT'},
+  lambo: {L:4.6, W:2.05, H:1.1, wb:2.7, r:.36, maxV:80, acc:30, grip:8.6, steer:.52, mass:1.5, seat:[0, .18, -.25], name:'兰博鸡尼'},
+  rr:    {L:5.6, W:2.05, H:1.75, wb:3.4, r:.42, maxV:60, acc:17, grip:6.6, steer:.46, mass:2.6, seat:[0, .45, -.45], name:'劳斯来斯', armor:.6},
   patrol:{L:3.2, W:1.6, H:1.95, wb:2.1, r:.3, maxV:31, acc:15, grip:7.5, steer:.62, mass:1.2, seat:[.24, .5, -.3], name:'保安巡逻车'}
 };
 const glassMat = new THREE.MeshStandardMaterial({color:'#1a242b', roughness:.05, metalness:.6, transparent:true, opacity:.84});
