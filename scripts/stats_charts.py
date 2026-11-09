@@ -10,6 +10,7 @@ into --out. Standard library only, so the GitHub Action needs no installs.
 """
 import argparse, datetime as dt, html, json, math, os, re, sys, urllib.request
 
+BOARDS = ('hole2', 'hole', 'stunt', 'rich')
 MODES = [('naiwa', '开车 · 奶娃'), ('hole', '黑洞'), ('walk', '漫游'), ('orbit', '俯瞰'), ('menu', '标题画面 / 菜单')]
 DEVICES = [('m', '手机'), ('d', '电脑'), ('t', '平板')]
 MYT = dt.timezone(dt.timedelta(hours=8))
@@ -20,12 +21,12 @@ STYLE = """
 .bg{fill:#fcfcfb}.ring{fill:none;stroke:rgba(11,11,11,.10)}
 .t1{fill:#0b0b0b}.t2{fill:#52514e}.mu{fill:#898781}
 .grid{stroke:#e1e0d9;stroke-width:1}.base{stroke:#c3c2b7;stroke-width:1}
-.s1{fill:#2a78d6}.s2{fill:#eb6834}
+.s1{fill:#2a78d6}.s2{fill:#eb6834}.s0{fill:#c3c2b7}
 @media (prefers-color-scheme: dark){
  .bg{fill:#1a1a19}.ring{stroke:rgba(255,255,255,.10)}
  .t1{fill:#f0efec}.t2{fill:#c3c2b7}
  .grid{stroke:#2c2c2a}.base{stroke:#383835}
- .s1{fill:#3987e5}.s2{fill:#d95926}
+ .s1{fill:#3987e5}.s2{fill:#d95926}.s0{fill:#5c5b57}
 }
 text{font-family:%s}
 """ % FONT
@@ -98,44 +99,76 @@ def load(args):
     m = re.search(r"databaseURL\s*:\s*['\"]([^'\"]+)['\"]", cfg)
     if not m:
         sys.exit('databaseURL not found in js/firebase-config.js')
-    url = m.group(1).rstrip('/') + '/stats.json'
-    with urllib.request.urlopen(url, timeout=60) as r:
-        return json.loads(r.read().decode('utf-8')) or {}
+    base = m.group(1).rstrip('/')
+
+    def get(path):
+        with urllib.request.urlopen(f'{base}/{path}.json', timeout=60) as r:
+            return json.loads(r.read().decode('utf-8'))
+
+    raw = get('stats') or {}
+    raw['boards'] = {}
+    for b in BOARDS:          # public since the stats-baseline rules; a refusal just means "no baseline"
+        try:
+            raw['boards'][b] = get('boards/' + b) or {}
+        except Exception as e:
+            print(f'boards/{b}: {e}', file=sys.stderr)
+    return raw
+
+
+def board_days(raw):
+    """uid -> set of days (UTC+8) on which that uid set a leaderboard record.
+
+    A record's ts is when the score last improved, so this is a lower bound on who played when:
+    it covers the time before the stats existed and players still running a page without stats.js."""
+    out = {}
+    for b in BOARDS:
+        for u, r in ((raw.get('boards') or {}).get(b) or {}).items():
+            ts = isinstance(r, dict) and r.get('ts')
+            if isinstance(ts, (int, float)) and ts > 0:
+                out.setdefault(u, set()).add(dt.datetime.fromtimestamp(ts / 1000, MYT).date().isoformat())
+    return out
 
 
 def summarize(raw, today):
     players = {u: p for u, p in (raw.get('p') or {}).items() if isinstance(p, dict) and (p.get('s') or 0) > 0}
     days = raw.get('d') or {}
-    first_day = min([p.get('f') for p in players.values() if p.get('f')] + [d for d in days], default=today)
+    bdays = board_days(raw)
+    stats_since = min([p.get('f') for p in players.values() if p.get('f')] + [d for d in days], default=today)
+    first_day = min([stats_since] + [d for ds in bdays.values() for d in ds])
     start = dt.date.fromisoformat(first_day)
     end = dt.date.fromisoformat(today)
     span = (end - start).days + 1
     n_days = max(7, min(30, span))
     window = [(end - dt.timedelta(days=i)).isoformat() for i in range(n_days - 1, -1, -1)]
     first_of = {u: p.get('f') for u, p in players.items()}
+    by_board_day = {}
+    for u, ds in bdays.items():
+        for d in ds:
+            by_board_day.setdefault(d, set()).add(u)
     daily = []
     for d in window:
         rec = days.get(d) or {}
         active = {u: s for u, s in rec.items() if isinstance(s, (int, float)) and s > 0}
         new = sum(1 for u in active if first_of.get(u) == d)
-        daily.append({'day': d, 'new': new, 'back': len(active) - new, 'sec': sum(active.values())})
+        extra = len(by_board_day.get(d, set()) - set(active))
+        daily.append({'day': d, 'new': new, 'back': len(active) - new, 'extra': extra, 'sec': sum(active.values())})
     week = {(end - dt.timedelta(days=i)).isoformat() for i in range(7)}
     week_players = {u for d in week for u, s in (days.get(d) or {}).items() if isinstance(s, (int, float)) and s > 0}
+    week_players |= {u for u, ds in bdays.items() if ds & week}
     mode_sec = {k: sum((p.get('m') or {}).get(k, 0) or 0 for p in players.values()) for k, _ in MODES}
     dev = {k: sum(1 for p in players.values() if p.get('d') == k) for k, _ in DEVICES}
     total = sum(p.get('s') or 0 for p in players.values())
     return {
-        'players': len(players), 'week': len(week_players), 'total_sec': total,
-        'avg_min': total / len(players) / 60 if players else 0,
-        'since': first_day, 'daily': daily, 'modes': mode_sec, 'devices': dev,
-        'today_players': daily[-1]['new'] + daily[-1]['back'] if daily else 0,
+        'players': len(set(players) | set(bdays)), 'timed': len(players), 'week': len(week_players),
+        'total_sec': total, 'avg_min': total / len(players) / 60 if players else 0,
+        'since': stats_since, 'daily': daily, 'modes': mode_sec, 'devices': dev,
     }
 
 
 # ---------------------------------------------------------------- charts
 
 def chart_summary(S, stamp):
-    W, H = 820, 150
+    W, H = 820, 170
     tiles = [('累计玩家', fmt_num(S['players']), '人'), ('近 7 天玩家', fmt_num(S['week']), '人'),
              ('累计游戏时长', fmt_hours(S['total_sec']), '小时'), ('人均游戏时长', f"{S['avg_min']:.0f}", '分钟')]
     tw = (W - 48 - 3 * 12) / 4
@@ -145,7 +178,8 @@ def chart_summary(S, stamp):
         body.append(text(x, 46, label, 't2', 13))
         body.append(f'<text x="{x:.1f}" y="92" class="t1" font-size="34" font-weight="700">{esc(val)}'
                     f'<tspan class="t2" font-size="14" font-weight="400" dx="6">{esc(unit)}</tspan></text>')
-    body.append(text(24, H - 20, f"从 {S['since']} 开始统计 · 更新于 {stamp}（马来西亚时间）· 只算网页在前台且有操作的时间", 'mu', 11.5))
+    body.append(text(24, H - 38, f"玩家数包含统计上线前上过排行榜的人；游戏时长从 {S['since']} 开始算，只算网页在前台且有操作的时间，人均按这 {S['timed']} 人算", 'mu', 11.5))
+    body.append(text(24, H - 18, f"更新于 {stamp}（马来西亚时间）", 'mu', 11.5))
     desc = '；'.join(f'{a} {b} {c}' for a, b, c in tiles)
     return svg(W, H, ''.join(body), '玩家数据总览', desc)
 
@@ -176,36 +210,39 @@ def chart_daily(S):
     W, H = 820, 300
     x0, y0, pw, ph = 56, 70, W - 56 - 24, H - 70 - 44
     D = S['daily']
-    top, step = nice_max(max([d['new'] + d['back'] for d in D] + [1]))
+    SERIES = [('new', 's1', '新玩家（第一次来）'), ('back', 's2', '回访玩家'), ('extra', 's0', '排行榜补算（统计上线前或旧页面）')]
+    tot = lambda d: d['new'] + d['back'] + d['extra']
+    top, step = nice_max(max([tot(d) for d in D] + [1]))
     n = len(D)
     gap = 4 if n > 14 else 8
     bw = (pw - gap * (n - 1)) / n
     body = [text(24, 32, '每天有多少人在玩', 't1', 16, weight=700)]
-    # legend: two series, both direct-labeled in the legend row
-    body.append(f'<rect class="s1" x="24" y="44" width="10" height="10" rx="2"/>')
-    body.append(text(40, 53, '新玩家（第一次来）', 't2', 12))
-    body.append(f'<rect class="s2" x="170" y="44" width="10" height="10" rx="2"/>')
-    body.append(text(186, 53, '回访玩家', 't2', 12))
+    lx = 24
+    for _, cls, label in SERIES:      # legend row: every series named, colour never alone
+        body.append(f'<rect class="{cls}" x="{lx}" y="44" width="10" height="10" rx="2"/>')
+        body.append(text(lx + 16, 53, label, 't2', 12))
+        lx += 16 + len(label) * 12 + 22
     body += axis_frame(x0, y0, pw, ph, top, step, lambda v: f'{v:.0f}')
     for i, d in enumerate(D):
         x = x0 + i * (bw + gap)
-        hn = d['new'] / top * ph
-        hb = d['back'] / top * ph
-        yb = y0 + ph
-        body.append(f'<g><title>{esc(d["day"])}：新玩家 {d["new"]}，回访 {d["back"]}</title>')
-        if d['back'] > 0:
-            # new players sit on the baseline (square top), returning players stack above after a 2px gap
-            body.append(f'<rect class="s1" x="{x:.1f}" y="{yb - hn:.1f}" width="{bw:.1f}" height="{hn:.1f}"/>' if hn > 0 else '')
-            body.append(bar_up(x, yb - hn - hb - (2 if hn > 0 else 0), bw, hb, 's2'))
-        else:
-            body.append(bar_up(x, yb - hn, bw, hn, 's1'))
+        segs = [(cls, d[k] / top * ph) for k, cls, _ in SERIES if d[k] > 0]
+        body.append(f'<g><title>{esc(d["day"])}：新玩家 {d["new"]}，回访 {d["back"]}，排行榜补算 {d["extra"]}</title>')
+        y = y0 + ph
+        for j, (cls, h) in enumerate(segs):
+            if j:
+                y -= 2                    # 2px surface gap between stacked segments
+            if j == len(segs) - 1:
+                body.append(bar_up(x, y - h, bw, h, cls))      # only the data end is rounded
+            else:
+                body.append(f'<rect class="{cls}" x="{x:.1f}" y="{y - h:.1f}" width="{bw:.1f}" height="{h:.1f}"/>')
+            y -= h
         body.append('</g>')
     last = D[-1]
-    body.append(text(W - 24, 53, f"今天 {last['new'] + last['back']} 人", 't1', 13, 'end', 600))
-    if not any(d['new'] + d['back'] for d in D):
+    body.append(text(W - 24, 32, f"今天至少 {tot(last)} 人", 't1', 13, 'end', 600))
+    if not any(tot(d) for d in D):
         body.append(text(x0 + pw / 2, y0 + ph / 2, '还没有数据，有人玩了以后这里会自动更新', 'mu', 13, 'middle'))
     body += day_labels(D, x0, bw, gap, y0 + ph + 18)
-    desc = '；'.join(f"{d['day']} 新玩家 {d['new']} 回访 {d['back']}" for d in D)
+    desc = '；'.join(f"{d['day']} 新玩家 {d['new']} 回访 {d['back']} 排行榜补算 {d['extra']}" for d in D)
     return svg(W, H, ''.join(body), '每天有多少人在玩', desc)
 
 
@@ -269,12 +306,12 @@ def chart_modes(S):
 
 def table_md(S, stamp):
     L = [f'# XMUM 校园漫游 · 玩家数据', '',
-         f'由 GitHub Actions 每小时自动生成，更新于 {stamp}（马来西亚时间），从 {S["since"]} 开始统计。', '',
+         f'由 GitHub Actions 每 15 分钟自动生成，更新于 {stamp}（马来西亚时间），从 {S["since"]} 开始统计。', '',
          '| 指标 | 数值 |', '|---|---|',
-         f'| 累计玩家 | {S["players"]} 人 |', f'| 近 7 天玩家 | {S["week"]} 人 |',
+         f'| 累计玩家（含统计上线前上过排行榜的人） | {S["players"]} 人 |', f'| 有游戏时长记录的玩家 | {S["timed"]} 人 |', f'| 近 7 天玩家 | {S["week"]} 人 |',
          f'| 累计游戏时长 | {fmt_hours(S["total_sec"])} 小时 |', f'| 人均游戏时长 | {S["avg_min"]:.0f} 分钟 |', '',
-         '## 每天', '', '| 日期 | 新玩家 | 回访玩家 | 总时长（分钟） |', '|---|---:|---:|---:|']
-    L += [f'| {d["day"]} | {d["new"]} | {d["back"]} | {d["sec"] / 60:.0f} |' for d in reversed(S['daily'])]
+         '## 每天', '', '| 日期 | 新玩家 | 回访玩家 | 排行榜补算 | 总时长（分钟） |', '|---|---:|---:|---:|---:|']
+    L += [f'| {d["day"]} | {d["new"]} | {d["back"]} | {d["extra"]} | {d["sec"] / 60:.0f} |' for d in reversed(S['daily'])]
     total = sum(S['modes'].values()) or 1
     L += ['', '## 玩法', '', '| 玩法 | 时长（小时） | 占比 |', '|---|---:|---:|']
     L += [f'| {lab} | {S["modes"][k] / 3600:.1f} | {S["modes"][k] / total * 100:.0f}% |' for k, lab in MODES]

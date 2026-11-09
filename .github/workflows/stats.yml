@@ -1,11 +1,11 @@
-# Hourly: read the anonymous play stats from Firebase, draw the README charts and
+# Every 15 minutes: read the anonymous play stats (and the public leaderboards) from Firebase, draw the README charts and
 # force-push them to the `stats` branch (main is protected and only takes PRs, so
 # generated files live on their own branch; it keeps a single commit, no history).
 name: 玩家数据图
 
 on:
   schedule:
-    - cron: '23 * * * *'      # every hour; GitHub may start it a few minutes late
+    - cron: '8,23,38,53 * * * *'   # every 15 minutes; GitHub may start it a few minutes late
   workflow_dispatch:          # "Run workflow" button for an immediate refresh
 
 permissions:
