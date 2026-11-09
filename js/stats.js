@@ -6,7 +6,7 @@
  * Nothing else: no nickname, no e-mail, no position, no scores.
  *
  * Only time with the page visible and someone actually touching it counts: after IDLE_S
- * seconds without a key, click, touch or wheel the clock stops (a tab left open on the
+ * seconds with no key or finger held down and no key, click, touch, pointer move or wheel, the clock stops (a tab left open on the
  * auto-rotating campus is not "playing"). Only the live site counts, so local testing and
  * forks don't pollute the numbers. Any failure is silent; the game never waits on this.
  */
@@ -33,11 +33,21 @@
   const pend = {s:0, m:{}};                 // seconds not yet written
   let lastInput = performance.now(), lastTick = performance.now(), sinceFlush = 0, flushedOnce = false, busy = false;
   const poke = () => { lastInput = performance.now(); };
-  for (const ev of ['keydown', 'pointerdown', 'touchstart', 'wheel']) window.addEventListener(ev, poke, {passive:true, capture:true});
+  /* A held key or finger is input too: a phone player can hold the joystick still at full
+     throttle for minutes without a new event, and that is still playing. */
+  const heldKeys = new Set(), heldPtrs = new Set(), opt = {passive:true, capture:true};
+  window.addEventListener('keydown', e => { heldKeys.add(e.code); poke(); }, opt);
+  window.addEventListener('keyup', e => { heldKeys.delete(e.code); poke(); }, opt);
+  window.addEventListener('pointerdown', e => { heldPtrs.add(e.pointerId); poke(); }, opt);
+  for (const ev of ['pointerup', 'pointercancel']) window.addEventListener(ev, e => { heldPtrs.delete(e.pointerId); poke(); }, opt);
+  for (const ev of ['pointermove', 'touchstart', 'touchmove', 'wheel']) window.addEventListener(ev, poke, opt);
+  const letGo = () => { heldKeys.clear(); heldPtrs.clear(); };   // a key-up can be lost when the window loses focus
+  window.addEventListener('blur', letGo);
+  const active = now => heldKeys.size > 0 || heldPtrs.size > 0 || now - lastInput <= IDLE_S * 1000;
 
   function tick(){
     const now = performance.now(), dt = Math.min(5, (now - lastTick) / 1000); lastTick = now;
-    if (document.visibilityState !== 'visible' || now - lastInput > IDLE_S * 1000) return;
+    if (document.visibilityState !== 'visible' || !active(now)) return;
     const m = mode();
     pend.s += dt; pend.m[m] = (pend.m[m] || 0) + dt; sinceFlush += dt;
     if (sinceFlush >= (flushedOnce ? FLUSH_S : FIRST_FLUSH_S)) flush();
@@ -70,6 +80,6 @@
   }
 
   setInterval(tick, 1000);
-  document.addEventListener('visibilitychange', () => { tick(); if (document.visibilityState === 'hidden') flush(); });
+  document.addEventListener('visibilitychange', () => { tick(); if (document.visibilityState === 'hidden'){ letGo(); flush(); } });
   window.addEventListener('pagehide', () => { tick(); flush(); });
 })();
