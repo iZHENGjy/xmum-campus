@@ -429,7 +429,7 @@ function eject(impact){
 
 /* ---------- on foot ---------- */
 function footBlocked(x, z){
-  if (x < -600 || x > 600 || z < -275 || z > 262) return true;
+  if (!(typeof ROOM !== 'undefined' && ROOM.in) && (x < -600 || x > 600 || z < -275 || z > 262)) return true;   /* the classroom sits outside the map */
   if (hitsBuilding(x, z, .9)) return true;
   for (const L of lakes) if (inPoly(x, z, L)) return true;
   for (const c of cars) if (Math.hypot(c.x - x, c.z - z) < c.R * .9) return true;

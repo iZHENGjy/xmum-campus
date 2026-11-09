@@ -44,9 +44,11 @@ function updateActs(){
   actSp.querySelector('b').textContent = driving ? '漂移' : '跳';
   actR.querySelector('b').textContent = driving ? '喇叭' : '大笑';
   actQ.disabled = !!driving;
+  const aw = $('#act-w'); if (aw) aw.disabled = !!driving;
 }
 function doF(){
   if (mode !== 'naiwa' || gx.paused) return;
+  if (!driving && typeof roomTryF === 'function' && roomTryF()) return;   /* classroom doors (js/87-classroom.js) */
   if (driving){
     const sp = Math.hypot(driving.vx, driving.vz);
     if (sp > 12) eject(sp * .8); else leaveCar();
@@ -216,7 +218,7 @@ function updateNaiwaMode(dt, T){
   let msg = '';
   if (driving) msg = TOUCH ? '' : 'W/S 油门刹车 · A/D 转向 · 按住空格漂移 · H 喇叭 · F 下车';
   else if (nw.state === 'fly') msg = '啊啊啊啊——';
-  else { const nc = nearestCar(); msg = nc ? (TOUCH ? '点「上车」开走这辆' : '按 F 上车') + ' · ' + nc.T.name : (TOUCH ? '' : 'WASD 走 · 空格跳 · R 大笑 · Q 撩头 · 找辆车按 F 上车'); }
+  else { const nc = nearestCar(); msg = nc ? (TOUCH ? '点「上车」开走这辆' : '按 F 上车') + ' · ' + nc.T.name : (TOUCH ? '' : 'WASD 走 · 空格跳 · E 水枪 · R 大笑 · 找辆车按 F 上车'); }
   if (!driving && nw.state !== 'fly' && Math.hypot(nw.x - SHOWROOM[0], nw.z - SHOWROOM[1]) < 11) msg = TOUCH ? '点右上角「XMUM 车行」看车' : '按 G 打开 XMUM 车行';
   else if (driving && driving.wrecked) msg = TOUCH ? '这辆车报废了，点「下车」换一辆' : '这辆车报废了，按 F 下车换一辆';
   gx.update(dt, px, pz); msg = gx.prompt() || msg;

@@ -610,3 +610,8 @@ body.titled #labels{opacity:0}
   .t-fb{flex:1 1 100%}
   .t-fb .t-btn{flex:none;padding:0 16px}
 }
+
+/* ---------- water gun (js/87-classroom.js) ---------- */
+#act-w{grid-column:1 / -1}
+#act-w:not([disabled]){border-color:#7cc7ff}
+.water{color:#2a78d6;letter-spacing:1px;font-size:13px}

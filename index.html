@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@700;900&display=swap">
-<link rel="stylesheet" href="css/style.css?v=19">
+<link rel="stylesheet" href="css/style.css?v=20">
 </head>
 <body class="titled" data-mode="orbit">
 <canvas id="c" class="grab" tabindex="0" aria-label="三维校园场景"></canvas>
@@ -52,6 +52,7 @@
       <div class="grow"><span>保安警戒</span><b id="stars" class="stars">☆☆☆☆☆</b></div>
       <div class="grow"><span>特技分</span><b id="stunt">0</b></div>
       <div class="grow"><span>车况</span><b id="hp">—</b></div>
+      <div class="grow"><span>水枪</span><b id="water" class="water">●●●●●●</b></div>
       <div class="mission" id="mission">走进或开进橙色光圈接外卖单</div>
       <button class="btn gbtn" id="garageBtn">XMUM 车行</button>
       <button class="btn gbtn" id="gxPauseBtn" aria-pressed="false" aria-label="暂停，看这局战绩和成就"><span>暂停</span><span class="gx-long"> · 战绩</span></button>
@@ -104,6 +105,7 @@
   <div class="hrow"><button class="btn primary" id="hagain">再来一局</button><button class="btn" id="hlb">排行榜</button><button class="btn" id="hquit">去开车</button></div>
 </div>
 <div id="acts" hidden>
+  <button id="act-w"><b>水枪</b><kbd>E</kbd></button>
   <button id="act-f"><b>上车</b><kbd>F</kbd></button>
   <button id="act-sp"><b>跳</b><kbd>空格</kbd></button>
   <button id="act-r"><b>大笑</b><kbd>R</kbd></button>
@@ -185,6 +187,8 @@
         <dt><kbd>空格</kbd></dt><dd>跳；开车时按住漂移</dd>
         <dt><kbd>R</kbd> <kbd>Q</kbd> <kbd>H</kbd></dt><dd>大笑、撩头、按喇叭</dd>
         <dt><kbd>G</kbd></dt><dd>打开 XMUM 车行（站在南草坪转台旁）</dd>
+        <dt><kbd>E</kbd></dt><dd>水枪：淋湿保安，巡逻车会停下来擦玻璃</dd>
+        <dt>教学楼门口</dt><dd>A1、A2、A4、A5 门口的黄圈按 <kbd>F</kbd> 进教室</dd>
       </dl>
       <p>走进橙色光圈接外卖，限时送到。撞东西会招来保安，甩掉他们或者被罚款。漂移、飞跃、撞车攒特技分，换成钱买车。</p>
     </section>
@@ -233,23 +237,24 @@
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-<script src="js/00-core.js?v=19"></script>
-<script src="js/10-world.js?v=19"></script>
-<script src="js/15-props.js?v=19"></script>
-<script src="js/16-ambient.js?v=19"></script>
-<script src="js/20-fx.js?v=19"></script>
-<script src="js/30-naiwa.js?v=19"></script>
-<script src="js/40-vehicles.js?v=19"></script>
-<script src="js/50-missions.js?v=19"></script>
-<script src="js/60-details.js?v=19"></script>
-<script src="js/70-hole.js?v=19"></script>
-<script src="js/80-gta.js?v=19"></script>
-<script src="js/85-activities.js?v=19"></script>
-<script src="js/90-main.js?v=19"></script>
-<script src="js/ui-title.js?v=19"></script>
-<script src="js/firebase-config.js?v=19"></script>
-<script src="js/net.js?v=19"></script>
-<script src="js/stats.js?v=19"></script>
-<script src="js/feedback.js?v=19"></script>
+<script src="js/00-core.js?v=20"></script>
+<script src="js/10-world.js?v=20"></script>
+<script src="js/15-props.js?v=20"></script>
+<script src="js/16-ambient.js?v=20"></script>
+<script src="js/20-fx.js?v=20"></script>
+<script src="js/30-naiwa.js?v=20"></script>
+<script src="js/40-vehicles.js?v=20"></script>
+<script src="js/50-missions.js?v=20"></script>
+<script src="js/60-details.js?v=20"></script>
+<script src="js/70-hole.js?v=20"></script>
+<script src="js/80-gta.js?v=20"></script>
+<script src="js/85-activities.js?v=20"></script>
+<script src="js/90-main.js?v=20"></script>
+<script src="js/87-classroom.js?v=20"></script>
+<script src="js/ui-title.js?v=20"></script>
+<script src="js/firebase-config.js?v=20"></script>
+<script src="js/net.js?v=20"></script>
+<script src="js/stats.js?v=20"></script>
+<script src="js/feedback.js?v=20"></script>
 </body>
 </html>
