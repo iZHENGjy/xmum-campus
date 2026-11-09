@@ -1,0 +1,40 @@
+# Hourly: read the anonymous play stats from Firebase, draw the README charts and
+# force-push them to the `stats` branch (main is protected and only takes PRs, so
+# generated files live on their own branch; it keeps a single commit, no history).
+name: 玩家数据图
+
+on:
+  schedule:
+    - cron: '23 * * * *'      # every hour; GitHub may start it a few minutes late
+  workflow_dispatch:          # "Run workflow" button for an immediate refresh
+
+permissions:
+  contents: write             # push the `stats` branch only
+
+concurrency:
+  group: player-stats
+  cancel-in-progress: false
+
+jobs:
+  charts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Draw charts
+        run: python3 scripts/stats_charts.py --out out
+
+      - name: Publish to the stats branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd out
+          git init -q -b stats
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -q -m "Player stats $(TZ=Asia/Kuala_Lumpur date '+%Y-%m-%d %H:%M')"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" stats

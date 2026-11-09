@@ -102,6 +102,34 @@
 
 想在自己 fork 的版本里开联机，按 [docs/FIREBASE.md](docs/FIREBASE.md) 配一个自己的 Firebase 项目。
 
+## 玩家数据
+
+下面几张图由 GitHub Actions 每小时自动更新（GitHub 有时会晚几分钟）。
+
+![玩家数据总览](https://raw.githubusercontent.com/iZHENGjy/xmum-campus/stats/summary.svg)
+
+![每天有多少人在玩](https://raw.githubusercontent.com/iZHENGjy/xmum-campus/stats/daily.svg)
+
+![每天总游戏时长](https://raw.githubusercontent.com/iZHENGjy/xmum-campus/stats/playtime.svg)
+
+![玩法时长占比和设备分布](https://raw.githubusercontent.com/iZHENGjy/xmum-campus/stats/modes.svg)
+
+想看具体数字，可以打开 [数据表格](https://github.com/iZHENGjy/xmum-campus/blob/stats/README.md)。
+
+**怎么算的**
+- **一个玩家**：一个浏览器里的匿名身份。同一个人换了手机和电脑，会算两个人；用 Google 登录以后，在哪台设备上玩都算同一个人。
+- **游戏时长**：只算网页开在前台、而且 3 分钟内有过操作的时间。挂着不动不算。
+- **只统计线上网站**：本地打开或者别人 fork 的版本都不计入。
+- **统计起点**：从这个功能上线那天开始，之前玩过的人没有记录。
+
+**记录了什么**
+- 匿名 ID（和排行榜用的是同一个）
+- 第一次和最近一次玩的日期
+- 每天玩了几秒、每个玩法玩了几秒
+- 设备是手机、平板还是电脑
+
+不记录昵称、邮箱、位置、IP，也不记录成绩。
+
 ## 反馈
 
 发现 bug 或者有想加的玩法，点开场画面或游戏里的「反馈」按钮，选「报告 bug」或「提建议」，会在新标签页打开本仓库的 [新建 Issue](https://github.com/iZHENGjy/xmum-campus/issues/new/choose) 页面。
@@ -160,10 +188,13 @@ python -m http.server 8000
 | `js/ui-title.js` | 开场画面、昵称、排行榜、Google 登录按钮 |
 | `js/firebase-config.js` | Firebase 公开配置（填 `null` 就是单机） |
 | `js/net.js` | 联机、排行榜、Google 登录和云存档（Firebase） |
+| `js/stats.js` | 匿名统计游戏时长，给「玩家数据」图用 |
 | `js/feedback.js` | 「反馈」按钮：打开 GitHub 新建 Issue 页面并填好版本、模式、设备信息 |
 | `css/style.css` | 全部界面样式 |
 | `assets/audio/` | 奶娃笑声 |
 | `database.rules.json` | Firebase 数据库安全规则 |
+| `scripts/stats_charts.py` | 读统计数据，画「玩家数据」图 |
+| `.github/workflows/stats.yml` | 每小时跑一次上面的脚本，把图推到 `stats` 分支 |
 | `.github/ISSUE_TEMPLATE/` | 「报告 bug」和「提建议」两个 Issue 表单 |
 | `test/shots.html` | 拍 README 截图用的离线页面，不连排行榜 |
 
