@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>XMUM 校园漫游</title>
+<meta name="description" content="照厦门大学马来西亚分校平面图搭的 3D 校园小游戏：奶娃开车、黑洞吞校园。粉丝作品，非官方。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@700;900&display=swap">
+<link rel="stylesheet" href="../css/style.css?v=7">
+</head>
+<body class="titled" data-mode="orbit">
+<canvas id="c" class="grab" tabindex="0" aria-label="三维校园场景"></canvas>
+<div id="labels"></div>
+
+<div class="topbar">
+  <div class="panel brand">
+    <div class="eyebrow">雪兰莪 · 雪邦 · 照平面图搭建</div>
+    <div class="title">
+      <svg viewBox="0 0 30 18" aria-hidden="true"><path d="M1 13 C7 12 10 6 15 2 C20 6 23 12 29 13 L26 15 L4 15 Z" fill="var(--tile)"/><rect x="6" y="15" width="18" height="3" fill="var(--muted)"/></svg>
+      <h1>XMUM 校园漫游</h1>
+    </div>
+    <div class="prog"><span>打卡</span><b id="cnt">0 / 8</b><div class="bar"><i id="barfill"></i></div></div>
+    <div class="chips" id="chips"></div>
+    <div class="note">布局照 2025 年 9 月校园平面图摆放，外观参考公开照片简化，层数是估计。</div>
+  </div>
+  <div class="side">
+    <div class="panel ctrls">
+      <div class="crow">
+        <button class="menu" id="menuBtn" aria-label="回到主菜单"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg><span>菜单</span></button>
+        <div class="seg seg-mode" role="group" aria-label="视角">
+          <button id="m-orbit" aria-pressed="true">俯瞰</button>
+          <button id="m-walk" aria-pressed="false">漫游</button>
+          <button id="m-naiwa" aria-pressed="false">奶娃</button>
+          <button id="m-hole" aria-pressed="false">黑洞</button>
+        </div>
+      </div>
+      <div class="crow crow-sub">
+        <div id="online" hidden></div>
+        <div class="seg seg-time" role="group" aria-label="时间">
+          <button data-t="day" aria-pressed="true">白天</button>
+          <button data-t="dusk" aria-pressed="false">黄昏</button>
+          <button data-t="night" aria-pressed="false">夜晚</button>
+        </div>
+      </div>
+    </div>
+    <div class="panel gstat" id="gstat" hidden>
+      <div class="grow"><span>钱包</span><b id="money">RM 0.00</b></div>
+      <div class="grow"><span>车速</span><b id="speed">0 km/h</b></div>
+      <div class="grow"><span>保安警戒</span><b id="stars" class="stars">☆☆☆☆☆</b></div>
+      <div class="grow"><span>特技分</span><b id="stunt">0</b></div>
+      <div class="grow"><span>车况</span><b id="hp">—</b></div>
+      <div class="mission" id="mission">走进或开进橙色光圈接外卖单</div>
+      <button class="btn gbtn" id="garageBtn">XMUM 车行</button>
+    </div>
+    <div class="panel gstat" id="hstat" hidden>
+      <div class="grow"><span>剩余</span><b id="htime">2:00</b></div>
+      <div class="grow"><span>黑洞直径</span><b id="hsize">5 米</b></div>
+      <div class="grow"><span>吞掉校园</span><b id="hpct">0%</b></div>
+      <div class="grow"><span>排名</span><b id="hrank">1 / 4</b></div>
+      <div class="rank" id="hlist"></div>
+      <div class="mission" id="hnext">先吃树、长椅和路灯，长大了再吞楼</div>
+    </div>
+    <canvas id="mini" width="300" height="300" hidden aria-label="小地图"></canvas>
+  </div>
+</div>
+
+<div class="bottombar">
+  <div class="panel help" id="help"></div>
+  <div class="panel card" id="card" hidden>
+    <button class="x" id="cardx" aria-label="关闭">×</button>
+    <span class="tag" id="ctag"></span>
+    <h2 id="cname"></h2>
+    <p id="cdesc"></p>
+    <div class="row"><span class="meta" id="cmeta"></span><button class="btn" id="cardwalk">走到这里</button></div>
+  </div>
+</div>
+
+<div class="panel" id="joy" hidden><div id="knob"></div></div>
+<div class="panel" id="compass" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 L19 21 L12 16.5 L5 21 Z" fill="var(--tile)"/></svg><span id="cdist"></span></div>
+<div class="panel" id="prompt" hidden></div>
+<div class="panel" id="combo" hidden></div>
+<div class="panel" id="shop" hidden>
+  <div class="shop-h"><h2>XMUM 车行</h2><span id="shopMoney">RM 0.00</span></div>
+  <button class="x" id="shopx" aria-label="关闭">×</button>
+  <div id="shopList"></div>
+  <div class="shop-f">送外卖、玩特技赚钱。买过的车随时能叫到身边，叫一次就修好一次。</div>
+</div>
+<div class="panel" id="hend" hidden>
+  <div class="eyebrow">时间到</div>
+  <h2 id="hendT">吞掉了 XMUM 的 0%</h2>
+  <p id="hendS"></p>
+  <div class="hrow"><button class="btn primary" id="hagain">再来一局</button><button class="btn" id="hlb">排行榜</button><button class="btn" id="hquit">去开车</button></div>
+</div>
+<div id="acts" hidden>
+  <button id="act-f"><b>上车</b><kbd>F</kbd></button>
+  <button id="act-sp"><b>跳</b><kbd>空格</kbd></button>
+  <button id="act-r"><b>大笑</b><kbd>R</kbd></button>
+  <button id="act-q"><b>撩头</b><kbd>Q</kbd></button>
+</div>
+<section id="title" aria-labelledby="tTitle">
+  <div class="t-wrap">
+    <header class="t-head">
+      <div class="t-kicker"><span>XMUM</span><i aria-hidden="true"></i><span>雪兰莪 · 雪邦</span></div>
+      <h1 class="t-title" id="tTitle"><span class="t-sr">XMUM </span><span class="t-a">校园</span><span class="t-b">漫游</span></h1>
+      <svg class="t-eave" viewBox="0 0 320 22" preserveAspectRatio="none" aria-hidden="true"><path d="M2 4 C40 15 90 17 160 17 C230 17 280 15 318 4" fill="none" stroke="var(--tile)" stroke-width="3.2" stroke-linecap="round"/><path d="M24 21 H296" stroke="var(--tile)" stroke-width="1.2" opacity=".55"/></svg>
+      <div class="t-seal" aria-hidden="true"><span>奶</span><span>娃</span><span>出</span><span>品</span></div>
+      <p class="t-tag">照平面图搭出来的雪邦校园：开车送外卖，或者变成黑洞把它吞掉。</p>
+    </header>
+
+    <div class="t-name">
+      <label for="tName">你的昵称</label>
+      <div class="t-namebox">
+        <input id="tName" type="text" maxlength="12" autocomplete="nickname" spellcheck="false" enterkeyhint="done">
+        <button type="button" id="tDice" aria-label="随机换一个昵称"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="5.5" cy="5.5" r="1.2" fill="currentColor"/><circle cx="10.5" cy="10.5" r="1.2" fill="currentColor"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/></svg><span>换一个</span></button>
+      </div>
+    </div>
+
+    <div class="t-modes" role="group" aria-label="选一种玩法">
+      <button type="button" class="t-card main" data-go="naiwa">
+        <span class="t-no" aria-hidden="true">01</span>
+        <svg class="t-ic" viewBox="0 0 48 28" aria-hidden="true"><path d="M4 20 V15 L10 13 L16 6 H31 L38 13 L44 15 V20 Z" fill="currentColor"/><circle cx="13" cy="21" r="4.2" fill="var(--card-bg)" stroke="currentColor" stroke-width="2.4"/><circle cx="35" cy="21" r="4.2" fill="var(--card-bg)" stroke="currentColor" stroke-width="2.4"/><path d="M18 8 H24 V13 H13 Z M26.5 8 H30 L35 13 H26.5 Z" fill="var(--card-bg)" opacity=".8"/></svg>
+        <b>开车 · 奶娃</b>
+        <span class="t-desc">偷车、送外卖、甩掉保安、漂移攒特技分</span>
+      </button>
+      <button type="button" class="t-card" data-go="hole">
+        <span class="t-no" aria-hidden="true">02</span>
+        <svg class="t-ic" viewBox="0 0 48 28" aria-hidden="true"><ellipse cx="24" cy="15" rx="21" ry="10" fill="none" stroke="var(--tile)" stroke-width="2" opacity=".55"/><ellipse cx="24" cy="15" rx="14" ry="6.6" fill="#120a22" stroke="currentColor" stroke-width="1.2"/><path d="M6 6 l4 3 M40 4 l-3 4 M44 22 l-4 -2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <b>黑洞 · 吞校园</b>
+        <span class="t-desc">150 秒，跟 3 个 AI 黑洞抢地盘</span>
+      </button>
+      <button type="button" class="t-card" data-go="orbit">
+        <span class="t-no" aria-hidden="true">03</span>
+        <svg class="t-ic" viewBox="0 0 48 28" aria-hidden="true"><path d="M8 13 C16 11 20 6 24 3 C28 6 32 11 40 13 L37 15 H11 Z" fill="var(--tile)"/><rect x="13" y="15" width="22" height="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M21 25 V19 H27 V25" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+        <b>随便逛逛</b>
+        <span class="t-desc">俯瞰整个校园，点一栋楼看介绍</span>
+      </button>
+    </div>
+
+    <div class="t-more">
+      <button type="button" class="t-btn" id="tLb"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 14V9h3.5v5M6.25 14V4h3.5v10M10.5 14V7H14v7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>排行榜</button>
+      <button type="button" class="t-btn" id="tHow"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="4" width="13" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4 7h1M7.5 7h1M11 7h1M5 9.8h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>玩法</button>
+      <button type="button" class="t-btn" id="tSound" aria-pressed="true"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h2.5L8 3v10L4.5 10H2Z" fill="currentColor"/><path class="on" d="M10.5 5.5c1.3 1.4 1.3 3.6 0 5M12.5 3.8c2.2 2.4 2.2 6 0 8.4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path class="off" d="M10.5 6l4 4M14.5 6l-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>声音开</span></button>
+    </div>
+
+    <footer class="t-foot">粉丝作品，非学校官方 · 布局照 2025 年 9 月校园平面图</footer>
+  </div>
+</section>
+
+<dialog id="lb" class="panel sheet" aria-labelledby="lbT">
+  <div class="sheet-h"><h2 id="lbT">排行榜</h2><button type="button" class="x" data-close aria-label="关闭">×</button></div>
+  <div class="tabs" role="tablist" aria-label="榜单">
+    <button type="button" role="tab" id="lbt-hole" data-board="hole" aria-controls="lbBody" aria-selected="true">黑洞</button>
+    <button type="button" role="tab" id="lbt-stunt" data-board="stunt" aria-controls="lbBody" aria-selected="false" tabindex="-1">特技</button>
+    <button type="button" role="tab" id="lbt-rich" data-board="rich" aria-controls="lbBody" aria-selected="false" tabindex="-1">富豪</button>
+  </div>
+  <div id="lbBody" role="tabpanel" aria-live="polite" tabindex="0"></div>
+</dialog>
+
+<dialog id="howto" class="panel sheet" aria-labelledby="howT">
+  <div class="sheet-h"><h2 id="howT">玩法</h2><button type="button" class="x" data-close aria-label="关闭">×</button></div>
+  <div class="how">
+    <section>
+      <h3>开车 · 奶娃</h3>
+      <dl>
+        <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>走路 / 开车，<kbd>Shift</kbd> 跑</dd>
+        <dt><kbd>F</kbd></dt><dd>上车、下车（开太快下车会被甩飞）</dd>
+        <dt><kbd>空格</kbd></dt><dd>跳；开车时按住漂移</dd>
+        <dt><kbd>R</kbd> <kbd>Q</kbd> <kbd>H</kbd></dt><dd>大笑、撩头、按喇叭</dd>
+        <dt><kbd>G</kbd></dt><dd>打开 XMUM 车行（站在南草坪转台旁）</dd>
+      </dl>
+      <p>走进橙色光圈接外卖，限时送到。撞东西会招来保安，甩掉他们或者被罚款。漂移、飞跃、撞车攒特技分，换成钱买车。</p>
+    </section>
+    <section>
+      <h3>黑洞 · 吞校园</h3>
+      <dl>
+        <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>移动黑洞，拖动鼠标转视角</dd>
+      </dl>
+      <p>只能吞比自己小的东西。先吃树、长椅、路灯，长大再吞楼；比你大的黑洞会吞掉你。150 秒后按吞掉的比例排名。</p>
+    </section>
+    <section>
+      <h3>触屏</h3>
+      <dl>
+        <dt>左下摇杆</dt><dd>走路、开车、移动黑洞，推到底是跑</dd>
+        <dt>右下按钮</dt><dd>上车、跳 / 漂移、大笑、撩头</dd>
+        <dt>拖动屏幕</dt><dd>转视角；俯瞰时双指缩放</dd>
+      </dl>
+    </section>
+    <section>
+      <h3>俯瞰与漫游</h3>
+      <dl>
+        <dt>拖动 · 滚轮</dt><dd>旋转、缩放，右键平移</dd>
+        <dt>点一栋楼</dt><dd>看介绍，可以「走到这里」</dd>
+        <dt>漫游</dt><dd>第一人称，找 8 个金色打卡点</dd>
+      </dl>
+    </section>
+  </div>
+</dialog>
+
+<div class="panel" id="toast" role="status" aria-live="polite"></div>
+<div class="panel" id="err" hidden>这个浏览器打不开 3D 画面（需要 WebGL）。换个浏览器试试。</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="../js/00-core.js?v=7"></script>
+<script src="../js/10-world.js?v=7"></script>
+<script src="../js/20-fx.js?v=7"></script>
+<script src="../js/30-naiwa.js?v=7"></script>
+<script src="../js/40-vehicles.js?v=7"></script>
+<script src="../js/50-missions.js?v=7"></script>
+<script src="../js/60-details.js?v=7"></script>
+<script src="../js/70-hole.js?v=7"></script>
+<script src="../js/80-gta.js?v=7"></script>
+<script src="../js/90-main.js?v=7"></script>
+<script src="../js/ui-title.js?v=7"></script>
+<script src="../js/firebase-config.js?v=7"></script>
+<script src="../js/net.js?v=7"></script>
+<script>
+(function(){
+  const q = new URLSearchParams(location.search), ang = +(q.get('a') || -0.9), dist = +(q.get('d') || 7.5), h = +(q.get('h') || 1.3), st = q.get('s') || 'idle';
+  try { XUI.closeTitle(); } catch(e){}
+  ['.topbar','.bottombar','#labels','#title'].forEach(s => { const e = document.querySelector(s); if (e) e.style.display = 'none'; });
+  controls.minDistance = .1; controls.enableDamping = false; controls.autoRotate = false;
+  const X = 426, Z = 118; CPS.forEach(c => c.g.visible = false);
+  function pin(){
+    NW.root.position.set(X, 0, Z); NW.root.rotation.y = 0;
+    nw.state = st; nw.t = 1; nw.spd = 0; nw.air = false;
+    camera.fov = 26; camera.updateProjectionMatrix();
+    controls.target.set(X, 1.15, Z); camera.position.set(X + Math.sin(ang) * dist, h, Z + Math.cos(ang) * dist); controls.update();
+  }
+  setInterval(pin, 30); pin();
+})();
+</script>
+</body>
+</html>

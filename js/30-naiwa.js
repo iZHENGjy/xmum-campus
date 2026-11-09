@@ -1,6 +1,8 @@
 /* XMUM 校园漫游 · 奶娃模型和动画 */
 'use strict';
-/* ---------- 奶娃 (smooth low-poly homage) ---------- */
+/* ---------- 奶娃 (smooth low-poly homage) ----------
+   Proportions follow the reference: a tall slim pear, about half as wide as it is tall, no neck,
+   a narrow pointed head leaning forward, the belly bulging forward and down, long legs, big flat feet. */
 const NAI_S = 1.3;
 /* rounded capsule hanging down from the origin: top cap radius r0, bottom cap radius r1 centred at y = -len */
 function nwCapsule(r0, r1, len, seg, n){
@@ -10,30 +12,50 @@ function nwCapsule(r0, r1, len, seg, n){
   return smoothNormals(new THREE.LatheGeometry(pts, seg || 16), 70);
 }
 const nwBlob = (r, sx, sy, sz, x, y, z, rx, ry, rz, ws, hs) => geoAt(new THREE.SphereGeometry(r, ws || 16, hs || 12), x, y, z, rx, ry, rz, sx, sy, sz);
+const nwSmooth = t => { t = Math.max(0, Math.min(1, t)); return t * t * (3 - 2 * t); };
+/* body radius by height (y in model units, 0 = sole, 1.82 = crown) */
+const NW_PROFILE = new THREE.SplineCurve([[0,.5],[.2,.515],[.34,.58],[.425,.69],[.455,.82],[.445,.96],[.405,1.1],[.345,1.25],[.28,1.39],[.215,1.52],[.17,1.63],[.135,1.71],[.085,1.785],[0,1.82]]
+  .map(([r, y]) => new THREE.Vector2(r, y))).getPoints(56);
+NW_PROFILE[0].x = 0; NW_PROFILE[NW_PROFILE.length - 1].x = 0;
+function nwR(y){
+  const P = NW_PROFILE; if (y <= P[0].y) return 0;
+  for (let i = 1; i < P.length; i++) if (P[i].y >= y){ const a = P[i - 1], b = P[i]; return a.x + (b.x - a.x) * (y - a.y) / Math.max(1e-6, b.y - a.y); }
+  return 0;
+}
+const nwBelly = y => 1 + .2 * Math.exp(-Math.pow((y - .86) / .3, 2));   /* how far the front bulges */
+const nwLean = y => .14 * nwSmooth((y - .95) / .87);                      /* head pushed forward */
+const nwBeak = (y, c) => c > 0 ? .3 * Math.exp(-Math.pow((y - 1.63) / .07, 2)) * Math.pow(c, 10) : 0;  /* little pointed face */
+/* deform a point that sits on (or off) the round lathe surface; th = angle round the body (0 = front) */
+function nwShape(x, y, z, r){
+  const c = r > 1e-6 ? z / r : 0;
+  const zz = z > 0 ? z * nwBelly(y) * (1 + nwBeak(y, c)) : z * .93;
+  return [x * .97, y, zz + nwLean(y)];
+}
+function nwOnBody(th, y, off){ const r = nwR(y) + (off || 0); return nwShape(Math.sin(th) * r, y, Math.cos(th) * r, r); }
+
 function makeNaiwa(){
-  const yellow = M('#f1c84b', {roughness:.5}), cream = M('#f8e7bd', {roughness:.65}), olive = M('#6d6a3a', {roughness:.75}), hand = M('#58552e', {roughness:.7});
-  const dark = M('#151311', {roughness:.25}), iris = M('#7cc576', {roughness:.22}), shine = new THREE.MeshBasicMaterial({color:'#ffffff'});
+  const yellow = M('#f2c64a', {roughness:.62}), cream = M('#e3c590', {roughness:.75}), olive = M('#55532c', {roughness:.8}), feet = M('#3b3920', {roughness:.95});
+  const dark = M('#141210', {roughness:.25}), iris = M('#86c873', {roughness:.25}), rim = M('#c9d88a', {roughness:.35}), shine = new THREE.MeshBasicMaterial({color:'#ffffff'});
   const root = new THREE.Group(), body = new THREE.Group(); root.add(body); root.scale.setScalar(NAI_S);
-  const mesh = (geo, mat, parent, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; parent.add(m); return m; };
-  /* pear-shaped body: no neck, the head tapers out of the belly and leans a little forward */
-  const prof = new THREE.SplineCurve([[0,.48],[.3,.5],[.53,.57],[.67,.68],[.725,.82],[.725,.96],[.68,1.1],[.61,1.25],[.53,1.4],[.44,1.54],[.33,1.66],[.19,1.765],[0,1.82]]
-    .map(([r, y]) => new THREE.Vector2(r, y))).getPoints(44);
-  prof[0].x = 0; prof[prof.length - 1].x = 0;
-  const R = y => { if (y <= prof[0].y) return 0; for (let i = 1; i < prof.length; i++) if (prof[i].y >= y){ const a = prof[i - 1], b = prof[i]; return a.x + (b.x - a.x) * (y - a.y) / Math.max(1e-6, b.y - a.y); } return 0; };
-  const lean = y => .26 * Math.pow(Math.max(0, y - .95), 2), ZS = .9;
-  const onBody = (th, y, off) => { const r = R(y) + off; return [Math.sin(th) * r, y, Math.cos(th) * r * ZS + lean(y)]; };
-  const tg = new THREE.LatheGeometry(prof, 48), tp = tg.attributes.position;
-  for (let i = 0; i < tp.count; i++){ const y = tp.getY(i); tp.setZ(i, tp.getZ(i) * ZS + lean(y)); }
+  const mesh = (geo, mat, parent, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x || 0, y || 0, z || 0); m.castShadow = true; parent.add(m); return m; };
+
+  /* body */
+  const tg = new THREE.LatheGeometry(NW_PROFILE, 56), tp = tg.attributes.position;
+  for (let i = 0; i < tp.count; i++){
+    const x = tp.getX(i), y = tp.getY(i), z = tp.getZ(i), r = Math.hypot(x, z), p = nwShape(x, y, z, r);
+    tp.setXYZ(i, p[0], p[1], p[2]);
+  }
   smoothNormals(tg, 80);
-  mesh(tg, yellow, body, 0, 0, 0);
-  /* cream egg-shaped belly patch hugging the body; its rim tucks inside so breathing never opens a gap */
-  const K = 9, NM = 40, bp = [], bi = [], yc = .88, A = .64;
-  bp.push(...onBody(0, yc, .03));
+  mesh(tg, yellow, body);
+
+  /* cream egg-shaped belly patch on the lower front, slightly narrower at the top */
+  const K = 10, NM = 44, bp = [], bi = [], yc = .88, A = .92;
+  bp.push(...nwOnBody(0, yc, .012));
   for (let k = 1; k <= K + 1; k++){
-    const rho = Math.min(1, k / K), off = k > K ? -.05 : .012 + .02 * Math.pow(1 - rho * rho, .7);
+    const rho = Math.min(1, k / K), off = k > K ? -.03 : .007 + .01 * Math.pow(1 - rho * rho, .6);
     for (let m = 0; m < NM; m++){
       const ph = m / NM * Math.PI * 2, s = Math.sin(ph), c = Math.cos(ph);
-      bp.push(...onBody(rho * c * A * (1 - .16 * s), yc + rho * s * (s > 0 ? .44 : .37), off));
+      bp.push(...nwOnBody(rho * c * A * (1 - .22 * Math.max(0, s)), yc + rho * s * (s > 0 ? .3 : .26), off));
     }
   }
   for (let m = 0; m < NM; m++) bi.push(0, 1 + m, 1 + (m + 1) % NM);
@@ -41,78 +63,99 @@ function makeNaiwa(){
     const a = 1 + k * NM + m, b = 1 + k * NM + (m + 1) % NM, c = a + NM, d = b + NM; bi.push(a, c, d, a, d, b);
   }
   const bg = new THREE.BufferGeometry(); bg.setAttribute('position', new THREE.Float32BufferAttribute(bp, 3)); bg.setIndex(bi); bg.computeVertexNormals();
-  const belly = mesh(bg, cream, body, 0, 0, 0); belly.castShadow = false;
-  /* round green eyes on the sides of the head */
-  const eyes = [], irisG = nwBlob(.118, 1, 1, .78, 0, 0, -.03, 0, 0, 0, 20, 16), pupilG = new THREE.SphereGeometry(.062, 16, 12), dotG = new THREE.SphereGeometry(.019, 8, 6);
+  const belly = mesh(bg, cream, body); belly.castShadow = false;
+
+  /* bulging green eyes high on the sides of the head (local +z points out of the head) */
+  const eyes = [];
+  const ballG = nwBlob(.064, 1, 1, .62, 0, 0, 0, 0, 0, 0, 20, 14), rimG = new THREE.TorusGeometry(.058, .009, 8, 28);
+  const pupilG = nwBlob(.033, 1, 1, .5, 0, 0, 0, 0, 0, 0, 16, 10), dotG = new THREE.SphereGeometry(.011, 8, 6);
   for (const sx of [-1, 1]){
-    const th = sx * 1.02, p = onBody(th, 1.5, 0), e = new THREE.Group();
-    e.position.set(p[0], p[1], p[2]); e.rotation.y = Math.atan2(Math.sin(th) * ZS, Math.cos(th)); body.add(e);
-    mesh(irisG, iris, e, 0, 0, 0).castShadow = false;
-    const pu = mesh(pupilG, dark, e, -sx * .028, .006, .04); pu.scale.z = .5; pu.castShadow = false;
-    mesh(dotG, shine, e, -sx * .046, .032, .066).castShadow = false;
+    const th = sx * 1.12, p = nwOnBody(th, 1.665, -.01), e = new THREE.Group();
+    e.position.set(p[0], p[1], p[2]);
+    e.rotation.y = Math.atan2(Math.sin(th), Math.cos(th) * 1.15); body.add(e);
+    mesh(ballG, iris, e).castShadow = false;
+    const rr = mesh(rimG, rim, e, 0, 0, .014); rr.castShadow = false;
+    mesh(pupilG, dark, e, 0, .002, .03).castShadow = false;
+    mesh(dotG, shine, e, -sx * .012, .016, .046).castShadow = false;
     eyes.push(e);
   }
-  /* tiny line mouth (an ellipsoid, so it opens into a round "o" when laughing) */
-  const mp = onBody(0, 1.37, -.008);
-  const mouth = mesh(new THREE.SphereGeometry(.5, 18, 10), dark, body, mp[0], mp[1], mp[2]); mouth.scale.set(.15, .018, .05); mouth.rotation.x = -.42; mouth.castShadow = false;
-  /* arms with dark olive stubby hands, legs with big flat three-toed feet */
-  const arms = [], legs = [];
-  const armG = nwCapsule(.118, .094, .42, 16);
-  const handG = smoothNormals(geoMerge([nwBlob(.098, 1, .92, .82, 0, -.005, 0),
-    ...[-1, 0, 1].map(k => geoAt(nwCapsule(.036, .033, .055, 8), k * .052, -.06, .012 - Math.abs(k) * .01, 0, 0, k * .32)),
-    geoAt(nwCapsule(.037, .032, .05, 8), 0, -.01, .06, -1.15, 0, 0)]), 40);
-  const legG = nwCapsule(.145, .112, .46, 16);
-  const footG = smoothNormals(geoMerge([nwBlob(1, .19, .075, .24, 0, -.512, .07, 0, 0, 0, 18, 10),
-    ...[-1, 0, 1].map(k => nwBlob(1, .072, .062, .115, k * .1, -.522, .27 - Math.abs(k) * .035, 0, k * .32, 0, 12, 8)),
-    nwBlob(1, .1, .05, .09, 0, -.51, -.12, 0, 0, 0, 12, 8)]), 40);
+
+  /* short line mouth at the tip of the face; an ellipsoid so it can open into an "o" */
+  const mp = nwOnBody(0, 1.61, -.006);
+  const mouth = mesh(new THREE.SphereGeometry(.5, 18, 10), dark, body, mp[0], mp[1], mp[2]); mouth.scale.set(.11, .018, .04); mouth.rotation.x = -.3; mouth.castShadow = false;
+
+  /* arms with dark olive hands (three fingers + thumb), long legs with big flat three-toed feet */
+  const arms = [], elbows = [], legs = [];
+  const upperG = nwCapsule(.09, .078, .27, 18), foreG = nwCapsule(.078, .066, .22, 18);
+  const handG = smoothNormals(geoMerge([nwBlob(.074, 1, .92, .72, 0, -.01, 0),
+    ...[-1, 0, 1].map(k => geoAt(nwCapsule(.027, .024, .055, 8), k * .04, -.058, .006 - Math.abs(k) * .006, 0, 0, k * .28)),
+    geoAt(nwCapsule(.026, .023, .04, 8), 0, -.005, .05, -1.2, 0, 0)]), 40);
+  const legG = nwCapsule(.13, .1, .46, 18);
+  const footG = smoothNormals(geoMerge([
+    nwBlob(1, .12, .062, .19, 0, -.56, .07, 0, 0, 0, 18, 10),
+    ...[-1, 0, 1].map(k => nwBlob(1, .052, .048, .085, k * .072, -.568, .245 - Math.abs(k) * .03, 0, k * .28, 0, 12, 8)),
+    nwBlob(1, .085, .05, .07, 0, -.56, -.07, 0, 0, 0, 12, 8)]), 40);
   for (const sx of [1, -1]){
-    const a = new THREE.Group(); a.position.set(sx * .63, 1.15, .05); body.add(a);
-    mesh(armG, yellow, a, 0, 0, 0);
-    const hd = mesh(handG, hand, a, 0, -.5, 0); hd.rotation.y = sx * .25;
-    arms.push(a);
-    const l = new THREE.Group(); l.position.set(sx * .26, .6, 0); body.add(l);
-    mesh(legG, yellow, l, 0, 0, 0);
-    const ft = mesh(footG, olive, l, 0, 0, 0); ft.rotation.y = sx * .1;
+    const a = new THREE.Group(); a.position.set(sx * .265, 1.31, .03); body.add(a);
+    mesh(upperG, yellow, a);
+    const el = new THREE.Group(); el.position.y = -.27; a.add(el);
+    mesh(foreG, yellow, el);
+    const hd = mesh(handG, olive, el, 0, -.27, 0); hd.rotation.y = -sx * .6;
+    a.rotation.set(-.32, 0, sx * .36); el.rotation.set(-1.22, 0, -sx * .32);   /* rest pose: hands on the belly */
+    arms.push(a); elbows.push(el);
+    const l = new THREE.Group(); l.position.set(sx * .17, .62, .03); body.add(l);
+    mesh(legG, yellow, l);
+    const ft = mesh(footG, feet, l); ft.rotation.y = sx * .12;
     legs.push(l);
   }
-  return {root, body, belly, eyes, mouth, arms, legs};
+  return {root, body, belly, eyes, mouth, arms, elbows, legs};
 }
 const NW = makeNaiwa(); scene.add(NW.root);
 const nw = {x:110, z:204, y:0, vy:0, h:Math.PI, air:false, state:'idle', t:0, walkT:0, spd:0, spin:0, vx:0, vz:0};
 NW.root.position.set(nw.x, 0, nw.z); NW.root.rotation.y = nw.h;
 
+/* Arm angles are given for the left arm (+x side); the right arm mirrors z.
+   s = shoulder {x: forward(-)/back(+), z: out(+)/in(-)}, e = elbow {x: bend forward(-), z: in(-)} */
+const NW_REST = {sx:-.32, sz:.36, ex:-1.22, ez:-.32};
 function animNaiwa(dt, T){
-  const B = NW.body, [aL, aR] = NW.arms, [lL, lR] = NW.legs;
-  let lean = 0, roll = 0, lift = 0, bob = 0, mouthY = .02, bz = .42, wink = 1;
-  let aLx = -.28, aLz = .3, aRx = -.28, aRz = -.3, lLx = 0, lRx = 0;
+  const B = NW.body, [aL, aR] = NW.arms, [eL, eR] = NW.elbows || [], [lL, lR] = NW.legs;
+  let lean = 0, roll = 0, lift = 0, bob = 0, mouthY = .018, bz = .42, wink = 1, lLx = 0, lRx = 0;
+  const L = {sx:NW_REST.sx, sz:NW_REST.sz, ex:NW_REST.ex, ez:NW_REST.ez}, R = {sx:NW_REST.sx, sz:NW_REST.sz, ex:NW_REST.ex, ez:NW_REST.ez};
   const st = nw.state, t = nw.t;
-  const rub = (k) => { aLx = -1.35 + Math.sin(T * 9) * .2 * k; aRx = -1.35 - Math.sin(T * 9) * .2 * k; aLz = -.4; aRz = .4; };
+  const mix = (a, b, k) => a + (b - a) * k;
+  const rub = (k) => { L.ex = NW_REST.ex + Math.sin(T * 9) * .22 * k; R.ex = NW_REST.ex - Math.sin(T * 9) * .22 * k; L.sx = R.sx = NW_REST.sx - .05 * k; };
   if (st === 'sit'){
-    lLx = lRx = -1.4; aLx = aRx = -1.05; const s = driving ? driving.steer : 0; aLz = .2 + s * .6; aRz = -.2 + s * .6; roll = -s * .15;
+    lLx = lRx = -1.4; const s = driving ? driving.steer : 0;
+    L.sx = R.sx = -.75; L.sz = .22 - s * .45; R.sz = .22 + s * .45; L.ex = R.ex = -.75; L.ez = R.ez = -.3; roll = -s * .12;
   } else if (st === 'fly'){
-    lean = nw.spin; aLz = 2.3 + Math.sin(T * 25) * .4; aRz = -2.3 - Math.sin(T * 25) * .4; lLx = Math.sin(T * 20) * .8; lRx = -lLx; mouthY = .12;
+    lean = nw.spin; L.sz = 2.3 + Math.sin(T * 25) * .4; R.sz = 2.3 - Math.sin(T * 25) * .4; L.sx = R.sx = 0; L.ex = R.ex = -.2; L.ez = R.ez = 0;
+    lLx = Math.sin(T * 20) * .8; lRx = -lLx; mouthY = .12;
   } else if (st === 'flop'){
     const k = Math.min(1, t / .35), out = t > 2.1 ? Math.min(1, (t - 2.1) / .4) : 0, kk = k * (1 - out);
-    lean = -1.5 * kk; lift = .82 * Math.sin(1.5 * kk);
+    lean = -1.5 * kk; lift = .55 * Math.sin(1.5 * kk);
     if (t > .35 && t < 2.1){ rub(1); mouthY = .07 + Math.abs(Math.sin(T * 11)) * .07; roll = Math.sin(T * 18) * .05; lLx = lRx = -.5 + Math.sin(T * 7) * .2; }
   } else if (st === 'laugh'){
     const k = Math.min(1, t / .3) * (t > 1.9 ? Math.max(0, 1 - (t - 1.9) / .3) : 1);
-    lean = -.3 * k; rub(k); mouthY = .02 + k * (.06 + Math.abs(Math.sin(T * 11)) * .07); roll = Math.sin(T * 17) * .05 * k;
+    lean = -.28 * k; rub(k); mouthY = .018 + k * (.06 + Math.abs(Math.sin(T * 11)) * .07); roll = Math.sin(T * 17) * .05 * k;
   } else if (st === 'pose'){
     const k = Math.min(1, t / .3) * (t > 2.1 ? Math.max(0, 1 - (t - 2.1) / .3) : 1);
-    aRz = -.3 + (-2.6 + .3) * k; aRx = -.28 - .3 * k; aLz = .3 + .65 * k; aLx = -.28 + .55 * k;
-    roll = .14 * k; lean = -.06 * k; lLx = .25 * k; wink = 1 - .85 * k; mouthY = .02 + .02 * k; bob = Math.sin(T * 3) * .02 * k;
+    R.sz = mix(NW_REST.sz, 2.45, k); R.sx = mix(NW_REST.sx, -.35, k); R.ex = mix(NW_REST.ex, -1.75, k); R.ez = mix(NW_REST.ez, -.2, k);
+    L.sz = mix(NW_REST.sz, .62, k); L.sx = mix(NW_REST.sx, .25, k); L.ex = mix(NW_REST.ex, -1.1, k); L.ez = mix(NW_REST.ez, -1.0, k);
+    roll = .14 * k; lean = -.06 * k; lLx = .25 * k; wink = 1 - .85 * k; mouthY = .018 + .02 * k; bob = Math.sin(T * 3) * .02 * k;
   } else if (nw.air){
-    aLz = 1.3; aRz = -1.3; lLx = -.6; lRx = -.6; bz = .48;
+    L.sz = R.sz = 1.3; L.sx = R.sx = -.2; L.ex = R.ex = -.35; L.ez = R.ez = 0; lLx = -.6; lRx = -.6; bz = .48;
   } else if (nw.spd > .3){
-    const w = nw.walkT; roll = Math.sin(w) * .09; lLx = Math.sin(w) * .55; lRx = -lLx; aLx = -.3 - Math.sin(w) * .45; aRx = -.3 + Math.sin(w) * .45; aLz = .28; aRz = -.28;
+    const w = nw.walkT; roll = Math.sin(w) * .08; lLx = Math.sin(w) * .55; lRx = -lLx;
+    L.sx = -.25 - Math.sin(w) * .35; R.sx = -.25 + Math.sin(w) * .35; L.sz = R.sz = .38; L.ex = R.ex = -1.1;
     bob = Math.abs(Math.sin(w)) * .05; bz = .42 + Math.sin(w * 2) * .025;
   } else {
-    bz = .42 + Math.sin(T * 2) * .015; bob = Math.sin(T * 2) * .006; aLz += Math.sin(T * 2) * .03; aRz -= Math.sin(T * 2) * .03;
+    bz = .42 + Math.sin(T * 2) * .015; bob = Math.sin(T * 2) * .006; L.ex += Math.sin(T * 2) * .03; R.ex += Math.sin(T * 2) * .03;
   }
   const blink = (T % 3.7) < .12 ? .1 : 1;
   B.rotation.set(lean, 0, roll); B.position.y = lift + bob;
   NW.belly.scale.z = 1 + (bz - .42) * 1.1; NW.mouth.scale.y = Math.max(.018, mouthY * .9);
   NW.eyes[0].scale.y = blink * wink; NW.eyes[1].scale.y = blink;
-  aL.rotation.set(aLx, 0, aLz); aR.rotation.set(aRx, 0, aRz); lL.rotation.x = lLx; lR.rotation.x = lRx;
+  aL.rotation.set(L.sx, 0, L.sz); aR.rotation.set(R.sx, 0, -R.sz);
+  if (eL){ eL.rotation.set(L.ex, 0, L.ez); eR.rotation.set(R.ex, 0, -R.ez); }
+  lL.rotation.x = lLx; lR.rotation.x = lRx;
 }
