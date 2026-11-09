@@ -7,7 +7,7 @@ let camYaw = 0, camPitch = .32, camDist = 9;
 const orbitSave = {pos:camera.position.clone(), tgt:controls.target.clone()};
 const help = $('#help'), mini = $('#mini'), joyEl = $('#joy'), acts = $('#acts'), gstat = $('#gstat'), promptEl = $('#prompt');
 function setHelp(){
-  if (mode === 'orbit') help.innerHTML = '拖动旋转 · 滚轮或双指缩放 · 右键平移 · <b>点一栋楼</b>看介绍 · 右上角：<b>奶娃</b>开车，<b>黑洞</b>吞校园';
+  if (mode === 'orbit') help.innerHTML = '拖动旋转 · 滚轮或双指缩放 · 右键平移 · <b>点一栋楼</b>看介绍 · 右上角切到<b>奶娃</b>开车、<b>黑洞</b>吞校园，或回<b>菜单</b>';
   else if (TOUCH) help.innerHTML = '左下摇杆走路（推到底是跑）· 拖动屏幕转头 · 找 8 个金色打卡点';
   else help.innerHTML = '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 走路 · <kbd>Shift</kbd> 跑 · 拖动鼠标转头 · <kbd>←</kbd><kbd>→</kbd> 转身 · 找 8 个金色打卡点';
   help.hidden = mode === 'walk' && TOUCH;
@@ -27,7 +27,7 @@ function setMode(m){
   if (m !== 'naiwa'){ engineUpdate(0, 0, false); }
   camera.updateProjectionMatrix(); mode = m;
   ['orbit', 'walk', 'naiwa', 'hole'].forEach(k => $('#m-' + k).setAttribute('aria-pressed', String(m === k)));
-  document.body.classList.toggle('naiwa', m === 'naiwa' || m === 'hole');
+  document.body.classList.toggle('naiwa', m === 'naiwa' || m === 'hole'); document.body.dataset.mode = m;
   mini.hidden = m === 'orbit'; joyEl.hidden = !(m !== 'orbit' && TOUCH);
   acts.hidden = gstat.hidden = compass.hidden = m !== 'naiwa'; promptEl.hidden = !(m === 'naiwa' || m === 'hole'); hstat.hidden = m !== 'hole';
   NW.root.visible = m !== 'hole';
@@ -85,6 +85,7 @@ $('#cardwalk').addEventListener('click', () => {
 const keys = {};
 window.addEventListener('keydown', e => {
   if (e.target.tagName === 'BUTTON' && (e.code === 'Space' || e.code === 'Enter')) return;
+  if (e.target.tagName === 'INPUT' || document.querySelector('dialog[open]')) return;
   if (mode === 'naiwa' && !e.repeat){
     ac();
     if (e.code === 'KeyF' || e.code === 'Enter') doF();
