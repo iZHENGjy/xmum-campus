@@ -11,18 +11,24 @@
  *   XNet.submit(board, value) → Promise<boolean>，成绩比自己记录好才写入，写入成功为 true
  *   XNet.ready           Promise，联机初始化结束（成功或失败）后 resolve
  *   board: 'hole'（单局吞掉的 %）| 'stunt'（特技总分）| 'rich'（RM）
+ *   XNet.account         {google:boolean, email, name}：是否已用 Google 登录
+ *   XNet.signInGoogle()  → Promise<'linked'|'switched'>；游客身份直接升级成 Google 账号（uid 不变）；
+ *                          这个 Google 账号以前在别的设备用过，就切换过去并拉取它的云存档（会刷新页面）
+ *   XNet.signOut()       退出 Google，回到新的游客身份（会刷新页面）
  * 状态变化时会在 window 上派发 'xnet' 事件。
  *
  * 数据库路径：
  *   /presence/{uid} = {name, mode, x, z, y, h, car?, color, t}
  *   /boards/{board}/{uid} = {name, value, ts}
+ *   /saves/{uid} = {data, score, ts}   只有 Google 登录的人才有：本机所有 xmum-* 存档的 JSON，双向同步，进度多的一边为准
  */
 'use strict';
 (() => {
   const BOARDS = {hole:{max:100, dp:1}, stunt:{max:1e7, dp:0}, rich:{max:1e7, dp:2}};
   const XNet = window.XNet = {
-    online:false, uid:null, playersOnline:0,
+    online:false, uid:null, playersOnline:0, account:{google:false, email:null, name:null},
     top:async () => [], submit:async () => false,
+    signInGoogle:async () => { throw new Error('联机未开启'); }, signOut:async () => {},
     ready:Promise.resolve(false)
   };
   const cfg = window.XMUM_FIREBASE;
@@ -267,6 +273,87 @@
     }
   }
 
+  /* ---------- 云存档（只给 Google 登录的人） ---------- */
+  const SAVE_KEY = k => /^xmum-/.test(k) && k !== 'xmum-guest' && k !== 'xmum-restored';
+  function localBlob(){
+    const o = {};
+    try { for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (SAVE_KEY(k)) o[k] = localStorage.getItem(k); } } catch(e){}
+    return o;
+  }
+  function blobScore(o){                                  // 进度大致有多少：钱 + 车 + 特技 + 黑洞最好成绩
+    let s = 0;
+    try { const d = JSON.parse(o['xmum-gta-v1'] || 'null') || {}; s += (+d.money || 0) + (Array.isArray(d.owned) ? d.owned.length : 0) * 500 + (+d.stunt || 0) / 50; } catch(e){}
+    return s + (+o['xmum-hole-best'] || 0) * 10;
+  }
+  let lastPushed = '';
+  async function cloudPush(){
+    if (!XNet.online || !XNet.account.google) return;
+    const o = localBlob(), str = JSON.stringify(o);
+    if (str === lastPushed || str.length > 30000) return;
+    try {
+      await timeout(db.ref('saves/' + XNet.uid).set({data:str, score:Math.round(blobScore(o)), ts:firebase.database.ServerValue.TIMESTAMP}), 15000, '上传云存档');
+      lastPushed = str;
+    } catch(e){ console.warn('[XNet] 云存档上传失败', e); }
+  }
+  async function cloudSync(){                             // 返回 true 表示用云端进度覆盖了本机并刷新了页面
+    if (!XNet.online || !XNet.account.google) return false;
+    try {
+      const v = (await timeout(db.ref('saves/' + XNet.uid).once('value'), 10000, '读取云存档')).val();
+      if (v && typeof v.data === 'string'){
+        let cloud = {}; try { cloud = JSON.parse(v.data) || {}; } catch(e){}
+        if (blobScore(cloud) > blobScore(localBlob()) + .5){
+          for (const k of Object.keys(cloud)) if (SAVE_KEY(k) && typeof cloud[k] === 'string') localStorage.setItem(k, cloud[k]);
+          try { sessionStorage.setItem('xmum-restored', '1'); } catch(e){}
+          location.reload(); return true;
+        }
+      }
+      await cloudPush();
+    } catch(e){ console.warn('[XNet] 云存档同步失败', e); }
+    return false;
+  }
+  function setAccount(u){
+    const google = !!u && !u.isAnonymous && (u.providerData || []).some(p => p && p.providerId === 'google.com');
+    const gp = google ? u.providerData.find(p => p.providerId === 'google.com') : null;
+    XNet.account = {google, email:google ? (u.email || gp.email || null) : null, name:google ? (u.displayName || gp.displayName || null) : null};
+  }
+
+  /* ---------- Google 登录 ---------- */
+  XNet.signInGoogle = async () => {
+    await XNet.ready;
+    if (!XNet.online) throw Object.assign(new Error('联机不可用'), {code:'xnet/offline'});
+    const auth = firebase.auth(), prov = new firebase.auth.GoogleAuthProvider();
+    prov.setCustomParameters({prompt:'select_account'});
+    const cur = auth.currentUser;
+    try {
+      if (cur && cur.isAnonymous){
+        const r = await cur.linkWithPopup(prov);         // 游客 → Google，uid 不变，排行榜记录跟着走
+        await r.user.getIdToken(true); setAccount(r.user); emit();
+        await cloudPush(); return 'linked';
+      }
+      const r = await auth.signInWithPopup(prov);
+      setAccount(r.user); emit(); location.reload(); return 'switched';
+    } catch(e){
+      if (e && (e.code === 'auth/credential-already-in-use' || e.code === 'auth/email-already-in-use')){
+        /* 这个 Google 账号以前在别的设备上用过：切换过去，拉它的云存档 */
+        const cred = e.credential || (firebase.auth.GoogleAuthProvider.credentialFromError && firebase.auth.GoogleAuthProvider.credentialFromError(e));
+        if (!cred) throw e;
+        if (presRef) await presRef.remove().catch(() => {});
+        const r = await auth.signInWithCredential(cred);
+        XNet.uid = r.user.uid; setAccount(r.user); emit();
+        if (!(await cloudSync())) location.reload();
+        return 'switched';
+      }
+      throw e;
+    }
+  };
+  XNet.signOut = async () => {
+    if (!XNet.online) return;
+    await cloudPush();
+    if (presRef) await presRef.remove().catch(() => {});
+    await firebase.auth().signOut();
+    location.reload();                                     // 刷新后自动成为新的游客
+  };
+
   /* ---------- 启动 ---------- */
   async function start(){
     try {
@@ -275,9 +362,11 @@
         await timeout(Promise.all([loadScript(SDK + 'firebase-auth-compat.js'), loadScript(SDK + 'firebase-database-compat.js')]), 20000, '加载 Firebase SDK');
       }
       const app = firebase.apps && firebase.apps.length ? firebase.app() : firebase.initializeApp(cfg);
-      const cred = await timeout(app.auth().signInAnonymously(), 15000, '匿名登录');
-      me = (cred && cred.user) || app.auth().currentUser;
+      const auth = app.auth();
+      me = await timeout(new Promise(res => { const off = auth.onAuthStateChanged(u => { off(); res(u); }); }), 15000, '读取登录状态');
+      if (!me){ const cred = await timeout(auth.signInAnonymously(), 15000, '匿名登录'); me = (cred && cred.user) || auth.currentUser; }
       if (!me) throw new Error('匿名登录没有返回用户');
+      setAccount(me);
       XNet.uid = me.uid;
       db = app.database();
       /* 先读自己的最好成绩，顺便确认规则允许读写 */
@@ -304,7 +393,7 @@
       setInterval(() => { const on = g(() => HS.on, false); if (on !== holeWasOn) autoTick(false); }, SEND_MS);
       const away = () => {
         if (!XNet.online) return;
-        autoTick(true);
+        autoTick(true); cloudPush();
         hiddenPage = true; if (presRef) presRef.remove().catch(() => {}); lastSent = null;
       };
       document.addEventListener('visibilitychange', () => {
@@ -314,6 +403,13 @@
       window.addEventListener('pagehide', away);
       requestAnimationFrame(frame);
       recount(); emit();
+      if (XNet.account.google){
+        setInterval(cloudPush, 30000);
+        cloudSync().then(reloaded => {
+          let restored = false; try { restored = sessionStorage.getItem('xmum-restored') === '1'; sessionStorage.removeItem('xmum-restored'); } catch(e){}
+          if (!reloaded && restored) g(() => toast('已从云端恢复进度', XNet.account.email || '', 2400));
+        });
+      }
       return true;
     } catch(e){
       fail(e && e.message || '初始化失败', e);

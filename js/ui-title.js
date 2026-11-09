@@ -143,6 +143,48 @@ function openLeaderboard(board){
 $('#tLb').addEventListener('click', () => openLeaderboard('hole'));
 $('#hlb').addEventListener('click', () => openLeaderboard('hole'));
 
+/* ---------- 账号：可选的 Google 登录（换设备也能保留进度） ---------- */
+const acctEl = $('#tAcct'), acctText = $('#tAcctText'), acctBtn = $('#tGoogle'), acctBtnText = acctBtn.querySelector('span');
+const UI_EMBEDDED = /MicroMessenger|QQ\/|Weibo|FBAN|FBAV|Instagram|Line\/|DingTalk|AlipayClient|XiaoHongShu|aweme|Bytedance/i.test(navigator.userAgent);
+let acctBusy = false;
+function uiSyncAcct(){
+  const N = window.XNet;
+  if (!N || !N.online || !N.account){ acctEl.hidden = true; return; }
+  acctEl.hidden = false; acctBtn.hidden = false; acctBtn.disabled = acctBusy;
+  if (N.account.google){
+    acctEl.classList.add('on');
+    acctText.textContent = '已用 Google 登录' + (N.account.email ? '：' + N.account.email : '') + '，进度会存到云端';
+    acctBtnText.textContent = '退出'; acctBtn.dataset.act = 'out';
+  } else if (UI_EMBEDDED){
+    acctEl.classList.remove('on');
+    acctText.textContent = '想换手机也保留进度？微信等 App 里不能用 Google 登录，点右上角「···」选「在浏览器打开」。';
+    acctBtn.hidden = true;
+  } else {
+    acctEl.classList.remove('on');
+    acctText.textContent = '游客身份，进度只存在这台设备';
+    acctBtnText.textContent = '用 Google 登录'; acctBtn.dataset.act = 'in';
+  }
+}
+function uiLoginError(e){
+  const c = String(e && e.code || '');
+  if (/popup-closed|cancelled-popup/.test(c)) return '登录已取消';
+  if (/popup-blocked/.test(c)) return '浏览器拦截了登录弹窗，请允许弹窗后再点一次';
+  if (/unauthorized-domain/.test(c)) return '这个网址没有加到 Firebase 授权网域';
+  if (/operation-not-allowed/.test(c)) return 'Firebase 里还没开启 Google 登录';
+  if (/network/.test(c)) return '连不上 Google，检查网络后再试';
+  if (/web-storage|disallowed-useragent|operation-not-supported/.test(c)) return '这个浏览器不支持 Google 登录，换 Chrome 或 Safari 试试';
+  return '登录没成功：' + (e && e.message || c || '未知原因');
+}
+window.addEventListener('xnet', uiSyncAcct);
+acctBtn.addEventListener('click', async () => {
+  const N = window.XNet; if (!N || acctBusy) return;
+  acctBusy = true; uiSyncAcct(); let err = null;
+  try { if (acctBtn.dataset.act === 'out') await N.signOut(); else await N.signInGoogle(); }
+  catch(e){ err = e; }
+  acctBusy = false; uiSyncAcct();
+  if (err) acctText.textContent = uiLoginError(err);
+});
+
 window.XUI = {
   playerName: () => uiName,
   openLeaderboard,
