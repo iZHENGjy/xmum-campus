@@ -12,12 +12,13 @@
 /* ---------- the classroom (built once, far outside the campus) ---------- */
 const ROOM = {in:false, ox:0, oz:-1600, W:28, D:20, H:4.2, from:null, keep:null};
 const roomG = new THREE.Group(); roomG.visible = false; scene.add(roomG);
-const ROOM_DOOR = [ROOM.ox, ROOM.oz + ROOM.D / 2 - 1.6];            /* where you stand after walking in */
+const ROOM_DOOR = [ROOM.ox, ROOM.oz + ROOM.D / 2 - 1.6];            /* the exit spot just inside the door */
+const ROOM_SPAWN = [ROOM.ox + 2.5, ROOM.oz + 3];                     /* where you stand after walking in: an aisle, clear of the desks */
 const ROOM_PODIUM = [ROOM.ox + 4.5, ROOM.oz - ROOM.D / 2 + 2.6];
 let roomBoard = null;
 (() => {
   const {ox, oz, W, D, H} = ROOM, add = m => { roomG.add(m); return m; };
-  const wood = M('#c49a6c', {roughness:.75}), wall = M('#efe7d6'), wallLow = M('#b9ae99'), tile = M('#d9d3c7');
+  const wood = M('#9c7350', {roughness:.8}), wall = M('#efe7d6'), wallLow = M('#b9ae99'), tile = M('#d9d3c7');
   add(box(W + 40, .2, D + 40, tile, ox, -.09, oz, roomG)).castShadow = false;           /* corridor around the room (just above the grass) */
   add(box(W, .2, D, wood, ox, -.08, oz, roomG)).castShadow = false;                      /* classroom floor, top at y = .02 */
   const wallAt = (w, d, x, z) => { box(w, H, d, wall, x, H / 2, z, roomG); box(w + .02, .9, d + .02, wallLow, x, .45, z, roomG); addBox(x, z, w / 2, d / 2, 0); };
@@ -63,10 +64,15 @@ let roomBoard = null;
   }
   for (const im of [deskTop, deskLeg, chair]){ im.castShadow = im.receiveShadow = true; add(im); }
 })();
-const roomExitMark = gxMarker('#4fd18b', .4), podiumMark = gxMarker('#ff6f61', .45);
-roomG.add(roomExitMark, podiumMark); roomExitMark.visible = true; podiumMark.visible = false;
-roomExitMark.position.set(ROOM_DOOR[0], .05, ROOM_DOOR[1] + .2);
-podiumMark.position.set(ROOM_PODIUM[0], .05, ROOM_PODIUM[1] + 1.4);
+/* indoor markers are flat glowing circles on the floor: the outdoor light beams would poke out of the roofless room */
+function floorMark(color, r){
+  const m = new THREE.Mesh(new THREE.RingGeometry(r * .62, r, 40).rotateX(-Math.PI / 2), gxGlow(color, .75));
+  const fill = new THREE.Mesh(new THREE.CircleGeometry(r * .62, 40).rotateX(-Math.PI / 2), gxGlow(color, .18)); m.add(fill);
+  m.userData.ring = m; roomG.add(m); return m;
+}
+const roomExitMark = floorMark('#4fd18b', 1.3), podiumMark = floorMark('#ff6f61', 1.4); podiumMark.visible = false;
+roomExitMark.position.set(ROOM_DOOR[0], .04, ROOM_DOOR[1] + .2);
+podiumMark.position.set(ROOM_PODIUM[0], .04, ROOM_PODIUM[1] + 1.4);
 
 /* ---------- doors outside the teaching buildings ---------- */
 const ROOM_DOORS = ['A1', 'A2', 'A4', 'A5'].map(n => {
@@ -143,8 +149,8 @@ function exFinish(){
 function roomEnter(door){
   ROOM.in = true; ROOM.from = door; ROOM.keep = {dist:camDist, pitch:camPitch};
   roomBoard(door.name + ' 教室');
-  nw.x = ROOM_DOOR[0]; nw.z = ROOM_DOOR[1]; nw.y = 0; nw.h = Math.PI; nw.air = false; camYaw = 0;
-  camDist = 8; camPitch = .62; roomG.visible = true; mini.style.visibility = 'hidden';
+  nw.x = ROOM_SPAWN[0]; nw.z = ROOM_SPAWN[1]; nw.y = 0; nw.h = Math.PI; nw.air = false; camYaw = 0;
+  camDist = 10; camPitch = 1.0;   /* look down over the 4.2 m walls; js/90-main.js skips wall collision indoors */ roomG.visible = true; mini.style.visibility = 'hidden';
   if (EX.on && EX.door === door && !EX.got){ guard.g.visible = true; podiumMark.visible = true; }
   sfx.ding(); toast(`进了 ${door.name} 教室`, EX.on && EX.door === door && !EX.got ? '讲台抽屉在前面，小心巡逻的保安' : '走到门口的绿圈按 F 出去');
 }
@@ -250,7 +256,7 @@ function roomUpdate(dt, px, pz){
   }
   /* inside */
   if (ROOM.in){
-    roomExitMark.userData.ring.scale.y = 1 + Math.sin(performance.now() / 300) * .15;
+    roomExitMark.scale.setScalar(1 + Math.sin(performance.now() / 300) * .08);
     if (nearExit()) roomPrompt = (TOUCH ? '点「出门」' : '按 F ') + '出门';
     if (EX.on && EX.door === ROOM.from && !EX.got) updateGuard(dt);
   }

@@ -117,7 +117,7 @@ window.addEventListener('pointermove', e => {
   down.moved += Math.abs(dx) + Math.abs(dy);
   if (mode === 'walk'){ player.yaw -= dx * .0045; player.pitch = Math.max(-1.2, Math.min(1.2, player.pitch - dy * .0045)); }
   if (mode === 'hole'){ camYaw -= dx * .005; }
-  if (mode === 'naiwa'){ camYaw -= dx * .005; camPitch = Math.max(-.1, Math.min(1.2, camPitch + dy * .004)); camYawHold = 1.6; }
+  if (mode === 'naiwa'){ camYaw -= dx * .005; camPitch = Math.max(typeof ROOM !== 'undefined' && ROOM.in ? .75 : -.1, Math.min(1.2, camPitch + dy * .004)); camYawHold = 1.6; }
 });
 const endDown = e => {
   if (!down || e.pointerId !== down.id) return;
@@ -206,7 +206,7 @@ function updateNaiwaMode(dt, T){
   let d = dist;
   for (let k = 1; k <= 10; k++){
     const dd = dist * k / 10, x = tx + Math.sin(camYaw) * dd * cp, z = tz + Math.cos(camYaw) * dd * cp;
-    if (hitsBuilding(x, z, .6)){ d = Math.max(2.5, dd - dist / 10); break; }
+    if (!(typeof ROOM !== 'undefined' && ROOM.in) && hitsBuilding(x, z, .6)){ d = Math.max(2.5, dd - dist / 10); break; }   /* indoors the camera looks down over the walls */
   }
   camPos.set(tx + Math.sin(camYaw) * d * cp, Math.max(.6, ty + d * spch), tz + Math.cos(camYaw) * d * cp);
   if (camShake > .01){ camPos.x += (rnd() - .5) * camShake; camPos.y += (rnd() - .5) * camShake; camPos.z += (rnd() - .5) * camShake; camShake *= Math.exp(-dt * 6); }
