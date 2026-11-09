@@ -1,0 +1,72 @@
+name: 报告 bug
+description: 游戏哪里坏了、卡住了，或者显示不对
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        谢谢帮忙找 bug！从游戏里点「反馈」打开的话，模式、设备和浏览器、屏幕尺寸、版本号已经自动填好，补充下面的经过就行。
+        请不要在这里写邮箱、学号、手机号这类个人信息。
+  - type: dropdown
+    id: mode
+    attributes:
+      label: 在哪个模式
+      options:
+        - 开车 · 奶娃
+        - 黑洞 · 吞校园
+        - 俯瞰
+        - 漫游
+        - 标题画面 / 菜单
+        - 其他 / 不确定
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: 什么设备和浏览器
+      placeholder: 例如：iPhone · iOS 17.5 · Safari，或 电脑 · Windows 10/11 · Chrome 130
+    validations:
+      required: true
+  - type: input
+    id: screen
+    attributes:
+      label: 屏幕尺寸
+      description: 游戏会自动填，不知道可以留空
+      placeholder: 例如：屏幕 390×844 · 窗口 390×664 · 像素比 3
+  - type: input
+    id: version
+    attributes:
+      label: 游戏版本
+      description: 游戏会自动填，不知道可以留空
+      placeholder: 例如：v16
+  - type: textarea
+    id: steps
+    attributes:
+      label: 怎么操作出现的
+      description: 一步一步写，别人照着做能复现最好
+      placeholder: |
+        1. 选「开车 · 奶娃」
+        2. 开车到 D6 食堂门口
+        3. 按 F 下车
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望是什么
+      placeholder: 例如：奶娃正常下车站在路边
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际是什么
+      placeholder: 例如：奶娃卡进了墙里，动不了
+    validations:
+      required: true
+  - type: textarea
+    id: shots
+    attributes:
+      label: 截图（选填）
+      description: 把图片或录屏直接拖进来，或者粘贴
