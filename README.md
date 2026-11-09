@@ -1,8 +1,23 @@
 # XMUM 校园漫游
 
-照着厦门大学马来西亚分校（XMUM）2025 年 9 月的校园平面图，用 Three.js 搭的一个 3D 校园小游戏。打开网页就能玩，不用安装。
+照着厦门大学马来西亚分校（XMUM）2025 年 9 月的校园平面图，用 Three.js 搭的一个 3D 校园小游戏。打开网页就能玩，不用安装，手机电脑都行。
+
+### 👉 [点这里在线开玩：izhengjy.github.io/xmum-campus](https://izhengjy.github.io/xmum-campus/)
 
 > 粉丝作品，不是学校官方项目。建筑外观根据公开照片简化，楼层数是估计。
+
+[![开场画面](docs/screenshots/title.jpg)](https://izhengjy.github.io/xmum-campus/)
+
+## 游戏截图
+
+| | |
+|---|---|
+| ![奶娃在 A3 百姓大楼前](docs/screenshots/naiwa.jpg) | ![开着兰博鸡尼冲上跳台](docs/screenshots/drive.jpg) |
+| **奶娃模式**：在 A3 百姓大楼前摆姿势，旁边走过去的是同学 | **开车**：开着兰博鸡尼冲上东边的跳台飞出去 |
+| ![黑洞模式](docs/screenshots/hole.jpg) | ![校园夜景](docs/screenshots/night.jpg) |
+| **黑洞模式**：和「DDL」「早八」「期末周」抢着吞树林 | **夜景**：一主四从和宿舍楼的窗户都会亮灯 |
+| ![校园全景](docs/screenshots/overview.jpg) | ![XMUM 车行](docs/screenshots/shop.jpg) |
+| **俯瞰**：照平面图摆的整个校园，点楼能看介绍 | **XMUM 车行**：送外卖、玩特技攒钱买车 |
 
 ## 怎么玩
 
