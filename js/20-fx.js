@@ -80,7 +80,30 @@ function ac(){
   if (!AC){ try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ AC = null; } }
   if (AC && AC.state === 'suspended') AC.resume();
   if (AC && !noiseBuf){ noiseBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+  if (AC && !laughClip.tried) loadLaugh(AC);
   return soundOn ? AC : null;
+}
+/* 奶娃's real laugh (clip from Bilibili BV1auFZzaE4W, see README credits); synth fallback until/unless it loads */
+const laughClip = {tried:false, buf:null, src:null};
+function loadLaugh(a){
+  laughClip.tried = true;
+  fetch('assets/audio/naiwa-laugh.mp3')
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+    .then(data => new Promise((ok, bad) => { const p = a.decodeAudioData(data, ok, bad); if (p && p.catch) p.catch(bad); }))
+    .then(buf => { laughClip.buf = buf; })
+    .catch(e => console.warn('laugh clip unavailable, using synth', e));
+}
+function laughSynth(){ for (let i = 0; i < 6; i++){ tone('sawtooth', 330 - i * 14, 250 - i * 10, .11, .09, i * .15); } }
+function laughPlay(){
+  const a = ac(); if (!a) return;
+  if (!laughClip.buf){ laughSynth(); return; }
+  if (laughClip.src){ try { laughClip.src.stop(); } catch(e){} }
+  const s = a.createBufferSource(), g = a.createGain();
+  s.buffer = laughClip.buf; s.playbackRate.value = 0.94 + Math.random() * 0.12;
+  g.gain.value = 0.7;
+  s.connect(g).connect(a.destination); s.start();
+  s.onended = () => { if (laughClip.src === s) laughClip.src = null; };
+  laughClip.src = s;
 }
 function tone(type, f0, f1, dur, vol, delay){
   const a = ac(); if (!a) return; const t = a.currentTime + (delay || 0);
@@ -100,7 +123,7 @@ const sfx = {
   crash: p => { tone('square', 140, 50, .25, .18 * p); noise(.6, .45 * p, 1600); },
   boing: () => tone('sine', 190, 560, .22, .25),
   horn: () => { tone('square', 415, 410, .18, .12); tone('square', 520, 515, .18, .08); tone('square', 415, 410, .22, .12, .24); tone('square', 520, 515, .22, .08, .24); },
-  laugh: () => { for (let i = 0; i < 6; i++){ tone('sawtooth', 330 - i * 14, 250 - i * 10, .11, .09, i * .15); } },
+  laugh: laughPlay,
   ding: () => { tone('triangle', 1320, 1300, .25, .2); tone('triangle', 1760, 1740, .45, .16, .12); },
   sparkle: () => { for (let i = 0; i < 4; i++) tone('triangle', 900 + i * 260, 1400 + i * 260, .16, .1, i * .08); },
   splash: () => noise(.8, .35, 2500, 'highpass'),

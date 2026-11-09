@@ -7,29 +7,59 @@
       "$uid": {
         ".write": "auth != null && auth.uid === $uid",
         ".validate": "newData.hasChildren(['name', 'mode', 'x', 'z', 'y', 'h', 'color', 't'])",
-        "name": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16" },
-        "mode": { ".validate": "newData.isString() && newData.val().matches(/^(orbit|walk|naiwa|hole)$/)" },
-        "x": { ".validate": "newData.isNumber() && newData.val() >= -700 && newData.val() <= 700" },
-        "z": { ".validate": "newData.isNumber() && newData.val() >= -700 && newData.val() <= 700" },
-        "y": { ".validate": "newData.isNumber() && newData.val() >= -700 && newData.val() <= 700" },
-        "h": { ".validate": "newData.isNumber() && newData.val() >= -7 && newData.val() <= 7" },
-        "car": { ".validate": "newData.isString() && newData.val().matches(/^[a-z0-9]{1,12}$/)" },
-        "color": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F]{6}$/)" },
-        "t": { ".validate": "newData.isNumber() && newData.val() === now" },
-        "$other": { ".validate": false }
+        "name": {
+          ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16"
+        },
+        "mode": {
+          ".validate": "newData.isString() && newData.val().matches(/^(orbit|walk|naiwa|hole)$/)"
+        },
+        "x": {
+          ".validate": "newData.isNumber() && newData.val() >= -700 && newData.val() <= 700"
+        },
+        "z": {
+          ".validate": "newData.isNumber() && newData.val() >= -700 && newData.val() <= 700"
+        },
+        "y": {
+          ".validate": "newData.isNumber() && newData.val() >= -700 && newData.val() <= 700"
+        },
+        "h": {
+          ".validate": "newData.isNumber() && newData.val() >= -7 && newData.val() <= 7"
+        },
+        "car": {
+          ".validate": "newData.isString() && newData.val().matches(/^[a-z0-9]{1,12}$/)"
+        },
+        "color": {
+          ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F]{6}$/)"
+        },
+        "t": {
+          ".validate": "newData.isNumber() && newData.val() === now"
+        },
+        "$other": {
+          ".validate": false
+        }
       }
     },
     "boards": {
       "$board": {
-        ".read": "auth != null && ($board === 'hole' || $board === 'stunt' || $board === 'rich')",
-        ".indexOn": ["value"],
+        ".read": "auth != null && ($board === 'hole2' || $board === 'hole' || $board === 'stunt' || $board === 'rich')",
+        ".indexOn": [
+          "value"
+        ],
         "$uid": {
-          ".write": "auth != null && auth.uid === $uid && ($board === 'hole' || $board === 'stunt' || $board === 'rich')",
+          ".write": "auth != null && auth.uid === $uid && ($board === 'hole2' || $board === 'hole' || $board === 'stunt' || $board === 'rich')",
           ".validate": "newData.hasChildren(['name', 'value', 'ts']) && (!data.exists() || newData.child('value').val() >= data.child('value').val())",
-          "name": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16" },
-          "value": { ".validate": "newData.isNumber() && newData.val() >= 0 && (($board === 'hole' && newData.val() <= 100) || ($board !== 'hole' && newData.val() <= 10000000))" },
-          "ts": { ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 600000" },
-          "$other": { ".validate": false }
+          "name": {
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16"
+          },
+          "value": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && ((($board === 'hole' || $board === 'hole2') && newData.val() <= 100) || ($board !== 'hole' && $board !== 'hole2' && newData.val() <= 10000000))"
+          },
+          "ts": {
+            ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 600000"
+          },
+          "$other": {
+            ".validate": false
+          }
         }
       }
     }

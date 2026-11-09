@@ -465,3 +465,112 @@ body.titled #labels{opacity:0}
   .gxp-ach{grid-template-columns:1fr 1fr}
 }
 @media (prefers-reduced-motion: reduce){ #gxcall.pop,.gx-bump{animation:none} #gxach{transition:none} }
+
+/* ---------- black-hole mode extras: countdown, callouts, combo, power-ups, feed, end screen (built by js/70-hole.js) ---------- */
+.hx[hidden]{display:none!important}
+#hcd{position:fixed;z-index:7;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;
+  pointer-events:none;width:min(360px,calc(100% - 32px))}
+#hcd b{font-family:var(--display);font-size:112px;line-height:1;font-weight:900;color:#fff;font-variant-numeric:tabular-nums;
+  text-shadow:0 4px 0 rgba(40,14,90,.55),0 0 28px rgba(138,107,255,.85)}
+#hcd b.pop{animation:hcdPop .45s ease-out}
+.hcd-k{font-size:13px;font-weight:700;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.7)}
+#hcd small{font-size:12.5px;line-height:1.5;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.8);text-wrap:balance}
+#hcd:not(.late){padding:22px 18px 20px;border-radius:28px;background:radial-gradient(ellipse at center,rgba(14,8,30,.5) 30%,rgba(14,8,30,0) 72%)}
+#hcd .hdiff{pointer-events:auto;background:var(--panel-solid);box-shadow:0 6px 24px var(--shadow)}
+#hcd.late{top:58%}
+#hcd.late .hdiff,#hcd.late small,#hcd.late .hcd-k{display:none}
+#hcd.late b{font-size:96px;color:rgba(255,236,230,.8);text-shadow:0 4px 0 rgba(90,10,10,.45),0 0 28px rgba(255,80,60,.8)}
+@keyframes hcdPop{from{transform:scale(1.7);opacity:0}to{transform:scale(1);opacity:1}}
+.hdiff{display:inline-flex;background:var(--chip);border-radius:var(--r-sm);padding:2px;gap:2px}
+.hdiff button{border:0;background:transparent;color:var(--muted);border-radius:5px;cursor:pointer;font:inherit;font-size:14px;font-weight:500;min-height:36px;padding:0 18px;touch-action:manipulation}
+.hdiff button:hover{color:var(--ink)}
+.hdiff button[aria-pressed="true"]{background:var(--tile);color:var(--on-accent)}
+
+#hcall{position:fixed;z-index:7;left:50%;top:calc(var(--safe-t) + 19%);transform:translate(-50%,-10px) scale(.9);opacity:0;pointer-events:none;text-align:center;
+  width:max-content;max-width:calc(100% - 32px);box-sizing:border-box;transition:opacity .2s,transform .3s cubic-bezier(.2,1.6,.4,1)}
+#hcall.show{opacity:1;transform:translate(-50%,0) scale(1)}
+#hcall b{display:block;font-family:var(--display);font-size:30px;font-weight:900;line-height:1.25;color:#fff;letter-spacing:.02em;text-wrap:balance;
+  text-shadow:0 3px 0 rgba(30,10,60,.6),0 0 18px rgba(138,107,255,.85)}
+#hcall small{display:inline-block;margin-top:6px;font-size:13px;line-height:1.5;color:var(--ink);background:var(--panel-solid);padding:3px 12px;border-radius:999px;box-shadow:0 4px 14px var(--shadow)}
+#hcall.gold b{font-size:34px;color:#ffe08a;text-shadow:0 3px 0 rgba(90,50,0,.65),0 0 22px rgba(255,190,60,.95)}
+#hcall.bad b{color:#ff8a7a;text-shadow:0 3px 0 rgba(80,0,0,.6),0 0 18px rgba(255,60,60,.75)}
+#hcall.ice b{color:#d4f3ff;text-shadow:0 3px 0 rgba(0,40,80,.6),0 0 18px rgba(120,200,255,.95)}
+#hcall.go b{font-size:42px}
+#hcall.pu-spd b{color:#a5f6ff}
+#hcall.pu-mag b{color:#ffb3f8}
+#hcall.pu-dbl b{color:#ffe08a}
+
+#hbar{position:fixed;z-index:6;left:50%;bottom:calc(var(--safe-b) + 62px);transform:translateX(-50%);display:flex;align-items:center;justify-content:center;
+  gap:6px;flex-wrap:wrap;pointer-events:none;width:max-content;max-width:calc(100% - 32px)}
+#hcombo{padding:5px 14px 6px;font-family:var(--display);font-size:15px;font-weight:900;color:#fff;background:#6b4fe0;border-radius:var(--r-sm);white-space:nowrap;
+  font-variant-numeric:tabular-nums;box-shadow:0 6px 20px rgba(60,30,140,.35)}
+#hcombo b{font-size:20px;margin-left:4px}
+#hcombo small{font-family:var(--body);font-size:12px;font-weight:700;margin-left:8px;padding-left:8px;border-left:1px solid rgba(255,255,255,.55)}
+#hcombo.hot{background:linear-gradient(90deg,#d9452b,#e9961c);animation:hcHot .5s ease-in-out infinite alternate}
+@keyframes hcHot{from{transform:scale(1)}to{transform:scale(1.07)}}
+#hbuffs{display:contents}
+#hbuffs span{font-size:12.5px;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--panel-solid);color:var(--ink);border:2px solid var(--line);
+  white-space:nowrap;font-variant-numeric:tabular-nums;box-shadow:0 4px 14px var(--shadow)}
+#hbuffs .pu-spd{border-color:#38e8ff}
+#hbuffs .pu-mag{border-color:#ff5cf0}
+#hbuffs .pu-dbl{border-color:#ffc21a}
+#hbuffs .pu-ice{border-color:#7cc8ff}
+#hbuffs .dead{border-color:var(--tile);color:var(--tile)}
+
+#hfeed{position:fixed;z-index:6;right:calc(var(--safe-r) + 16px);bottom:calc(var(--safe-b) + 16px);display:flex;flex-direction:column;align-items:flex-end;gap:4px;
+  pointer-events:none;max-width:min(300px,60%)}
+#hfeed div{font-size:12px;line-height:1.45;padding:4px 10px;border-radius:var(--r-sm);background:var(--panel);color:var(--ink);border-left:3px solid var(--tile);
+  box-shadow:0 4px 14px var(--shadow);animation:hfIn .25s ease-out;transition:opacity .4s}
+#hfeed div.out{opacity:0}
+@keyframes hfIn{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:none}}
+
+#hpops{position:fixed;inset:0;z-index:4;pointer-events:none;overflow:hidden}
+.hpop{position:absolute;transform:translate(-50%,-100%);font-family:var(--display);font-size:15px;font-weight:900;color:#fff;white-space:nowrap;opacity:0;
+  text-shadow:0 2px 0 rgba(20,10,40,.75),0 0 10px rgba(0,0,0,.45)}
+.hpop.big{font-size:22px}
+.hpop.go{animation:hpopUp 1.2s ease-out forwards}
+@keyframes hpopUp{0%{opacity:0;transform:translate(-50%,-60%) scale(.6)}15%{opacity:1;transform:translate(-50%,-100%) scale(1.12)}100%{opacity:0;transform:translate(-50%,-260%) scale(1)}}
+@keyframes hpopFade{0%,60%{opacity:1}100%{opacity:0}}
+#hflash{position:fixed;inset:0;z-index:4;pointer-events:none;background:radial-gradient(circle at 50% 50%,transparent 25%,var(--hf,rgba(255,214,90,.75)) 100%);opacity:0}
+#hflash.go{animation:hflash .9s ease-out}
+@keyframes hflash{0%{opacity:0}12%{opacity:1}100%{opacity:0}}
+#htime.hurry{display:inline-block;color:var(--tile)!important;animation:hHurry .5s ease-in-out infinite alternate}
+@keyframes hHurry{from{transform:scale(1)}to{transform:scale(1.18)}}
+
+.hend-rank{display:grid;gap:4px;margin:0 0 12px;text-align:left;font-size:13.5px}
+.hend-rank div{display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:var(--r-sm);background:var(--chip);font-variant-numeric:tabular-nums}
+.hend-rank .me{font-weight:700;box-shadow:inset 0 0 0 2px var(--tile)}
+.hend-rank i{width:10px;height:10px;border-radius:50%;flex:none}
+.hend-rank span{flex:1;min-width:0}
+.hend-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:0 0 12px}
+.hend-grid div{display:flex;flex-direction:column;align-items:center;padding:6px 2px;border-radius:var(--r-sm);border:1px solid var(--line)}
+.hend-grid b{font-family:var(--display);font-size:18px;font-variant-numeric:tabular-nums}
+.hend-grid span{font-size:11px;color:var(--muted);white-space:nowrap}
+.hend-grid .none{grid-column:1 / -1;font-size:12.5px;color:var(--muted)}
+.hend-d{display:flex;align-items:center;justify-content:center;gap:10px;margin:0 0 14px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.hend-d .hdiff button{min-height:30px;padding:0 12px;font-size:13px}
+@media (max-width:560px){
+  #hcd b{font-size:92px}
+  #hcd.late b{font-size:76px}
+  #hcall{top:calc(var(--safe-t) + 24%)}
+  #hcall b{font-size:23px}
+  #hcall.gold b{font-size:26px}
+  #hcall.go b{font-size:32px}
+  #hcall small{font-size:12px}
+  #hbar{bottom:calc(var(--safe-b) + 160px)}
+  #hcombo{font-size:13px;padding:4px 11px 5px}
+  #hcombo b{font-size:17px}
+  #hbuffs span{font-size:11.5px;padding:2px 8px}
+  #hfeed{bottom:calc(var(--safe-b) + 20px);max-width:52%}
+  #hfeed div{font-size:11px;padding:3px 8px}
+  #hfeed div:nth-last-child(n+3){display:none}
+  .hpop{font-size:13px}
+  .hpop.big{font-size:17px}
+  #hend{padding:16px 16px 14px}
+  .hend-grid b{font-size:16px}
+}
+@media (prefers-reduced-motion: reduce){
+  #hcd b.pop,#hcombo.hot,#htime.hurry,#hfeed div,#hflash.go{animation:none}
+  .hpop.go{animation:hpopFade 1.2s forwards}
+  #hcall{transition:none}
+}
