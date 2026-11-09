@@ -329,7 +329,7 @@ const HOLE_CAT = [['st', '栋楼'], ['car', '辆车'], ['npc', '个同学'], ['t
 function endHole(){
   HS.on = false; HS.cd = 0;
   const pct = hole.score / HS.total * 100, rk = ranked(), place = rk.indexOf(hole) + 1;
-  let best = 0; try { best = +localStorage.getItem('xmum-hole-best') || 0; if (pct > best) localStorage.setItem('xmum-hole-best', pct.toFixed(1)); } catch(e){}
+  let best = 0; try { best = +localStorage.getItem('xmum-hole2-best') || 0; if (pct > best) localStorage.setItem('xmum-hole2-best', pct.toFixed(1)); } catch(e){}
   const record = pct > best && pct > 0;
   HH.eyebrow.textContent = record ? '时间到 · 新纪录' : '时间到';
   $('#hendT').textContent = place === 1 ? `第 1 名！吞掉了 XMUM 的 ${pct.toFixed(1)}%` : `第 ${place} 名 · 吞掉了 ${pct.toFixed(1)}%`;
