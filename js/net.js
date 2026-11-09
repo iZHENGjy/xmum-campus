@@ -10,7 +10,7 @@
  *   XNet.top(board, n=10)    → Promise<[{name, value, ts}]>，最好的在前；离线返回 []
  *   XNet.submit(board, value) → Promise<boolean>，成绩比自己记录好才写入，写入成功为 true
  *   XNet.ready           Promise，联机初始化结束（成功或失败）后 resolve
- *   board: 'hole'（单局吞掉的 %）| 'stunt'（特技总分）| 'rich'（RM）
+ *   board: 'hole2'（黑洞 2.0 单局吞掉的 %）| 'hole'（旧版黑洞，只读保留）| 'stunt'（特技总分）| 'rich'（RM）
  * 状态变化时会在 window 上派发 'xnet' 事件。
  *
  * 数据库路径：
@@ -19,7 +19,7 @@
  */
 'use strict';
 (() => {
-  const BOARDS = {hole:{max:100, dp:1}, stunt:{max:1e7, dp:0}, rich:{max:1e7, dp:2}};
+  const BOARDS = {hole2:{max:100, dp:1}, hole:{max:100, dp:1}, stunt:{max:1e7, dp:0}, rich:{max:1e7, dp:2}};
   const XNet = window.XNet = {
     online:false, uid:null, playersOnline:0,
     top:async () => [], submit:async () => false,
@@ -122,7 +122,7 @@
     const on = g(() => HS.on, false);
     if (holeWasOn && !on && g(() => HS.t, 1) <= .01){       // 一局黑洞正常结束（时间到）
       const pct = g(() => hole.score / HS.total * 100, 0);
-      if (pct > 0) XNet.submit('hole', pct);
+      if (pct > 0) XNet.submit('hole2', pct);              // 黑洞 2.0（有道具、连吞）单独一个榜，旧榜保留不动
     }
     holeWasOn = on;
     const t = performance.now();

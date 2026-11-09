@@ -1,11 +1,77 @@
-/* XMUM 校园漫游 · 保安追捕、特技连击、撞车判定、车行 */
+/* XMUM 校园漫游 · 保安追捕、特技连击、撞车判定、车行、改装、成就 */
 'use strict';
+/* hooks filled in by js/85-activities.js; no-ops keep pages that skip that file working */
+const gx = {paused:false, update(){}, mini(){}, target(){ return null; }, prompt(){ return ''; }, busy(){ return false; },
+  onStunt(){}, onCrash(){}, onBust(){}, leave(){}, scale(){ return 1; }, callout(){}, togglePause(){}};
+
+/* ---------- progression: saved upgrades, achievements, records; this session's stats ---------- */
+const prog = {up:{eng:0, grip:0, arm:0}, ach:{}, best:{}, life:{deliv:0, bust:0, taxi:0}, daily:''};
+const sess = {time:0, earned:0, deliv:0, bestCombo:0, acts:0, medals:0, taxi:0, bust:0, peak:0};
+function earn(v){
+  if (!(v > 0)) return; money += v; sess.earned += v; moneyChanged();
+  moneyEl.classList.remove('gx-bump'); void moneyEl.offsetWidth; moneyEl.classList.add('gx-bump');
+  if (money >= 2000) unlock('rich');
+}
+const ACH = [
+  ['deliv1', '开张大吉', '送出第一单外卖', 10], ['deliv25', '外卖骑手', '累计送出 25 单', 80],
+  ['busted', '进局子', '第一次被保安抓住', 10], ['star5', '五星通缉', '保安警戒拉满五颗星', 50], ['escape4', '溜了溜了', '四星以上甩掉保安', 80],
+  ['lake', '飞进湖里', '开着车飞进湖里', 30], ['eject', '人车分离', '车祸把奶娃甩飞出去', 20], ['air2', '空中飞人', '一次飞跃超过 2 秒', 40],
+  ['combo5k', '连击大师', '一次连击超过 5,000 分', 60], ['early8', '早八不迟到', '跑完早八冲刺', 30], ['gold', '金牌车手', '任意挑战拿到金牌', 80],
+  ['taxi5', '五星好评', '顺风车拿到五星评价', 40], ['allcars', '集齐五辆车', '车行五辆车全部买下', 200], ['tuned', '改装狂人', '任意一项改装到满级', 60],
+  ['rich', '小富婆', '钱包超过 RM 2,000', 0]
+];
+const achQ = []; let achT = 0;
+function unlock(id){
+  if (prog.ach[id]) return; const a = ACH.find(x => x[0] === id); if (!a) return;
+  prog.ach[id] = Date.now(); achQ.push(a);
+  if (achQ.length === 1) showAch();   /* before paying out: the reward can unlock another one, which then queues */
+  if (a[3]) earn(a[3]); else saveGame();
+}
+function showAch(){
+  const a = achQ[0], el = $('#gxach'); if (!a || !el) return;
+  el.innerHTML = '<i>成就解锁</i><b></b><small></small>'; el.querySelector('b').textContent = a[1];
+  el.querySelector('small').textContent = a[2] + (a[3] ? ` · +RM ${a[3]}` : '');
+  el.hidden = false; el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  tone('triangle', 784, 784, .14, .14); tone('triangle', 988, 988, .14, .14, .12); tone('triangle', 1319, 1319, .4, .16, .24);
+  clearTimeout(achT); achT = setTimeout(() => { el.classList.remove('show'); achT = setTimeout(() => { achQ.shift(); if (achQ.length) showAch(); else el.hidden = true; }, 350); }, 2600);
+}
+const UPG = [
+  {k:'eng',  name:'引擎', desc:'极速 +7%、加速 +14% / 级', cost:[150, 400, 900]},
+  {k:'grip', name:'轮胎', desc:'抓地 +10%、转向 +5% / 级', cost:[120, 320, 750]},
+  {k:'arm',  name:'防滚架', desc:'撞车掉血 −18% / 级', cost:[100, 280, 650]}
+];
+function tunedT(kind){
+  const b = CAR_T[kind], u = prog.up;
+  return Object.assign({}, b, {maxV:b.maxV * (1 + .07 * u.eng), acc:b.acc * (1 + .14 * u.eng), grip:b.grip * (1 + .1 * u.grip), steer:b.steer * (1 + .05 * u.grip), armor:(b.armor || 1) * (1 - .18 * u.arm)});
+}
 /* ---------- GTA: security chase ---------- */
 const patrols = [];
-for (let i = 0; i < 4; i++){ const c = makeCar('patrol', '#f4f2ec', 0, 5000 + i * 20, 0); cars.splice(cars.indexOf(c), 1); c.patrol = true; c.active = false; c.root.visible = false; c.inp = {thr:0, steer:0, brake:false}; patrols.push(c); }
-let heat = 0, calmT = 0, spawnCd = 0, sirenT = 0, sirenHi = false, bustT = 0, warned = false;
+for (let i = 0; i < 4; i++){ const c = makeCar('patrol', '#f4f2ec', 0, 5000 + i * 20, 0); cars.splice(cars.indexOf(c), 1); c.patrol = true; c.active = false; c.root.visible = false; c.inp = {thr:0, steer:0, brake:false}; c.T = Object.assign({}, CAR_T.patrol); patrols.push(c); }
+/* 5-star roadblock: two parked patrol cars across the road ahead */
+const blockers = [];
+for (let i = 0; i < 2; i++){ const c = makeCar('patrol', '#f4f2ec', 0, 5100 + i * 20, 0); cars.splice(cars.indexOf(c), 1); c.patrol = true; c.active = false; c.root.visible = false; c.inp = {thr:0, steer:0, brake:true}; blockers.push(c); }
+let heat = 0, calmT = 0, spawnCd = 0, sirenT = 0, sirenHi = false, bustT = 0, warned = false, lastStars = 0, chasePeak = 0, blockCd = 0, blockT = 0, forestTold = false;
+function hideCop(c){ c.active = false; c.root.visible = false; const i = cars.indexOf(c); if (i >= 0) cars.splice(i, 1); if (driving === c) leaveCar(); }
 function despawnChasers(){
-  for (const c of patrols){ if (!c.active) continue; c.active = false; c.root.visible = false; const i = cars.indexOf(c); if (i >= 0) cars.splice(i, 1); if (driving === c) leaveCar(); }
+  for (const c of patrols.concat(blockers)) if (c.active) hideCop(c);
+}
+function placeRoadblock(tx, tz, vx, vz){
+  const sp = Math.hypot(vx, vz); if (sp < 6) return false;
+  const ux = vx / sp, uz = vz / sp;
+  for (let k = 0; k < 60; k++){
+    const sg = roadSegs[(rnd() * roadSegs.length) | 0], t = .2 + rnd() * .6;
+    const x = sg.a[0] + (sg.b[0] - sg.a[0]) * t, z = sg.a[1] + (sg.b[1] - sg.a[1]) * t, rx = x - tx, rz = z - tz;
+    const along = rx * ux + rz * uz, lat = Math.abs(rx * uz - rz * ux);
+    if (along < 70 || along > 150 || lat > along * .35) continue;
+    const L = Math.hypot(sg.b[0] - sg.a[0], sg.b[1] - sg.a[1]) || 1, dx = (sg.b[0] - sg.a[0]) / L, dz = (sg.b[1] - sg.a[1]) / L;
+    const h = Math.atan2(dx, dz) + Math.PI / 2, off = Math.min(2.6, sg.h * .45);
+    const spots = [[x - dz * off, z + dx * off], [x + dz * off, z - dx * off]];
+    if (spots.some(([px, pz]) => carBlocked(blockers[0], px, pz, h) || lakes.some(Lk => inPoly(px, pz, Lk)) || Math.hypot(px - tx, pz - tz) < 60)) continue;
+    blockers.forEach((c, i) => { const [px, pz] = spots[i]; Object.assign(c, {x:px, z:pz, h, vx:0, vz:0, y:0, vy:0, air:false, lastVy:0, pitch:0, steer:0, active:true, hp:100, wrecked:false});
+      c.paint.color.set(c.color0); c.root.visible = true; c.root.position.set(px, 0, pz); c.root.rotation.set(0, h, 0); if (!cars.includes(c)) cars.push(c); });
+    return true;
+  }
+  return false;
 }
 function spawnChaser(tx, tz){
   const c = patrols.find(p2 => !p2.active); if (!c) return;
@@ -27,7 +93,8 @@ function chaseInput(c, tx, tz, dt){
 }
 function busted(){
   const fine = money * .3; money -= fine; moneyChanged();
-  heat = 0; calmT = 0; bustT = 0; despawnChasers();
+  heat = 0; calmT = 0; bustT = 0; lastStars = 0; chasePeak = 0; despawnChasers();
+  sess.bust++; prog.life.bust++; gx.onBust(); unlock('busted');
   if (driving) leaveCar();
   nw.x = 110; nw.z = 204; nw.y = 0; nw.state = 'idle'; nw.h = Math.PI; camYaw = 0;
   sfx.fail(); toast('被保安抓住了', fine > .005 ? `罚款 RM ${fine.toFixed(2)}，警戒解除` : '没钱罚，警告一次，警戒解除', 2800);
@@ -37,11 +104,33 @@ function updateChase(dt){
   const stars = Math.min(5, Math.floor(heat));
   const active = patrols.filter(c => c.active && c !== driving);
   if (stars >= 1 && !warned){ warned = true; toast('保安盯上你了', '撞东西、吓到同学都会让警戒升级', 2400); }
-  if (stars === 0) warned = false;
+  if (stars === 0){ warned = false; forestTold = false; chasePeak = 0; }
+  if (stars !== lastStars){
+    if (stars > lastStars && stars >= 3){
+      const say = {3:['警戒 ★★★', '保安叫了增援'], 4:['警戒 ★★★★', '巡逻车换上了大马力引擎'], 5:['五星警戒！', '前面在设路障，钻进树林能甩掉他们']}[stars];
+      toast(say[0], say[1], 2400); sfx.fail();
+    }
+    lastStars = stars; chasePeak = Math.max(chasePeak, stars); sess.peak = Math.max(sess.peak, stars);
+    if (stars >= 5) unlock('star5');
+  }
+  /* the forest hides you: chasers lose you sooner */
+  const inForest = inPoly(tx, tz, FOREST);
+  if (inForest && stars >= 1 && !forestTold){ forestTold = true; toast('钻进树林了', '保安在树林里看不清你，离远点就能甩掉', 2200); }
+  /* roadblock at five stars, cleared once you are well past it or the alert drops */
+  if (blockers[0].active){
+    blockT += dt; const on = Math.floor(performance.now() / 160) % 2 === 0;
+    for (const c of blockers){ if (!c.active) continue; c.lights[0].emissiveIntensity = on ? 2.2 : .1; c.lights[1].emissiveIntensity = on ? .1 : 2.2; }
+    if (stars < 4 || blockT > 35 || Math.hypot(blockers[0].x - tx, blockers[0].z - tz) > 220) for (const c of blockers) if (c.active) hideCop(c);
+  } else {
+    blockCd -= dt;
+    if (stars >= 5 && blockCd <= 0){ const v = driving || {vx:0, vz:0}; if (placeRoadblock(tx, tz, v.vx, v.vz)){ blockT = 0; blockCd = 22; } else blockCd = 3; }
+  }
   spawnCd -= dt;
   if (active.length < Math.min(4, stars) && spawnCd <= 0){ spawnChaser(tx, tz); spawnCd = 2.5; }
   let minD = 1e9;
+  const boost = stars >= 4 ? 1.22 : 1;
   for (const c of active){
+    c.T.maxV = CAR_T.patrol.maxV * boost; c.T.acc = CAR_T.patrol.acc * boost;
     chaseInput(c, tx, tz, dt);
     const d = Math.hypot(c.x - tx, c.z - tz); minD = Math.min(minD, d);
     c.farT = d > 100 ? (c.farT || 0) + dt : 0;
@@ -53,7 +142,8 @@ function updateChase(dt){
     const mySp = driving ? Math.hypot(driving.vx, driving.vz) : 0;
     if (minD < (driving ? 5.5 : 3.2) && mySp < 4) bustT += dt * (driving ? 1 : 1.6); else bustT = Math.max(0, bustT - dt);
     if (bustT > 1.5){ busted(); return; }
-    if (minD > 150){ calmT += dt; if (calmT > 6){ calmT = 0; heat = Math.floor(heat) - 1 + .5; if (heat < 1){ heat = 0; despawnChasers(); toast('甩掉了保安', '警戒解除'); sfx.ding(); } } }
+    if (minD > (inForest ? 70 : 150)){ calmT += dt * (inForest ? 1.6 : 1); if (calmT > 6){ calmT = 0; heat = Math.floor(heat) - 1 + .5; if (heat < 1){
+      heat = 0; despawnChasers(); toast('甩掉了保安', chasePeak >= 4 ? `从 ${chasePeak} 星警戒里溜了` : '警戒解除'); sfx.ding(); if (chasePeak >= 4) unlock('escape4'); chasePeak = 0; } } }
     else calmT = 0;
     sirenT -= dt; if (sirenT <= 0){ sirenT = .42; sirenHi = !sirenHi; tone('triangle', sirenHi ? 900 : 680, sirenHi ? 900 : 680, .38, .035); }
   } else heat = Math.max(0, heat - dt * .05);
@@ -62,18 +152,29 @@ function updateChase(dt){
 }
 
 /* ---------- GTA: stunt combos ---------- */
-const stunt = {pts:0, mult:1, label:'', idle:9, total:0};
+const stunt = {pts:0, mult:1, label:'', idle:9, total:0, driftT:0, longDone:false};
 const comboEl = $('#combo');
-function addStunt(label, pts){ if (mode !== 'naiwa') return; stunt.pts += pts * stunt.mult; stunt.label = label; stunt.idle = 0; stunt.mult = Math.min(8, stunt.mult + .5); }
+function addStunt(label, pts){
+  if (mode !== 'naiwa') return; stunt.pts += pts * stunt.mult; stunt.label = label; stunt.idle = 0; stunt.mult = Math.min(8, stunt.mult + .5);
+  if (label === '飞进湖里') unlock('lake');
+  if (label === '人车分离') unlock('eject');
+  gx.onStunt(label, pts);
+}
 function bankStunt(){
-  const pts = Math.round(stunt.pts); stunt.total += pts; const pay = pts / 50; money += pay; moneyChanged();
+  /* RM 1 per 50 points, tapering past RM 40 so one endless donut does not out-earn a dozen deliveries */
+  const pts = Math.round(stunt.pts), raw = pts / 50, pay = raw <= 40 ? raw : 40 + Math.sqrt(raw - 40) * 4; stunt.total += pts; earn(pay);
+  sess.bestCombo = Math.max(sess.bestCombo, pts); if (pts >= 5000) unlock('combo5k');
   $('#stunt').textContent = stunt.total.toLocaleString();
   if (pts >= 300){ toast(`特技 +${pts.toLocaleString()}`, `换成 RM ${pay.toFixed(2)}`, 1600); sfx.ding(); }
   stunt.pts = 0; stunt.mult = 1; stunt.label = '';
 }
 function updateStunt(dt, sp){
   const c = driving;
-  if (c && !c.air && c.slip > 5 && sp > 10){ stunt.pts += c.slip * dt * 8 * stunt.mult; stunt.label = '漂移'; stunt.idle = 0; stunt.mult = Math.min(8, stunt.mult + dt * .3); }
+  if (c && !c.air && c.slip > 5 && sp > 10){
+    stunt.pts += c.slip * dt * 8 * stunt.mult; stunt.label = '漂移'; stunt.idle = 0; stunt.mult = Math.min(8, stunt.mult + dt * .3);
+    stunt.driftT += dt;
+    if (stunt.driftT > 3 && !stunt.longDone){ stunt.longDone = true; addStunt('超长漂移', 250); gx.callout('超长漂移', '+250 × 连击'); }
+  } else if (!c || c.slip < 3){ stunt.driftT = 0; stunt.longDone = false; }
   stunt.idle += dt;
   if (stunt.pts > 0 && stunt.idle > 2.2) bankStunt();
   const show = stunt.pts > 0;
@@ -93,7 +194,7 @@ function judgeCrash(c, impact){
   else if (kmh < 80){ grade = '重撞'; dmg = 12 + (kmh - 45) * .9; }
   else { grade = '车祸'; dmg = 45 + (kmh - 80) * .6; }
   dmg *= c.T.armor || 1;
-  const was = c.hp; c.hp = Math.max(0, c.hp - dmg);
+  const was = c.hp; c.hp = Math.max(0, c.hp - dmg); gx.onCrash(grade, kmh);
   if (c.hp <= 0 && was > 0) wreck(c);
   if (kmh >= 80){ eject(impact); if (c.wrecked) toast('车祸！车也报废了', `${Math.round(kmh)} km/h · 去车行再叫一辆`, 2600); return; }
   toast(`${grade} · ${Math.round(kmh)} km/h`, c.wrecked ? '车报废了，下车换一辆吧' : `车况 ${Math.round(c.hp)}%`, 1500);
@@ -109,7 +210,8 @@ const SHOP = [
   {kind:'rr',    name:'劳斯来斯',     desc:'又长又稳又抗撞，奶娃坐进去像老板', price:3000, color:'#2b2b2e'}
 ];
 const owned = new Set(); let myCar = null;
-function saveGame(){ try { localStorage.setItem('xmum-gta-v1', JSON.stringify({money, owned:[...owned], stunt:stunt.total, my:myCar ? myCar.kind : null})); } catch(e){} }
+function saveGame(){ try { localStorage.setItem('xmum-gta-v1', JSON.stringify({money, owned:[...owned], stunt:stunt.total, my:myCar ? myCar.kind : null,
+  up:prog.up, ach:prog.ach, best:prog.best, life:prog.life, daily:prog.daily})); } catch(e){} }
 const fmtRM = v => 'RM ' + (v >= 100 ? Math.floor(v).toLocaleString() : v.toFixed(2));   /* HUD wallet: no decimals once it is 100+ */
 function moneyChanged(){ moneyEl.textContent = fmtRM(money); saveGame(); }
 function spotNear(px, pz, kind){
@@ -122,7 +224,7 @@ function spotNear(px, pz, kind){
 }
 function spawnMine(kind, x, z, h){
   const item = SHOP.find(s => s.kind === kind);
-  myCar = makeCar(kind, item.color, x, z, h); myCar.personal = true; return item;
+  myCar = makeCar(kind, item.color, x, z, h); myCar.personal = true; myCar.T = tunedT(kind); return item;
 }
 function summon(kind){
   if (myCar){ if (driving === myCar) leaveCar(); scene.remove(myCar.root); const i = cars.indexOf(myCar); if (i >= 0) cars.splice(i, 1); myCar = null; }
@@ -142,6 +244,13 @@ function renderShop(){
       : `<button class="btn" disabled>RM ${it.price.toLocaleString()} · 还差 ${Math.ceil(it.price - money).toLocaleString()}</button>`;
     return `<div class="car"><div class="sw" style="background:${it.color}"></div><div class="ci"><b>${it.name}</b><span>${it.desc}</span>
       <div class="st"><label>极速 ${Math.round(T.maxV * 3.6)}</label>${statBar(T.maxV / 80)}<label>加速</label>${statBar(T.acc / 30)}<label>操控</label>${statBar(T.grip * T.steer / 5.2)}<label>抗撞</label>${statBar(1 / (T.armor || 1) / 1.7)}</div></div>${btn}</div>`;
+  }).join('') + '<div class="gx-uh"><b>改装店</b><span>只对你自己的车生效，买过就一直有效</span></div>' + UPG.map(u => {
+    const lv = prog.up[u.k], max = lv >= u.cost.length, price = max ? 0 : u.cost[lv];
+    const pips = u.cost.map((_, i) => `<i class="${i < lv ? 'on' : ''}"></i>`).join('');
+    const btn = max ? '<button class="btn" disabled>已满级</button>'
+      : money >= price ? `<button class="btn buy" data-up="${u.k}">升到 ${lv + 1} 级 · RM ${price}</button>`
+      : `<button class="btn" disabled>RM ${price} · 还差 ${Math.ceil(price - money)}</button>`;
+    return `<div class="car gx-up"><div class="gx-pips" role="img" aria-label="${lv} / ${u.cost.length} 级">${pips}</div><div class="ci"><b>${u.name}</b><span>${u.desc}</span></div>${btn}</div>`;
   }).join('');
 }
 $('#shopList').addEventListener('click', e => {
@@ -149,7 +258,14 @@ $('#shopList').addEventListener('click', e => {
   if (b.dataset.buy){
     const it = SHOP.find(x => x.kind === b.dataset.buy); if (money < it.price) return;
     money -= it.price; owned.add(it.kind); moneyChanged(); closeShop(); summon(it.kind); toast('提车成功：' + it.name, `余额 RM ${money.toFixed(2)}`, 2600);
+    if (SHOP.every(s => owned.has(s.kind))) unlock('allcars');
   } else if (b.dataset.sum){ closeShop(); summon(b.dataset.sum); }
+  else if (b.dataset.up){
+    const u = UPG.find(x => x.k === b.dataset.up), lv = prog.up[u.k]; if (lv >= u.cost.length || money < u.cost[lv]) return;
+    money -= u.cost[lv]; prog.up[u.k]++; if (myCar) myCar.T = tunedT(myCar.kind); moneyChanged(); renderShop();
+    sfx.sparkle(); toast(`${u.name}升到 ${lv + 1} 级`, myCar ? '你的车已经换上了' : '买辆车就能用上', 2000);
+    if (prog.up[u.k] >= u.cost.length) unlock('tuned');
+  }
 });
 function openShop(){ if (mode !== 'naiwa') return; renderShop(); $('#shop').hidden = false; }
 function closeShop(){ $('#shop').hidden = true; }
@@ -170,6 +286,11 @@ const showCar = (() => {
   try {
     const d = JSON.parse(localStorage.getItem('xmum-gta-v1') || 'null'); if (!d) return;
     money = +d.money || 0; (d.owned || []).forEach(k => { if (CAR_T[k]) owned.add(k); }); stunt.total = +d.stunt || 0;
+    if (d.up) for (const u of UPG) prog.up[u.k] = Math.max(0, Math.min(u.cost.length, d.up[u.k] | 0));
+    if (d.ach && typeof d.ach === 'object') for (const k in d.ach) if (ACH.some(a => a[0] === k)) prog.ach[k] = +d.ach[k] || 1;
+    if (d.best && typeof d.best === 'object') for (const k in d.best) if (isFinite(d.best[k])) prog.best[k] = +d.best[k];
+    if (d.life) for (const k in prog.life) prog.life[k] = +d.life[k] || 0;
+    if (typeof d.daily === 'string') prog.daily = d.daily;
     moneyEl.textContent = fmtRM(money); $('#stunt').textContent = stunt.total.toLocaleString();
     if (d.my && owned.has(d.my)){ const [x, z, h] = spotNear(110, 204, d.my); spawnMine(d.my, x, z, h); }
   } catch(e){}
