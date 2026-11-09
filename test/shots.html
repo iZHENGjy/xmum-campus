@@ -223,7 +223,9 @@
   const pins = [];
   const pin = f => { pins.push(f); f(); };
   setInterval(() => pins.forEach(f => f()), 25);
-  const _r = renderer.render.bind(renderer); renderer.render = (a, b) => { if (window.__cam) window.__cam(b); _r(a, b); };
+  const _r = renderer.render.bind(renderer); renderer.render = (a, b) => { if (window.__cam) window.__cam(b); _r(a, b); const ri = renderer.info.render; window.__stats = {calls:ri.calls, tris:ri.triangles}; };
+  /* &stats=1: dump draw calls / triangles of the last frame into the DOM (read with --dump-dom) */
+  if (/stats=1/.test(location.search)) setTimeout(() => { const p = document.createElement('pre'); p.id = 'stats'; p.textContent = 'STATS ' + JSON.stringify(window.__stats); document.body.appendChild(p); }, 4500);
   const quiet = () => { try { soundOn = false; } catch(e){} };
   setTimeout(() => {
     quiet();
@@ -231,6 +233,14 @@
     if (sc === 'overview'){
       XUI.closeTitle('orbit'); controls.autoRotate = false; controls.enableDamping = false;
       pin(() => { controls.target.set(30, 0, -20); camera.position.set(210, 300, 520); controls.update(); });
+    }
+    /* free camera: ?s=cam&c=px,py,pz,tx,ty,tz[&t=day|dusk|night][&rain=1] */
+    if (sc === 'cam'){
+      const q = new URLSearchParams(location.search), c = (q.get('c') || '160,40,190,105,20,80').split(',').map(Number), t = q.get('t');
+      XUI.closeTitle('orbit'); controls.autoRotate = false; controls.enableDamping = false;
+      if (t){ tgt = P3[t]; applyTime(1); }
+      if (q.get('rain') && window.setRain) setRain(true, true);
+      pin(() => { controls.target.set(c[3], c[4], c[5]); camera.position.set(c[0], c[1], c[2]); controls.update(); });
     }
     if (sc === 'night'){
       XUI.closeTitle('orbit'); controls.autoRotate = false; controls.enableDamping = false; tgt = P3.night; applyTime(1);

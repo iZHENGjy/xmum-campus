@@ -122,19 +122,42 @@ structBlock(function(){
 
 /* ---------- 一主四从: A1–A5 ---------- */
 const sideDesc = '"一主四从"里的"从"楼之一：讲堂、课室、电脑室和实验室都在这几栋。';
-building({arcade:true, bay:true, name:'A1', tag:'教学', desc:sideDesc + '它在最西端，紧挨礼堂。', floors:6, px:900, py:640, wp:95, dp:85, rot:18, variant:1});
-building({arcade:true, bay:true, name:'A2', tag:'教学', desc:sideDesc, floors:6, px:1015, py:602, wp:100, dp:85, rot:8});
+building({arcade:true, bay:true, name:'A1', tag:'教学', desc:sideDesc + '它在最西端，紧挨礼堂。', floors:6, px:900, py:640, wp:95, dp:85, rot:18, variant:1, plaque:{text:'A1'}});
+const A_ST = [structures[structures.length - 1]];
+building({arcade:true, bay:true, name:'A2', tag:'教学', desc:sideDesc, floors:6, px:1015, py:602, wp:100, dp:85, rot:8, plaque:{text:'A2'}});
+A_ST.push(structures[structures.length - 1]);
 const a3Info = {name:'A3 百姓大楼', tag:'主楼', floors:9,
   desc:'九层的百姓大楼，是"一主四从"主楼群正中间的主楼，正对正门。图书馆就在这里，2023 年 5 月试开放，可藏书 100 多万册，座位 2000 多个。上面几层是招生、财务等办公室。'};
 const a3s = newStruct(a3Info);
-building({arcade:true, portico:{w:36, h:13}, struct:a3s, px:1155, py:575, wp:140, dp:115, floors:5, info:a3Info, label:false, variant:1, roofH:9});
-const a3t = building({struct:a3s, px:1155, py:575, wp:72, dp:58, floors:9, info:a3Info, label:false, variant:1, roofH:4, over:2.8, noCollide:true});
-const a3c = building({struct:a3s, px:1155, py:575, wp:34, dp:26, floors:1.6, y0:a3t - 3.4, info:a3Info, label:'A3 百姓大楼', roofH:7, over:2.4, noCollide:true});
-building({arcade:true, bay:true, name:'A4', tag:'教学', desc:sideDesc, floors:6, px:1295, py:580, wp:110, dp:85});
-building({arcade:true, bay:true, name:'A5', tag:'教学', desc:sideDesc + '再往东走就是 B1 和运动场。', floors:6, px:1425, py:585, wp:110, dp:85, rot:-3, variant:1});
-building({name:'礼堂', tag:'教学', desc:'A1 旁边的礼堂（Auditorium）。', floors:2, px:815, py:680, wp:75, dp:42, rot:18, roof:'#b9b2a6', roofH:4, minor:true});
+building({arcade:true, portico:{w:36, h:13}, struct:a3s, px:1155, py:575, wp:140, dp:115, floors:5, info:a3Info, label:false, variant:1, roofH:9, plaque:{text:'百姓大楼', w:4.6}});
+A_ST.push(a3s);
+const a3t = building({struct:a3s, px:1155, py:575, wp:72, dp:58, floors:9, info:a3Info, label:false, variant:1, roofH:4, over:2.8, noCollide:true, waist:[7]});
+const a3c = building({struct:a3s, px:1155, py:575, wp:34, dp:26, floors:1.6, y0:a3t - 3.4, info:a3Info, label:'A3 百姓大楼', roofH:7, over:2.4, noCollide:true, finial:true});
+building({arcade:true, bay:true, name:'A4', tag:'教学', desc:sideDesc, floors:6, px:1295, py:580, wp:110, dp:85, plaque:{text:'A4'}});
+A_ST.push(structures[structures.length - 1]);
+building({arcade:true, bay:true, name:'A5', tag:'教学', desc:sideDesc + '再往东走就是 B1 和运动场。', floors:6, px:1425, py:585, wp:110, dp:85, rot:-3, variant:1, plaque:{text:'A5'}});
+A_ST.push(structures[structures.length - 1]);
+building({name:'礼堂', tag:'教学', desc:'A1 旁边的礼堂（Auditorium）。', floors:2, px:815, py:680, wp:75, dp:42, rot:18, roof:'#b9b2a6', roofH:4, minor:true, canopy:'front', plaque:{text:'礼堂', w:4, y:5.2, z:12.65}});
 const iaec = {name:'国际学术交流中心', tag:'交流', desc:'International Academic Exchange Centre。教学区西边一排两层的小楼。'};
-[[565,650],[612,650],[660,648],[706,645]].forEach(([px, py], i) => building({px, py, wp:38, dp:24, floors:2, rot:-3, info:iaec, label:i === 1 ? '国际学术交流中心' : false, minor:true}));
+[[565,650],[612,650],[660,648],[706,645]].forEach(([px, py], i) => building({px, py, wp:38, dp:24, floors:2, rot:-3, info:iaec, label:i === 1 ? '国际学术交流中心' : false, minor:true, canopy:'front'}));
+
+/* 连廊: covered walkways joining the arcades of the A row (each hangs off the western building, so it goes when that one is swallowed) */
+(function(){
+  const A = [[900, 640, 95, 85, 18], [1015, 602, 100, 85, 8], [1155, 575, 140, 115, 0], [1295, 580, 110, 85, 0], [1425, 585, 110, 85, -3]];
+  const edge = ([px, py, wp, dp, rot], sx) => { const [x, z] = P(px, py), r = -rot * D2R, lx = sx * S(wp) / 2, lz = S(dp) / 2 + 1.2; return [x + lx * Math.cos(r) + lz * Math.sin(r), z - lx * Math.sin(r) + lz * Math.cos(r)]; };
+  const M4 = new THREE.Matrix4(), inv = new THREE.Matrix4();
+  for (let i = 0; i < A.length - 1; i++){
+    const a = edge(A[i], 1), b = edge(A[i + 1], -1), dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz) + 1.2, y = 5.25;
+    const deco = [], rp = roofParts(L, 2.6, 1.15, .55, 0, y + .55, 0);
+    tbox(deco, L, .5, 3, 0, y + .25, 0, TRIM); tbox(deco, L, .16, 3.3, 0, y + .58, 0, TRIM2);
+    for (const e of [-1, 1]) for (const s of [-1, 1]) tbox(deco, .45, y, .45, e * (L / 2 - .5), y / 2, s * 1.1, PIL);
+    const st = A_ST[i], g = st.groups[0]; g.updateMatrixWorld(true);
+    M4.compose(_cp.set((a[0] + b[0]) / 2, 0, (a[1] + b[1]) / 2), _cq.setFromAxisAngle(UP, Math.atan2(-dz, dx)), _cs.set(1, 1, 1)).premultiply(inv.copy(g.matrixWorld).invert());
+    const ms = [new THREE.Mesh(geoMerge(deco), decoMat)]; ms[0].castShadow = ms[0].receiveShadow = true; g.add(ms[0]);
+    ms.push(...roofMeshes(rp, roofMat('#c4502a'), g));
+    for (const m of ms){ m.geometry.applyMatrix4(M4); m.userData.info = st.info; pickables.push(m); }
+  }
+})();
 
 /* Phase 2 */
 const p2 = {name:'研究生研究中心（二期）', tag:'二期', desc:'平面图上用红色虚线圈出的二期项目，标注为研究生研究中心（Postgraduate Research Centre）。', spawn:[-408, 70, 0]};
@@ -146,7 +169,7 @@ const lyDesc = '校内宿舍楼。十字形平面的高层塔楼，房间带独�
 [['LY6',820,95],['LY7',945,95],['LY8',1200,90],['LY9',1340,90],['LY2',975,190],['LY4',1200,175],['LY5',1320,178]].forEach(([n, px, py]) =>
   crossB({name:n, tag:'宿舍', desc:lyDesc, px, py, ap:64, tp:22, bp:64, floors:16, variant:2, roof:'#c24d2a', minor:true}));
 crossB({name:'LY1', tag:'LY 区', desc:'LY 区的一栋。官网的住宿页没有列出它的用途。', px:870, py:205, ap:64, tp:22, bp:64, floors:16, variant:2, roof:'#c24d2a', minor:true});
-building({arcade:true, name:'LY3 食堂', tag:'食堂', desc:'LY 宿舍区的食堂（一楼）。南面的半圆形草坪上立着 XMUM 字样。', px:1075, py:115, wp:105, dp:115, floors:3, roofH:10});
+building({arcade:true, name:'LY3 食堂', tag:'食堂', desc:'LY 宿舍区的食堂（一楼）。南面的半圆形草坪上立着 XMUM 字样。', px:1075, py:115, wp:105, dp:115, floors:3, roofH:10, plaque:{text:'LY3 食堂', w:6, y:7.6}});
 (function(){
   const [x, z] = P(1075, 215);
   const semi = new THREE.Mesh(new THREE.CircleGeometry(22, 32, 0, Math.PI), flatMat('#8cc461', 8));
@@ -173,14 +196,27 @@ structBlock(function d6(){
   const roof = new THREE.Mesh(new THREE.LatheGeometry(prof, 56), M('#eceae4', {side:THREE.DoubleSide, roughness:.5})); roof.position.set(x, 1 + H, z);
   const glass = new THREE.Mesh(new THREE.CylinderGeometry(r * .45, r * .45, 2.4, 40), M('#9cc7d8', {roughness:.15, metalness:.3})); glass.position.set(x, 1 + H + 4.4, z);
   const cap = new THREE.Mesh(new THREE.SphereGeometry(r * .45, 40, 10, 0, Math.PI * 2, 0, Math.PI / 2), M('#cfe3ea', {roughness:.2, metalness:.2})); cap.scale.y = .25; cap.position.set(x, 1 + H + 5.6, z);
-  [base, body, roof, glass, cap].forEach(m => { m.castShadow = m.receiveShadow = true; scene.add(m); m.userData.info = info; pickables.push(m); });
+  /* ground-floor colonnade with a ring awning, ribs running up the white ring roof, and mullions on the glass drum */
+  const cols = new THREE.InstancedMesh(colGeo, colMat, 30);
+  for (let i = 0; i < 30; i++){ const a = i / 30 * Math.PI * 2; _cm.compose(_cp.set(x + Math.cos(a) * (r + .55), 1, z + Math.sin(a) * (r + .55)), _cq.identity(), _cs.set(.8, 4.1, .8)); cols.setMatrixAt(i, _cm); }
+  cols.frustumCulled = false;
+  const dk = [geoTint(new THREE.CylinderGeometry(r + 2.3, r + 2.3, .5, 56, 1, true).translate(x, 5.35, z), TRIM),
+    geoTint(new THREE.RingGeometry(r - .1, r + 2.3, 56, 1).rotateX(-Math.PI / 2).translate(x, 5.6, z), TRIM2),
+    geoTint(new THREE.RingGeometry(r - .1, r + 2.3, 56, 1).rotateX(Math.PI / 2).translate(x, 5.1, z), TRIM)];
+  for (let k = 0; k < 24; k++){
+    const a = k / 24 * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+    for (let i = 0; i < 8; i++){ const p0 = prof[i], p1 = prof[i + 1]; dk.push(geoTint(rodGeo(.16, .16, [x + ca * p0.x, 1 + H + p0.y + .1, z + sa * p0.x], [x + ca * p1.x, 1 + H + p1.y + .1, z + sa * p1.x], 4), '#d9d5ca')); }
+    if (k % 2 === 0) dk.push(geoTint(new THREE.BoxGeometry(.16, 2.4, .16).translate(x + ca * (r * .45 + .03), 1 + H + 4.4, z + sa * (r * .45 + .03)), '#e8e6e0'));
+  }
+  const ring = new THREE.Mesh(geoMerge(dk), decoMat);
+  [base, body, roof, glass, cap, cols, ring].forEach(m => { m.castShadow = m.receiveShadow = true; scene.add(m); m.userData.info = info; pickables.push(m); });
   addCircle(x, z, r + 1.5); addFp({t:1, x, z, r});
   addLabel('D6 食堂', x, 1 + H + 12, z);
 })();
 
 /* B1, courts, field */
 building({arcade:true, bay:true, name:'B1 学生活动中心', tag:'活动', floors:5, px:1700, py:400, wp:190, dp:88, roofH:7, variant:1,
-  desc:'五层的学生活动中心。三楼有室内运动中心、健身房和游泳池；楼里还有课室、电脑室、学生服务大厅、自习区、中医诊所、超市、面包店和餐厅。'});
+  desc:'五层的学生活动中心。三楼有室内运动中心、健身房和游泳池；楼里还有课室、电脑室、学生服务大厅、自习区、中医诊所、超市、面包店和餐厅。', skylight:true, plaque:{text:'学生活动中心', w:7}});
 const courtsInfo = {name:'户外球场', tag:'运动', desc:'Outdoor Courts：五人足球、网球、排球、篮球。'};
 (function(){
   const [x, z] = P(1700, 512), w = S(190), d = S(85);
@@ -408,16 +444,29 @@ const starMat = new THREE.PointsMaterial({color:'#ffffff', size:1.7, sizeAttenua
 const stars = new THREE.Points(starGeo, starMat); scene.add(stars);
 const moonMat = new THREE.MeshBasicMaterial({color:'#f4f0da', transparent:true, opacity:0, fog:false});
 const moon = new THREE.Mesh(new THREE.SphereGeometry(70, 24, 16), moonMat); scene.add(moon);
-const cloudMat = new THREE.MeshLambertMaterial({color:'#ffffff', transparent:true, opacity:.95, flatShading:true});
-const puff = new THREE.IcosahedronGeometry(1, 1), clouds = [];
-for (let i = 0; i < 16; i++){
-  const c = new THREE.Group();
-  for (let j = 0, n = 4 + (rnd() * 4 | 0); j < n; j++){
-    const m = new THREE.Mesh(puff, cloudMat), s = 18 + rnd() * 18;
-    m.scale.set(s * 1.4, s * .55, s); m.position.set(j * 22 - n * 10 + rnd() * 8, rnd() * 6, rnd() * 18 - 9); c.add(m);
+/* cumulus: each cloud is one merged mesh of puffs with a flat base, lit top and a cool grey belly (vertex colours, tinted by time of day) */
+const cloudMat = new THREE.MeshLambertMaterial({color:'#ffffff', vertexColors:true, transparent:true, opacity:.95, depthWrite:false});
+const clouds = [];
+(function(){
+  const rr = mkRng(5150), top = new THREE.Color('#ffffff'), belly = new THREE.Color('#b9c3cf'), C = new THREE.Color();
+  const puffGeo = (s, sx, sy, sz, x, y, z) => {
+    const g = new THREE.IcosahedronGeometry(1, 2), p = g.attributes.position;
+    for (let k = 0; k < p.count; k++){ if (p.getY(k) < -.25) p.setY(k, -.25 - (p.getY(k) + .25) * .12); }
+    return g.scale(s * sx, s * sy, s * sz).translate(x, y, z);
+  };
+  for (let i = 0; i < 16; i++){
+    const parts = [];
+    /* same rnd() calls as the old per-puff meshes, so everything placed after the clouds stays put */
+    for (let j = 0, n = 4 + (rnd() * 4 | 0); j < n; j++){ const s = 18 + rnd() * 18; parts.push(puffGeo(s, 1.4, .55, 1, j * 22 - n * 10 + rnd() * 8, rnd() * 6, rnd() * 18 - 9)); }
+    const n2 = 2 + (rr() * 3 | 0);
+    for (let j = 0; j < n2; j++){ const s = 12 + rr() * 10; parts.push(puffGeo(s, 1.1, .8, 1, (rr() - .5) * 60, 8 + rr() * 6, (rr() - .5) * 14)); }
+    const g = geoMerge(parts), p = g.attributes.position, c = new Float32Array(p.count * 3);
+    for (let k = 0; k < p.count; k++){ C.copy(belly).lerp(top, Math.min(1, Math.max(0, (p.getY(k) + 6) / 20))); c[k * 3] = C.r; c[k * 3 + 1] = C.g; c[k * 3 + 2] = C.b; }
+    g.setAttribute('color', new THREE.BufferAttribute(c, 3));
+    const m = new THREE.Mesh(g, cloudMat); m.renderOrder = -1;
+    m.position.set(rnd() * 3000 - 1500, 320 + rnd() * 120, rnd() * 2400 - 1200); scene.add(m); clouds.push(m);
   }
-  c.position.set(rnd() * 3000 - 1500, 320 + rnd() * 120, rnd() * 2400 - 1200); scene.add(c); clouds.push(c);
-}
+})();
 
 /* ---------- checkpoints ---------- */
 const CPW = [
