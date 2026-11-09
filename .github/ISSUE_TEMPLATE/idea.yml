@@ -1,0 +1,24 @@
+name: 提建议
+description: 想加的玩法、想改的地方
+title: "[建议] "
+labels: ["建议"]
+body:
+  - type: textarea
+    id: want
+    attributes:
+      label: 想要什么
+      placeholder: 例如：黑洞模式加一个双人对战
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: 为什么想要
+      placeholder: 例如：和室友一起玩的时候想直接比谁吞得多
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: 游戏信息（选填）
+      description: 从游戏里点「反馈」打开会自动填，可以不管
