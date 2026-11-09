@@ -1,5 +1,10 @@
 /* XMUM 校园漫游 · 地面、道路、湖、所有楼、植物、天空、打卡点、昼夜 */
 'use strict';
+/* ---------- weather state (driven by js/16-weather.js, applied in applyTime) and the surfaces that look wet after rain ---------- */
+const wx = {rain:0, wet:0, target:0};
+const wetMats = [];
+function regWet(m, minR){ wetMats.push([m, m.color.clone(), m.roughness, minR]); return m; }
+
 /* ---------- ground ---------- */
 function flatPoly(pts, mat, y, smooth){
   const v = pts.map(p => new THREE.Vector2(p[0], -p[1]));
@@ -10,18 +15,19 @@ function flatPoly(pts, mat, y, smooth){
   return {mesh:m, poly:s.getPoints(10).map(p => [p.x, -p.y])};
 }
 const pxPts = arr => arr.map(p => P(p[0], p[1]));
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), M('#4f7a3b'));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), regWet(M('#4f7a3b'), .6));
 ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
-flatPoly(pxPts([[300,870],[100,820],[25,690],[22,320],[80,120],[240,20],[560,5],[1840,12],[1925,100],[1925,870]]), flatMat('#74a955', 1), .02, false);
+flatPoly(pxPts([[300,870],[100,820],[25,690],[22,320],[80,120],[240,20],[560,5],[1840,12],[1925,100],[1925,870]]), regWet(flatMat('#74a955', 1), .55), .02, false);
 const FOREST = pxPts([[330,60],[760,45],[790,240],[900,290],[980,440],[900,540],[760,600],[560,640],[510,560],[500,440],[330,260],[250,170]]);
-flatPoly(FOREST, flatMat('#4d8a3e', 2), .03, true);
+flatPoly(FOREST, regWet(flatMat('#4d8a3e', 2), .6), .03, true);
 const LAWN_SQ = pxPts([[385,140],[600,130],[640,200],[630,330],[400,340],[380,250]]);
-flatPoly(LAWN_SQ, flatMat('#8cbf62', 3), .035, false);
+flatPoly(LAWN_SQ, regWet(flatMat('#8cbf62', 3), .55), .035, false);
 const GATE_LAWNS = [pxPts([[890,738],[1000,712],[1166,706],[1166,800],[900,800]]), pxPts([[1194,706],[1350,708],[1500,722],[1500,800],[1194,800]])];
-GATE_LAWNS.forEach(L => flatPoly(L, flatMat('#8cc461', 3), .035, true));
+const gateLawnMat = regWet(flatMat('#8cc461', 3), .55);
+GATE_LAWNS.forEach(L => flatPoly(L, gateLawnMat, .035, true));
 
 /* ---------- roads ---------- */
-const asphalt = flatMat('#74716b', 4), paving = flatMat('#9c917e', 5), pathMat = flatMat('#a59a86', 6);
+const asphalt = regWet(flatMat('#74716b', 4), .28), paving = regWet(flatMat('#9c917e', 5), .32), pathMat = regWet(flatMat('#a59a86', 6), .35);
 const ROADS = [
   {w:12, m:asphalt, p:[[300,855],[120,815],[45,690],[40,320],[95,140],[240,40],[560,22],[1000,25],[1500,28],[1830,35],[1905,110],[1905,855],[300,855]]},
   {w:10, m:asphalt, p:[[1905,340],[1580,340]]},
@@ -44,7 +50,7 @@ const ROADS = [
   {w:6,  m:pathMat, p:[[1450,500],[1560,520]]}
 ];
 const ROADS_W = ROADS.map(r => ({w:r.w, m:r.m, p:pxPts(r.p)}));
-const kerbMat = flatMat('#b9b0a0', 3);
+const kerbMat = regWet(flatMat('#b9b0a0', 3), .4);
 const KERBS = ROADS_W.filter(r => r.m === asphalt).map(r => ({w:r.w + 2.6, m:kerbMat, p:r.p}));
 (function buildRoads(){
   const byMat = new Map();
@@ -513,7 +519,23 @@ function applyTime(k){
   moonMat.opacity = cur.moon; moon.visible = cur.moon > .01; moon.position.copy(cur.d).multiplyScalar(3600);
   cloudMat.opacity = cur.cloud; cloudMat.color.copy(cur.cc);
   waterMat.color.copy(cur.water);
+  /* afternoon shower: grey the sky, thicken the haze, dim the sun, light the lamps; wet surfaces darken and turn glossy */
+  const r = wx.rain;
+  if (r > .001){
+    const l = (cur.bg.r * .3 + cur.bg.g * .59 + cur.bg.b * .11) * .82;
+    _rainC.setRGB(l * .93, l * .98, l * 1.06); scene.background.lerp(_rainC, r * .85); scene.fog.color.copy(scene.background);
+    scene.fog.near = cur.fn * (1 - .6 * r); scene.fog.far = cur.ff * (1 - .45 * r);
+    hemi.intensity = cur.hi * (1 - .12 * r); sun.intensity = cur.si * (1 - .7 * r);
+    cloudMat.opacity = cur.cloud + (1 - cur.cloud) * r; _rainC.copy(cur.cc).multiplyScalar(.62); cloudMat.color.lerp(_rainC, r);
+    waterMat.color.lerp(_rainC.setRGB(l * .55, l * .62, l * .7), r * .6);
+    bulbMat.emissiveIntensity = Math.max(cur.lamp, r * .9);
+  }
+  if (Math.abs(wx.wet - lastWet) > .002 || (wx.wet === 0 && lastWet !== 0)){
+    lastWet = wx.wet;
+    for (const [m, c, r0, r1] of wetMats){ m.color.copy(c).multiplyScalar(1 - .32 * lastWet); m.roughness = r0 + (r1 - r0) * lastWet; }
+  }
 }
+const _rainC = new THREE.Color(); let lastWet = 0;
 document.querySelectorAll('[data-t]').forEach(b => b.addEventListener('click', () => {
   tgt = P3[b.dataset.t];
   document.querySelectorAll('[data-t]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
