@@ -1,0 +1,183 @@
+/* XMUM 校园漫游 · 环境：午后阵雨（雨丝、积水、雨声）、飞鸟、校园小猫 */
+'use strict';
+const ambRng = mkRng(97531);   /* own random stream: the shared rnd() sequence stays untouched */
+
+/* ---------- rain drops: line streaks in a box that follows the camera ---------- */
+const RAIN_N = TOUCH ? 1100 : 2200, RAIN_R = 42, RAIN_H = 44;
+const rainPos = new Float32Array(RAIN_N * 6), rainXYZ = new Float32Array(RAIN_N * 3);
+const rainGeo = new THREE.BufferGeometry(); rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3).setUsage(THREE.DynamicDrawUsage));
+const rainMat = new THREE.LineBasicMaterial({color:'#c8d4df', transparent:true, opacity:0, depthWrite:false});
+const rainLines = new THREE.LineSegments(rainGeo, rainMat); rainLines.frustumCulled = false; rainLines.visible = false; scene.add(rainLines);
+for (let i = 0; i < RAIN_N; i++){ rainXYZ[i * 3] = (ambRng() - .5) * 2 * RAIN_R; rainXYZ[i * 3 + 1] = ambRng() * RAIN_H; rainXYZ[i * 3 + 2] = (ambRng() - .5) * 2 * RAIN_R; }
+const _rc = new THREE.Vector3();
+
+/* ---------- puddles on roads and paths: sky-tinted gloss that fades in as the ground gets wet ---------- */
+const puddleMat = new THREE.MeshBasicMaterial({color:'#8a96a3', transparent:true, opacity:0, depthWrite:false, polygonOffset:true, polygonOffsetFactor:-10, polygonOffsetUnits:-40});
+const puddles = (() => {
+  const spots = [], segs = [];
+  for (const r of ROADS_W) for (let i = 0; i < r.p.length - 1; i++) segs.push([r.p[i], r.p[i + 1], r.w]);
+  for (let k = 0; k < 90; k++){
+    const [a, b, w] = segs[(ambRng() * segs.length) | 0], t = ambRng(), dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1, o = (ambRng() - .5) * (w - 2);
+    spots.push([a[0] + dx * t - dz / l * o, a[1] + dz * t + dx / l * o, ambRng() * 3.14, .9 + ambRng() * 2.2, .5 + ambRng() * .5]);
+  }
+  const im = new THREE.InstancedMesh(new THREE.CircleGeometry(1, 14).rotateX(-Math.PI / 2), puddleMat, spots.length);
+  spots.forEach(([x, z, h, s, e], i) => { _cm.compose(_cp.set(x, .056, z), _cq.setFromAxisAngle(UP, h), _cs.set(s, 1, s * e)); im.setMatrixAt(i, _cm); });
+  im.frustumCulled = false; im.visible = false; scene.add(im); return im;
+})();
+
+/* ---------- birds: two small flocks wheeling over the lakes by day ---------- */
+const BIRD_N = 16;
+const birdIm = (() => {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, .25, -.85, .12, -.1, 0, 0, -.2,  0, 0, .25, 0, 0, -.2, .85, .12, -.1,  0, 0, .3, -.06, -.05, -.3, .06, -.05, -.3], 3));
+  g.computeVertexNormals();
+  const im = new THREE.InstancedMesh(g, new THREE.MeshBasicMaterial({color:'#2a2a2e', side:THREE.DoubleSide}), BIRD_N);
+  im.frustumCulled = false; im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(im); return im;
+})();
+const birds = [];
+for (let i = 0; i < BIRD_N; i++){ const f = i < 9 ? 0 : 1; birds.push({f, a:ambRng() * .9, r:(f ? 55 : 80) + ambRng() * 18, y:(f ? 30 : 42) + ambRng() * 8, ph:ambRng() * 6, sp:.11 + ambRng() * .03}); }
+const FLOCKS = [P(1300, 330), P(1120, 290)];
+
+/* ---------- campus cats: they sit, loaf in the sun, wander a little, and scamper off when someone comes close ---------- */
+const catGeo = (() => {
+  const c = '#ffffff', P2 = [
+    geoTint(geoAt(new THREE.SphereGeometry(.2, 10, 7), 0, .25, 0, 0, 0, 0, .9, .85, 1.45), c),          /* body */
+    geoTint(geoAt(new THREE.SphereGeometry(.13, 10, 7), 0, .44, .3, 0, 0, 0, 1.1, .95, 1), c),          /* head */
+    geoTint(geoAt(new THREE.SphereGeometry(.06, 6, 4), 0, .41, .41, 0, 0, 0, 1.1, .8, .8), '#f2e6dc'),  /* muzzle */
+    ...[-1, 1].map(s => geoTint(geoAt(new THREE.ConeGeometry(.05, .1, 4), s * .075, .56, .3, -.15, 0, s * -.25), c)),
+    ...[-1, 1].map(s => geoTint(new THREE.SphereGeometry(.022, 6, 4).translate(s * .05, .47, .41), '#2a2418')),
+    ...[[-1, 1], [1, 1], [-1, -1], [1, -1]].map(([sx, sz]) => geoTint(new THREE.CylinderGeometry(.035, .03, .2, 6).translate(sx * .09, .1, sz * .17), c))
+  ];
+  return geoMerge(P2);
+})();
+const tailGeo = geoMerge([rodGeo(.035, .03, [0, 0, 0], [0, .12, -.18], 5), rodGeo(.03, .025, [0, .12, -.18], [0, .32, -.24], 5)]);
+const CAT_COLS = ['#e39a4c', '#2a2a2c', '#f2efe9', '#8d8a86', '#c98a4a', '#3b3532', '#e8d8c0', '#d9883b'];
+const catHomes = [[57, -140], [100, -150], [365, -122], [395, -128], [92, 123], [140, 124], [160, 30], [230, 38], [30, 10], [-20, 128], [440, 6], [126, 182], [300, 100], [190, -60]];
+const cats = [];
+catHomes.forEach(([hx, hz], i) => {
+  let x = hx, z = hz;
+  for (let k = 0; k < 12 && blocked(x, z); k++){ x = hx + (ambRng() - .5) * 8; z = hz + (ambRng() - .5) * 8; }
+  cats.push({hx:x, hz:z, x, z, h:ambRng() * 6.28, state:i % 3 === 0 ? 'loaf' : 'sit', t:2 + ambRng() * 6, tx:x, tz:z, sp:0, ph:ambRng() * 6, flee:0});
+});
+const catIm = new THREE.InstancedMesh(catGeo, M('#ffffff', {vertexColors:true, roughness:.85}), cats.length);
+const catTailIm = new THREE.InstancedMesh(tailGeo, M('#ffffff', {roughness:.85}), cats.length);
+cats.forEach((c, i) => { catIm.setColorAt(i, _gc.set(CAT_COLS[i % CAT_COLS.length])); catTailIm.setColorAt(i, _gc.set(CAT_COLS[i % CAT_COLS.length])); });
+[catIm, catTailIm].forEach(im => { im.castShadow = true; im.frustumCulled = false; im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(im); });
+const _cb = new THREE.Matrix4(), _ct = new THREE.Matrix4(), _cr = new THREE.Matrix4();
+function catThreats(){
+  const out = [];
+  if (mode === 'naiwa'){ if (driving) out.push([driving.x, driving.z, Math.hypot(driving.vx, driving.vz) > 2 ? 9 : 3]); else out.push([nw.x, nw.z, 3.2]); }
+  else if (mode === 'walk') out.push([player.x, player.z, 3.2]);
+  return out;
+}
+function updateCats(dt, T){
+  const threats = catThreats(), rain = wx.rain;
+  cats.forEach((c, i) => {
+    /* someone close: bolt the other way */
+    for (const [ex, ez, r] of threats){
+      const dx = c.x - ex, dz = c.z - ez, d = Math.hypot(dx, dz);
+      if (d < r && c.flee <= 0){ c.flee = 1.6; c.state = 'walk'; c.sp = 5.5; const l = d || 1; c.tx = c.x + dx / l * 7; c.tz = c.z + dz / l * 7; }
+    }
+    c.t -= dt; c.flee -= dt;
+    if (c.state === 'walk'){
+      const dx = c.tx - c.x, dz = c.tz - c.z, d = Math.hypot(dx, dz);
+      if (d < .2 || c.t < -8){ c.state = rain > .3 || ambRng() < .4 ? 'loaf' : 'sit'; c.t = 4 + ambRng() * 9; c.sp = 0; }
+      else {
+        const nx = c.x + dx / d * c.sp * dt, nz = c.z + dz / d * c.sp * dt;
+        if (blocked(nx, nz) || onRoad(nx, nz, -1)){ c.tx = c.x; c.tz = c.z; }
+        else { c.x = nx; c.z = nz; }
+        const want = Math.atan2(dx, dz); let dh = want - c.h; dh = Math.atan2(Math.sin(dh), Math.cos(dh)); c.h += dh * Math.min(1, dt * 8);
+      }
+    } else if (c.t <= 0){
+      /* stroll to a new spot near home (rain sends them under the eaves of the nearest wall: they just loaf) */
+      if (rain > .3){ c.state = 'loaf'; c.t = 5; }
+      else { c.state = 'walk'; c.sp = .7 + ambRng() * .4; const a = ambRng() * 6.28, r = 1.5 + ambRng() * 5; c.tx = c.hx + Math.cos(a) * r; c.tz = c.hz + Math.sin(a) * r; c.t = 0; }
+    }
+    const walking = c.state === 'walk', loaf = c.state === 'loaf';
+    const bob = walking ? Math.abs(Math.sin(T * c.sp * 7 + c.ph)) * .03 : 0, breathe = 1 + Math.sin(T * 2 + c.ph) * .015;
+    _cp.set(c.x, bob, c.z); _cq.setFromAxisAngle(UP, c.h);
+    if (!walking) _cq2.setFromAxisAngle(_ax.set(1, 0, 0), loaf ? 0 : -.38), _cq.multiply(_cq2);
+    _cs.set(1.3, (loaf ? .62 : 1) * breathe * 1.3, loaf ? 1.36 : 1.3);
+    _cb.compose(_cp, _cq, _cs); catIm.setMatrixAt(i, _cb);
+    /* tail: curls up and sways when sitting, streams out when running */
+    const sway = Math.sin(T * (walking ? 6 : 1.6) + c.ph) * (walking ? .25 : .5);
+    _ct.multiplyMatrices(_cb, _cr.makeTranslation(0, .28, -.27)); _ct.multiply(_cr.makeRotationY(sway)); _ct.multiply(_cr.makeRotationX(walking && c.sp > 2 ? .9 : loaf ? 1.25 : 0));
+    catTailIm.setMatrixAt(i, _ct);
+  });
+  catIm.instanceMatrix.needsUpdate = catTailIm.instanceMatrix.needsUpdate = true;
+}
+
+/* ---------- shower schedule: a button in the time switch, plus the odd afternoon shower by itself ---------- */
+const rainBtn = (() => {
+  const seg = document.querySelector('.seg-time'); if (!seg) return null;
+  const b = document.createElement('button'); b.type = 'button'; b.id = 'rainBtn'; b.textContent = '下雨'; b.setAttribute('aria-pressed', 'false'); b.title = '来一场午后阵雨';
+  seg.appendChild(b); return b;
+})();
+const showers = {left:150 + ambRng() * 90, dur:0, manual:false};
+function setRain(on, instant){
+  wx.target = on ? 1 : 0; showers.manual = !!on; showers.dur = 0;
+  if (!on) showers.left = 240 + ambRng() * 180;
+  if (instant){ wx.rain = wx.target; wx.wet = wx.target; }
+  if (rainBtn) rainBtn.setAttribute('aria-pressed', String(!!on));
+}
+if (rainBtn) rainBtn.addEventListener('click', () => setRain(wx.target < .5));
+let rainSnd = null;
+function rainSound(){
+  if (typeof AC === 'undefined' || !AC || !noiseBuf || (!rainSnd && (AC.state !== 'running' || wx.rain < .01))) return;
+  if (!rainSnd){
+    const src = AC.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
+    const hp = AC.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 700;
+    const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 5200;
+    const g = AC.createGain(); g.gain.value = 0; src.connect(hp); hp.connect(lp); lp.connect(g); g.connect(AC.destination); src.start();
+    rainSnd = g;
+  }
+  rainSnd.gain.setTargetAtTime(soundOn && !document.hidden ? wx.rain * .07 : 0, AC.currentTime, .3);
+}
+
+function updateWeather(dt, T){
+  /* auto showers only by day/dusk, never with reduced motion */
+  if (!showers.manual && !REDUCED && !document.hidden && tgt !== P3.night){
+    if (wx.target > .5){ showers.dur -= dt; if (showers.dur <= 0){ wx.target = 0; showers.left = 240 + ambRng() * 180; if (rainBtn) rainBtn.setAttribute('aria-pressed', 'false'); } }
+    else { showers.left -= dt; if (showers.left <= 0){ wx.target = 1; showers.dur = 45 + ambRng() * 30; if (rainBtn) rainBtn.setAttribute('aria-pressed', 'true'); toast('下雨了', '雪邦的午后阵雨，一会儿就停', 1800); } }
+  }
+  wx.rain += Math.sign(wx.target - wx.rain) * Math.min(Math.abs(wx.target - wx.rain), dt / 5);
+  wx.wet = wx.rain > .3 ? Math.min(1, wx.wet + dt * .12) : Math.max(0, wx.wet - dt * .02);
+  rainSound();
+
+  /* streaks */
+  rainLines.visible = wx.rain > .01;
+  if (rainLines.visible){
+    rainMat.opacity = .42 * wx.rain;
+    camera.getWorldDirection(_rc); _rc.y = 0; _rc.normalize().multiplyScalar(RAIN_R * .55);
+    const cx = camera.position.x + _rc.x, cz = camera.position.z + _rc.z, base = Math.max(0, camera.position.y - RAIN_H * .55);
+    const fall = (REDUCED ? 0 : 30) * dt, wxd = 2.4, len = 1.3;
+    for (let i = 0; i < RAIN_N; i++){
+      let x = rainXYZ[i * 3], y = rainXYZ[i * 3 + 1] - fall, z = rainXYZ[i * 3 + 2];
+      if (y < 0) y += RAIN_H;
+      rainXYZ[i * 3 + 1] = y;
+      /* drops live in a box of fixed world-size that wraps round the view centre */
+      const wxp = ((x + T * wxd - cx + RAIN_R) % (2 * RAIN_R) + 2 * RAIN_R) % (2 * RAIN_R) + cx - RAIN_R;
+      const wzp = ((z - cz + RAIN_R) % (2 * RAIN_R) + 2 * RAIN_R) % (2 * RAIN_R) + cz - RAIN_R;
+      const o = i * 6, wy = base + y;
+      rainPos[o] = wxp; rainPos[o + 1] = wy; rainPos[o + 2] = wzp; rainPos[o + 3] = wxp - wxd * len / 30 * 3; rainPos[o + 4] = wy + len; rainPos[o + 5] = wzp;
+    }
+    rainGeo.attributes.position.needsUpdate = true;
+  }
+  /* puddles mirror the (grey) sky */
+  puddles.visible = wx.wet > .01;
+  if (puddles.visible){ puddleMat.opacity = wx.wet * .55; puddleMat.color.copy(scene.background).multiplyScalar(.95); }
+
+  /* birds wheel by day and roost at night or in heavy rain */
+  const showBirds = cur.stars < .5 && wx.rain < .5;
+  birdIm.visible = showBirds;
+  if (showBirds){
+    birds.forEach((b, i) => {
+      const [fx, fz] = FLOCKS[b.f], a = T * b.sp * (b.f ? -1 : 1) + b.a, flap = Math.sin(T * 9 + b.ph);
+      _cp.set(fx + Math.cos(a) * b.r, b.y + Math.sin(T * .7 + b.ph) * 2, fz + Math.sin(a) * b.r);
+      _cq.setFromAxisAngle(UP, -a + (b.f ? Math.PI : 0)); _cs.set(1.6, 1.6 * (.25 + 2.6 * flap), 1.6);
+      _cm.compose(_cp, _cq, _cs); birdIm.setMatrixAt(i, _cm);
+    });
+    birdIm.instanceMatrix.needsUpdate = true;
+  }
+  updateCats(dt, T);
+}
