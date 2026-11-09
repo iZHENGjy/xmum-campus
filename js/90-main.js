@@ -265,8 +265,24 @@ window.addEventListener('resize', resize); resize();
 const v3 = new THREE.Vector3();
 let last = performance.now(); const t0 = last;
 setHelp(); applyTime(1); updateActs();
+/* adaptive quality: step down resolution, then shadows, if the frame rate stays low */
+const QUAL = {level:0, acc:0, frames:0, wait:4};
+function adaptQuality(dt){
+  if (document.hidden || QUAL.level >= 3) return;
+  QUAL.acc += dt; QUAL.frames++;
+  if (QUAL.acc < 3) return;
+  const fps = QUAL.frames / QUAL.acc; QUAL.acc = 0; QUAL.frames = 0;
+  if (QUAL.wait > 0){ QUAL.wait--; return; }
+  if (fps >= 40 || fps < 8) return;   /* under 8 fps is the browser throttling a hidden page, not the GPU */
+  QUAL.level++; QUAL.wait = 1;
+  if (QUAL.level === 1){ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25)); resize(); }
+  else if (QUAL.level === 2){ for (const set of knockSets) for (const im of set.ims) im.castShadow = false; sun.shadow.mapSize.set(1024, 1024); if (sun.shadow.map){ sun.shadow.map.dispose(); sun.shadow.map = null; } }
+  else { renderer.setPixelRatio(1); renderer.shadowMap.enabled = false; scene.traverse(o => { if (o.material) [].concat(o.material).forEach(m => m.needsUpdate = true); }); resize(); }
+  toast('已切换到更流畅的画质', `画质档位 ${3 - QUAL.level} / 3`, 1600);
+}
 function frame(now){
   const dt = Math.min(.05, (now - last) / 1000); last = now; const T = (now - t0) / 1000;
+  adaptQuality((now - (frame.prev || now)) / 1000); frame.prev = now;
   if (mode === 'walk') updateWalk(dt);
   else if (mode === 'naiwa') updateNaiwaMode(dt, T);
   else if (mode === 'hole') updateHole(dt, T);
