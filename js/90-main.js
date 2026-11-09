@@ -17,7 +17,7 @@ function setMode(m){
   if (driving) leaveCar();
   closeShop();
   if (mode === 'hole') stopHole();
-  if (mode === 'naiwa'){ despawnChasers(); heat = 0; if (stunt.pts > 0) bankStunt(); comboEl.hidden = true; }
+  if (mode === 'naiwa'){ gx.leave(); despawnChasers(); heat = 0; if (stunt.pts > 0) bankStunt(); comboEl.hidden = true; }
   if (mode === 'orbit'){ orbitSave.pos.copy(camera.position); orbitSave.tgt.copy(controls.target); }
   controls.enabled = m === 'orbit'; controls.autoRotate = false; focusGoal = null;
   if (m === 'walk'){ camera.fov = 70; camera.near = .2; if (!walkStart) walkStart = performance.now(); }
@@ -46,13 +46,13 @@ function updateActs(){
   actQ.disabled = !!driving;
 }
 function doF(){
-  if (mode !== 'naiwa') return;
+  if (mode !== 'naiwa' || gx.paused) return;
   if (driving){
     const sp = Math.hypot(driving.vx, driving.vz);
     if (sp > 12) eject(sp * .8); else leaveCar();
   } else if (nw.state !== 'fly'){ const c = nearestCar(); if (c) enterCar(c); }
 }
-function doR(){ if (mode !== 'naiwa') return; if (driving) sfx.horn(); else footAction('laugh'); }
+function doR(){ if (mode !== 'naiwa' || gx.paused) return; if (driving) sfx.horn(); else footAction('laugh'); }
 const holdBtn = (el, on, off) => {
   el.addEventListener('pointerdown', e => { e.preventDefault(); ac(); el.classList.add('on'); on(); });
   const up = () => { el.classList.remove('on'); off && off(); };
@@ -88,6 +88,8 @@ window.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' || document.querySelector('dialog[open]')) return;
   if (mode === 'naiwa' && !e.repeat){
     ac();
+    if (e.code === 'KeyP' || (e.code === 'Escape' && $('#shop').hidden)){ gx.togglePause(); return; }
+    if (gx.paused) return;
     if (e.code === 'KeyF' || e.code === 'Enter') doF();
     if (e.code === 'Space' && !driving) footAction('jump');
     if (e.code === 'KeyR') doR();
@@ -217,6 +219,7 @@ function updateNaiwaMode(dt, T){
   else { const nc = nearestCar(); msg = nc ? (TOUCH ? '点「上车」开走这辆' : '按 F 上车') + ' · ' + nc.T.name : (TOUCH ? '' : 'WASD 走 · 空格跳 · R 大笑 · Q 撩头 · 找辆车按 F 上车'); }
   if (!driving && nw.state !== 'fly' && Math.hypot(nw.x - SHOWROOM[0], nw.z - SHOWROOM[1]) < 11) msg = TOUCH ? '点右上角「XMUM 车行」看车' : '按 G 打开 XMUM 车行';
   else if (driving && driving.wrecked) msg = TOUCH ? '这辆车报废了，点「下车」换一辆' : '这辆车报废了，按 F 下车换一辆';
+  gx.update(dt, px, pz); msg = gx.prompt() || msg;
   if (promptEl.textContent !== msg) promptEl.textContent = msg;
   promptEl.hidden = !msg;
   updateMission(dt, px, pz); updateCompass(px, pz);
@@ -250,7 +253,8 @@ function drawMini(cx, cz, yaw){
     mg.fillStyle = col; mg.strokeStyle = '#1f2a33'; mg.lineWidth = 2; mg.beginPath(); mg.arc(px, pz, edge ? r - 2 : r, 0, 7); mg.fill(); mg.stroke(); };
   if (mode === 'naiwa'){
     for (const c of cars) if (c !== driving && c.root.visible){ mg.save(); mg.translate(X(c.x), Z(c.z)); mg.rotate(-c.h); mg.fillStyle = c.patrol ? '#e74c3c' : '#ffffff'; mg.fillRect(-c.T.W * k * 1.5, -c.T.L * k * .75, c.T.W * k * 3, c.T.L * k * 1.5); mg.restore(); }
-    if (mission.on) dot(mission.to.x, mission.to.z, '#4fd18b', 9); else for (const pk of PICKUPS) dot(pk.x, pk.z, '#ff8a3d', 8);
+    if (mission.on) dot(mission.to.x, mission.to.z, '#4fd18b', 9); else if (!gx.busy()) for (const pk of PICKUPS) dot(pk.x, pk.z, pk === hotPk && !pk.cool ? '#ffc93c' : '#ff8a3d', 8);
+    gx.mini(dot);
   }
   if (mode === 'hole'){ for (const h of HOLES){ if (!h.alive) continue; mg.fillStyle = '#120a22'; mg.strokeStyle = h.color; mg.lineWidth = h.you ? 3 : 2; mg.beginPath(); mg.arc(X(h.x), Z(h.z), Math.max(4, h.r * k), 0, 7); mg.fill(); mg.stroke(); } }
   else for (const cp of CPS) if (!cp.done) dot(cp.x, cp.z, '#ffd24a', 6);
@@ -285,7 +289,7 @@ function frame(now){
   const dt = Math.min(.05, (now - last) / 1000); last = now; const T = (now - t0) / 1000;
   adaptQuality((now - (frame.prev || now)) / 1000); frame.prev = now;
   if (mode === 'walk') updateWalk(dt);
-  else if (mode === 'naiwa') updateNaiwaMode(dt, T);
+  else if (mode === 'naiwa'){ if (!gx.paused) updateNaiwaMode(dt * gx.scale(dt), T); }
   else if (mode === 'hole') updateHole(dt, T);
   else {
     if (focusGoal){
