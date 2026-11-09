@@ -104,7 +104,11 @@
 
 ## 玩家数据
 
-下面几张图由 GitHub Actions 每 15 分钟自动更新（GitHub 有时会晚几分钟）。
+### 👉 [打开实时数据页面](https://izhengjy.github.io/xmum-campus/stats.html)
+
+实时页面每次打开都直接读数据库，是最新的数字。
+
+下面几张图是定时生成的快照：GitHub Actions 设成每 15 分钟更新一次，但 GitHub 的定时任务经常推迟甚至跳过，图可能落后几个小时。想看准确的数字，请打开上面的实时页面。
 
 ![玩家数据总览](https://raw.githubusercontent.com/iZHENGjy/xmum-campus/stats/summary.svg)
 
@@ -195,6 +199,7 @@ python -m http.server 8000
 | `css/style.css` | 全部界面样式 |
 | `assets/audio/` | 奶娃笑声 |
 | `database.rules.json` | Firebase 数据库安全规则 |
+| `stats.html`、`js/stats-view.js` | 实时数据页面：在浏览器里直接读数据库画图 |
 | `scripts/stats_charts.py` | 读统计数据，画「玩家数据」图 |
 | `.github/workflows/stats.yml` | 每 15 分钟跑一次上面的脚本，把图推到 `stats` 分支 |
 | `.github/ISSUE_TEMPLATE/` | 「报告 bug」和「提建议」两个 Issue 表单 |
