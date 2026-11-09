@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@700;900&display=swap">
-<link rel="stylesheet" href="css/style.css?v=12">
+<link rel="stylesheet" href="css/style.css?v=13">
 </head>
 <body class="titled" data-mode="orbit">
 <canvas id="c" class="grab" tabindex="0" aria-label="三维校园场景"></canvas>
@@ -53,6 +53,7 @@
       <div class="grow"><span>车况</span><b id="hp">—</b></div>
       <div class="mission" id="mission">走进或开进橙色光圈接外卖单</div>
       <button class="btn gbtn" id="garageBtn">XMUM 车行</button>
+      <button class="btn gbtn" id="gxPauseBtn" aria-pressed="false" aria-label="暂停，看这局战绩和成就"><span>暂停</span><span class="gx-long"> · 战绩</span></button>
     </div>
     <div class="panel gstat" id="hstat" hidden>
       <div class="grow"><span>剩余</span><b id="htime">2:00</b></div>
@@ -81,6 +82,14 @@
 <div class="panel" id="compass" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 L19 21 L12 16.5 L5 21 Z" fill="var(--tile)"/></svg><span id="cdist"></span></div>
 <div class="panel" id="prompt" hidden></div>
 <div class="panel" id="combo" hidden></div>
+<div class="panel" id="gxcall" hidden aria-hidden="true"></div>
+<div class="panel" id="gxach" role="status" aria-live="polite" hidden></div>
+<div class="panel" id="gxpause" role="dialog" aria-modal="true" aria-labelledby="gxpT" hidden>
+  <button class="x" id="gxpx" aria-label="继续游戏">×</button>
+  <div class="shop-h"><h2 id="gxpT">暂停</h2><span id="gxpTime"></span></div>
+  <div id="gxpBody"></div>
+  <div class="hrow"><button class="btn primary" id="gxpGo">继续</button><button class="btn" id="gxpQuit" hidden>放弃挑战</button><button class="btn" id="gxpShop">XMUM 车行</button></div>
+</div>
 <div class="panel" id="shop" hidden>
   <div class="shop-h"><h2>XMUM 车行</h2><span id="shopMoney">RM 0.00</span></div>
   <button class="x" id="shopx" aria-label="关闭">×</button>
@@ -204,18 +213,19 @@
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-<script src="js/00-core.js?v=12"></script>
-<script src="js/10-world.js?v=12"></script>
-<script src="js/20-fx.js?v=12"></script>
-<script src="js/30-naiwa.js?v=12"></script>
-<script src="js/40-vehicles.js?v=12"></script>
-<script src="js/50-missions.js?v=12"></script>
-<script src="js/60-details.js?v=12"></script>
-<script src="js/70-hole.js?v=12"></script>
-<script src="js/80-gta.js?v=12"></script>
-<script src="js/90-main.js?v=12"></script>
-<script src="js/ui-title.js?v=12"></script>
-<script src="js/firebase-config.js?v=12"></script>
-<script src="js/net.js?v=12"></script>
+<script src="js/00-core.js?v=13"></script>
+<script src="js/10-world.js?v=13"></script>
+<script src="js/20-fx.js?v=13"></script>
+<script src="js/30-naiwa.js?v=13"></script>
+<script src="js/40-vehicles.js?v=13"></script>
+<script src="js/50-missions.js?v=13"></script>
+<script src="js/60-details.js?v=13"></script>
+<script src="js/70-hole.js?v=13"></script>
+<script src="js/80-gta.js?v=13"></script>
+<script src="js/85-activities.js?v=13"></script>
+<script src="js/90-main.js?v=13"></script>
+<script src="js/ui-title.js?v=13"></script>
+<script src="js/firebase-config.js?v=13"></script>
+<script src="js/net.js?v=13"></script>
 </body>
 </html>
