@@ -104,7 +104,7 @@
 
 ## 玩家数据
 
-下面几张图由 GitHub Actions 每小时自动更新（GitHub 有时会晚几分钟）。
+下面几张图由 GitHub Actions 每 15 分钟自动更新（GitHub 有时会晚几分钟）。
 
 ![玩家数据总览](https://raw.githubusercontent.com/iZHENGjy/xmum-campus/stats/summary.svg)
 
@@ -120,7 +120,9 @@
 - **一个玩家**：一个浏览器里的匿名身份。同一个人换了手机和电脑，会算两个人；用 Google 登录以后，在哪台设备上玩都算同一个人。
 - **游戏时长**：只算网页开在前台、而且 3 分钟内有过操作的时间。挂着不动不算。
 - **只统计线上网站**：本地打开或者别人 fork 的版本都不计入。
-- **统计起点**：从这个功能上线那天开始，之前玩过的人没有记录。
+- **统计上线前的玩家**：游戏时长从 2026-11-09 晚上开始记录，之前没有。为了不漏人，玩家数还会去查排行榜：在某一天上过排行榜、但那天没有时长记录的人，会算进「排行榜补算」。这些人可能是统计上线前玩的，也可能还开着没有统计功能的旧网页。
+  - 补算只能算到上过排行榜的人，所以每天的数字是「至少」这么多。
+  - 「累计游戏时长」和「人均游戏时长」只按有时长记录的人算。
 
 **记录了什么**
 - 匿名 ID（和排行榜用的是同一个）
@@ -194,7 +196,7 @@ python -m http.server 8000
 | `assets/audio/` | 奶娃笑声 |
 | `database.rules.json` | Firebase 数据库安全规则 |
 | `scripts/stats_charts.py` | 读统计数据，画「玩家数据」图 |
-| `.github/workflows/stats.yml` | 每小时跑一次上面的脚本，把图推到 `stats` 分支 |
+| `.github/workflows/stats.yml` | 每 15 分钟跑一次上面的脚本，把图推到 `stats` 分支 |
 | `.github/ISSUE_TEMPLATE/` | 「报告 bug」和「提建议」两个 Issue 表单 |
 | `test/shots.html` | 拍 README 截图用的离线页面，不连排行榜 |
 
