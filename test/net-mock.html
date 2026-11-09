@@ -1,0 +1,12 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>XNet mock test</title>
+<script>
+/* 本地测试页：读取 ../index.html，在 js/net.js 之前插入 test/firebase-mock.js（假的内存 firebase）。
+ * 用法：在项目根目录起静态服务器，打开 /test/net-mock.html；加 ?cdnfail 测试 SDK 加载失败的降级路径。 */
+fetch('../index.html').then(r => r.text()).then(html => {
+  html = html.replace(/<head>/i, '<head><base href="../">')
+             .replace(/<script src="js\/net\.js"><\/script>/, '<script src="test/firebase-mock.js' + location.search + '"><\/script><script src="js/net.js"><\/script>');
+  document.open(); document.write(html); document.close();
+});
+</script>
