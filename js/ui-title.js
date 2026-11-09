@@ -1,0 +1,151 @@
+/* XMUM 校园漫游 · 标题页、昵称、排行榜、玩法说明、声音开关
+   对外：window.XUI = { playerName(), openLeaderboard(board), openTitle(), closeTitle(mode) } */
+'use strict';
+function uiGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+function uiSet(k, v){ try { localStorage.setItem(k, v); } catch(e){} }
+
+/* ---------- nickname ---------- */
+const UI_NAMES = ['LY 早八人', 'D6 干饭王', 'A3 迷路人', '湖边喂鱼人', '期末周幸存者', '图书馆占座侠', '田径场夜跑人',
+  '南门等车人', '奶茶续命人', 'DDL 战士', 'B1 社团人', '宿舍断网人', '雪邦晒黑人', '小组作业背锅侠', '食堂排队王'];
+const uiNameIn = $('#tName');
+function uiRandomName(not){ let n; do { n = UI_NAMES[(Math.random() * UI_NAMES.length) | 0]; } while (n === not && UI_NAMES.length > 1); return n; }
+function uiClean(v){ return String(v || '').replace(/[\u0000-\u001f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 12); }
+let uiName = uiClean(uiGet('xmum-name'));
+if (!uiName){ uiName = uiRandomName(); uiSet('xmum-name', uiName); }
+uiNameIn.value = uiName;
+function uiSaveName(){
+  const v = uiClean(uiNameIn.value);
+  if (v){ uiName = v; uiSet('xmum-name', v); }
+  else uiNameIn.value = uiName;
+}
+uiNameIn.addEventListener('change', uiSaveName);
+uiNameIn.addEventListener('blur', uiSaveName);
+uiNameIn.addEventListener('keydown', e => { if (e.key === 'Enter'){ uiSaveName(); uiNameIn.blur(); } });
+$('#tDice').addEventListener('click', () => { uiNameIn.value = uiRandomName(uiName); uiSaveName(); });
+
+/* ---------- sound toggle (soundOn / ac() live in 20-fx.js) ---------- */
+const uiSoundBtn = $('#tSound');
+function uiSyncSound(){ uiSoundBtn.setAttribute('aria-pressed', String(soundOn)); uiSoundBtn.querySelector('span').textContent = soundOn ? '声音开' : '声音关'; }
+if (uiGet('xmum-sound') === '0') soundOn = false;
+uiSyncSound();
+uiSoundBtn.addEventListener('click', () => {
+  soundOn = !soundOn; uiSet('xmum-sound', soundOn ? '1' : '0'); uiSyncSound();
+  if (soundOn){ ac(); sfx.ding(); }
+});
+
+/* ---------- title screen ---------- */
+const titleEl = $('#title');
+let titleOpen = true, titleTimer = 0;
+function openTitle(){
+  if (mode !== 'orbit') setMode('orbit');
+  card.hidden = true; cardInfo = null;
+  controls.autoRotate = !REDUCED;
+  clearTimeout(titleTimer); titleEl.classList.remove('leaving'); titleEl.hidden = false;
+  document.body.classList.add('titled'); canvas.tabIndex = -1; titleOpen = true;
+  const first = titleEl.querySelector('.t-card'); if (first) first.focus({preventScroll:true});
+}
+function closeTitle(next){
+  if (!titleOpen) return;
+  uiSaveName(); titleOpen = false; ac();
+  document.body.classList.remove('titled'); canvas.tabIndex = 0;
+  if (REDUCED) titleEl.hidden = true;
+  else { titleEl.classList.add('leaving'); titleTimer = setTimeout(() => { titleEl.hidden = true; titleEl.classList.remove('leaving'); }, 320); }
+  if (next && next !== mode) setMode(next);
+  else { controls.autoRotate = !REDUCED; canvas.focus({preventScroll:true}); }
+}
+titleEl.querySelectorAll('[data-go]').forEach(b => b.addEventListener('click', () => closeTitle(b.dataset.go)));
+$('#menuBtn').addEventListener('click', openTitle);
+window.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || !titleOpen || document.querySelector('dialog[open]')) return;
+  if (e.target === uiNameIn){ uiNameIn.blur(); return; }
+  closeTitle('orbit');
+});
+controls.autoRotate = !REDUCED; canvas.tabIndex = -1;
+
+/* ---------- dialogs ---------- */
+let uiReturnFocus = null;
+function uiOpenDialog(d){
+  if (d.open) return;
+  uiReturnFocus = document.activeElement;
+  if (d.showModal) d.showModal(); else d.setAttribute('open', '');
+}
+function uiCloseDialog(d){ if (d.close) d.close(); else d.removeAttribute('open'); }
+document.querySelectorAll('dialog').forEach(d => {
+  d.addEventListener('close', () => { if (uiReturnFocus && uiReturnFocus.focus) uiReturnFocus.focus({preventScroll:true}); uiReturnFocus = null; });
+  d.addEventListener('click', e => { if (e.target === d || e.target.closest('[data-close]')) uiCloseDialog(d); });
+});
+$('#tHow').addEventListener('click', () => uiOpenDialog($('#howto')));
+
+/* ---------- leaderboard ---------- */
+function uiGta(){ try { return JSON.parse(uiGet('xmum-gta-v1') || 'null') || {}; } catch(e){ return {}; } }
+const UI_BOARDS = {
+  hole:  {fmt:v => (+v || 0).toFixed(1) + '%', what:'黑洞一局吞掉校园的最高比例', local:() => +uiGet('xmum-hole-best') || 0, empty:'还没玩过黑洞，去吞一局'},
+  stunt: {fmt:v => Math.round(+v || 0).toLocaleString() + ' 分', what:'奶娃累计特技分', local:() => +uiGta().stunt || 0, empty:'还没攒到特技分，去漂移一下'},
+  rich:  {fmt:v => 'RM ' + (+v || 0).toFixed(2), what:'奶娃钱包', local:() => +uiGta().money || 0, empty:'钱包空空，去送外卖'}
+};
+const lbEl = $('#lb'), lbBody = $('#lbBody'), lbTabs = [...lbEl.querySelectorAll('[role="tab"]')];
+let lbBoard = 'hole', lbReq = 0;
+function uiEl(tag, cls, text){ const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+function uiLocalCard(board){
+  const B = UI_BOARDS[board], v = B.local(), box = uiEl('div', 'lb-local');
+  box.append(uiEl('span', 'lb-k', '本机最好 · ' + uiName));
+  box.append(v > 0 ? uiEl('b', 'lb-v', B.fmt(v)) : uiEl('span', 'lb-none', B.empty));
+  return box;
+}
+function uiDate(ts){
+  const t = +ts; if (!t) return '';
+  const d = new Date(t < 1e12 ? t * 1000 : t); if (isNaN(d)) return '';
+  return (d.getMonth() + 1) + '/' + d.getDate();
+}
+function renderBoard(board){
+  lbBoard = board; const B = UI_BOARDS[board], req = ++lbReq;
+  lbTabs.forEach(t => { const on = t.dataset.board === board; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1; });
+  lbBody.setAttribute('aria-labelledby', 'lbt-' + board);
+  lbBody.textContent = '';
+  lbBody.append(uiEl('p', 'lb-what', B.what));
+  const net = window.XNet;
+  if (!net || !net.online || typeof net.top !== 'function'){
+    const off = uiEl('div', 'lb-off'); off.append(uiEl('b', null, '联机未开启，成绩只保存在本机'));
+    lbBody.append(off, uiLocalCard(board)); return;
+  }
+  const list = uiEl('ol', 'lb-list'); list.append(uiEl('li', 'lb-wait', '读取中…'));
+  lbBody.append(list);
+  Promise.race([net.top(board, 20), new Promise((_, no) => setTimeout(() => no(new Error('timeout')), 8000))]).then(rows => {
+    if (req !== lbReq) return;
+    list.textContent = '';
+    rows = Array.isArray(rows) ? rows : [];
+    if (!rows.length){ list.append(uiEl('li', 'lb-wait', '还没人上榜，去当第一个')); }
+    rows.forEach((r, i) => {
+      const li = uiEl('li', uiClean(r && r.name) === uiName ? 'me' : '');
+      li.append(uiEl('span', 'lb-n', String(i + 1)), uiEl('span', 'lb-name', uiClean(r && r.name) || '匿名'),
+        uiEl('span', 'lb-d', uiDate(r && r.ts)), uiEl('b', 'lb-v', B.fmt(r && r.value)));
+      list.append(li);
+    });
+    lbBody.append(uiLocalCard(board));
+  }).catch(() => {
+    if (req !== lbReq) return;
+    list.textContent = ''; list.append(uiEl('li', 'lb-wait', '排行榜读取失败，稍后再试'));
+    lbBody.append(uiLocalCard(board));
+  });
+}
+lbTabs.forEach((t, i) => {
+  t.addEventListener('click', () => renderBoard(t.dataset.board));
+  t.addEventListener('keydown', e => {
+    const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0; if (!d) return;
+    e.preventDefault(); const n = lbTabs[(i + d + lbTabs.length) % lbTabs.length]; n.focus(); renderBoard(n.dataset.board);
+  });
+});
+function openLeaderboard(board){
+  renderBoard(UI_BOARDS[board] ? board : lbBoard);
+  uiOpenDialog(lbEl);
+  const sel = lbTabs.find(t => t.dataset.board === lbBoard); if (sel) sel.focus({preventScroll:true});
+}
+$('#tLb').addEventListener('click', () => openLeaderboard('hole'));
+$('#hlb').addEventListener('click', () => openLeaderboard('hole'));
+
+window.XUI = {
+  playerName: () => uiName,
+  openLeaderboard,
+  openTitle,
+  closeTitle
+};
