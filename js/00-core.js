@@ -84,6 +84,16 @@ function geoMerge(list){
   if (cl) g.setAttribute('color', new THREE.BufferAttribute(cl, 3));
   return g;
 }
+/* like geoMerge, but keeps texture coordinates (zeros for parts without them) so textured parts can share one mesh */
+function geoMergeUV(list){
+  const gs = list.map(g => g.index ? g.toNonIndexed() : g);
+  let n = 0; for (const g of gs){ if (!g.attributes.normal) g.computeVertexNormals(); n += g.attributes.position.count; }
+  const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2);
+  let o = 0;
+  for (const g of gs){ pos.set(g.attributes.position.array, o * 3); nor.set(g.attributes.normal.array, o * 3); if (g.attributes.uv) uv.set(g.attributes.uv.array, o * 2); o += g.attributes.position.count; }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  return g;
+}
 /* average normals of coincident vertices whose faces bend less than maxDeg (smooths seams/bevels, keeps hard creases) */
 function smoothNormals(geo, maxDeg){
   geo.computeVertexNormals();
@@ -269,29 +279,67 @@ function roofGeometry(w, d, h, over){
 }
 const tipGeo = new THREE.ConeGeometry(0.32, 2, 5); tipGeo.translate(0, 1, 0);
 const hornGeo = new THREE.ConeGeometry(0.22, 3, 5); hornGeo.translate(0, 1.5, 0);
-function makeRoof(w, d, h, over, mat){
-  const grp = new THREE.Group();
-  const m = new THREE.Mesh(roofGeometry(w, d, h, over), mat); m.castShadow = m.receiveShadow = true; grp.add(m);
+/* roof pieces as geometry (offset by ox/oy/oz): tiled sheet + upturned eave tips share the tile material, ridge + swallowtail horns share ridgeMat.
+   Collecting them lets a whole building's roofs render in two draw calls instead of ten per roof. */
+function roofParts(w, d, h, over, ox, oy, oz, out){
+  out = out || {tile:[], ridge:[]};
+  out.tile.push(roofGeometry(w, d, h, over).translate(ox, oy, oz));
   const W = w / 2 + over, D = d / 2 + over, ridge = Math.abs(W - D) * 2 + 0.5, alongX = W >= D;
   const k = Math.max(0.6, Math.min(1.6, over / 1.8)), hk = Math.max(.6, Math.min(2, h / 6));
   if (ridge > 1.5){
-    box(alongX ? ridge : 0.7, 0.6 * hk, alongX ? 0.7 : ridge, ridgeMat, 0, h + 0.2, 0, grp);
+    out.ridge.push(new THREE.BoxGeometry(alongX ? ridge : 0.7, 0.6 * hk, alongX ? 0.7 : ridge).translate(ox, oy + h + .2, oz));
     for (const e of [-1, 1]) for (const side of [-1, 1]){
-      const hm = new THREE.Mesh(hornGeo, ridgeMat); hm.scale.setScalar(hk);
       const dir = alongX ? new THREE.Vector3(e * .9, .75, side * .22) : new THREE.Vector3(side * .22, .75, e * .9);
-      hm.position.set(alongX ? e * ridge / 2 : 0, h + .3, alongX ? 0 : e * ridge / 2);
-      hm.quaternion.setFromUnitVectors(UP, dir.normalize()); grp.add(hm);
+      _cm.compose(_cp.set(ox + (alongX ? e * ridge / 2 : 0), oy + h + .3, oz + (alongX ? 0 : e * ridge / 2)), _cq.setFromUnitVectors(UP, dir.normalize()), _cs.setScalar(hk));
+      out.ridge.push(hornGeo.clone().applyMatrix4(_cm));
     }
   }
   for (const sx of [-1, 1]) for (const sz of [-1, 1]){
-    const c = new THREE.Mesh(tipGeo, mat); c.scale.setScalar(k);
-    c.position.set(sx * (W - 0.2), 0.1, sz * (D - 0.2));
-    c.quaternion.setFromUnitVectors(UP, new THREE.Vector3(sx * .75, 1, sz * .75).normalize());
-    c.castShadow = true; grp.add(c);
+    _cm.compose(_cp.set(ox + sx * (W - 0.2), oy + 0.1, oz + sz * (D - 0.2)), _cq.setFromUnitVectors(UP, new THREE.Vector3(sx * .75, 1, sz * .75).normalize()), _cs.setScalar(k));
+    out.tile.push(tipGeo.clone().applyMatrix4(_cm));
   }
-  return grp;
+  return out;
+}
+function roofMeshes(rp, mat, parent){
+  const out = [new THREE.Mesh(geoMergeUV(rp.tile), mat)];
+  if (rp.ridge.length) out.push(new THREE.Mesh(geoMerge(rp.ridge), ridgeMat));
+  out.forEach(m => { m.castShadow = m.receiveShadow = true; parent.add(m); });
+  return out;
+}
+function makeRoof(w, d, h, over, mat){
+  const grp = new THREE.Group(); roofMeshes(roofParts(w, d, h, over, 0, 0, 0), mat, grp); return grp;
+}
+/* 腰檐: a tiled skirt roof wrapped round a wall at one floor line (top edge at y=0 against the wall, sloping out and down) */
+function eaveRing(w, d, ov, drop){
+  const pos = [], uv = [], a = [[w / 2, d / 2], [-w / 2, d / 2], [-w / 2, -d / 2], [w / 2, -d / 2]], sl = Math.hypot(ov, drop);
+  for (let j = 0; j < 4; j++){
+    const [x0, z0] = a[j], [x1, z1] = a[(j + 1) % 4], f = (x, z) => [x + Math.sign(x) * ov, -drop, z + Math.sign(z) * ov];
+    const p0 = [x0, 0, z0], p1 = [x1, 0, z1], q0 = f(x0, z0), q1 = f(x1, z1), L = Math.hypot(x1 - x0, z1 - z0) / 1.1, Lo = L + 2 * ov / 1.1;
+    pos.push(...q0, ...p1, ...q1, ...q0, ...p0, ...p1); uv.push(-ov / 1.1, 0, L, sl / .5, Lo - ov / 1.1, 0, -ov / 1.1, 0, 0, sl / .5, L, sl / .5);
+    const ft = .28, q0b = [q0[0], q0[1] - ft, q0[2]], q1b = [q1[0], q1[1] - ft, q1[2]];
+    pos.push(...q0, ...q1, ...q1b, ...q0, ...q1b, ...q0b); for (let k = 0; k < 6; k++) uv.push(0, 0);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.computeVertexNormals(); return g;
 }
 const goldMat = M('#d6a63a', {metalness:.6, roughness:.35});
+/* trims, pilasters, balconies and canopies are vertex-coloured and merged into one mesh per building */
+const decoMat = M('#ffffff', {vertexColors:true, roughness:.88});
+const glassRoofMat = M('#9cc7d8', {roughness:.15, metalness:.3});
+const TRIM = '#e6dece', TRIM2 = '#d6c9b1', PIL = '#efe8da', BALC = '#e9e2d4', BALC2 = '#cfc6b6', RAIL = '#474c52';
+function tbox(list, w, h, d, x, y, z, col){ list.push(geoTint(new THREE.BoxGeometry(w, h, d).translate(x, y, z), col)); }
+/* gold-on-oxblood name boards (one material per text, repainted once the web font arrives) */
+const plaqueCache = {};
+function plaqueMat(text){
+  if (plaqueCache[text]) return plaqueCache[text];
+  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 128; const g = cv.getContext('2d'), t = new THREE.CanvasTexture(cv); t.anisotropy = ANISO;
+  const paint = () => {
+    g.fillStyle = '#6e2614'; g.fillRect(0, 0, 512, 128); g.strokeStyle = '#d6a63a'; g.lineWidth = 6; g.strokeRect(8, 8, 496, 112);
+    g.fillStyle = '#ecc66e'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `700 ${text.length > 4 ? 64 : 76}px "Noto Serif SC","Songti SC",serif`; g.fillText(text, 256, 68); t.needsUpdate = true;
+  };
+  paint(); document.fonts && document.fonts.ready.then(paint);
+  return plaqueCache[text] = new THREE.MeshStandardMaterial({map:t, roughness:.5});
+}
 
 /* ---------- buildings ---------- */
 const colGeo = new THREE.CylinderGeometry(.34, .4, 1, 12); colGeo.translate(0, .5, 0);
@@ -305,39 +353,88 @@ function building(o){
   st.roofColor = o.roof || '#c4502a';
   const g = new THREE.Group(); g.position.set(x, o.y0 || 0, z); g.rotation.y = rot; scene.add(g); regGroup(st, g);
   const H = o.floors * 3.6, y0 = 1, rmat = roofMat(o.roof || '#c4502a');
-  const parts = [];
-  if (!o.y0){ parts.push(box(w + 1.4, 1, d + 1.4, granite, 0, .5, 0, g)); parts.push(box(w + .3, 1.3, d + .3, granite, 0, 1.6, 0, g)); }
+  const parts = [], gran = [], walls = [], deco = [], roofs = {tile:[], ridge:[]};
+  if (!o.y0){ gran.push(new THREE.BoxGeometry(w + 1.4, 1, d + 1.4).translate(0, .5, 0), new THREE.BoxGeometry(w + .3, 1.3, d + .3).translate(0, 1.6, 0)); }
   const wmat = wallMats[(o.variant || 0) + 3 * wallTone(x, z)];
-  const body = new THREE.Mesh(wallBox(w, H, d, o.floors), wmat);
-  body.position.y = y0 + H / 2; body.castShadow = body.receiveShadow = true; g.add(body); parts.push(body);
-  parts.push(box(w + .8, .6, d + .8, trim, 0, y0 + H + .3, 0, g));
-  const rh = o.roofH != null ? o.roofH : Math.min(Math.min(w, d) * 0.3, 13);
-  const roof = makeRoof(w + .8, d + .8, rh, o.over != null ? o.over : 2.4, rmat);
-  roof.position.y = y0 + H + .6; g.add(roof); parts.push(...roof.children);
+  walls.push(wallBox(w, H, d, o.floors).translate(0, y0 + H / 2, 0));
+  /* cornice cap, a darker frieze under it, and slim corner pilasters */
+  tbox(deco, w + .8, .6, d + .8, 0, y0 + H + .3, 0, TRIM);
+  tbox(deco, w + .36, .55, d + .36, 0, y0 + H - .27, 0, TRIM2);
+  if (H > 5) for (const sx of [-1, 1]) for (const sz of [-1, 1]) tbox(deco, 1, H - .55, 1, sx * (w / 2 - .3), y0 + (H - .55) / 2, sz * (d / 2 - .3), PIL);
+  const rh = o.roofH != null ? o.roofH : Math.min(Math.min(w, d) * 0.3, 13), over = o.over != null ? o.over : 2.4;
+  roofParts(w + .8, d + .8, rh, over, 0, y0 + H + .6, 0, roofs);
+  /* 腰檐: tiled skirt roofs at given floor lines, with a trim band above */
+  if (o.waist) for (const f of o.waist){ const yw = y0 + f * 3.6; roofs.tile.push(eaveRing(w + .2, d + .2, 1.7, .95).translate(0, yw, 0)); tbox(deco, w + .5, .4, d + .5, 0, yw + .2, 0, TRIM); }
+  /* dorm balconies: a parapet slab at every floor line along the long faces (skipping where the other arm of the cross meets),
+     with full-height fins between the flats and a dark handrail on top */
+  if (o.balc != null){
+    const alongX = w >= d, L = alongX ? w : d, half = (alongX ? d : w) / 2, cut = o.balc;
+    for (const side of [-1, 1]) for (const [a, b] of [[-L / 2 + .8, -cut], [cut, L / 2 - .8]]){
+      const len = b - a, mid = (a + b) / 2; if (len < 2) continue;
+      const put = (along, y, out, sl, h, dp, col) => alongX ? tbox(deco, sl, h, dp, along, y, side * (half + out), col) : tbox(deco, dp, h, sl, side * (half + out), y, along, col);
+      for (let f = 1; f < o.floors; f++){ const yf = y0 + f * 3.6; put(mid, yf + .45, .5, len, .9, 1, BALC); put(mid, yf + .95, 1, len, .07, .07, RAIL); }
+      const nb = Math.max(1, Math.round(len / 4.5));
+      for (let k = 0; k <= nb; k++) put(a + len * k / nb, y0 + 3.6 + (H - 3.6) / 2, .55, .22, H - 3.6, 1.1, BALC2);
+    }
+  }
   const cols = [];
   const bw = Math.max(10, w * .26);
   if (o.bay){
     const bf = o.floors + 1.3, bH = bf * 3.6;
-    const bay = new THREE.Mesh(wallBox(bw, bH, 5, bf), wmat); bay.position.set(0, y0 + bH / 2, d / 2 + 1);
-    bay.castShadow = bay.receiveShadow = true; g.add(bay); parts.push(bay);
-    parts.push(box(bw + .8, .6, 5.8, trim, 0, y0 + bH + .3, d / 2 + 1, g));
-    const br = makeRoof(bw + .8, 9, Math.min(7, bw * .34), 2.2, rmat); br.position.set(0, y0 + bH + .6, d / 2 - 1); g.add(br); parts.push(...br.children);
-    for (let k = 0; k < 3; k++) parts.push(box(bw + 6 - k * 1.6, .35 * (k + 1), 1.3, granite, 0, .175 * (k + 1), d / 2 + 3.6 + (2 - k) * 1.3, g));
+    walls.push(wallBox(bw, bH, 5, bf).translate(0, y0 + bH / 2, d / 2 + 1));
+    tbox(deco, bw + .8, .6, 5.8, 0, y0 + bH + .3, d / 2 + 1, TRIM);
+    tbox(deco, bw + .36, .55, 5.36, 0, y0 + bH - .27, d / 2 + 1, TRIM2);
+    for (const sx of [-1, 1]) tbox(deco, .9, bH - .55, .9, sx * (bw / 2 - .25), y0 + (bH - .55) / 2, d / 2 + 3.25, PIL);
+    roofParts(bw + .8, 9, Math.min(7, bw * .34), 2.2, 0, y0 + bH + .6, d / 2 - 1, roofs);
+    for (let k = 0; k < 3; k++) gran.push(new THREE.BoxGeometry(bw + 6 - k * 1.6, .35 * (k + 1), 1.3).translate(0, .175 * (k + 1), d / 2 + 3.6 + (2 - k) * 1.3));
     for (const sx of [-1, 1]) cols.push([sx * (bw / 2 - .7), d / 2 + 3.2, 4.6]);
     addBox(x + Math.sin(rot) * (d / 2 + 1), z + Math.cos(rot) * (d / 2 + 1), bw / 2 + .5, 3, rot);
   }
   if (o.arcade){
     const skip = o.bay ? bw / 2 + 1 : (o.portico ? o.portico.w / 2 + 1 : -1);
     for (let cx2 = -w / 2 + 1.6; cx2 <= w / 2 - 1.6 + .01; cx2 += 4.5){ if (Math.abs(cx2) < skip) continue; cols.push([cx2, d / 2 + 1.8, 4.6]); }
-    parts.push(box(w + .6, .45, 2.8, trim, 0, y0 + 4.6 + .22, d / 2 + 1.2, g));
+    tbox(deco, w + .6, .45, 2.8, 0, y0 + 4.6 + .22, d / 2 + 1.2, TRIM);
+    tbox(deco, w + .3, .18, 2.4, 0, y0 + 4.6 + .54, d / 2 + 1.2, TRIM2);
   }
   if (o.portico){
     const pw = o.portico.w, ph = o.portico.h, n = Math.max(4, Math.round(pw / 5));
     for (let k = 0; k < n; k++) cols.push([-pw / 2 + pw * k / (n - 1), d / 2 + 3.2, ph]);
-    parts.push(box(pw + 3, 1.1, 5.2, trim, 0, y0 + ph + .55, d / 2 + 2.4, g));
-    const prf = makeRoof(pw + 3, 5.2, 3.4, 1.8, rmat); prf.position.set(0, y0 + ph + 1.1, d / 2 + 2.4); g.add(prf); parts.push(...prf.children);
-    for (let k = 0; k < 4; k++) parts.push(box(pw + 8 - k * 1.6, .32 * (k + 1), 1.3, granite, 0, .16 * (k + 1), d / 2 + 5.4 + (3 - k) * 1.3, g));
+    tbox(deco, pw + 3, 1.1, 5.2, 0, y0 + ph + .55, d / 2 + 2.4, TRIM);
+    tbox(deco, pw + 2.2, .3, 4.6, 0, y0 + ph - .1, d / 2 + 2.4, TRIM2);
+    roofParts(pw + 3, 5.2, 3.4, 1.8, 0, y0 + ph + 1.1, d / 2 + 2.4, roofs);
+    for (let k = 0; k < 4; k++) gran.push(new THREE.BoxGeometry(pw + 8 - k * 1.6, .32 * (k + 1), 1.3).translate(0, .16 * (k + 1), d / 2 + 5.4 + (3 - k) * 1.3));
     addBox(x + Math.sin(rot) * (d / 2 + 2.6), z + Math.cos(rot) * (d / 2 + 2.6), pw / 2 + 1, 3.2, rot);
+  }
+  /* entrance canopy: on the front, or on the +x end of a dorm arm */
+  if (o.canopy){
+    const end = o.canopy === 'end', cw = 6.5, cd = 2.8, yc = y0 + 3.3;
+    if (end){ tbox(deco, cd, .35, cw, w / 2 + cd / 2, yc, 0, TRIM); tbox(deco, .2, .5, cw, w / 2 + cd - .1, yc - .25, 0, TRIM2); tbox(deco, .5, 3.3, cw + 1.2, w / 2 + .25, y0 + 1.65, 0, BALC2); }
+    else { tbox(deco, cw, .35, cd, 0, yc, d / 2 + cd / 2, TRIM); tbox(deco, cw, .5, .2, 0, yc - .25, d / 2 + cd - .1, TRIM2); tbox(deco, cw + 1.2, 3.3, .5, 0, y0 + 1.65, d / 2 + .25, BALC2); }
+  }
+  const mk = (geo, mat, shadow) => { const m = new THREE.Mesh(geo, mat); m.castShadow = shadow !== false; m.receiveShadow = true; g.add(m); parts.push(m); return m; };
+  if (gran.length) mk(geoMerge(gran), granite);
+  mk(geoMergeUV(walls), wmat); mk(geoMerge(deco), decoMat);
+  parts.push(...roofMeshes(roofs, rmat, g));
+  const roofTop = y0 + H + .6 + rh;
+  /* gilded pearl on the ridge of a crowning roof */
+  if (o.finial){
+    const hk = Math.max(.6, Math.min(2, rh / 6)), yt = roofTop + .2 + .3 * hk;
+    mk(geoMerge([new THREE.CylinderGeometry(.55, .8, .6, 10).translate(0, yt + .3, 0), new THREE.SphereGeometry(.85, 14, 10).translate(0, yt + 1.4, 0), new THREE.ConeGeometry(.22, 1.1, 8).translate(0, yt + 2.6, 0)]), goldMat);
+  }
+  /* glazed barrel skylight along the ridge (B1's pool and sports hall) */
+  if (o.skylight){
+    const W2 = (w + .8) / 2 + over, D2 = (d + .8) / 2 + over, ridge = Math.abs(W2 - D2) * 2, alongX = W2 >= D2, L = ridge * .82;
+    const sk = new THREE.CylinderGeometry(2.3, 2.3, L, 14, 1, false, 0, Math.PI); sk.rotateZ(Math.PI / 2); if (!alongX) sk.rotateY(Math.PI / 2);
+    mk(sk.translate(0, roofTop - .25, 0), glassRoofMat);
+    const ribs = []; for (let k = 0; k <= 8; k++){ const t = -L / 2 + L * k / 8; ribs.push(geoTint(new THREE.TorusGeometry(2.33, .07, 4, 10, Math.PI).rotateY(alongX ? Math.PI / 2 : 0).translate(alongX ? t : 0, roofTop - .25, alongX ? 0 : t), '#e8e6e0')); }
+    mk(geoMerge(ribs), decoMat);
+  }
+  if (o.plaque){
+    /* defaults: over the porch of the bay tower, or on the portico lintel */
+    const pw = o.plaque.w || 5, py = o.plaque.y != null ? o.plaque.y : o.portico ? y0 + o.portico.h + .55 : y0 + 6.3;
+    const pz = o.plaque.z != null ? o.plaque.z : o.portico ? d / 2 + 5.03 : o.bay ? d / 2 + 3.53 : d / 2 + .05;
+    const pq = new THREE.Mesh(new THREE.PlaneGeometry(pw, pw / 4), plaqueMat(o.plaque.text));
+    pq.position.set(0, py, pz); g.add(pq); parts.push(pq);
   }
   if (cols.length){
     const im = new THREE.InstancedMesh(colGeo, colMat, cols.length);
@@ -355,7 +452,8 @@ function building(o){
 }
 function crossB(o){
   const info = o.info || o, st = o.struct || newStruct(info);
-  const t1 = building(Object.assign({}, o, {info, struct:st, wp:o.ap, dp:o.tp}));
-  building(Object.assign({}, o, {info, struct:st, wp:o.tp, dp:o.bp, label:false}));
+  const balc = o.balc === false ? null : S(o.tp) / 2 + .2;
+  const t1 = building(Object.assign({balc, canopy:'end'}, o, {info, struct:st, wp:o.ap, dp:o.tp}));
+  building(Object.assign({balc}, o, {info, struct:st, wp:o.tp, dp:o.bp, label:false}));
   return t1;
 }

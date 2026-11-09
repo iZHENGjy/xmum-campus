@@ -41,18 +41,18 @@
     },
     "boards": {
       "$board": {
-        ".read": "auth != null && ($board === 'hole' || $board === 'stunt' || $board === 'rich')",
+        ".read": "auth != null && ($board === 'hole2' || $board === 'hole' || $board === 'stunt' || $board === 'rich')",
         ".indexOn": [
           "value"
         ],
         "$uid": {
-          ".write": "auth != null && auth.uid === $uid && ($board === 'hole' || $board === 'stunt' || $board === 'rich')",
+          ".write": "auth != null && auth.uid === $uid && ($board === 'hole2' || $board === 'hole' || $board === 'stunt' || $board === 'rich')",
           ".validate": "newData.hasChildren(['name', 'value', 'ts']) && (!data.exists() || newData.child('value').val() >= data.child('value').val())",
           "name": {
             ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16"
           },
           "value": {
-            ".validate": "newData.isNumber() && newData.val() >= 0 && (($board === 'hole' && newData.val() <= 100) || ($board !== 'hole' && newData.val() <= 10000000))"
+            ".validate": "newData.isNumber() && newData.val() >= 0 && ((($board === 'hole' || $board === 'hole2') && newData.val() <= 100) || ($board !== 'hole' && $board !== 'hole2' && newData.val() <= 10000000))"
           },
           "ts": {
             ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 600000"

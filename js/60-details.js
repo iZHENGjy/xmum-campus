@@ -86,43 +86,76 @@ function updateFountain(dt){
 }
 
 /* ---------- students walking around ---------- */
-const NPC_N = 80;
-/* students: shirt (instance colour), skin (instance colour), and hair/trousers/shoes/backpack (vertex colours) — three instanced meshes */
-const npcBodyGeo = (() => {
-  const torso = new THREE.LatheGeometry([[0,.86],[.17,.87],[.18,.95],[.165,1.08],[.185,1.25],[.2,1.36],[.15,1.44],[.07,1.475],[0,1.48]].map(([r, y]) => new THREE.Vector2(r, y)), 8);
-  torso.scale(1, 1, .62);
-  return geoMerge([torso, ...[-1, 1].map(s => geoAt(nwCapsule(.072, .066, .17, 6, 2), s * .215, 1.39, 0, 0, 0, s * .12))]);
-})();
-const npcHeadGeo = geoMerge([nwBlob(.14, 1, 1.08, 1, 0, 1.62, 0, 0, 0, 0, 10, 7), new THREE.CylinderGeometry(.055, .06, .12, 6, 1, true).translate(0, 1.49, 0),
-  ...[-1, 1].map(s => geoAt(nwCapsule(.05, .045, .25, 6, 2), s * .24, 1.19, 0, 0, 0, s * .06)), ...[-1, 1].map(s => nwBlob(.055, 1, 1.15, .85, s * .257, .9, .01, 0, 0, 0, 6, 4))]);
+const NPC_WALK = 80, NPC_GROUP = 16, NPC_N = NPC_WALK + NPC_GROUP;
+/* students are split into instanced parts so legs and arms can swing:
+   torso (shirt colour), head + neck (skin), hair/backpack (vertex colours), one leg (pants colour, 2 per student),
+   sleeve (shirt) and forearm (skin) (2 per student); skirts, long hair and umbrellas only for the students who have them */
+const npcBodyGeo = new THREE.LatheGeometry([[0,.86],[.17,.87],[.18,.95],[.165,1.08],[.185,1.25],[.2,1.36],[.15,1.44],[.07,1.475],[0,1.48]].map(([r, y]) => new THREE.Vector2(r, y)), 8).scale(1, 1, .62);
+const npcHeadGeo = geoMerge([nwBlob(.14, 1, 1.08, 1, 0, 1.62, 0, 0, 0, 0, 10, 7), new THREE.CylinderGeometry(.055, .06, .12, 6, 1, true).translate(0, 1.49, 0)]);
 const npcGearGeo = (() => {
-  const P = [], pants = '#2e3a52', hair = '#1d1814';
-  for (const s of [-1, 1]){
-    P.push(geoTint(geoAt(nwCapsule(.085, .07, .74, 7, 2), s * .09, .92, 0), pants), geoTint(geoAt(roundBox(.12, .08, .25, .035, 1), s * .09, .045, .035), '#ece9e2'),
-      geoTint(new THREE.BoxGeometry(.035, .34, .02).translate(s * .1, 1.22, .11), '#2b2b2b'));
-  }
-  P.push(geoTint(geoAt(roundBox(.33, .14, .19, .06, 1), 0, .87, 0), pants));
+  const P = [], hair = '#1d1814';
+  for (const s of [-1, 1]) P.push(geoTint(new THREE.BoxGeometry(.035, .34, .02).translate(s * .1, 1.22, .11), '#2b2b2b'));
   P.push(geoTint(geoAt(new THREE.SphereGeometry(.153, 10, 4, 0, Math.PI * 2, 0, Math.PI * .56), 0, 1.635, -.01, -.38, 0, 0, 1, 1.06, 1), hair));
   P.push(geoTint(geoAt(roundBox(.3, .36, .14, .05, 1), 0, 1.19, -.19), '#3a4f66'), geoTint(new THREE.BoxGeometry(.22, .14, .05).translate(0, 1.09, -.27), '#33465b'));
   return geoMerge(P);
 })();
-const npcBodyIm = new THREE.InstancedMesh(npcBodyGeo, new THREE.MeshStandardMaterial({roughness:.8}), NPC_N);
-const npcHeadIm = new THREE.InstancedMesh(npcHeadGeo, new THREE.MeshStandardMaterial({roughness:.7}), NPC_N);
-const npcGearIm = new THREE.InstancedMesh(npcGearGeo, new THREE.MeshStandardMaterial({roughness:.8, vertexColors:true}), NPC_N);
-[npcBodyIm, npcHeadIm, npcGearIm].forEach(im => { im.castShadow = true; im.frustumCulled = false; im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(im); });
+/* limb geometry hangs from its joint at the origin */
+const npcLegGeo = geoMerge([geoTint(nwCapsule(.085, .07, .74, 6, 2), '#ffffff'), geoTint(new THREE.BoxGeometry(.12, .08, .25).translate(0, -.875, .035), '#c9c9c9'),
+  geoTint(new THREE.BoxGeometry(.17, .14, .19).translate(-.005, -.05, 0), '#ffffff')]);
+const npcSleeveGeo = nwCapsule(.072, .066, .17, 6, 2);
+const npcForeGeo = geoMerge([nwCapsule(.05, .045, .25, 6, 2).translate(0, -.2, 0), nwBlob(.055, 1, 1.15, .85, .01, -.49, .01, 0, 0, 0, 6, 4)]);
+const npcSkirtGeo = new THREE.CylinderGeometry(.175, .29, .4, 10, 1, true).translate(0, .78, 0);
+const npcHairGeo = nwBlob(.16, 1, 1.45, .75, 0, 1.5, -.07, .12, 0, 0, 8, 6);
+const npcUmbGeo = geoMerge([geoTint(new THREE.ConeGeometry(.78, .32, 8, 1, true).translate(0, 2.18, 0), '#ffffff'), geoTint(new THREE.CylinderGeometry(.012, .012, 1.0, 4).translate(0, 1.62, 0), '#333333'),
+  geoTint(new THREE.SphereGeometry(.03, 4, 3).translate(0, 2.36, 0), '#333333')]).translate(.2, 0, .1);
+const npcIm = (geo, mat, n) => { const im = new THREE.InstancedMesh(geo, mat, n); im.castShadow = true; im.frustumCulled = false; im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(im); return im; };
+const npcBodyIm = npcIm(npcBodyGeo, new THREE.MeshStandardMaterial({roughness:.8}), NPC_N);
+const npcHeadIm = npcIm(npcHeadGeo, new THREE.MeshStandardMaterial({roughness:.7}), NPC_N);
+const npcGearIm = npcIm(npcGearGeo, new THREE.MeshStandardMaterial({roughness:.8, vertexColors:true}), NPC_N);
+const npcLegIm = npcIm(npcLegGeo, new THREE.MeshStandardMaterial({roughness:.8, vertexColors:true}), NPC_N * 2);
+const npcSleeveIm = npcIm(npcSleeveGeo, new THREE.MeshStandardMaterial({roughness:.8}), NPC_N * 2);
+const npcForeIm = npcIm(npcForeGeo, new THREE.MeshStandardMaterial({roughness:.7}), NPC_N * 2);
 const SHIRTS = ['#c0392b', '#2d5d8a', '#f1c40f', '#ecf0f1', '#27ae60', '#8e44ad', '#e67e22', '#34495e', '#ff8fab', '#16a085'], SKIN = ['#f1c9a5', '#d9a37c', '#a8734f', '#e8b98f'];
+const PANTS = ['#2e3a52', '#1f1f22', '#55657a', '#b5a07a', '#3c5a8a'], SKIRTS = ['#2e3a52', '#8e2b3a', '#d8c7a1', '#3d6b5a', '#1f1f22'], HAIRS = ['#1d1814', '#2a1d16', '#3b2a1e', '#1d1814'];
+const UMBS = ['#c0392b', '#2d5d8a', '#f0c419', '#2d8a6e', '#8e44ad', '#ff8fab', '#34495e', '#e67e22'];
 const npcPaths = ROADS_W.slice(1).map(r => ({p:r.p, off:r.m === asphalt ? r.w / 2 + 1.3 : r.m === paving ? r.w / 2 - 1.4 : .6}));
 const npcs = [];
 const _col = new THREE.Color();
-for (let i = 0; i < NPC_N; i++){
+for (let i = 0; i < NPC_WALK; i++){
   const path = npcPaths[(rnd() * npcPaths.length) | 0];
   npcs.push({path, seg:(rnd() * (path.p.length - 1)) | 0, t:rnd(), dir:rnd() < .5 ? 1 : -1, side:rnd() < .5 ? 1 : -1, sp:1 + rnd() * .7,
     x:0, z:0, y:0, h:0, ox:0, oz:0, dodge:0, dvx:0, dvz:0, state:'walk', tilt:0, tdx:0, tdz:0, ph:rnd() * 6});
-  npcBodyIm.setColorAt(i, _col.set(SHIRTS[i % SHIRTS.length])); npcHeadIm.setColorAt(i, _col.set(SKIN[i % SKIN.length]));
 }
+/* small groups chatting on the plazas (their own random stream, so the shared sequence is unchanged) */
+const npcGroups = [];
+(function(){
+  const rr = mkRng(2468), spots = [[94, 127], [146, 127], [44, -139], [70, -140], [366, -124], [420, 7], [150, 190], [200, 125]];
+  const sizes = [3, 2, 2, 2, 3, 2, 0, 2];   /* members per group, 16 in all */
+  spots.forEach(([gx, gz], k) => {
+    const n = sizes[k], g = {x:gx, z:gz, r:.5 + n * .14, talk:0, next:1 + rr() * 3};
+    if (!n) return; npcGroups.push(g);
+    for (let j = 0; j < n && npcs.length < NPC_N; j++) npcs.push({grp:g, slot:j, ga:j / n * Math.PI * 2 + rr() * .5, x:gx, z:gz, y:0, h:0, ox:0, oz:0, dodge:0, dvx:0, dvz:0, state:'walk', tilt:0, tdx:0, tdz:0, ph:rr() * 6, sp:0});
+  });
+})();
+/* looks: shirt and skin as before for the walkers; every third student wears a skirt (bare legs) and long hair */
+const npcSkirtIdx = [], npcHairIdx = [];
+npcs.forEach((n, i) => {
+  const skin = SKIN[i % SKIN.length], skirt = i % 3 === 1;
+  npcBodyIm.setColorAt(i, _col.set(SHIRTS[i % SHIRTS.length])); npcHeadIm.setColorAt(i, _col.set(skin));
+  for (const s of [0, 1]){ npcSleeveIm.setColorAt(i * 2 + s, _col.set(SHIRTS[i % SHIRTS.length])); npcForeIm.setColorAt(i * 2 + s, _col.set(skin)); npcLegIm.setColorAt(i * 2 + s, _col.set(skirt ? skin : PANTS[i % PANTS.length])); }
+  if (skirt) npcSkirtIdx.push(i);
+  if (skirt || i % 7 === 3) npcHairIdx.push(i);
+  n.walk = n.ph; n.umb = .05 + (i * 7 % 10) / 13;
+});
+const npcSkirtIm = npcIm(npcSkirtGeo, new THREE.MeshStandardMaterial({roughness:.85, side:THREE.DoubleSide}), npcSkirtIdx.length);
+npcSkirtIdx.forEach((i, k) => npcSkirtIm.setColorAt(k, _col.set(SKIRTS[i % SKIRTS.length])));
+const npcHairIm = npcIm(npcHairGeo, new THREE.MeshStandardMaterial({roughness:.75}), npcHairIdx.length);
+npcHairIdx.forEach((i, k) => npcHairIm.setColorAt(k, _col.set(HAIRS[i % HAIRS.length])));
+const npcUmbIm = npcIm(npcUmbGeo, new THREE.MeshStandardMaterial({roughness:.7, vertexColors:true, side:THREE.DoubleSide}), NPC_N);
+npcs.forEach((n, i) => npcUmbIm.setColorAt(i, _col.set(UMBS[i % UMBS.length]))); npcUmbIm.count = 0;
 function npcStep(n, dt){
   const p = n.path.p; let a = p[n.seg], b = p[n.seg + 1], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-  n.t += n.dir * n.sp * dt / L;
+  n.t += n.dir * n.sp * (1 + wx.rain * .35) * dt / L;
   if (n.t > 1){ if (n.seg < p.length - 2){ n.seg++; n.t = 0; } else { n.t = 1; n.dir = -1; } }
   else if (n.t < 0){ if (n.seg > 0){ n.seg--; n.t = 1; } else { n.t = 0; n.dir = 1; } }
   a = p[n.seg]; b = p[n.seg + 1]; L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
@@ -130,15 +163,32 @@ function npcStep(n, dt){
   n.x = a[0] + (b[0] - a[0]) * n.t - dz * off + n.ox; n.z = a[1] + (b[1] - a[1]) * n.t + dx * off + n.oz;
   n.h = Math.atan2(dx * n.dir, dz * n.dir);
 }
+const _nb = new THREE.Matrix4(), _nl = new THREE.Matrix4(), _nr = new THREE.Matrix4(), _nt = new THREE.Matrix4();
+/* limb matrix = body · T(joint) · Rz(splay) · Rx(swing) */
+function npcLimb(px, py, splay, swing){
+  _nl.multiplyMatrices(_nb, _nt.makeTranslation(px, py, 0));
+  if (splay) _nl.multiply(_nr.makeRotationZ(splay));
+  return _nl.multiply(_nr.makeRotationX(swing));
+}
 function updateNPCs(dt, T){
-  const car = driving, csp = car ? Math.hypot(car.vx, car.vz) : 0;
+  updateProps(dt, T); updateWeather(dt, T);
+  const car = driving, csp = car ? Math.hypot(car.vx, car.vz) : 0, rain = wx.rain;
+  for (const g of npcGroups){ g.next -= dt; if (g.next <= 0){ g.talk = (g.talk + 1) % 4; g.next = 1.5 + ((g.x * 13 + T * 7) % 3); } }
+  let sk = 0, hk = 0, uk = 0;
   for (let i = 0; i < NPC_N; i++){
-    const n = npcs[i]; let y = 0, tiltX = 0, sc = 1;
+    const n = npcs[i]; let y = 0, tiltX = 0, sc = 1, swing = 0, gest = 0, sway = 0;
     if (n.state === 'walk'){
-      npcStep(n, dt);
+      if (n.grp){
+        const g = n.grp; n.x = g.x + Math.cos(n.ga) * g.r + n.ox; n.z = g.z + Math.sin(n.ga) * g.r + n.oz; n.h = Math.atan2(g.x - n.x, g.z - n.z);
+        sway = Math.sin(T * 1.3 + n.ph) * .07;
+        if (n.slot === g.talk){ gest = .5 + .5 * Math.sin(T * 5 + n.ph); y = Math.abs(Math.sin(T * 3 + n.ph)) * .015; }
+      } else npcStep(n, dt);
       if (n.dodge > 0){
         n.dodge -= dt; n.ox += n.dvx * dt; n.oz += n.dvz * dt; y = Math.sin(Math.PI * Math.max(0, n.dodge) / .45) * .9;
-      } else { n.ox *= Math.exp(-dt * .35); n.oz *= Math.exp(-dt * .35); y = Math.abs(Math.sin(T * 7 + n.ph)) * .05; }
+      } else {
+        n.ox *= Math.exp(-dt * .35); n.oz *= Math.exp(-dt * .35);
+        if (!n.grp && !REDUCED){ n.walk += dt * n.sp * (1 + rain * .35) * 4.6; swing = Math.sin(n.walk) * .5; y = Math.abs(Math.cos(n.walk)) * .045; }
+      }
       if (car && csp > 4 && n.dodge <= 0){
         const rx = n.x - car.x, rz = n.z - car.z, ux = car.vx / csp, uz = car.vz / csp, along = rx * ux + rz * uz, lat = rx * uz - rz * ux;
         if (along > 0 && along < 10 + csp * .25 && Math.abs(lat) < car.T.W / 2 + 1.6){
@@ -148,10 +198,24 @@ function updateNPCs(dt, T){
       }
     } else if (n.state === 'fall'){ y = n.y; tiltX = n.tilt; sc = Math.max(.01, 1 - n.tilt * .3); }
     else { sc = 0; }
-    _cp.set(n.x, y, n.z); _cq.setFromAxisAngle(UP, n.h);
+    _cp.set(n.x, y, n.z); _cq.setFromAxisAngle(UP, n.h + sway);
     if (tiltX){ _cq2.setFromAxisAngle(_ax.set(n.tdz, 0, -n.tdx).normalize(), tiltX); _cq.premultiply(_cq2); }
-    _cs.setScalar(sc); _cm.compose(_cp, _cq, _cs);
-    npcBodyIm.setMatrixAt(i, _cm); npcHeadIm.setMatrixAt(i, _cm); npcGearIm.setMatrixAt(i, _cm);
+    _cs.setScalar(sc); _nb.compose(_cp, _cq, _cs);
+    npcBodyIm.setMatrixAt(i, _nb); npcHeadIm.setMatrixAt(i, _nb); npcGearIm.setMatrixAt(i, _nb);
+    const umb = sc > 0 && n.state === 'walk' && rain > n.umb;
+    for (const s of [-1, 1]){
+      const j = i * 2 + (s > 0 ? 1 : 0);
+      npcLegIm.setMatrixAt(j, npcLimb(s * .09, .92, 0, swing * s));
+      /* the right arm holds the umbrella up, a talker gestures with the left, otherwise arms swing against the legs */
+      const arm = s > 0 && umb ? -1.2 : s < 0 && gest ? -.5 - gest * .9 : -swing * s * .8;
+      const m = npcLimb(s * .215, 1.39, s * (s > 0 && umb ? .03 : .1), arm);
+      npcSleeveIm.setMatrixAt(j, m); npcForeIm.setMatrixAt(j, m);
+    }
+    if (npcSkirtIdx[sk] === i) npcSkirtIm.setMatrixAt(sk++, _nb);
+    if (npcHairIdx[hk] === i) npcHairIm.setMatrixAt(hk++, _nb);
+    if (umb){ npcUmbIm.setMatrixAt(uk, _nb); npcUmbIm.setColorAt(uk++, _col.set(UMBS[i % UMBS.length])); }
   }
-  npcBodyIm.instanceMatrix.needsUpdate = npcHeadIm.instanceMatrix.needsUpdate = npcGearIm.instanceMatrix.needsUpdate = true;
+  /* only open umbrellas are drawn */
+  npcUmbIm.count = uk; if (uk && npcUmbIm.instanceColor) npcUmbIm.instanceColor.needsUpdate = true;
+  for (const im of [npcBodyIm, npcHeadIm, npcGearIm, npcLegIm, npcSleeveIm, npcForeIm, npcSkirtIm, npcHairIm, npcUmbIm]) im.instanceMatrix.needsUpdate = true;
 }

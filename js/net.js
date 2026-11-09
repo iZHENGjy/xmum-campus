@@ -10,7 +10,7 @@
  *   XNet.top(board, n=10)    → Promise<[{name, value, ts}]>，最好的在前；离线返回 []
  *   XNet.submit(board, value) → Promise<boolean>，成绩比自己记录好才写入，写入成功为 true
  *   XNet.ready           Promise，联机初始化结束（成功或失败）后 resolve
- *   board: 'hole'（单局吞掉的 %）| 'stunt'（特技总分）| 'rich'（RM）
+ *   board: 'hole2'（黑洞 2.0 单局吞掉的 %）| 'hole'（旧版黑洞，只读保留）| 'stunt'（特技总分）| 'rich'（RM）
  *   XNet.account         {google:boolean, email, name}：是否已用 Google 登录
  *   XNet.signInGoogle()  → Promise<'linked'|'switched'>；游客身份直接升级成 Google 账号（uid 不变）；
  *                          这个 Google 账号以前在别的设备用过，就切换过去并拉取它的云存档（会刷新页面）
@@ -24,7 +24,7 @@
  */
 'use strict';
 (() => {
-  const BOARDS = {hole:{max:100, dp:1}, stunt:{max:1e7, dp:0}, rich:{max:1e7, dp:2}};
+  const BOARDS = {hole2:{max:100, dp:1}, hole:{max:100, dp:1}, stunt:{max:1e7, dp:0}, rich:{max:1e7, dp:2}};
   const XNet = window.XNet = {
     online:false, uid:null, playersOnline:0, account:{google:false, email:null, name:null},
     top:async () => [], submit:async () => false,
@@ -128,7 +128,7 @@
     const on = g(() => HS.on, false);
     if (holeWasOn && !on && g(() => HS.t, 1) <= .01){       // 一局黑洞正常结束（时间到）
       const pct = g(() => hole.score / HS.total * 100, 0);
-      if (pct > 0) XNet.submit('hole', pct);
+      if (pct > 0) XNet.submit('hole2', pct);              // 黑洞 2.0（有道具、连吞）单独一个榜，旧榜保留不动
     }
     holeWasOn = on;
     const t = performance.now();
@@ -283,7 +283,7 @@
   function blobScore(o){                                  // 进度大致有多少：钱 + 车 + 特技 + 黑洞最好成绩
     let s = 0;
     try { const d = JSON.parse(o['xmum-gta-v1'] || 'null') || {}; s += (+d.money || 0) + (Array.isArray(d.owned) ? d.owned.length : 0) * 500 + (+d.stunt || 0) / 50; } catch(e){}
-    return s + (+o['xmum-hole-best'] || 0) * 10;
+    return s + (+o['xmum-hole2-best'] || 0) * 10 + (+o['xmum-hole-best'] || 0) * 10;
   }
   let lastPushed = '';
   async function cloudPush(){

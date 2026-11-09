@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@700;900&display=swap">
-<link rel="stylesheet" href="../css/style.css?v=12">
+<link rel="stylesheet" href="../css/style.css?v=15">
 </head>
 <body class="titled" data-mode="orbit">
 <canvas id="c" class="grab" tabindex="0" aria-label="三维校园场景"></canvas>
@@ -203,19 +203,22 @@
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-<script src="../js/00-core.js?v=12"></script>
-<script src="../js/10-world.js?v=12"></script>
-<script src="../js/20-fx.js?v=12"></script>
-<script src="../js/30-naiwa.js?v=12"></script>
-<script src="../js/40-vehicles.js?v=12"></script>
-<script src="../js/50-missions.js?v=12"></script>
-<script src="../js/60-details.js?v=12"></script>
-<script src="../js/70-hole.js?v=12"></script>
-<script src="../js/80-gta.js?v=12"></script>
-<script src="../js/90-main.js?v=12"></script>
-<script src="../js/ui-title.js?v=12"></script>
-<script src="../js/firebase-config.js?v=12"></script>
-<script src="../js/net.js?v=12"></script>
+<script src="../js/00-core.js?v=15"></script>
+<script src="../js/10-world.js?v=15"></script>
+<script src="../js/15-props.js?v=15"></script>
+<script src="../js/16-ambient.js?v=15"></script>
+<script src="../js/20-fx.js?v=15"></script>
+<script src="../js/30-naiwa.js?v=15"></script>
+<script src="../js/40-vehicles.js?v=15"></script>
+<script src="../js/50-missions.js?v=15"></script>
+<script src="../js/60-details.js?v=15"></script>
+<script src="../js/70-hole.js?v=15"></script>
+<script src="../js/80-gta.js?v=15"></script>
+<script src="../js/85-activities.js?v=15"></script>
+<script src="../js/90-main.js?v=15"></script>
+<script src="../js/ui-title.js?v=15"></script>
+<script src="../js/firebase-config.js?v=15"></script>
+<script src="../js/net.js?v=15"></script>
 <script>
 /* Screenshot staging page for README images: test/shots.html?s=<scene>. Not loaded by the game. */
 (function(){
@@ -223,7 +226,9 @@
   const pins = [];
   const pin = f => { pins.push(f); f(); };
   setInterval(() => pins.forEach(f => f()), 25);
-  const _r = renderer.render.bind(renderer); renderer.render = (a, b) => { if (window.__cam) window.__cam(b); _r(a, b); };
+  const _r = renderer.render.bind(renderer); renderer.render = (a, b) => { if (window.__cam) window.__cam(b); _r(a, b); const ri = renderer.info.render; window.__stats = {calls:ri.calls, tris:ri.triangles}; };
+  /* &stats=1: dump draw calls / triangles of the last frame into the DOM (read with --dump-dom) */
+  if (/stats=1/.test(location.search)) setTimeout(() => { const p = document.createElement('pre'); p.id = 'stats'; p.textContent = 'STATS ' + JSON.stringify(window.__stats) + ' SETS ' + knockSets.map(s => s.kind + ':' + s.spots.filter(o => !o.hidden).length).join(','); const ev = new URLSearchParams(location.search).get('eval'); if (ev){ try { p.textContent += ' EVAL ' + JSON.stringify(eval(ev)); } catch(e){ p.textContent += ' EVAL-ERR ' + e.message; } } document.body.appendChild(p); }, 4500);
   const quiet = () => { try { soundOn = false; } catch(e){} };
   setTimeout(() => {
     quiet();
@@ -231,6 +236,15 @@
     if (sc === 'overview'){
       XUI.closeTitle('orbit'); controls.autoRotate = false; controls.enableDamping = false;
       pin(() => { controls.target.set(30, 0, -20); camera.position.set(210, 300, 520); controls.update(); });
+    }
+    /* free camera: ?s=cam&c=px,py,pz,tx,ty,tz[&t=day|dusk|night][&rain=1] */
+    if (sc === 'cam'){
+      const q = new URLSearchParams(location.search), c = (q.get('c') || '160,40,190,105,20,80').split(',').map(Number), t = q.get('t');
+      XUI.closeTitle('orbit'); controls.autoRotate = false; controls.enableDamping = false;
+      controls.minDistance = .3;
+      if (t){ tgt = P3[t]; applyTime(1); }
+      if (q.get('rain') && window.setRain) setRain(true, true);
+      pin(() => { controls.target.set(c[3], c[4], c[5]); camera.position.set(c[0], c[1], c[2]); controls.update(); });
     }
     if (sc === 'night'){
       XUI.closeTitle('orbit'); controls.autoRotate = false; controls.enableDamping = false; tgt = P3.night; applyTime(1);
