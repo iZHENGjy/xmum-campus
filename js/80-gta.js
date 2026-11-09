@@ -110,7 +110,8 @@ const SHOP = [
 ];
 const owned = new Set(); let myCar = null;
 function saveGame(){ try { localStorage.setItem('xmum-gta-v1', JSON.stringify({money, owned:[...owned], stunt:stunt.total, my:myCar ? myCar.kind : null})); } catch(e){} }
-function moneyChanged(){ moneyEl.textContent = 'RM ' + money.toFixed(2); saveGame(); }
+const fmtRM = v => 'RM ' + (v >= 100 ? Math.floor(v).toLocaleString() : v.toFixed(2));   /* HUD wallet: no decimals once it is 100+ */
+function moneyChanged(){ moneyEl.textContent = fmtRM(money); saveGame(); }
 function spotNear(px, pz, kind){
   const tmp = {kind, T:CAR_T[kind]};
   for (let r = 6; r < 70; r += 3) for (let a = 0; a < 12; a++){
@@ -169,7 +170,7 @@ const showCar = (() => {
   try {
     const d = JSON.parse(localStorage.getItem('xmum-gta-v1') || 'null'); if (!d) return;
     money = +d.money || 0; (d.owned || []).forEach(k => { if (CAR_T[k]) owned.add(k); }); stunt.total = +d.stunt || 0;
-    moneyEl.textContent = 'RM ' + money.toFixed(2); $('#stunt').textContent = stunt.total.toLocaleString();
+    moneyEl.textContent = fmtRM(money); $('#stunt').textContent = stunt.total.toLocaleString();
     if (d.my && owned.has(d.my)){ const [x, z, h] = spotNear(110, 204, d.my); spawnMine(d.my, x, z, h); }
   } catch(e){}
 })();

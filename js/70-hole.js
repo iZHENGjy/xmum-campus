@@ -239,7 +239,8 @@ function updateHole(dt, T){
     const danger = HOLES.find(o => !o.you && o.alive && o.r > hole.r * 1.18 && Math.hypot(o.x - hole.x, o.z - hole.z) < o.r + 50);
     $('#hnext').textContent = !hole.alive ? '复活中…' : danger ? `小心！「${danger.name}」比你大，快跑` : best ? `长到直径 ${Math.ceil(best.r / .92 * 2)} 米就能吞下 ${best.name}` : '全校都能吞了，冲';
     $('#hnext').classList.toggle('urgent', !!danger);
-    const msg = TOUCH ? '摇杆移动黑洞 · 拖动屏幕转视角' : 'WASD 移动 · 拖动鼠标转视角 · 比你大的黑洞会吞掉你';
+    const msg = TOUCH ? '' : 'WASD 移动 · 拖动鼠标转视角 · 比你大的黑洞会吞掉你';
     if (promptEl.textContent !== msg) promptEl.textContent = msg;
+    promptEl.hidden = !msg;
   }
 }
