@@ -242,10 +242,11 @@ function fireWater(){
   const fan = st.multi > 1 ? 7 : 1.6, n = st.multi > 1 ? 24 : 16;
   for (let i = 0; i < n; i++){
     const s = (16 + rnd() * 8) * reach, side = (rnd() - .5) * fan;
-    spawnPart('dust', nw.x + fx * 1.1, nw.y + 1.4, nw.z + fz * 1.1, (.35 + rnd() * .25) * (st.push ? 1.5 : 1),
+    spawnPart('dust', nw.x + fx * 1.1, nw.y + 1.4, nw.z + fz * 1.1, (.35 + rnd() * .25) * (st.push ? 1.5 : 1) * (1 + .2 * (st.power - 1)),
       {vx:fx * s + fz * side, vy:2.5 + rnd() * 2, vz:fz * s - fx * side, g:16 / reach, life:(.55 + rnd() * .25) * Math.min(1.5, reach), op:.95, grow:.6, color:st.push ? '#b9e4ff' : '#7cc7ff'});
   }
   noise(.22, st.push ? .24 : .16, st.push ? 1800 : 3200, 'highpass'); if (st.push) tone('sine', 150, 60, .2, .18);
+  camShake = Math.max(camShake, .05 + .06 * (st.power - 1) + (st.push ? .2 : 0));      /* recoil: a stronger gun kicks harder */
   for (const c of hits) setTimeout(() => { try { c.t.hit(st.power, {push:st.push, fx:Math.sin(c.a), fz:Math.cos(c.a)}); } catch (e){ console.warn(e); } }, Math.min(400, c.d * 25));
 }
 function splashAt(x, y, z){ for (let i = 0; i < 10; i++) spawnPart('dust', x + (rnd() - .5) * 1.5, y + rnd(), z + (rnd() - .5) * 1.5, .5, {vx:(rnd() - .5) * 5, vy:2 + rnd() * 3, vz:(rnd() - .5) * 5, g:10, life:.7, op:.9, color:'#9fd8ff'}); }

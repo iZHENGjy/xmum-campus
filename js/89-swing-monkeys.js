@@ -2,11 +2,13 @@
  *
  * 秋千：音乐岛西边、树林边的草坪上。走过去按 F 坐上去，按住空格（手机按住「荡」，或者按住画面）越荡越高，
  *   荡到前面最高点松手就飞出去，落地算一次特技；飞得越远分越高。幅度不够时松手只是接着荡，再按 F 下来。
- * 猴子：校园树林西北角的小山是猴山，平时住着几只。步行或慢车靠近，会有一只冲过来抢东西：正在送外卖就抢外卖，
+ * 猴子：校园树林西北角的小山是猴山，山顶清出了一块空地（从东边的路上有一条土路上去），平时住着几只。
+ *   步行或慢车靠近，会有一只冲过来抢东西：正在送外卖就抢外卖，
  *   否则掏走一点钱。它抱着东西跑，十来秒后上树；这之前用水枪淋它（E）或者凑近大笑（R），东西就掉回来。
  *   淋了一只，别的猴子会围上来扔果子反击；对手强度（pveLevel）越高，围上来的越多，还会有淋一枪赶不走的猴王。
  *   在树林别处偶尔也会有一两只从树上跳下来捣乱。开快车冲过去它们会自己跳开。
- * 猴子大战：猴山东边山脚的棕色光圈，下车走进去开始。限时把一群猴子全赶跑，抢回 3 袋外卖。
+ * 猴子大战：山顶空地东口的棕色光圈，下车走进去开始。限时把一群猴子全赶跑，抢回 3 袋外卖。
+ *   抱着外卖的猴子跑一阵就没力气了，会停下来冲你做鬼脸，那就是淋它的时候。
  *
  * 接入方式和 js/87-classroom.js 一样：包一层 gx 的钩子；F 键靠包装 roomTryF；另外包装了 footAction、updateFoot、
  *   animNaiwa、updateMission（都是先做自己的事再调原函数）。猴子通过 wgAddTarget 注册成水枪目标。
@@ -20,7 +22,7 @@ let smPrompt = '';
 
 /* ================================================================== the swing ================================================================== */
 const SW_MIN = .5, SW_MAX = 1.32, SW_SIT = .62, SW_PUMP = .4;   /* launch needs this much swing (rad) · most it can swing · seat to 奶娃's feet · push while held */
-const SW = {x:-26, z:-58, h:1.18, H:5, L:3.6, G:16, th:0, om:0, on:false, was:false, skip:false, ptr:false, ptrId:-1, lx:0, ly:0, mv:0, fly:null, said:false, cam:null};
+const SW = {x:-26, z:-58, h:1.18, H:5, L:3.6, G:16, th:0, om:0, on:false, was:false, skip:false, ptr:false, ptrId:-1, lx:0, ly:0, mv:0, fly:null, said:false, cam:null, cue:false, top:false, trail:0};
 const swFx = Math.sin(SW.h), swFz = Math.cos(SW.h);
 const swG = new THREE.Group(), swPivot = new THREE.Group();
 (() => {
@@ -41,20 +43,36 @@ const swG = new THREE.Group(), swPivot = new THREE.Group();
   /* a worn patch of earth under the seat */
   const patch = new THREE.Mesh(new THREE.CircleGeometry(1.5, 20).rotateX(-Math.PI / 2), flatMat('#a98a62', 3)); patch.scale.set(.7, 1, 1.5); patch.position.y = .04; patch.receiveShadow = true; swG.add(patch);
   addLabel('秋千', SW.x, 6.6, SW.z, true);
+  /* a landing lane in front, chalked every 10 m like a long-jump pit: it shows which way is forward and gives something to beat */
+  const chalk = new THREE.MeshBasicMaterial({color:'#ffffff', transparent:true, opacity:.75, depthWrite:false, polygonOffset:true, polygonOffsetFactor:-6, polygonOffsetUnits:-24});
+  const lines = [new THREE.PlaneGeometry(.18, 38).rotateX(-Math.PI / 2).translate(-3, .05, 27), new THREE.PlaneGeometry(.18, 38).rotateX(-Math.PI / 2).translate(3, .05, 27)];
+  for (let d = 10; d <= 40; d += 10){
+    lines.push(new THREE.PlaneGeometry(6, .3).rotateX(-Math.PI / 2).translate(0, .05, d));
+    const cv = document.createElement('canvas'); cv.width = 128; cv.height = 64; const g = cv.getContext('2d');
+    g.fillStyle = '#ffffff'; g.font = '900 46px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(d + ' 米', 64, 34);
+    const num = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.3).rotateX(-Math.PI / 2).rotateY(Math.PI), new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(cv), transparent:true, opacity:.8, depthWrite:false, polygonOffset:true, polygonOffsetFactor:-6, polygonOffsetUnits:-24}));
+    num.position.set(0, .06, d + 1.2); swG.add(num);
+    clearArea(SW.x + Math.sin(SW.h) * d, SW.z + Math.cos(SW.h) * d, 4.5, 4.5); clearArea(SW.x + Math.sin(SW.h) * (d + 5), SW.z + Math.cos(SW.h) * (d + 5), 4.5, 4.5);
+  }
+  swG.add(new THREE.Mesh(geoMerge(lines), chalk));
   /* Collision: only the four feet, so 奶娃 can walk in under the beam. They go into MAP.wall (cars and walking) and not into
      the building colliders, because the follow camera pulls in for those and a thin post should not yank the camera around. */
   const wall = MAP.wall;
   MAP.wall = (x, z, r) => (wall ? wall(x, z, r) : false) || (Math.abs(x - SW.x) < 5 + r && Math.abs(z - SW.z) < 5 + r && feet.some(f => Math.hypot(f[0] - x, f[1] - z) < .25 + r));
 })();
 const swAmp = () => Math.acos(Math.max(-1, Math.min(1, 1 - (.5 * SW.om * SW.om * SW.L / SW.G + 1 - Math.cos(SW.th)))));   /* how high it would reach, from its energy */
-const swNear = () => mode === 'naiwa' && !driving && !SW.on && !ROOM.in && (nw.state === 'idle' || nw.state === 'laugh' || nw.state === 'pose') && !nw.air && Math.hypot(nw.x - SW.x, nw.z - SW.z) < 3.6;
+const swNear = () => mode === 'naiwa' && !driving && !SW.on && !ROOM.in && (nw.state === 'idle' || nw.state === 'laugh' || nw.state === 'pose') && !nw.air && Math.hypot(nw.x - SW.x, nw.z - SW.z) < 4.3;
 function swPhys(dt, pump){
   let acc = -(SW.G / SW.L) * Math.sin(SW.th) - (pump ? .03 : SW.on ? .16 : .55) * SW.om;
-  if (pump){ if (Math.abs(SW.om) < .12 && Math.abs(SW.th) < .08) SW.om = .75; else acc += Math.sign(SW.om) * SW_PUMP; }   /* push off the ground, then pump with the swing */
+  /* push off the ground, then pump with the swing; no more push once it would reach the top, so it tops out smoothly instead of hitting a stop */
+  if (pump){ if (Math.abs(SW.om) < .12 && Math.abs(SW.th) < .08) SW.om = .75; else if (swAmp() < SW_MAX - .02) acc += Math.sign(SW.om) * SW_PUMP; }
   const th0 = SW.th;
   SW.om += acc * dt; SW.th += SW.om * dt;
   if (Math.abs(SW.th) > SW_MAX){ SW.th = Math.sign(SW.th) * SW_MAX; if (SW.om * SW.th > 0) SW.om = 0; }
-  if (th0 * SW.th < 0 && Math.abs(SW.om) > 1.3) noise(.3, Math.min(.1, Math.abs(SW.om) * .03), 700);   /* whoosh through the bottom */
+  if (th0 * SW.th < 0 && Math.abs(SW.om) > 1.1){      /* through the bottom: a whoosh, and a note that climbs as the swing gets higher */
+    noise(.3, Math.min(.1, Math.abs(SW.om) * .03), 700);
+    if (SW.on){ const f = 260 + swAmp() / SW_MAX * 400; tone('sine', f, f * 1.25, .16, .07); SW.cue = false; }
+  }
   swPivot.rotation.x = -SW.th;
 }
 /* 奶娃's feet hang on the line of the ropes, a little below the seat, so leaning the body by -th keeps it on the seat */
@@ -63,9 +81,9 @@ function swPlace(){
   nw.x = SW.x + swFx * s; nw.z = SW.z + swFz * s; nw.y = SW.H - Math.cos(SW.th) * R; nw.h = SW.h; nw.spd = 0; nw.air = false;
 }
 function swSit(){
-  Object.assign(SW, {on:true, th:0, om:0, was:!!keys.Space, skip:true, ptr:false});
+  Object.assign(SW, {on:true, th:0, om:0, was:!!keys.Space, skip:true, ptr:false, cue:false, top:false});
   nw.state = 'swing'; nw.t = 0; swPlace(); sfx.boing();
-  SW.cam = camDist; camDist = Math.max(camDist, 12); camYaw = SW.h + Math.PI - .95;      /* three-quarter view from behind */
+  SW.cam = camDist; camDist = Math.max(camDist, 12); camYaw = SW.h + Math.PI - .7; camPitch = Math.max(camPitch, .3);      /* from behind and a little to the side, looking down the landing lane */
 }
 function swOff(){
   if (!SW.on) return; SW.on = false; SW.ptr = false;
@@ -77,19 +95,24 @@ function swLaunch(){
   const k = (A - SW_MIN) / (SW_MAX - SW_MIN), sp = (9 + 21 * k) * (.45 + .55 * q), el = .72;
   swPlace(); SW.on = false; SW.ptr = false; if (SW.cam){ camDist = SW.cam; SW.cam = null; }
   nw.vx = swFx * sp * Math.cos(el); nw.vz = swFz * sp * Math.cos(el); nw.vy = sp * Math.sin(el); nw.spin = 0; nw.state = 'fly'; nw.t = 0;
-  SW.fly = {x:SW.x, z:SW.z, best:q > .85 && k > .55}; SW.om = -1.6;
-  sfx.boing(); tone('sine', 300, 900, .35, .12);
-  if (SW.fly.best){ gxCallout('完美脱手！', '最高点松的手', '#ffc93c'); if (!REDUCED) gxSlow = .6; }
+  SW.fly = {x:SW.x, z:SW.z, best:q > .85 && k > .55}; SW.om = -1.6; SW.trail = 0;
+  sfx.boing(); tone('sine', 300, 900, .35, .12); camShake = Math.max(camShake, .35 + k * .4);
+  for (let i = 0; i < 8; i++) spawnPart('dust', nw.x + (rnd() - .5), nw.y + .8 + rnd(), nw.z + (rnd() - .5), .7, {vx:-nw.vx * .15 + (rnd() - .5) * 3, vy:1 + rnd() * 2, vz:-nw.vz * .15 + (rnd() - .5) * 3, life:.7, op:.8, grow:1.2, color:'#fff6d8'});
+  if (SW.fly.best){ gxCallout('完美脱手！', '最高点松的手', '#ffc93c'); sfx.sparkle(); if (!REDUCED) gxSlow = .6; }
   else if (q < .3) gxCallout('松早了', '荡到前面最高点再松手', '#ff8a3d');
+  else gxCallout('起飞！', `时机 ${Math.round(q * 100)}% · 最高点松手飞得最远`, '#ffc93c');
 }
+const SW_TIER = [[40, '人间大炮'], [30, '秋千飞人'], [15, '小飞一把'], [0, '摔了个屁股蹲']];
 function swLanded(){
   const f = SW.fly; SW.fly = null;
   const d = Math.round(Math.hypot(nw.x - f.x, nw.z - f.z)), prev = prog.best.swing, rec = prev == null || d > prev, wet = nw.state !== 'flop';
   if (rec){ prog.best.swing = d; saveGame(); }
+  const tier = SW_TIER.find(t => d >= t[0])[1];
   camShake = Math.max(camShake, Math.min(1.6, d / 22));
-  addStunt('秋千飞人', Math.round(60 + d * 14) + (f.best ? 150 : 0));
-  gxCallout(`飞了 ${d} 米`, wet ? '一头扎进湖里' : rec && prev != null ? '新纪录！' : prev != null ? `纪录 ${Math.round(prev)} 米` : '秋千飞人', '#ffc93c');
-  if (d >= 30) unlock('swingfar');
+  addStunt(tier, Math.round(60 + d * 14) + (f.best ? 150 : 0));
+  gxCallout(`${tier} · ${d} 米`, wet ? '一头扎进湖里' : rec && prev != null ? '新纪录！' : prev != null && d < prev ? `纪录 ${Math.round(prev)} 米` : d < 30 ? '飞到 30 米有成就' : '飞得真远', '#ffc93c');
+  if (d >= 15) for (let i = 0; i < 10; i++) spawnPart('dust', nw.x + (rnd() - .5) * 3, nw.y + .5 + rnd() * 2, nw.z + (rnd() - .5) * 3, .5, {vx:(rnd() - .5) * 5, vy:3 + rnd() * 4, vz:(rnd() - .5) * 5, g:9, life:1, op:1, color:'#ffd24a'});
+  if (d >= 30){ unlock('swingfar'); gxChime(2); }
 }
 /* called instead of the normal walking update while 奶娃 is on the seat */
 function swFoot(dt){
@@ -99,15 +122,23 @@ function swFoot(dt){
   if (held && !SW.was) SW.skip = false;
   SW.was = held;
   swPhys(dt, held);
-  if (!SW.said && swAmp() > .7){ SW.said = true; unlock('swing'); }
+  const A = swAmp();
+  if (!SW.said && A > .7){ SW.said = true; unlock('swing'); }
+  if (!SW.top && A > SW_MAX - .06){ SW.top = true; sfx.sparkle(); gxCallout('荡到顶了', '到前面最高点就松手', '#ffc93c'); }
+  /* a tick right in the sweet spot at the front top, once per swing */
+  if (!SW.cue && A >= SW_MIN && SW.th > A * .86 && SW.om > -.2){ SW.cue = true; tone('triangle', 1320, 1320, .07, .1); }
   swPlace();
 }
 function swUpdate(dt){
   if (!SW.on) swPhys(dt, false);
   if (SW.fly && nw.state !== 'fly') swLanded();
-  if (SW.on){
-    const n = Math.max(0, Math.min(6, Math.round(swAmp() / SW_MAX * 6))), bar = '▮'.repeat(n) + '▯'.repeat(6 - n), key = TOUCH ? '「荡」' : '空格';
-    smPrompt = swAmp() < SW_MIN ? `按住${key}越荡越高 ${bar}` + (TOUCH ? '' : ' · F 下来') : TOUCH ? `${bar} 最高点松手，飞出去！` : `${bar} 荡到前面最高点松开空格，飞出去！`;
+  if (SW.fly){      /* in the air: a streak behind 奶娃 and the distance so far */
+    SW.trail += dt; if (SW.trail > .04){ SW.trail = 0; spawnPart('dust', nw.x, nw.y + 1.2, nw.z, .55, {life:.45, op:.5, grow:1.5, color:'#ffffff'}); }
+    smPrompt = `飞了 ${Math.round(Math.hypot(nw.x - SW.fly.x, nw.z - SW.fly.z))} 米……`;
+  } else if (SW.on){
+    const A = swAmp(), n = Math.max(0, Math.min(6, Math.round(A / SW_MAX * 6))), bar = '▮'.repeat(n) + '▯'.repeat(6 - n), key = TOUCH ? '「荡」' : '空格';
+    const sweet = A >= SW_MIN && SW.th > A * .8 && SW.om > -.35;
+    smPrompt = A < SW_MIN ? `按住${key}越荡越高 ${bar}` + (TOUCH ? '' : ' · F 下来') : sweet ? `${bar} 现在松手！` : TOUCH ? `${bar} 最高点松手，飞出去！` : `${bar} 荡到前面最高点松开空格，飞出去！`;
   } else if (swNear()) smPrompt = (TOUCH ? '点「坐秋千」' : '按 F ') + '坐秋千' + (prog.best.swing != null ? ` · 最远飞过 ${Math.round(prog.best.swing)} 米` : '');
   /* touch button captions */
   const want = SW.on ? '下来' : swNear() ? '坐秋千' : '', fb = actF.querySelector('b'), sb = actSp.querySelector('b');
@@ -124,8 +155,8 @@ window.addEventListener('pointermove', e => {
 { const up = e => { if (e.pointerId === SW.ptrId) SW.ptr = false; }; window.addEventListener('pointerup', up); window.addEventListener('pointercancel', up); }
 
 /* ================================================================== monkeys ================================================================== */
-const MK_HILL = {x:-188, z:-175, r:75}, MK_START = {x:-149, z:-158}, MK_N = TOUCH ? 8 : 10;
-const MK = {pool:[], fruits:[], homes:[], war:null, loot:null, raidCd:6, anger:0, rage:0, slow:0, hitCd:0, throwCd:0, roamT:22, rearm:false, told:false, lx:0, lz:0, pvx:0, pvz:0, prev:''};
+const MK_HILL = {x:-188, z:-175, r:30, clear:23}, MK_START = {x:-171, z:-175}, MK_N = TOUCH ? 8 : 10;   /* r = how far the battle spreads · clear = the clearing on top */
+const MK = {pool:[], fruits:[], homes:[], war:null, loot:null, raidCd:6, anger:0, rage:0, slow:0, hitCd:0, throwCd:0, chain:0, chainT:0, roamT:22, rearm:false, told:false, lx:0, lz:0, pvx:0, pvz:0, prev:''};
 const mkMat = new THREE.MeshStandardMaterial({vertexColors:true, roughness:.9, flatShading:true});
 const mkMatBig = new THREE.MeshStandardMaterial({vertexColors:true, roughness:.9, flatShading:true, color:'#b4927a'});
 const mkSph = (r, col, x, y, z, sx, sy, sz, ws, hs) => geoTint(geoAt(new THREE.SphereGeometry(r, ws || 7, hs || 5), x, y, z, 0, 0, 0, sx || 1, sy || 1, sz || 1), col);
@@ -150,10 +181,38 @@ for (let i = 0; i < MK_N; i++){
 }
 for (let i = 0; i < 6; i++){ const m = new THREE.Mesh(mkFruitGeo, M(i % 2 ? '#f08a24' : '#d9432f', {roughness:.6})); m.visible = false; scene.add(m); MK.fruits.push({m, on:false, x:0, y:0, z:0, vx:0, vy:0, vz:0, t:0, T:1}); }
 const mkFree = (x, z) => !hitsBuilding(x, z, .5) && !outOfMap(x, z, .5) && !lakes.some(L => inPoly(x, z, L));
+/* The hilltop is cleared so the fight can be seen (under the canopy the camera sits in the leaves), and a dirt track runs up
+   from the road on the east side. Both are drawn on the terrain: every vertex takes its height from groundAt. */
+(() => {
+  const H = MK_HILL, x1 = H.x + 53;      /* the pavement of the road east of the hill starts about here */
+  for (const set of knockSets) set.spots.forEach((o, i) => {
+    const onTop = Math.hypot(o.x - H.x, o.z - H.z) < H.clear, onTrack = o.x > H.x && o.x < x1 && Math.abs(o.z - H.z) < 4.5;
+    if (!o.hidden && (onTop || onTrack)){ o.down = true; o.hidden = true; o.s = 0; setKnock(set, i, false, 0, 0); }
+  });
+  const dirt = new THREE.Color('#927a55'), grass = new THREE.Color('#4a8539'), c = new THREE.Color(), pos = [], col = [], idx = [];
+  const put = (x, z, k) => { pos.push(x, groundAt(x, z) + .09, z); c.copy(dirt).lerp(grass, Math.max(0, Math.min(1, k))); col.push(c.r, c.g, c.b); return pos.length / 3 - 1; };
+  /* A fine grid (1.5 m), because the hill underneath is made of 12 m triangles and a coarse patch would cut through its creases.
+     clearing: bare earth in the middle fading to grass at the rim · track: 3.5 m wide from the rim down to the road */
+  const S = 1.5, n = Math.ceil((H.clear + 1.5) / S), at = new Map();
+  const vert = (i, j) => { const key = i * 1000 + j; let v = at.get(key); if (v == null){ const x = H.x + i * S, z = H.z + j * S; v = put(x, z, (Math.hypot(i, j) * S - 15) / 8 + (hash2(i + 50, j + 50) - .5) * .25); at.set(key, v); } return v; };
+  for (let i = -n; i < n; i++) for (let j = -n; j < n; j++){
+    if (Math.hypot(i + .5, j + .5) * S > H.clear + 1) continue;
+    const a = vert(i, j), b2 = vert(i + 1, j), d = vert(i, j + 1), e = vert(i + 1, j + 1); idx.push(a, d, b2, b2, d, e);
+  }
+  let prev = null;
+  for (let x = H.x + 20; x <= x1 + .1; x += S){
+    const wob = Math.sin(x * .21) * .8, fade = 1 - Math.min(1, (x1 - x) / 5) * .9, row = [-2.6, -1.7, -.6, .6, 1.7, 2.6].map((o, k) => put(x, H.z + wob + o, k === 0 || k === 5 ? 1 : fade + .1));
+    if (prev) for (let k = 0; k < 5; k++) idx.push(prev[k], prev[k + 1], row[k], prev[k + 1], row[k + 1], row[k]);
+    prev = row;
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
+  const m = new THREE.Mesh(g, M('#ffffff', {vertexColors:true, roughness:.95, polygonOffset:true, polygonOffsetFactor:-4, polygonOffsetUnits:-16})); m.receiveShadow = true; scene.add(m);
+})();
 { /* where the residents sit on the hill */
   const rg = mkRng(8891);
   for (let k = 0; MK.homes.length < (TOUCH ? 4 : 5) && k < 300; k++){
-    const a = rg() * 6.283, r = 5 + rg() * 30, x = MK_HILL.x + Math.cos(a) * r, z = MK_HILL.z + Math.sin(a) * r;
+    const a = rg() * 6.283, r = 13 + rg() * 7, x = MK_HILL.x + Math.cos(a) * r, z = MK_HILL.z + Math.sin(a) * r;      /* round the clearing, in plain view */
+    if (Math.hypot(x - MK_START.x, z - MK_START.z) < 12) continue;
     if (mkFree(x, z) && MK.homes.every(h => Math.hypot(h.x - x, h.z - z) > 9)) MK.homes.push({x, z, m:null, cool:0});
   }
 }
@@ -168,7 +227,7 @@ function mkSpot(cx, cz, r0, r1, forest, onHill){
     const a = rnd() * 6.283, r = r0 + rnd() * (r1 - r0), x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r;
     if (!mkFree(x, z) || hitsBuilding(x, z, 1.5)) continue;
     if (forest && !inPoly(x, z, FOREST)) continue;
-    if (onHill && Math.hypot(x - MK_HILL.x, z - MK_HILL.z) > MK_HILL.r - 6) continue;
+    if (onHill && Math.hypot(x - MK_HILL.x, z - MK_HILL.z) > MK_HILL.clear + 2) continue;
     if (cars.some(c => Math.hypot(c.x - x, c.z - z) < 4)) continue;
     return [x, z];
   }
@@ -177,7 +236,7 @@ function mkSpot(cx, cz, r0, r1, forest, onHill){
 function mkSpawn(x, z, o){
   const m = MK.pool.find(q => !q.on); if (!m) return null;
   Object.assign(m, {on:true, x, z, h:rnd() * 6.283, st:o.drop ? 'drop' : o.next || 'idle', next:o.next || 'idle', t:0, air:o.drop ? 5.5 : 0, vAir:0, big:!!o.big, hp:o.big ? 3 : 1, carry:o.carry || null,
-    home:o.home || null, roam:!!o.roam, life:45, cd:.8 + rnd() * 1.5, fleeT:0, throwT:0, flash:0, hopT:0, mv:0});
+    home:o.home || null, roam:!!o.roam, life:45, cd:.8 + rnd() * 1.5, fleeT:0, throwT:0, flash:0, hopT:0, mv:0, stam:2.4, tired:0});
   m.s = o.big ? 1.5 : .95 + rnd() * .15; m.g.scale.setScalar(m.s);
   m.body.material = m.arms[0].material = m.arms[1].material = o.big ? mkMatBig : mkMat;
   m.item.visible = !!m.carry; if (m.carry) m.item.material.color.set(m.carry === 'food' ? '#ff8a3d' : '#e3b95a');
@@ -240,12 +299,17 @@ function mkEscape(m){
   mkGone(m);
 }
 /* ---------- driving them off, and the troop hitting back ---------- */
-function mkScare(m){
+function mkScare(m, how){
   const had = m.carry; if (had) mkDrop(m);
-  m.st = 'scared'; m.t = 0; mkScreech(); addStunt(m.big ? '赶跑猴王' : '赶跑猴子', m.big ? 120 : 40);
-  const w = MK.war;
-  if (w){ w.done++; MK.rage = Math.min(1, MK.rage + .1); gxCallout(`赶跑 ${w.done} / ${w.need}`, had ? `外卖抢回 ${w.got} / 3` : m.big ? '猴王跑了' : '', '#c98a55'); }
-  else mkAnger(m);
+  m.st = 'scared'; m.t = 0; m.vAir = how === 'laugh' ? 5 : 7.5; m.air = .01; mkScreech(); camShake = Math.max(camShake, m.big ? .5 : .28);      /* it pops into the air and bolts */
+  mkLeaves(m.x, m.y + .5, m.z, 3);
+  /* driving several off in quick succession chains, like the stunt combo */
+  MK.chain = MK.chainT > 0 ? MK.chain + 1 : 1; MK.chainT = 3;
+  addStunt(m.big ? '赶跑猴王' : MK.chain > 1 ? `${MK.chain} 连赶` : '赶跑猴子', (m.big ? 120 : 40) + (MK.chain - 1) * 30);
+  gxChime(Math.min(4, MK.chain - 1));
+  const w = MK.war, head = MK.chain > 1 ? `${MK.chain} 连赶！` : m.big ? '猴王跑了！' : how === 'laugh' ? '笑跑了！' : '淋跑了！';
+  if (w){ w.done++; MK.rage = Math.min(1, MK.rage + .1); gxCallout(head, `赶跑 ${w.done} / ${w.need}` + (had ? ` · 外卖 ${w.got} / 3` : ''), '#c98a55'); }
+  else { gxCallout(head, had ? '东西抢回来了' : '', '#c98a55'); mkAnger(m); }
 }
 function mkAnger(src){
   if (MK.war) return;
@@ -262,7 +326,7 @@ function mkAnger(src){
 }
 function mkHit(m, power, info){
   if (!m.on || m.st === 'scared') return;
-  splashAt(m.x, m.y + .6, m.z); sfx.splash();
+  splashAt(m.x, m.y + .6, m.z); if ((power || 1) > 1.4) splashAt(m.x, m.y + 1, m.z); sfx.splash();
   if (info && info.push) for (let k = 0; k < 5; k++){ const x = m.x + info.fx * .6, z = m.z + info.fz * .6; if (!mkFree(x, z)) break; m.x = x; m.z = z; }
   m.hp -= power || 1;
   if (m.hp > .01){ m.flash = .5; tone('square', 520, 300, .2, .08); gxCallout('猴王不怕水', `再淋 ${Math.ceil(m.hp / (power || 1))} 枪`, '#c98a55'); if (m.st === 'idle'){ m.st = 'throw'; m.cd = .5; } mkAnger(m); return; }
@@ -273,9 +337,9 @@ function mkLaugh(){
   for (const m of MK.pool){
     if (!m.on || m.st === 'scared' || m.st === 'drop' || Math.hypot(m.x - nw.x, m.z - nw.z) > R) continue;
     if (m.big){ m.hp -= 1; m.flash = .5; if (m.hp > .01) continue; }
-    mkScare(m); n++;
+    mkScare(m, 'laugh'); n++;
   }
-  if (n) gxCallout('哈哈哈哈哈', `笑跑 ${n} 只猴子`, '#c0392b');
+  if (n > 1) gxCallout('哈哈哈哈哈', `一口气笑跑 ${n} 只猴子`, '#c0392b');
 }
 wgAddTarget(() => MK.pool.filter(m => m.on && m.st !== 'scared' && m.st !== 'drop').map(m => ({x:m.x, z:m.z, hit:(p, i) => mkHit(m, p, i)})));
 /* ---------- fruit ---------- */
@@ -300,6 +364,7 @@ function mkFruitHit(f){
 function mkStep(m, dt, px, pz, slow, sp, lv){
   const dx = px - m.x, dz = pz - m.z, d = Math.hypot(dx, dz) || 1e-3, w = MK.war;
   m.t += dt; m.mv = 0;
+  if (m.air > 0 && m.st !== 'drop'){ m.vAir -= 22 * dt; m.air = Math.max(0, m.air + m.vAir * dt); }      /* popped up by a soaking */
   if (m.st === 'drop'){      /* dropping out of a tree */
     m.vAir -= 22 * dt; m.air = Math.max(0, m.air + m.vAir * dt);
     if (m.air <= 0){ m.st = m.next; m.t = 0; dustBurst(m.x, groundAt(m.x, m.z) + .2, m.z, 3, 1.2); mkSqueak(); }
@@ -320,11 +385,17 @@ function mkStep(m, dt, px, pz, slow, sp, lv){
       else if (m.t > 10 || sp > 14){ m.st = w || MK.anger > 0 ? 'throw' : 'idle'; m.t = 0; m.cd = 1; }
       break;
     case 'flee': {
+      /* A thief in the open world just runs (it has a tree to reach). In the battle the ones with the takeaway play keep-away:
+         a sprint when you get close, then they are out of breath and stop to pull faces, which is the moment to soak them. */
       let ax = -dx / d, az = -dz / d;
-      if (w){ const cx = MK_HILL.x - m.x, cz = MK_HILL.z - m.z, dc = Math.hypot(cx, cz) || 1, pull = Math.pow(dc / MK_HILL.r, 2) * 1.8; ax += cx / dc * pull; az += cz / dc * pull; }
+      const cx = MK_HILL.x - m.x, cz = MK_HILL.z - m.z, dc = Math.hypot(cx, cz) || 1;
+      if (w){ const pull = Math.pow(dc / MK_HILL.r, 2) * 2.2; ax += cx / dc * pull; az += cz / dc * pull; }
       const wv = Math.sin(m.t * 2.3 + m.id) * .5;      /* weave a little */
-      mkGo(m, m.x + (ax - az * wv) * 6, m.z + (az + ax * wv) * 6, d < 15 ? 8.6 + .4 * lv : 4.5, dt);
-      if (!w){ m.fleeT -= dt; if (m.fleeT <= 0){ mkEscape(m); return; } }
+      if (!w){ mkGo(m, m.x + (ax - az * wv) * 6, m.z + (az + ax * wv) * 6, d < 15 ? 8.6 + .4 * lv : 4.5, dt); m.fleeT -= dt; if (m.fleeT <= 0){ mkEscape(m); return; } break; }
+      if (m.tired > 0){ m.tired -= dt; m.h = Math.atan2(dx, dz); if (m.tired <= 0) m.stam = 2 + .35 * lv; }
+      else if (d < 12 && m.stam > 0){ mkGo(m, m.x + (ax - az * wv) * 6, m.z + (az + ax * wv) * 6, 8.8 + .4 * lv, dt); m.stam -= dt; if (m.stam <= 0){ m.tired = 2.3 - .3 * lv; mkSqueak(); } }
+      else if (d > 21) mkGo(m, px, pz, 6, dt);      /* do not wander off: come back and tease */
+      else { m.h = Math.atan2(dx, dz); m.stam = Math.min(2 + .35 * lv, m.stam + dt * .6); }
       break; }
     case 'throw':
       if (d < 7.5) mkGo(m, m.x - dx / d * 5, m.z - dz / d * 5, 8, dt);
@@ -341,8 +412,9 @@ function mkStep(m, dt, px, pz, slow, sp, lv){
       break;
   }
   const run = m.mv > .1; if (run) m.hopT += dt * 14;
-  m.y = groundAt(m.x, m.z) + (run ? Math.abs(Math.sin(m.hopT)) * .32 : 0) + m.air;
-  m.g.position.set(m.x, m.y, m.z); m.g.rotation.set(run ? .3 : 0, m.h, 0);
+  const taunt = !run && m.st === 'flee' && m.carry ? Math.abs(Math.sin(m.t * (m.tired > 0 ? 4 : 9))) * (m.tired > 0 ? .08 : .3) : 0;      /* bouncing on the spot with the bag; panting when out of breath */
+  m.y = groundAt(m.x, m.z) + (run ? Math.abs(Math.sin(m.hopT)) * .32 : taunt) + m.air;
+  m.g.position.set(m.x, m.y, m.z); m.g.rotation.set(m.st === 'scared' && m.air > 0 ? m.t * 13 : run ? .3 : 0, m.h, 0);      /* a somersault on the way up */
   let l = 0, r = 0;
   if (m.carry || m.st === 'scared' || m.st === 'drop'){ l = r = -2.9 + Math.sin(m.t * 18) * (m.carry ? .08 : .4); }
   else if (m.throwT > 0){ m.throwT -= dt; r = -3.4 + (1 - m.throwT / .35) * 2.4; }
@@ -352,16 +424,19 @@ function mkStep(m, dt, px, pz, slow, sp, lv){
   if (m.flash > 0){ m.flash -= dt; m.g.scale.setScalar(m.s * (1 + Math.sin(m.flash * 40) * .07)); }
 }
 /* ---------- 猴子大战 ---------- */
+const MK_MEDAL = [.45, .25];      /* share of the time that must be left for gold / silver */
 function mkWarStart(){
-  mkClear(); const lv = smLv(), need = 8 + 2 * lv, limit = 75 + 8 * lv;
+  mkClear(); const lv = smLv(), need = 10 + 2 * lv, limit = 70 + 8 * lv;
   MK.war = {t:0, lv, need, limit, done:0, got:0, spawned:0, spawnCd:.4, cap:Math.min(MK_N, 4 + lv), bigs:[0, 1, 1, 2][lv]};
   MK.rage = 0; for (const h of MK.homes) h.m = null;
   mkMark.visible = false; mkLbl.dead = true; sfx.ding(); mkScreech();
   gxCallout('猴子大战', `赶跑 ${need} 只`, '#c98a55');
-  toast('猴子大战', `猴群抢走了 3 袋外卖。${limit} 秒内把 ${need} 只猴子全赶跑：水枪淋，或者凑近了大笑。小心果子` + (lv ? ` · 对手强度：${PVE_NAME[lv]}` : ''), 4400);
+  toast('猴子大战', `${limit} 秒内赶跑 ${need} 只：${TOUCH ? '「水枪」' : 'E '}淋，凑近了${TOUCH ? '' : ' R '}大笑` + (lv ? ` · 对手${PVE_NAME[lv]}` : ''), 3000);
 }
 function mkWarSpawn(px, pz){
-  const w = MK.war, i = w.spawned, s = mkSpot(px, pz, 13, 24, false, true) || mkSpot(MK_HILL.x, MK_HILL.z, 5, 40, false, true); if (!s) return;
+  const w = MK.war, i = w.spawned; let s = null;
+  for (let k = 0; k < 8 && !s; k++){ const q = mkSpot(MK_HILL.x, MK_HILL.z, 9, MK_HILL.clear, false, true); if (q && Math.hypot(q[0] - px, q[1] - pz) > 11) s = q; }      /* at the edge of the clearing, not on top of you */
+  if (!s) return;
   const big = i >= w.need - w.bigs, role = i < 3 ? 'flee' : i % 2 ? 'throw' : w.lv >= 1 || i % 4 === 0 ? 'raid' : 'throw';
   if (mkSpawn(s[0], s[1], {next:big ? 'throw' : role, drop:true, big, carry:!big && i < 3 ? 'food' : null})) w.spawned++;
 }
@@ -370,12 +445,13 @@ function mkWarEnd(win, title, sub){
   for (const m of MK.pool) if (m.on) mkGone(m);
   for (const f of MK.fruits){ f.on = false; f.m.visible = false; }
   for (const h of MK.homes) h.cool = 25 + rnd() * 20;
-  if (!win){ if (title){ sfx.fail(); toast(title, sub, 3000); } return; }
-  const left = Math.max(0, w.limit - w.t), frac = left / w.limit, medal = frac >= .4 ? 0 : frac >= .2 ? 1 : 2;
+  if (!win){ if (title){ sfx.fail(); toast(title, `赶跑了 ${w.done} / ${w.need} 只 · ` + sub, 3200); } return; }
+  const left = Math.max(0, w.limit - w.t), frac = left / w.limit, medal = frac >= MK_MEDAL[0] ? 0 : frac >= MK_MEDAL[1] ? 1 : 2;
   const prev = prog.best.monkey, rec = prev == null || left > prev; if (rec) prog.best.monkey = Math.round(left);
-  const pay = Math.round(40 + left * .8) + [40, 20, 8][medal] + 15 * w.lv;
+  const pay = Math.round(40 + left * .8) + [40, 20, 8][medal] + 25 * w.lv;
+  const next = medal ? ` · 再快 ${Math.ceil(w.limit * MK_MEDAL[medal - 1] - left)} 秒就是${GX_MEDAL[medal - 1]}` : '';      /* what the next medal takes */
   sess.acts++; sess.medals++; earn(pay); saveGame(); unlock('monkeywar'); if (medal === 0) unlock('gold');
-  toast(`${GX_MEDAL[medal]} · 猴子大战`, `还剩 ${Math.round(left)} 秒${rec && prev != null ? ' · 新纪录！' : ''} · 外卖抢回 ${w.got} / 3 · +RM ${pay}`, 3800);
+  toast(`${GX_MEDAL[medal]} · 猴子大战`, `还剩 ${Math.round(left)} 秒${rec && prev != null ? ' · 新纪录！' : ''} · +RM ${pay}${next}`, 4200);
   gxCallout(GX_MEDAL[medal], '猴山大王', ['#e3b95a', '#b8c2cc', '#c98a55'][medal]);
   for (let i = 0; i < 5; i++) tone('triangle', 523 * Math.pow(1.19, i), 523 * Math.pow(1.19, i), .18, .13, i * .09);
 }
@@ -386,7 +462,7 @@ function mkUpdate(dt, px, pz){
   /* how fast the player is moving, to lead the throws (a teleport must not count) */
   if (dt > 0){ let vx = (px - MK.lx) / dt, vz = (pz - MK.lz) / dt; if (Math.hypot(vx, vz) > 40) vx = vz = 0; const k = Math.min(1, dt * 6); MK.pvx += (vx - MK.pvx) * k; MK.pvz += (vz - MK.pvz) * k; }
   MK.lx = px; MK.lz = pz;
-  MK.raidCd -= dt; MK.slow -= dt; MK.anger -= dt; MK.hitCd -= dt; MK.throwCd -= dt;
+  MK.raidCd -= dt; MK.slow -= dt; MK.anger -= dt; MK.hitCd -= dt; MK.throwCd -= dt; MK.chainT -= dt;
   const dHill = Math.hypot(px - MK_HILL.x, pz - MK_HILL.z), w = MK.war;
   /* the start ring at the foot of the hill */
   const canStart = !w && !indoors && !mkBaseBusy() && !mission.on;
@@ -407,9 +483,14 @@ function mkUpdate(dt, px, pz){
     missionEl.textContent = `赶猴 ${b.done}/${b.need} · ${Math.max(0, Math.ceil(left))} 秒 · 外卖 ${b.got}/3 · 猴子大战`;      /* counts first: the phone HUD cuts long lines */
     missionEl.classList.toggle('urgent', left < 12);
     if (b.done >= b.need) mkWarEnd(true);
-    else if (left <= 0) mkWarEnd(false, '猴群赢了', '时间到，猴子还在山上笑你。山脚的光圈可以再来');
-    else if (dHill > MK_HILL.r + 60) mkWarEnd(false, '跑出猴山了', '猴子大战要在山上打。山脚的光圈可以再来');
-    else if (dHill > MK_HILL.r + 25) smPrompt = '离猴山太远了，再走就算弃权';
+    else if (left <= 0) mkWarEnd(false, '猴群赢了', '时间到。山顶的光圈可以再来');
+    else if (dHill > MK_HILL.r + 50) mkWarEnd(false, '跑出猴山了', '猴子大战要在山顶打');
+    else if (dHill > MK_HILL.r + 22) smPrompt = '离山顶太远了，再走就算弃权';
+    else if (MK.war && !driving){      /* always say what to do next: close in, or fire */
+      let bd = 1e9; for (const m of MK.pool) if (m.on && m.st !== 'scared' && m.st !== 'drop') bd = Math.min(bd, Math.hypot(m.x - px, m.z - pz));
+      const R = wgStat().range, key = TOUCH ? '点「水枪」' : '按 E ';
+      if (bd < 1e8) smPrompt = WG.ammo < 1 ? (bd < 10 - lv ? `没水了，${TOUCH ? '点「大笑」' : '按 R 大笑'}吓跑它` : '没水了，等回水，或者凑近了大笑') : bd <= R ? `在射程里，${key}淋它` : `再靠近 ${Math.ceil(bd - R)} 米就能淋到`;
+    }
   } else if (!indoors){
     /* residents of the hill: there while you are around, gone when you are far away */
     if (dHill < 150){ for (const h of MK.homes){ h.cool -= dt; if (!h.m && h.cool <= 0){ const m = mkSpawn(h.x, h.z, {next:'idle', home:h, drop:dHill < 70}); if (m) h.m = m; else break; } } }
@@ -426,6 +507,7 @@ function mkUpdate(dt, px, pz){
     }
   }
   for (const m of MK.pool) if (m.on) mkStep(m, dt, px, pz, slow, sp, lv);
+  if (MK.loot && MK.loot.m.on && !driving){ const bd = Math.hypot(MK.loot.m.x - px, MK.loot.m.z - pz), R = wgStat().range; smPrompt = bd <= R ? `在射程里，${TOUCH ? '点「水枪」' : '按 E '}淋它！` : `追上去，再近 ${Math.ceil(bd - R)} 米就能淋到`; }
   /* a thief that was switched off some other way must not keep the loot */
   if (MK.loot && !MK.loot.m.on){ const L = MK.loot; MK.loot = null; if (L.kind === 'cash'){ money += L.amt; moneyChanged(); } }
   const py = driving ? driving.y : nw.y;
@@ -494,7 +576,7 @@ function smReset(){ swOff(); SW.fly = null; if (SW.lbl || actSp.querySelector('b
         if (Math.hypot(p.x - SW.x, p.z - SW.z) < 240) dot(SW.x, SW.z, '#ffd27a', 4);
       }
     },
-    onBust(){ smReset(); if (MK.war) mkWarEnd(false, '猴子大战中断了', '被保安抓走了，猴子看了个热闹'); mkClear(); base.onBust(); },
+    onBust(){ smReset(); if (MK.war) mkWarEnd(false, '猴子大战中断了', '被保安抓走了'); mkClear(); base.onBust(); },
     leave(){ smReset(); mkWarEnd(false); MK.rearm = false; mkClear(); mkMark.visible = false; mkLbl.dead = true; base.leave(); }
   });
 }
