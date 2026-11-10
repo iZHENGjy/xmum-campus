@@ -1,0 +1,24 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>XMUM offline test</title>
+<script>
+/* 本地离线测试页：读取 ../index.html，把 js/firebase-config.js 换成 window.XMUM_FIREBASE = null，
+ * 所以不会登录、不会写排行榜和云存档。用法：项目根目录起静态服务器，打开 /test/offline.html。
+ * 加 ?mock 换成 test/firebase-mock.js（假的内存 firebase），用来看联机幽灵的外观。 */
+/* ?frame=390x844：把自己套进一个手机大小的 iframe（无头浏览器窗口最窄只有 512 px） */
+const FR = new URLSearchParams(location.search).get('frame');
+if (FR){
+  const [w, h] = FR.split('x').map(Number), q = new URLSearchParams(location.search); q.delete('frame');
+  document.write(`<body style="margin:0;background:#222"><iframe src="offline.html?${q}" style="width:${w}px;height:${h}px;border:0;display:block"></iframe></body>`);
+} else
+fetch('../index.html', {cache:'no-store'}).then(r => r.text()).then(html => {
+  const mock = /[?&]mock\b/.test(location.search);
+  html = html.replace(/<head>/i, '<head><base href="../">')
+    .replace(/<script src="js\/firebase-config\.js[^"]*"><\/script>/, mock ? '<script src="test/firebase-mock.js"><\/script>' : '<script>window.XMUM_FIREBASE = null;<\/script>')
+    .replace(/<script src="js\/stats\.js[^"]*"><\/script>/, '');
+  /* ?run=<js>：页面加载 1.5 秒后执行一段脚本，给无头浏览器截图摆场景用 */
+  const run = new URLSearchParams(location.search).get('run');
+  if (run) html = html.replace(/<\/body>/i, '<script>setTimeout(() => { (0, eval)(' + JSON.stringify(run).replace(/</g, '\\u003c') + '); }, 1500);<\/script></body>');
+  document.open(); document.write(html); document.close();
+});
+</script>

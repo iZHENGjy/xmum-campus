@@ -21,6 +21,8 @@
  *   /presence/{uid} = {name, mode, x, z, y, h, car?, color, t}
  *   /boards/{board}/{uid} = {name, value, ts}
  *   /saves/{uid} = {data, score, ts}   只有 Google 登录的人才有：本机所有 xmum-* 存档的 JSON，双向同步，进度多的一边为准
+ *   /looks/{uid} = "pink,santa,melon,mblue,d_flames"   奶娃穿戴和自己车的喷漆（js/88-wardrobe-ui.js 的 XWard.lookStr()），
+ *                  只在变化时写一次；单独一个节点，规则还没发布时写入失败也不影响 presence
  *   /names/{昵称小写} = {uid, name, ts}  昵称先到先得，永久归主人：只有主人能改名放出或删掉（ts 是最近一次上线）
  *   /users/{uid} = {name, key}          自己现在注册的昵称；排行榜规则要求成绩上的名字和这里一致，防止冒充
  *   XNet.claimedName()   已注册的昵称（还没注册或离线时为 ''）
@@ -43,6 +45,7 @@
   let db = null, me = null, warned = false, serverOffset = 0, connected = false;
   const best = {hole:-1, stunt:-1, rich:-1};            // 服务器上自己的最好成绩（-1 = 未知）
   const remotes = new Map();                            // uid -> {d, seen, g}
+  const looks = new Map();                              // uid -> 穿戴字符串
   const emit = () => { try { window.dispatchEvent(new Event('xnet')); } catch(e){} };
 
   function fail(why, err){
@@ -263,9 +266,17 @@
     if (!s.car) delete s.car;
     return s;
   }
-  let lastSent = null, lastSentAt = 0, presRef = null, hiddenPage = false;
+  let lastSent = null, lastSentAt = 0, presRef = null, hiddenPage = false, lookRef = null, lastLook = null;
+  const LOOK_RE = /^[a-z0-9_,]{0,120}$/;
+  function sendLook(){
+    const l = String(g(() => XWard.lookStr(), '') || '');
+    if (l === lastLook || !LOOK_RE.test(l)) return;
+    lastLook = l;
+    lookRef.set(l || null).catch(() => {});             // 规则没发布时会被拒绝：只是别人看不到衣服
+  }
   function sendPresence(){
     if (!XNet.online || !connected || !presRef || hiddenPage) return;
+    sendLook();
     const s = myState(), t = performance.now(), live = s.mode === 'naiwa' || s.mode === 'walk';
     const changed = !lastSent || s.mode !== lastSent.mode || s.car !== lastSent.car || s.name !== lastSent.name || s.color !== lastSent.color
       || (live && (Math.abs(s.x - lastSent.x) + Math.abs(s.z - lastSent.z) + Math.abs(s.y - lastSent.y) > .05 || Math.abs(wrapA(s.h - lastSent.h)) > .02));
@@ -281,12 +292,13 @@
   g(() => [glassMat, tyreMat, headMat, tailMat, white].forEach(m => sharedMats.add(m)));
   function disposeObj(o){
     o.traverse(m => {
-      if (m.geometry) m.geometry.dispose();
-      if (m.material) [].concat(m.material).forEach(x => { if (!sharedMats.has(x)){ if (x.map && x.map.dispose) x.map.dispose(); x.dispose(); } });
+      if (m.geometry && !m.geometry.keep) m.geometry.dispose();
+      if (m.material) [].concat(m.material).forEach(x => { if (!sharedMats.has(x) && !x.keep){ if (x.map && x.map.dispose && !x.map.keep) x.map.dispose(); x.dispose(); } });
     });
   }
   function makeGhost(r){
     const n = makeNaiwa(); n.root.traverse(m => { if (m.isMesh) m.castShadow = false; });
+    n.lookStr = '';
     scene.add(n.root);
     const L = addLabel(r.d.name || '?', 0, -999, 0, false);
     L.el.style.borderColor = r.d.color || ''; L.el.style.boxShadow = '0 0 0 2px ' + (r.d.color || '#f1c84b');
@@ -294,13 +306,17 @@
     return {n, car:null, carKey:'', L, x:r.d.x, y:r.d.y, z:r.d.z, h:r.d.h, walkT:0, spd:0, vis:false};
   }
   function setGhostCar(G, kind, color){
-    const key = kind ? kind + color : '';
+    const key = kind ? kind + color + G.n.lookStr : '';
     if (key === G.carKey) return;
     if (G.car){ G.car.body.remove(G.n.root); scene.remove(G.car.root); disposeObj(G.car.root); G.car = null; }
     G.carKey = key;
     if (kind && g(() => CAR_T[kind], null)){
       const c = makeCar(kind, color, G.x, G.z, G.h);
       const i = cars.indexOf(c); if (i >= 0) cars.splice(i, 1);    // 只是画面，不参与物理
+      g(() => {                                                     // 自己的车的喷漆和贴花（look 里带着的话）
+        const ids = G.n.lookStr.split(','), p = ids.find(x => WD_PAINT[x]), d = ids.find(x => /^d_/.test(x));
+        if (p || d) carPaint(c, p || 'stock', d ? d.slice(2) : 'none', color);
+      });
       c.root.traverse(m => { if (m.isMesh) m.castShadow = false; });
       c.body.add(G.n.root); G.n.root.position.set(...c.T.seat); G.n.root.rotation.set(0, 0, 0);
       G.car = c;
@@ -352,6 +368,8 @@
       if (!showAll || !live || !drawSet.has(uid)){ if (r.g) hideGhost(r.g); continue; }
       if (!r.g) r.g = makeGhost(r);
       const G = r.g, car = d.mode === 'naiwa' && d.car ? String(d.car) : null;
+      const lk = looks.get(uid) || '';
+      if (G.n.lookStr !== lk){ G.n.lookStr = lk; g(() => nwDress(G.n, wdLookParse(lk), {shadow:false})); }
       setGhostCar(G, car, /^#[0-9a-fA-F]{6}$/.test(d.color) ? d.color : '#cccccc');
       const tx = +d.x || 0, ty = +d.y || 0, tz = +d.z || 0, th = +d.h || 0;
       const jump = Math.hypot(tx - G.x, tz - G.z);
@@ -387,6 +405,7 @@
   function blobScore(o){                                  // 进度大致有多少：钱 + 车 + 特技 + 黑洞最好成绩
     let s = 0;
     try { const d = JSON.parse(o['xmum-gta-v1'] || 'null') || {}; s += (+d.money || 0) + (Array.isArray(d.owned) ? d.owned.length : 0) * 500 + (+d.stunt || 0) / 50; } catch(e){}
+    try { s += +(JSON.parse(o['xmum-wardrobe-v1'] || 'null') || {}).spent || 0; } catch(e){}
     return s + (+o['xmum-hole2-best'] || 0) * 10 + (+o['xmum-hole-best'] || 0) * 10;
   }
   let lastPushed = '';
@@ -487,11 +506,12 @@
       XNet.online = true;
       db.ref('.info/serverTimeOffset').on('value', s => { serverOffset = +s.val() || 0; });
       await settleName();                                   // 先注册好昵称，再上线和交成绩
-      presRef = db.ref('presence/' + me.uid);
+      presRef = db.ref('presence/' + me.uid); lookRef = db.ref('looks/' + me.uid);
       db.ref('.info/connected').on('value', s => {
         connected = !!s.val();
         if (connected){
           presRef.onDisconnect().remove().then(() => { lastSent = null; sendPresence(); }).catch(e => fail('onDisconnect 失败', e));
+          lookRef.onDisconnect().remove().catch(() => {}); lastLook = null;
         }
         recount();
       });
@@ -500,6 +520,8 @@
       pres.on('child_added', onRemote, denied);
       pres.on('child_changed', onRemote, denied);
       pres.on('child_removed', s => { dropRemote(s.key); recount(); }, denied);
+      const lk = db.ref('looks'), setLook = s => { const v = s.val(); if (typeof v === 'string' && LOOK_RE.test(v)) looks.set(s.key, v); else looks.delete(s.key); };
+      lk.on('child_added', setLook, () => {}); lk.on('child_changed', setLook, () => {}); lk.on('child_removed', s => looks.delete(s.key), () => {});
       setInterval(sendPresence, SEND_MS);
       setInterval(() => { autoTick(false); recount(); }, 1000);
       setInterval(() => { const on = g(() => HS.on, false); if (on !== holeWasOn) autoTick(false); }, SEND_MS);
@@ -507,6 +529,7 @@
         if (!XNet.online) return;
         autoTick(true); cloudPush();
         hiddenPage = true; if (presRef) presRef.remove().catch(() => {}); lastSent = null;
+        if (lookRef) lookRef.remove().catch(() => {}); lastLook = null;
       };
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') away();

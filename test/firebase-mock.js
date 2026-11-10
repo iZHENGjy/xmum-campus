@@ -54,8 +54,9 @@
     };
     return r;
   }
-  const user = {uid:'me-local-uid'};
-  const app = {auth:() => ({signInAnonymously:() => Promise.resolve({user}), currentUser:user}), database:() => ({ref})};
+  const user = {uid:'me-local-uid', isAnonymous:true, providerData:[]};
+  const app = {auth:() => ({signInAnonymously:() => Promise.resolve({user}), currentUser:user, onAuthStateChanged(cb){ setTimeout(() => cb(user), 0); return () => {}; }}), database:() => ({ref})};
+  window.__mockGet = get; window.__mockPut = put;
   window.firebase = {apps:[], initializeApp(){ this.apps.push(app); return app; }, app:() => app, auth:() => app.auth(), database:Object.assign(() => app.database(), {ServerValue:{TIMESTAMP:TS}})};
 
   /* ---- 种子数据 ---- */
@@ -63,6 +64,7 @@
   put('boards/hole/u1', {name:'阿明', value:61.2, ts:now}); put('boards/hole/u2', {name:'小红', value:33.4, ts:now}); put('boards/hole/u3', {name:'DDL战士', value:88.8, ts:now});
   put('boards/rich/u1', {name:'阿明', value:999.5, ts:now});
   put('presence/old', {name:'掉线的', mode:'naiwa', x:110, z:190, y:0, h:0, color:'#00ff00', t:now - 120000});
+  put('looks/bot1', 'pink,santa,santahat'); put('looks/bot2', 'xmumblue,mblue,d_flames');   /* 奶娃衣橱：别人的穿戴和喷漆 */
   put('presence/bot3', {name:'看风景的', mode:'orbit', x:0, z:0, y:0, h:0, color:'#f1c84b', t:TS});
   let T = 0;
   setInterval(() => {

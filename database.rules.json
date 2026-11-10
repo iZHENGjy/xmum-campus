@@ -39,6 +39,13 @@
         }
       }
     },
+    "looks": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.isString() && newData.val().length <= 120 && newData.val().matches(/^[a-z0-9_,]*$/)"
+      }
+    },
     "boards": {
       "$board": {
         ".read": "$board === 'hole2' || $board === 'hole' || $board === 'stunt' || $board === 'rich'",
