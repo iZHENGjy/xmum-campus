@@ -307,8 +307,11 @@ function facadePair(kind, tone, R){
       if (arch){ g.fillStyle = '#d4c7af'; g.beginPath(); g.moveTo(x + 29, y + 7); g.lineTo(x + 35, y + 7); g.lineTo(x + 34, y + 13); g.lineTo(x + 30, y + 13); g.fill(); }
       if (R() < .64){
         e.fillStyle = R() < .78 ? '#ffcf86' : '#eaf4ff';
-        if (arch){ archPath(e, x + 17, y + 12, 30, 39); e.fill(); } else e.fillRect(x + 17, y + 12, 30, 39);
-        e.fillStyle = '#000'; e.fillRect(x + 31, y + 12, 2, 39); e.fillRect(x + 17, y + 31, 30, 2);
+        /* teaching blocks are mostly dark after hours: only about one window in five stays lit (the facade lighting does the rest) */
+        if (D() < .3){
+          if (arch){ archPath(e, x + 17, y + 12, 30, 39); e.fill(); } else e.fillRect(x + 17, y + 12, 30, 39);
+          e.fillStyle = '#000'; e.fillRect(x + 31, y + 12, 2, 39); e.fillRect(x + 17, y + 31, 30, 2);
+        }
       }
     }
   }
@@ -338,6 +341,31 @@ function wallBox(w, h, d, floors, o){
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   return g;
+}
+
+/* ---------- night facade lighting ----------
+   No real lights: thin additive quads laid on the walls, each fading from its bright end to nothing (the fade is the texture, the colour is per vertex).
+   Uplights wash the pilasters from the ground, an orange glow hangs under the eaves, a few blue strips and bands pick out the upper floors, and the arcade glows from inside.
+   One extra mesh per lit building, hidden by day and on 流畅; js/18-gfx.js fades washMat in with the street lamps. */
+const washTex = (() => {
+  const c = document.createElement('canvas'); c.width = 4; c.height = 64; const g = c.getContext('2d'), gr = g.createLinearGradient(0, 64, 0, 0);
+  gr.addColorStop(0, '#ffffff'); gr.addColorStop(.12, '#d8d8d8'); gr.addColorStop(.45, '#5a5a5a'); gr.addColorStop(.8, '#161616'); gr.addColorStop(1, '#000000');
+  g.fillStyle = gr; g.fillRect(0, 0, 4, 64); return new THREE.CanvasTexture(c);
+})();
+const washMat = new THREE.MeshBasicMaterial({map:washTex, vertexColors:true, blending:THREE.AdditiveBlending, transparent:true, depthWrite:false, side:THREE.DoubleSide, fog:false});
+washMat.color.setScalar(0);
+const washMeshes = [], WASH_WARM = [1, .84, .6], WASH_ORANGE = [1, .5, .14], WASH_BLUE = [.16, .4, 1], WASH_VIOLET = [.5, .28, 1];
+/* aviation obstruction lights on the dorm towers (the airport is close by): filled in by crossB, drawn by js/18-gfx.js */
+const AVI_LIGHTS = [];
+/* a quad on a wall of a block centred on the origin: alongX faces +-z, otherwise +-x. t0..t1 along the wall, ya = bright end, yb = dark end, out = distance of the wall from the centre (signed) */
+function washQuad(q, alongX, t0, t1, ya, yb, out, col, va, vb){
+  const P4 = alongX ? [[t0, ya, out], [t1, ya, out], [t1, yb, out], [t0, yb, out]] : [[out, ya, t0], [out, ya, t1], [out, yb, t1], [out, yb, t0]], V = [va == null ? 0 : va, va == null ? 0 : va, vb == null ? 1 : vb, vb == null ? 1 : vb];
+  for (const i of [0, 1, 2, 0, 2, 3]){ q.p.push(P4[i][0], P4[i][1], P4[i][2]); q.u.push(.5, V[i]); q.c.push(col[0], col[1], col[2]); }
+}
+function washMesh(q, parent){
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(q.p, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(q.u, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(q.c, 3));
+  const m = new THREE.Mesh(g, washMat); m.renderOrder = 2; m.visible = false; parent.add(m); washMeshes.push(m); return m;
 }
 
 /* ---------- registries ---------- */
@@ -565,6 +593,26 @@ function building(o){
       for (let k = 2; k < nb - 1; k += 2){ const t = -span / 2 + span * k / nb; for (const s of [-1, 1]) alongX ? tbox(deco, .52, H - .6, .2, t, y0 + (H - .6) / 2, s * half, PIL) : tbox(deco, .2, H - .6, .52, s * half, y0 + (H - .6) / 2, t, PIL); }
     }
   }
+  /* night lighting (o.wash): see washMat above. o.wash can be {top:'blue'} for a blue band round the top floor instead of the orange glow, {accent:colour} for the strips */
+  let wq = null;
+  if (o.wash){
+    wq = {p:[], u:[], c:[]};
+    const acc = o.wash.accent || WASH_BLUE, up = Math.min(H - .8, 17);
+    for (const [span, alongX] of [[w, true], [d, false]]){
+      const nb = Math.max(1, Math.round(span / 4.5)), out = (alongX ? d : w) / 2 + .3;
+      for (const s of [-1, 1]){
+        /* uplight on every pilaster (corners included), a slim accent strip on the upper floors in every fourth bay */
+        for (let k = 0; k <= nb; k += 2){ const t = Math.max(-span / 2 + .45, Math.min(span / 2 - .45, -span / 2 + span * k / nb)); washQuad(wq, alongX, t - .55, t + .55, y0 + .15, y0 + .15 + up, s * out, WASH_WARM); }
+        if (H > 12) for (let k = 3; k < nb - 1; k += 4){ const t = -span / 2 + span * k / nb; washQuad(wq, alongX, t - .16, t + .16, y0 + H - 1.2, y0 + H * .42, s * (out - .2), acc, 0, .7); }
+        /* under the eaves: orange, or a blue band round the top floor */
+        if (o.wash.top === 'blue') washQuad(wq, alongX, -span / 2, span / 2, y0 + H - .3, y0 + H - 3.5, s * (out - .2), WASH_BLUE, .05, .55);
+        else if (!o.flat) washQuad(wq, alongX, -span / 2, span / 2, y0 + H - .1, y0 + H - 3.4, s * (out - .2), WASH_ORANGE, 0, .8);
+        if (o.waist) for (const fw of o.waist) washQuad(wq, alongX, -span / 2, span / 2, y0 + fw * 3.6 - .5, y0 + fw * 3.6 - 3, s * (out - .2), WASH_ORANGE, 0, .85);
+      }
+    }
+    /* the arcade glows from inside */
+    if (o.arcade) washQuad(wq, true, -w / 2, w / 2, y0 + 4.5, y0, d / 2 + .12, WASH_WARM, .3, .62);
+  }
   const rh = o.flat ? 0 : o.roofH != null ? o.roofH : Math.min(Math.min(w, d) * 0.3, 13), over = o.over != null ? o.over : 2.4;
   if (o.flat){
     /* roof terrace: the cornice slab is the floor, with a parapet round it */
@@ -624,6 +672,7 @@ function building(o){
     else roofParts(bw + .8, 9, Math.min(7, bw * .34), 2.2, 0, y0 + bH + .6, d / 2 - 1, roofs);
     for (let k = 0; k < 3; k++) gran.push(new THREE.BoxGeometry(bw + 6 - k * 1.6, .35 * (k + 1), 1.3).translate(0, .175 * (k + 1), d / 2 + 3.6 + (2 - k) * 1.3));
     for (const sx of [-1, 1]) cols.push([sx * (bw / 2 - .7), d / 2 + 3.2, 4.6]);
+    if (wq){ for (const sx of [-1, 1]) washQuad(wq, true, sx * (bw / 2 - .25) - .5, sx * (bw / 2 - .25) + .5, y0 + 4.9, y0 + bH - .6, d / 2 + 3.78, WASH_WARM); washQuad(wq, true, -bw / 2, bw / 2, y0 + bH - .1, y0 + bH - 3.2, d / 2 + 3.56, WASH_ORANGE, 0, .8); }
     addBox(x + Math.sin(rot) * (d / 2 + 1), z + Math.cos(rot) * (d / 2 + 1), bw / 2 + .5, 3, rot);
   }
   if (o.arcade){
@@ -647,7 +696,7 @@ function building(o){
         geoTint(geoAt(new THREE.BoxGeometry(len + .3, .9, .22), mx, y0 + ph + 2.3, mz + .95, 0, ang, 0), BALC));
       if (!ext) tbox(deco, bx - ax + .1, .5, mz - d / 2 + .6, mx, y0 + ph + 1.5, (d / 2 + mz + .6) / 2, TRIM2);
     }
-    for (let k = 0; k < 4; k++) gran.push(new THREE.BoxGeometry(pw + 10 - k * 1.8, .32 * (k + 1), 1.4).translate(0, .16 * (k + 1), d / 2 + 5.6 + (3 - k) * 1.4));
+    if (o.portico.steps !== false) for (let k = 0; k < 4; k++) gran.push(new THREE.BoxGeometry(pw + 10 - k * 1.8, .32 * (k + 1), 1.4).translate(0, .16 * (k + 1), d / 2 + 5.6 + (3 - k) * 1.4));
     addBox(x + Math.sin(rot) * (d / 2 + 2.6), z + Math.cos(rot) * (d / 2 + 2.6), pw / 2 + 1, 3.2, rot);
   } else if (o.portico){
     const pw = o.portico.w, ph = o.portico.h, n = Math.max(4, Math.round(pw / 5));
@@ -670,6 +719,7 @@ function building(o){
   if (gran.length) mk(geoMerge(gran), granite);
   mk(geoMergeUV(walls), wmat); if (wallsB.length) mk(geoMergeUV(wallsB), brickMat); mk(geoMerge(deco), decoMat);
   if (glow.length) mk(geoMerge(glow), eaveMat, false);
+  if (wq && wq.p.length) washMesh(wq, g);
   parts.push(...roofMeshes(roofs, rmat, g));
   const roofTop = y0 + H + .6 + rh;
   /* gilded pearl on the ridge of a crowning roof */
@@ -714,5 +764,10 @@ function crossB(o){
   if (!o.crown) return t1;
   /* a little pavilion where the arms cross: two more storeys under their own hipped roof */
   const cw = S(o.tp) + 3.2;
-  return building({struct:st, info, px:o.px, py:o.py, rot:o.rot, w:cw, d:cw, floors:2.2, y0:o.floors * 3.6 - 1.2, variant:o.variant, roof:o.roof, roofH:5, over:2.3, noCollide:true, relief:false, label:o.label || o.name, minor:o.minor, finial:true});
+  const top = building({struct:st, info, px:o.px, py:o.py, rot:o.rot, w:cw, d:cw, floors:2.2, y0:o.floors * 3.6 - 1.2, variant:o.variant, roof:o.roof, roofH:5, over:2.3, noCollide:true, relief:false, label:o.label || o.name, minor:o.minor, finial:true});
+  /* red beacon (slow flash) on the crown, steady blue lights at the four arm ends */
+  { const c = o.xz || P(o.px, o.py), r = -(o.rot || 0) * D2R, a1 = S(o.ap) / 2 - 1, a2 = S(o.bp) / 2 - 1, ya = 1 + o.floors * 3.6 + .6 + Math.min(S(o.tp) * .3, 13) + .9;
+    const put = (lx, lz, y, red) => AVI_LIGHTS.push({st, x:c[0] + lx * Math.cos(r) + lz * Math.sin(r), y, z:c[1] - lx * Math.sin(r) + lz * Math.cos(r), red});
+    put(0, 0, top + 3.6, true); put(a1, 0, ya, false); put(-a1, 0, ya, false); put(0, a2, ya, false); put(0, -a2, ya, false); }
+  return top;
 }

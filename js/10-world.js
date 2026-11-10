@@ -185,21 +185,21 @@ structBlock(function(){
 
 /* ---------- 一主四从: A1–A5 ---------- */
 const sideDesc = '"一主四从"里的"从"楼之一：讲堂、课室、电脑室和实验室都在这几栋。';
-building({arcade:true, bay:true, gable:true, eaveLight:true, name:'A1', tag:'教学', desc:sideDesc + '它在最西端，紧挨礼堂。', floors:6, px:900, py:640, wp:95, dp:85, rot:18, variant:1, plaque:{text:'A1'}});
+building({arcade:true, bay:true, gable:true, eaveLight:true, wash:{accent:WASH_VIOLET}, name:'A1', tag:'教学', desc:sideDesc + '它在最西端，紧挨礼堂。', floors:6, px:900, py:640, wp:95, dp:85, rot:18, variant:1, plaque:{text:'A1'}});
 const A_ST = [structures[structures.length - 1]];
-building({arcade:true, bay:true, gable:true, eaveLight:true, name:'A2', tag:'教学', desc:sideDesc, floors:6, px:1015, py:602, wp:100, dp:85, rot:8, plaque:{text:'A2'}});
+building({arcade:true, bay:true, gable:true, eaveLight:true, wash:{}, name:'A2', tag:'教学', desc:sideDesc, floors:6, px:1015, py:602, wp:100, dp:85, rot:8, plaque:{text:'A2'}});
 A_ST.push(structures[structures.length - 1]);
 const a3Info = {name:'A3 百姓大楼', tag:'主楼', floors:9,
   desc:'九层的百姓大楼，是"一主四从"主楼群正中间的主楼，正对正门。图书馆就在这里，2023 年 5 月试开放，可藏书 100 多万册，座位 2000 多个。上面几层是招生、财务等办公室。'};
 const a3s = newStruct(a3Info);
 /* A3 as it stands: a two-storey arcaded base with a terrace, the nine-storey block rising flush with its front, a skirt of eaves under the top floor
    and a deep hipped roof round a flat skylit top (重檐), and in front six tall round columns on a curved porch above the wide steps. Same footprint and colliders as before. */
-building({arcade:true, portico:{w:36, h:13.4, curve:3.4, r:2.1}, flat:true, struct:a3s, px:1155, py:575, wp:140, dp:115, floors:2, info:a3Info, label:false, variant:1, plaque:{text:'百姓大楼', w:5.6, y:15.15, z:40.2}});
+building({arcade:true, portico:{w:36, h:13.4, curve:3.4, r:2.1, steps:false}, flat:true, wash:{}, struct:a3s, px:1155, py:575, wp:140, dp:115, floors:2, info:a3Info, label:false, variant:1, plaque:{text:'百姓大楼', w:5.6, y:15.15, z:40.2}});
 A_ST.push(a3s);
-const a3t = building({struct:a3s, px:1155, py:585.5, wp:124, dp:92, floors:9, info:a3Info, label:'A3 百姓大楼', variant:0, roofH:8.5, over:3.8, roofCut:.6, noCollide:true, waist:[8], waistOver:3, eaveLight:true});
-building({arcade:true, bay:true, gable:true, eaveLight:true, name:'A4', tag:'教学', desc:sideDesc, floors:6, px:1295, py:580, wp:110, dp:85, plaque:{text:'A4'}});
+const a3t = building({struct:a3s, px:1155, py:585.5, wp:124, dp:92, floors:9, info:a3Info, label:'A3 百姓大楼', variant:0, roofH:8.5, over:3.8, roofCut:.6, noCollide:true, waist:[8], waistOver:3, eaveLight:true, wash:{top:'blue'}});
+building({arcade:true, bay:true, gable:true, eaveLight:true, wash:{}, name:'A4', tag:'教学', desc:sideDesc, floors:6, px:1295, py:580, wp:110, dp:85, plaque:{text:'A4'}});
 A_ST.push(structures[structures.length - 1]);
-building({arcade:true, bay:true, gable:true, eaveLight:true, name:'A5', tag:'教学', desc:sideDesc + '再往东走就是 B1 和运动场。', floors:6, px:1425, py:585, wp:110, dp:85, rot:-3, variant:1, plaque:{text:'A5'}});
+building({arcade:true, bay:true, gable:true, eaveLight:true, wash:{accent:WASH_VIOLET}, name:'A5', tag:'教学', desc:sideDesc + '再往东走就是 B1 和运动场。', floors:6, px:1425, py:585, wp:110, dp:85, rot:-3, variant:1, plaque:{text:'A5'}});
 A_ST.push(structures[structures.length - 1]);
 building({name:'礼堂', tag:'教学', desc:'A1 旁边的礼堂（Auditorium）。', floors:2, px:815, py:680, wp:75, dp:42, rot:18, roof:'#b9b2a6', roofH:4, minor:true, canopy:'front', plaque:{text:'礼堂', w:4, y:5.2, z:12.65}});
 const iaec = {name:'国际学术交流中心', tag:'交流', desc:'International Academic Exchange Centre。教学区西边一排两层的小楼。'};
@@ -286,7 +286,7 @@ structBlock(function d6(){
 })();
 
 /* B1, courts, field */
-building({arcade:true, bay:true, name:'B1 学生活动中心', tag:'活动', floors:5, px:1700, py:400, wp:190, dp:88, roofH:7, variant:1,
+building({arcade:true, bay:true, wash:{}, name:'B1 学生活动中心', tag:'活动', floors:5, px:1700, py:400, wp:190, dp:88, roofH:7, variant:1,
   desc:'五层的学生活动中心。三楼有室内运动中心、健身房和游泳池；楼里还有课室、电脑室、学生服务大厅、自习区、中医诊所、超市、面包店和餐厅。', skylight:true, plaque:{text:'学生活动中心', w:7}});
 const courtsInfo = {name:'户外球场', tag:'运动', desc:'Outdoor Courts：五人足球、网球、排球、篮球。'};
 (function(){
@@ -346,7 +346,9 @@ structBlock(function(){
   [wall, cap, plaque].forEach(m => { m.userData.info = gateInfo; pickables.push(m); });
   addBox(GX, 226.6, 18.3, 5.2, 0);
   const fc = document.createElement('canvas'); fc.width = 64; fc.height = 64; const f = fc.getContext('2d');
-  f.fillStyle = '#1d2024'; f.fillRect(0, 2, 64, 5); f.fillRect(0, 50, 64, 4); for (let i = 0; i < 8; i++) f.fillRect(i * 8 + 3, 0, 2.5, 64);
+  /* black bars between two rails, each ending in a gilded spear tip (the same railing as at the gate, js/42-gate.js) */
+  f.fillStyle = '#17191c'; f.fillRect(0, 14, 64, 4); f.fillRect(0, 52, 64, 4); for (let i = 0; i < 8; i++) f.fillRect(i * 8 + 3, 10, 2.5, 54);
+  f.fillStyle = '#d8a93a'; for (let i = 0; i < 8; i++){ const x = i * 8 + 4.25; f.beginPath(); f.moveTo(x, 0); f.lineTo(x + 2.6, 6); f.lineTo(x + 1, 11); f.lineTo(x - 1, 11); f.lineTo(x - 2.6, 6); f.closePath(); f.fill(); }
   const ft = new THREE.CanvasTexture(fc); ft.wrapS = THREE.RepeatWrapping;
   const fenceMat = new THREE.MeshStandardMaterial({map:ft, alphaTest:.5, transparent:false, side:THREE.DoubleSide, roughness:.5, metalness:.4});
   for (const [x0, x1] of [[-585, GX - 30], [GX + 30, 590]]){
@@ -384,6 +386,7 @@ structBlock(function(){
 })();
 
 /* ---------- the stepped lawns in front of the A row: bands of lighter and darker turf following the curve of the promenade, each edged with a low stone kerb ---------- */
+const LAWN_ARC = {};   /* the smoothed curve of the promenade, shared with js/42-gate.js (stone tiers, lawn lights) */
 (function(){
   const line = pxPts([[760,725],[900,702],[1050,675],[1180,665],[1320,668],[1500,675],[1580,700]]), pts = [];
   for (let i = 0; i < line.length - 1; i++){ const [x0, z0] = line[i], [x1, z1] = line[i + 1], n = Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 5); for (let k = 0; k < n; k++) pts.push([x0 + (x1 - x0) * k / n, z0 + (z1 - z0) * k / n]); }
@@ -393,6 +396,7 @@ structBlock(function(){
   const nor = pts.map((p, i) => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1; return dz * 0 + 1 && [-dz / l, dx / l]; });
   const off = (i, D) => [pts[i][0] + nor[i][0] * D, pts[i][1] + nor[i][1] * D];
   const ok = (x, z) => x > P(905, 0)[0] && x < P(1495, 0)[0] && Math.abs(x - GX) > 11.5;
+  Object.assign(LAWN_ARC, {pts, off, ok});
   const turf = [], kerb = [], D0 = 8.5, BW = 6.2;
   for (let b = 0; b < 4; b++) for (let i = 0; i < pts.length - 1; i++){
     const a0 = off(i, D0 + b * BW), a1 = off(i + 1, D0 + b * BW), c0 = off(i, D0 + (b + 1) * BW), c1 = off(i + 1, D0 + (b + 1) * BW);
