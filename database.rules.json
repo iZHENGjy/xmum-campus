@@ -46,6 +46,34 @@
         ".validate": "newData.isString() && newData.val().length <= 120 && newData.val().matches(/^[a-z0-9_,]*$/)"
       }
     },
+    "showcase": {
+      ".read": "auth != null",
+      ".indexOn": [
+        "value"
+      ],
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['name', 'car', 'look', 'value', 'ts'])",
+        "name": {
+          ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16 && newData.val() === root.child('users').child(auth.uid).child('name').val()"
+        },
+        "car": {
+          ".validate": "newData.isString() && newData.val().matches(/^[a-z0-9]{1,12}$/)"
+        },
+        "look": {
+          ".validate": "newData.isString() && newData.val().length <= 60 && newData.val().matches(/^[a-z0-9_,]*$/)"
+        },
+        "value": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000"
+        },
+        "ts": {
+          ".validate": "newData.isNumber() && newData.val() === now"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
     "boards": {
       "$board": {
         ".read": "$board === 'hole2' || $board === 'hole' || $board === 'stunt' || $board === 'rich'",
