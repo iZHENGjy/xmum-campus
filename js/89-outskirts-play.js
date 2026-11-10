@@ -448,8 +448,36 @@ const NM = {k:0, eaten:new Set(), cols:[], lbls:{}, done:false, g:new THREE.Grou
   NM.g.visible = false; NM.g.scale.y = .001; scene.add(NM.g);
 }
 NM.S = gxMarker('#ff8a3d', .3);
+/* 大胃王争霸赛: the red ring by the empty stall in the middle; the contest itself is js/minigames/bigeat.js on the mini-game platform (js/91-arcade.js) */
+const BE = {near:false, door:{x:300, z:NM_Z - 7.5, h:Math.PI, name:'夜市'}};
+BE.S = opSpot('#ff3d5a', .45, 300, NM_Z - 3.6, '大胃王争霸赛 · 开吃'); opHide(BE.S);
+function beOpen(){
+  if (!window.XMini || !XMini.startAt || !window.XBigEat) return;
+  const X = XBigEat, go = i => { if (!X.open(i)) return; opClose(true); XMini.startAt('bigeat_' + X.OPS[i].id, BE.door); };
+  let next = 0; X.OPS.forEach((o, i) => { if (X.open(i)) next = i; });
+  const rows = X.OPS.map((o, i) => {
+    const id = 'bigeat_' + o.id, g = XMini.games.find(x => x.id === id), best = XMini.best(id), md = g && best != null ? g.medals.findIndex(m => best <= m) : -1, on = X.open(i);
+    return `<button type="button" class="op-card" data-i="${i}"${on ? '' : ' disabled style="opacity:.5;cursor:default"'}><kbd>${i + 1}</kbd><b>${on ? '' : '🔒 '}${o.name} · ${o.who}</b>
+      <span>${on ? o.line : '先吃赢' + X.OPS[i - 1].name + '才能挑战'}</span>
+      <span>${best != null ? `最好 <em>${(best / 10).toFixed(1)} 秒</em>${md >= 0 ? ' ' + ['🥇', '🥈', '🥉'][md] : ''} · ` : ''}${o.menu.length} 盘 · 金牌 ${(o.medals[0] / 10).toFixed(0)} 秒内吃完</span></button>`;
+  }).join('');
+  opOpen('🍢 大胃王争霸赛', `<p class="op-note">站到长桌一头，和对手比吃夜市小吃，谁先吃完谁赢。<b>狂点「吃」</b>，点太快会噎住；椰浆饭、叻沙越吃越辣，<b>辣了喝水</b>（一局 3 杯）。赢一位解锁下一位。</p>${rows}`,
+    code => { if (code === 'KeyF' || code === 'Enter' || code === 'Space') go(next); else if (/^Digit[1-3]$/.test(code)) go(+code.slice(5) - 1); });
+  for (const b of document.querySelectorAll('#opBody .op-card')) b.addEventListener('click', () => go(+b.dataset.i));
+}
+function beUpdate(px, pz, free){
+  const was = BE.near; BE.near = false;
+  const other = mission.on || !!gxA.act || gxTaxi.on || (typeof EX !== 'undefined' && EX.on) || (typeof ROOM !== 'undefined' && ROOM.in);
+  if (opRing(BE.S, NM.k > .9 && free && !other && !!window.XBigEat && Math.abs(px - BE.S.x) < 300 && Math.abs(pz - BE.S.z) < 300, px, pz)){
+    if (driving) opMsg = '下车走进圈里，参加大胃王争霸赛';
+    else if (nw.state !== 'fly'){ BE.near = true; opMsg = TOUCH ? '点「开吃」参加大胃王争霸赛' : '按 F 参加大胃王争霸赛'; opSetF('开吃'); }
+  }
+  if (was && !BE.near && opFBtn === '开吃') opSetF('');
+}
+if (typeof roomTryF === 'function'){ const base = roomTryF; roomTryF = function(){ if (BE.near && !driving && nw.state !== 'fly'){ beOpen(); return true; } return base(); }; }
 /* the stalls are there in every mode (walking, bird's-eye), so they run on their own frame callback */
 (function nmFrame(){
+  if (mode !== 'naiwa' && BE.S.mark.visible){ opHide(BE.S); BE.near = false; }
   const want = opNight() && Math.abs(camera.position.x - 270) < 700 && Math.abs(camera.position.z - 370) < 700 ? 1 : 0;
   if (NM.k !== want){
     NM.k = Math.abs(want - NM.k) < .02 ? want : NM.k + (want - NM.k) * .06;
@@ -460,6 +488,7 @@ NM.S = gxMarker('#ff8a3d', .3);
   requestAnimationFrame(nmFrame);
 })();
 function nmUpdate(px, pz, free){
+  beUpdate(px, pz, free);
   const open = NM.k > .9 && free;
   let best = -1, bd = 1e9;
   for (const i in NM_SNACK){

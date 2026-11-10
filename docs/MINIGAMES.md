@@ -11,6 +11,7 @@ B1 学生活动中心里是一个游戏厅（`js/91-arcade.js`，对外是 `wind
 | `js/minigames/hoops.js` 奶娃投篮 | 半场跑位投篮，有防守和 1 对 1 | `modes`、滑动出手（`ctx.input.drag`）、第二只奶娃（`ctx.actor`）、把 HTML 力量条摆在奶娃旁边（`ctx.screen`）、跟随镜头 |
 | `js/minigames/canteen.js` 食堂端盘子 | 摇杆，在人群里穿行，五个模式 | `modes`、`ctx.player.walk`、`ctx.camera.fit`、`InstancedMesh` 人群 |
 | `js/minigames/kipmart.js` KIP 超市大乱斗 | 摇杆加一个键，和 AI 抢货、互撞 | 自己写的带惯性的移动、格子寻路的 AI、横竖屏换镜头方向、`ctx.ui` |
+| `js/minigames/bigeat.js` 大胃王争霸赛 | 狂点吃、别噎着、辣了喝水，和三档 AI 比吃 | 不用摇杆的点击游戏、把平台的两个按钮改成大圆按钮（`body` 加类名 + CSS）、两只奶娃都用 `ctx.actor`（自己摆姿势，玩家那只穿上衣橱的造型）、三个对手三个模式、`XMini.startAt` 从夜市进 |
 
 ## 1. 最小示例
 
