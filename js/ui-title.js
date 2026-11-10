@@ -89,11 +89,19 @@ const UI_BOARDS = {
   stunt: {fmt:v => Math.round(+v || 0).toLocaleString() + ' 分', what:'奶娃累计特技分', local:() => +uiGta().stunt || 0, empty:'还没攒到特技分，去漂移一下'},
   rich:  {fmt:v => 'RM ' + (+v || 0).toFixed(2), what:'奶娃钱包', local:() => +uiGta().money || 0, empty:'钱包空空，去送外卖'}
 };
+/* 小游戏榜（B1 游戏厅，js/91-arcade.js）：board 写成 'mini:<gameId>'，定义来自 XMini.board(id)；'mini' 表示上次看的那个小游戏 */
+let lbMini = '';
+function uiBoardDef(board){
+  if (UI_BOARDS[board]) return UI_BOARDS[board];
+  const m = /^mini:([a-z][a-z0-9_]{1,15})$/.exec(board || '');
+  return (m && window.XMini && XMini.board(m[1])) || null;
+}
+function uiMiniBoards(){ return window.XMini ? XMini.games.filter(g => g.board).map(g => 'mini:' + g.id) : []; }
 const lbEl = $('#lb'), lbBody = $('#lbBody'), lbTabs = [...lbEl.querySelectorAll('[role="tab"]')];
 let lbBoard = 'hole2', lbReq = 0;
 function uiEl(tag, cls, text){ const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 function uiLocalCard(board){
-  const B = UI_BOARDS[board], v = B.local(), box = uiEl('div', 'lb-local');
+  const B = uiBoardDef(board), v = B.local(), box = uiEl('div', 'lb-local');
   box.append(uiEl('span', 'lb-k', '本机最好 · ' + uiName));
   box.append(v > 0 ? uiEl('b', 'lb-v', B.fmt(v)) : uiEl('span', 'lb-none', B.empty));
   return box;
@@ -104,10 +112,25 @@ function uiDate(ts){
   return (d.getMonth() + 1) + '/' + d.getDate();
 }
 function renderBoard(board){
-  lbBoard = board; const B = UI_BOARDS[board], req = ++lbReq;
-  lbTabs.forEach(t => { const on = t.dataset.board === board; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1; });
-  lbBody.setAttribute('aria-labelledby', 'lbt-' + board);
+  if (board === 'mini') board = uiBoardDef(lbMini) ? lbMini : uiMiniBoards()[0] || 'mini';
+  const mini = /^mini/.test(board), tab = mini ? 'mini' : board;
+  lbBoard = board; const B = uiBoardDef(board), req = ++lbReq;
+  lbTabs.forEach(t => { const on = t.dataset.board === tab; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1; });
+  lbBody.setAttribute('aria-labelledby', 'lbt-' + tab);
   lbBody.textContent = '';
+  if (mini){
+    const all = uiMiniBoards();
+    if (!B){ lbBody.append(uiEl('p', 'lb-what', '还没有带排行榜的小游戏')); return; }
+    lbMini = board;
+    if (all.length > 1){
+      const chips = uiEl('div', 'lb-chips'); chips.setAttribute('role', 'group'); chips.setAttribute('aria-label', '选一个小游戏');
+      for (const id of all){
+        const d = uiBoardDef(id), c = uiEl('button', 'lb-chip', d.icon + ' ' + d.name); c.type = 'button'; c.setAttribute('aria-pressed', String(id === board));
+        c.addEventListener('click', () => renderBoard(id)); chips.append(c);
+      }
+      lbBody.append(chips);
+    }
+  }
   lbBody.append(uiEl('p', 'lb-what', B.what));
   const net = window.XNet;
   if (!net || !net.online || typeof net.top !== 'function'){
@@ -116,7 +139,7 @@ function renderBoard(board){
   }
   const list = uiEl('ol', 'lb-list'); list.append(uiEl('li', 'lb-wait', '读取中…'));
   lbBody.append(list);
-  Promise.race([net.top(board, 20), new Promise((_, no) => setTimeout(() => no(new Error('timeout')), 8000))]).then(rows => {
+  Promise.race([B.top ? B.top(20) : net.top(board, 20), new Promise((_, no) => setTimeout(() => no(new Error('timeout')), 8000))]).then(rows => {
     if (req !== lbReq) return;
     list.textContent = '';
     rows = Array.isArray(rows) ? rows : [];
@@ -142,9 +165,9 @@ lbTabs.forEach((t, i) => {
   });
 });
 function openLeaderboard(board){
-  renderBoard(UI_BOARDS[board] ? board : lbBoard);
+  renderBoard(uiBoardDef(board) || board === 'mini' ? board : lbBoard);
   uiOpenDialog(lbEl);
-  const sel = lbTabs.find(t => t.dataset.board === lbBoard); if (sel) sel.focus({preventScroll:true});
+  const sel = lbTabs.find(t => t.dataset.board === (/^mini/.test(lbBoard) ? 'mini' : lbBoard)); if (sel) sel.focus({preventScroll:true});
 }
 $('#tLb').addEventListener('click', () => openLeaderboard('hole2'));
 $('#hlb').addEventListener('click', () => openLeaderboard('hole2'));
