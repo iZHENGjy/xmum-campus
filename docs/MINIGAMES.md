@@ -10,6 +10,7 @@ B1 学生活动中心里是一个游戏厅（`js/91-arcade.js`，对外是 `wind
 |---|---|---|
 | `js/minigames/hoops.js` 奶娃投篮 | 半场跑位投篮，有防守和 1 对 1 | `modes`、滑动出手（`ctx.input.drag`）、第二只奶娃（`ctx.actor`）、把 HTML 力量条摆在奶娃旁边（`ctx.screen`）、跟随镜头 |
 | `js/minigames/canteen.js` 食堂端盘子 | 摇杆，在人群里穿行，五个模式 | `modes`、`ctx.player.walk`、`ctx.camera.fit`、`InstancedMesh` 人群 |
+| `js/minigames/kipmart.js` KIP 超市大乱斗 | 摇杆加一个键，和 AI 抢货、互撞 | 自己写的带惯性的移动、格子寻路的 AI、横竖屏换镜头方向、`ctx.ui` |
 
 ## 1. 最小示例
 
@@ -179,9 +180,12 @@ XMini.register({
 | `XMini.open()` | 进游戏厅并打开游戏列表（标题页的「小游戏」按钮） |
 | `XMini.play(id, mode)` | 打开某个游戏的玩法卡片。`id` 也可以是某个模式的榜 id；`mode` 不写就是上次玩的那个 |
 | `XMini.start(id, mode)` | 跳过卡片直接开一局（测试用） |
+| `XMini.startAt(id, door)` | 从地图上别的门口直接开一局，不经过游戏厅；这一局结束（不再来一局）时把奶娃放回 `door = {x, z, h, name}`。KIP 商场门口的「超市大乱斗」用的是这个 |
 | `XMini.quit()` | 结束当前这一局，回游戏厅 |
 | `XMini.inside` / `XMini.active` / `XMini.state` | 在不在游戏厅里 / 正在玩的游戏 id / `'out' 'hall' 'count' 'play' 'pause' 'result'` |
 | `XMini.best(id)` | 本机最好成绩（`id` 是榜的 id） |
+| `XMini.addBoard({id, name, icon, fmt, what, local, empty})` | 给不是街机的玩法加一张榜（宿舍搜刮用的 `dorm`）：同样存在 `/mini/{id}/{uid}`，出现在排行榜「小游戏」页的选项里。成绩用 `XNet.miniSubmit(id, value)` 自己提交 |
+| `XMini.boards` | 所有带排行榜的 id：`XMini.games` 里有榜的（包括竞速赛道），加上 `addBoard` 加的 |
 | `XMini.sim` | 测试用，见第 7 节 |
 
 ## 5. 排行榜
@@ -191,6 +195,8 @@ XMini.register({
 - 榜上只存「越大越好」的整数。`board.lower:true` 的游戏，平台存的是 `1000000 - 成绩`，读出来再换回去，你不用管。
 - 分数不要超过 1,000,000，小数会被舍掉。用时类的游戏用毫秒或者 0.1 秒做单位。
 - 离线（没有配置 Firebase，或者预览版）时成绩只存在本机，结算面板和排行榜会写明「联机未开启」。
+- 竞速赛道（`js/92-racing.js`）也借用这套榜：`/mini/race_{赛道}`，存 `1000000 - 百分之一秒`，在排行榜的小游戏标签里和游戏厅的游戏并列。
+  它的影线另存在 `/ghosts/{赛道}/{uid} = {name, time(毫秒), car, color, d, ts}`，这条规则是新加的，**合并后要在 Firebase 控制台重新发布一次 `database.rules.json`**；没发布前影线上传会被拒，比赛和本机影线照常能用。
 
 ## 6. 怎么让它好玩
 

@@ -249,6 +249,25 @@ function saveGame(){ try { localStorage.setItem('xmum-gta-v1', JSON.stringify({m
   up:prog.up, ach:prog.ach, best:prog.best, life:prog.life, daily:prog.daily})); } catch(e){} }
 const fmtRM = v => 'RM ' + (v >= 100 ? Math.floor(v).toLocaleString() : v.toFixed(2));   /* HUD wallet: no decimals once it is 100+ */
 function moneyChanged(){ moneyEl.textContent = fmtRM(money); saveGame(); }
+/* ---------- 总资产 (net worth) = cash + everything bought, at the price it cost new ----------
+   The 总资产 leaderboard (board 'rich' in js/net.js, which used to rank cash only) submits netWorth().
+   Buying never lowers it (cash turns into an asset of the same value), so the "only goes up" rule on the board still holds.
+   To add a new shop from any file, register what it has sold once at load time:
+     assetSource('arcade', () => ARC_SKINS.filter(s => arcOwned.has(s.id)).reduce((sum, s) => sum + s.price, 0));
+   The function returns RM and is called whenever the total is needed, so it should read the live save.
+   Only count things that cannot be sold back for cash (they would count twice); a source that throws counts as 0.
+   netWorth(true) returns {total, parts} with one entry per source, for debugging. */
+const ASSETS = [];
+function assetSource(name, fn){ const i = ASSETS.findIndex(a => a.name === name); if (i >= 0) ASSETS.splice(i, 1); ASSETS.push({name, fn}); }
+function netWorth(detail){
+  const parts = {cash:Math.max(0, +money || 0)}; let total = parts.cash;
+  for (const a of ASSETS){ let v = 0; try { v = Math.max(0, +a.fn() || 0); } catch(e){} parts[a.name] = v; total += v; }
+  return detail ? {total, parts} : total;
+}
+const upgSpent = list => list.reduce((s, u) => s + u.cost.slice(0, prog.up[u.k] || 0).reduce((a, b) => a + b, 0), 0);
+assetSource('cars', () => SHOP.reduce((s, it) => s + (owned.has(it.kind) ? it.price : 0), 0));
+assetSource('tuning', () => upgSpent(UPG));
+assetSource('watergun', () => upgSpent(WUPG));
 function spotNear(px, pz, kind){
   const tmp = {kind, T:CAR_T[kind]};
   for (let r = 6; r < 70; r += 3) for (let a = 0; a < 12; a++){

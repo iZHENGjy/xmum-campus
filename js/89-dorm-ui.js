@@ -35,13 +35,14 @@ dmBagEl.addEventListener('click', e => {
 
 /* ---------- what a container holds ---------- */
 function dmUiLoot(box){
-  DORM.lootBox = box && box.items.length ? box : null;
+  DORM.lootBox = box && box.items.length ? box : null; document.body.classList.toggle('dm-loot', !!DORM.lootBox);
   if (!DORM.lootBox){ dmLootEl.hidden = true; if (DORM.run) dmUiBag(); return; }
   dmLootEl.hidden = false;
   dmLootEl.querySelector('.dm-h b').textContent = box.type === 'sack' ? DM_FUR.sack.name : (box.room ? box.room.num + ' ' : '') + DM_FUR[box.type].name;
   dmLootEl.querySelector('.dm-h span').textContent = TOUCH ? '点一下拿走' : '点一下拿走 · F 拿下一件';
   dmLootEl.querySelector('.dm-items').innerHTML = box.items.map((it, i) => !it.seen ? '<div class="dm-item q"><i>❔</i><b>翻找中…</b></div>' :
-    `<button type="button" class="dm-item t-${it.tier}" data-i="${i}"><i>${dmIc(it)}</i><b>${dmEsc(it.name)}</b><em>${it.key ? '钥匙' : 'RM ' + it.v}</em>${it.tier !== 'n' ? `<u>${DM_TIERN[it.tier]}${it.tok ? ' · 券 ×' + it.tok : ''}</u>` : it.small ? '<u class="s">小件</u>' : ''}</button>`).join('');
+    `<button type="button" class="dm-item t-${it.tier}" data-i="${i}"><i>${dmIc(it)}</i><b>${dmEsc(it.name)}</b><em>${it.key ? '钥匙' : 'RM ' + it.v}</em>${it.tier !== 'n' ? `<u>${DM_TIERN[it.tier]}${it.tok ? ' · 券 ×' + it.tok : ''}</u>` : it.small ? '<u class="s">小件</u>' : ''}</button>`).join('')
+    + (DORM.run && DORM.run.coach === 1 ? '<p class="dm-coach">② 点东西放进背包。只有 6 格，便宜的别拿；第一格是贴身口袋，自动装最值钱的小件，被抓也不丢</p>' : '');
   dmUiBag();
 }
 dmLootEl.addEventListener('click', e => {
@@ -96,7 +97,7 @@ dmPadEl.addEventListener('click', e => {
 });
 /* typing a code on a keyboard; Esc closes whatever is open before the pause menu sees it */
 window.addEventListener('keydown', e => {
-  if (!DORM.in && dmEndEl.hidden) return;
+  if ((!DORM.in && dmEndEl.hidden) || document.querySelector('dialog[open]')) return;
   if (e.code === 'Escape' && (dmUi.mode || DORM.lootBox || !dmEndEl.hidden)){ e.preventDefault(); e.stopImmediatePropagation(); if (dmUi.mode) dmUiPadClose(); else if (DORM.lootBox) dmUiLoot(null); else dmEndEl.hidden = true; return; }
   if (dmUi.mode !== 'pad') return;
   const d = /^(?:Digit|Numpad)(\d)$/.exec(e.code);
@@ -131,34 +132,68 @@ function dmUiTick(dt){
 }
 
 /* ---------- result ---------- */
+const dmTime = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+const dmHasBoard = () => !!(window.XMini && XMini.board && XMini.board(DM_BOARD) && window.XUI && XUI.openLeaderboard);
+/* the leaderboard line under the result: your best run, and where it stands once it is on the board. Offline it stays on this device */
+let dmNetReq = 0;
+function dmUiBoard(el){
+  const N = window.XNet, best = Math.round(+prog.best.dorm || 0), req = ++dmNetReq, mine = best ? `你的单局最高 RM ${best}` : '带东西撤离一次就有成绩';
+  if (!N || !N.online || !N.miniSubmit || !N.miniTop){ el.textContent = `${mine} · 联机未开启，成绩只保存在本机`; return; }
+  if (!best){ el.textContent = mine; return; }
+  el.textContent = `${mine} · 正在提交成绩…`;
+  Promise.resolve(N.miniSubmit(DM_BOARD, best)).then(() => N.miniTop(DM_BOARD, 50)).then(rows => {
+    if (req !== dmNetReq) return;
+    rows = Array.isArray(rows) ? rows : [];
+    const i = rows.findIndex(x => x.uid === N.uid);
+    el.textContent = i >= 0 ? `排行榜第 ${i + 1} 名 · 单局最高 RM ${Math.round(rows[i].value)}` : rows.length >= 50 ? `${mine} · 还没进前 50 名` : `${mine} · 成绩已提交`;
+  }).catch(() => { if (req === dmNetReq) el.textContent = `${mine} · 成绩没提交上去，下次再试`; });
+}
 function dmUiEnd(r){
   const li = it => `<li class="t-${it.tier}"><i>${dmIc(it)}</i><b>${dmEsc(it.name)}</b><em>RM ${it.v}</em></li>`;
-  const extra = [r.solved ? `解开 ${r.solved} 个谜题` : '', r.caught ? '抓住了偷外卖的小偷' : ''].filter(Boolean).join(' · ');
+  const stat = (k, v, sub) => `<div><span>${k}</span><b>${v}</b><em>${sub || '&nbsp;'}</em></div>`;
+  const row = (k, v, cls) => `<li${cls ? ` class="${cls}"` : ''}><span>${k}</span><b>${v}</b></li>`;
+  const top = r.top ? `${dmIc(r.top)} ${dmEsc(r.top.name)}` : '—', sum = [], notes = [];
+  const stats = lost => `<div class="dm-stats">${stat(lost ? '最贵的（被没收）' : '最贵的', top, r.top ? 'RM ' + r.top.v : '')}${stat('用时', dmTime(r.time), r.ok ? `还剩 ${dmTime(r.left)}` : '')}${stat('钱包现在', 'RM ' + Math.round(money).toLocaleString(), r.income > 0 ? `这局 +${r.income}` : '')}</div>`;
   let h;
   if (r.ok){
-    const how = {main:'从大门走出来', fire:'从消防梯溜下来', back:'从后门溜走'}[r.how];
-    h = `<div class="eyebrow">撤离成功 · ${how}</div><h2>${r.items.length ? `带出 ${r.items.length} 件 · 卖了 RM ${r.pay}` : '空手出来了'}</h2>
-      ${r.items.length ? `<ul class="dm-res">${r.items.map(li).join('')}</ul>` : '<p>什么都没带。下次按住 F 搜柜子、抽屉和床底。</p>'}
-      <p>${[...r.bonus, r.behind > 0 ? `这层楼还有值 RM ${r.behind} 的东西没带走` : '', r.tok ? `周边券 +${r.tok}（现在 ${prog.life.dormTok} 张，去衣橱换宿舍独家配件）` : '', extra, r.rec ? (r.prev != null ? `新纪录！上次最多 RM ${r.prev}` : '第一次带东西出来') : r.prev != null && r.items.length ? `纪录 RM ${r.prev}` : ''].filter(Boolean).join('<br>')}</p>`;
+    const how = {main:'从大门走出来', fire:'从消防梯冲下来', back:'从后门溜走'}[r.how], n = r.items.length;
+    if (n) sum.push(row(`卖掉 ${n} 件东西`, 'RM ' + r.value));
+    for (const b of r.bonus) sum.push(row(`${b.text} +${Math.round(b.pct * 100)}%`, '+RM ' + b.rm));
+    if (n && r.how === 'main') notes.push(`走大门没有加成。消防梯多卖 ${dmPct('fire')}%，后门多卖 ${dmPct('back')}%`);
+    if (r.behind > 0) notes.push(`这层楼还有值 RM ${r.behind} 的东西没带走`);
+    if (r.tok) notes.push(`周边券 +${r.tok}（现在 ${prog.life.dormTok} 张，去衣橱换宿舍独家配件）`);
+    if (r.rec) notes.push(r.prev != null ? `新纪录！上次最高 RM ${r.prev}` : '第一次带东西出来');
+    h = `<div class="eyebrow">撤离成功 · ${how}</div><h2>${r.income > 0 ? `本局收入 <b>RM ${r.income}</b>` : '空手出来了'}</h2>${stats(false)}
+      ${n ? `<ul class="dm-res">${r.items.map(li).join('')}</ul>` : '<p>什么都没带。下次按住 F 搜柜子、抽屉和床底。</p>'}`;
   } else {
     const head = {caught:['被宿管请出宿舍', '「这么晚了在别人寝室翻什么！」'], late:['23:00 · 锁门了', '门禁到了还没出来，被宿管登记晚归']}[r.why] || ['离开了宿舍', ''];
-    h = `<div class="eyebrow">${head[0]}</div><h2>${r.lost.length ? `${r.lost.length} 件东西被没收` : '还好背包是空的'}</h2>
-      ${r.lost.length ? `<ul class="dm-res lost">${r.lost.map(li).join('')}</ul>` : ''}
-      <p>${[head[1], r.lost.length ? `一共值 RM ${r.lostValue}，没带出来` : '', r.kept ? `贴身口袋里的${r.kept.name}没被搜走${r.kept.v ? `，卖了 RM ${r.kept.v}` : ''}${r.kept.tok ? `，周边券 +${r.kept.tok}` : ''}` : '贴身口袋（背包第一格）会自动装最值钱的小件，这次包里没有小件', extra].filter(Boolean).join('<br>')}</p>`;
+    if (r.kept && r.kept.v) sum.push(row(`贴身口袋里的${dmEsc(r.kept.name)}没被搜走，卖了`, 'RM ' + r.kept.v));
+    if (head[1]) notes.push(head[1]);
+    if (r.lost.length) notes.push(`${r.lost.length} 件东西被没收，一共值 RM ${r.lostValue}`);
+    if (r.kept && r.kept.tok) notes.push(`口袋里的${dmEsc(r.kept.name)}还换到周边券 +${r.kept.tok}`);
+    if (!r.kept) notes.push('贴身口袋（背包第一格）会自动装最值钱的小件，被抓也不丢。这次包里没有小件');
+    h = `<div class="eyebrow">${head[0]}</div><h2>${r.income > 0 ? `本局收入 <b>RM ${r.income}</b>` : r.lost.length ? `${r.lost.length} 件东西被没收` : '还好背包是空的'}</h2>${stats(r.lost.length > 0)}
+      ${r.lost.length ? `<ul class="dm-res lost">${r.lost.map(li).join('')}</ul>` : ''}`;
   }
-  h += `<div class="hrow"><button type="button" class="btn primary" data-again>再进去一次</button>${r.ok && prog.life.dormTok > 0 ? '<button type="button" class="btn" data-ward>去衣橱</button>' : ''}<button type="button" class="btn" data-x>知道了</button></div>`;
-  dmEndEl.innerHTML = h; dmEndEl.hidden = false; dmEndEl.classList.toggle('fail', !r.ok);
+  if (r.bounty) sum.push(row(`抓住偷外卖的小偷 ×${r.caught}，悬赏`, '+RM ' + r.bounty));
+  if (sum.length) sum.push(row('本局收入', 'RM ' + r.income, 'tot'));
+  if (r.solved) notes.push(`解开 ${r.solved} 个谜题`);
+  h += `${sum.length ? `<ul class="dm-sum">${sum.join('')}</ul>` : ''}${notes.length ? `<p>${notes.join('<br>')}</p>` : ''}<p class="dm-net" role="status"></p>
+    <div class="hrow"><button type="button" class="btn primary" data-again>再进去一次</button>${dmHasBoard() ? '<button type="button" class="btn" data-lb>排行榜</button>' : ''}${r.ok && prog.life.dormTok > 0 ? '<button type="button" class="btn" data-ward>去衣橱</button>' : ''}<button type="button" class="btn" data-x>知道了</button></div>`;
+  dmEndEl.innerHTML = h; dmEndEl.hidden = false; dmEndEl.classList.toggle('fail', !r.ok); dmEndEl.scrollTop = 0;
+  dmUiBoard(dmEndEl.querySelector('.dm-net'));
   const f = dmEndEl.querySelector('[data-x]'); if (f && !TOUCH) f.focus({preventScroll:true});
 }
 dmEndEl.addEventListener('click', e => {
   const t = e.target; if (!t.closest('button')) return; ac();
+  if (t.closest('[data-lb]')){ XUI.openLeaderboard('mini:' + DM_BOARD); return; }   /* the result stays open underneath */
   dmEndEl.hidden = true; canvas.focus({preventScroll:true});
   if (t.closest('[data-again]')){ const why = dmBusyWhy(); if (mode !== 'naiwa' || driving || !DORM.door) return; if (why){ toast('现在进不去', why, 1800); return; } dmEnter(DORM.door); }
   else if (t.closest('[data-ward]') && window.XWard) XWard.open('naiwa');
 });
 
-function dmUiReset(){ dmUi.sel = -1; dmUi.tip = ''; dmUi.vig = 0; dmUi.hold = -1; dmUi.prompt = ''; dmUi.clock = ''; dmClockEl.hidden = false; dmBagEl.querySelector('.dm-prompt').hidden = true; dmVigEl.hidden = true; dmBagEl.querySelector('.dm-tip').hidden = true; dmUiPadClose(); dmLootEl.hidden = true; dmEndEl.hidden = true; dmBagEl.hidden = false; dmUiBag(); }
-function dmUiHide(all){ dmVigEl.hidden = true; dmClockEl.hidden = true; dmUiPadClose(); DORM.lootBox = null; dmLootEl.hidden = true; dmBagEl.hidden = true; if (all) dmEndEl.hidden = true; }
+function dmUiReset(){ dmUi.sel = -1; dmUi.tip = ''; dmUi.vig = 0; dmUi.hold = -1; dmUi.prompt = ''; dmUi.clock = ''; dmClockEl.hidden = false; dmBagEl.querySelector('.dm-prompt').hidden = true; dmVigEl.hidden = true; dmBagEl.querySelector('.dm-tip').hidden = true; dmUiPadClose(); dmLootEl.hidden = true; document.body.classList.remove('dm-loot'); dmEndEl.hidden = true; dmBagEl.hidden = false; dmUiBag(); }
+function dmUiHide(all){ dmVigEl.hidden = true; dmClockEl.hidden = true; dmUiPadClose(); DORM.lootBox = null; document.body.classList.remove('dm-loot'); dmLootEl.hidden = true; dmBagEl.hidden = true; if (all) dmEndEl.hidden = true; }
 
 /* ---------- 衣橱独家配件: bought with 周边券 from the dorm, not with RM ---------- */
 const DM_WEAR = [
@@ -204,6 +239,10 @@ const DM_WEAR = [
   }}
 ];
 for (const it of DM_WEAR){ WD_ITEMS.push(it); WD.byId[it.id] = it; }
+/* 总资产 (js/80-gta.js netWorth): a 周边券 counts as RM 35, about what the 周边 that give one sell for (钥匙扣 RM 30 → 1, 盲盒 RM 50 → 2, 公仔 RM 150 → 4);
+   unspent vouchers and the exclusives bought with them both count */
+const DM_TOK_RM = 35;
+assetSource('dorm', () => (prog.life.dormTok || 0) * DM_TOK_RM + DM_WEAR.reduce((s, it) => s + (wardSave.own.has(it.id) ? it.dorm * DM_TOK_RM : 0), 0));
 /* the wardrobe loaded its save before these six existed: read what was owned and worn again */
 try {
   const d = JSON.parse(localStorage.getItem(WD_KEY) || 'null');

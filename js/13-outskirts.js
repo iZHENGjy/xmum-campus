@@ -284,7 +284,7 @@ const tTri = (b, A, B, C, col) => {
     gRect(surfNear, X0, 309.9, X1, Z1, .06, '#8e8a83');
     addBox(X0 + t / 2, (Z0 + Z1) / 2, t / 2 + .05, (Z1 - Z0) / 2, 0); addBox(X1 - t / 2, (Z0 + Z1) / 2, t / 2 + .05, (Z1 - Z0) / 2, 0); addBox((X0 + X1) / 2, Z1 - t / 2, (X1 - X0) / 2, t / 2 + .05, 0);
     addFp({t:0, x:(X0 + X1) / 2, z:(Z0 + Z1) / 2, w:X1 - X0, d:Z1 - Z0, rot:0, color:'#7d858d'});
-    window.XSPRAY = {x:(X0 + X1) / 2, z:326.5, h:0, r:4.5}; }
+    window.XSPRAY = {x:(X0 + X1) / 2, z:326.5, h:0, r:4.5, door:{x:(X0 + X1) / 2, z:Z0, h:0, w:X1 - X0 - 2 * t, d:Z1 - Z0 - t, top:H - 1.5}}; }
   /* gate pillars at the opening in the hedge */
   for (const s of [-1, 1]){ const px = GX + s * 16.8; tBox(bellB, px - 1, 0, 262.2, px + 1, 3.2, 264.8, '#a4553a'); tBox(bellB, px - 1.25, 3.2, 261.9, px + 1.25, 3.6, 265.1, '#e6dece'); addBox(px, 263.5, 1.1, 1.4, 0); }
   OUT_DESTS.push({name:'Bell Avenue 后巷', x:250, z:BELL.zB});
