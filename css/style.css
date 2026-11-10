@@ -926,3 +926,5 @@ body.dm-in #gstat .grow:nth-child(2),body.dm-in #gstat .grow:nth-child(3),body.d
   .dm-sub{margin-bottom:8px}
   .dm-keys{grid-template-columns:repeat(4,1fr)}
 }
+/* 喷漆车间 respray (js/88-wardrobe-ui.js): a 4-second cut scene, the HUD steps aside */
+body.sp-run .topbar,body.sp-run #acts,body.sp-run #joy,body.sp-run #prompt,body.sp-run #compass,body.sp-run #combo,body.sp-run #labels{display:none!important}
