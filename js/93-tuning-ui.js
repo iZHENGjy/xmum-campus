@@ -311,7 +311,9 @@ function tnRenderBps(){
 }
 function tnRenderQ(){
   const q = $('#tuneQ'); let h = '';
-  for (let i = 0; i < tune.bays; i++){
+  /* nothing in the bays: one short line, so the parts list keeps its room on a phone */
+  if (!tune.jobs.length) h += `<div class="tn-bay idle"><b>施工位${tune.bays > 1 ? ' ×2' : ''}</b><span>空着 · 选好零件点「下单施工」</span></div>`;
+  else for (let i = 0; i < tune.bays; i++){
     const j = tune.jobs[i];
     if (!j){ h += `<div class="tn-bay idle"><b>施工位 ${i + 1}</b><span>空着 · 选好零件点「下单施工」</span></div>`; continue; }
     const it = TN.byKey[j.k], car = (SHOP.find(s => s.kind === j.kind) || {}).name || '', left = tnLeft(j), k = Math.min(1, 1 - left / Math.max(1, j.t1 - j.t0));

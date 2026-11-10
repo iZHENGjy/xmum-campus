@@ -243,7 +243,7 @@ const SHOP = [
   {kind:'mase',  name:'玛莎拉弟 GT',  desc:'意式长车头，声浪好听',   price:900,  color:'#1f3a6b'},
   {kind:'moto',  name:'疾风 R 运动摩托', desc:'两个轮子，压着弯过弯，起步最猛，但一撞就飞', price:1100, color:'#e9ecef'},
   {kind:'lambo', name:'兰博鸡尼',     desc:'楔形车身，全校最快',     price:1600, color:'#f2c230'},
-  {kind:'gwag',  name:'铁方越野',     desc:'方盒子硬派越野，高、重、抗撞；能改升高、大轮胎、行李架和绞盘', price:2200, color:'#25282c'},
+  {kind:'gwag',  name:'铁方越野',     desc:'方盒子硬派越野，高、重、抗撞；能改升高、大轮胎、行李架和绞盘', price:2200, color:'#55604a'},
   {kind:'rr',    name:'劳斯来斯',     desc:'又长又稳又抗撞，奶娃坐进去像老板', price:3000, color:'#2b2b2e'}
 ];
 const owned = new Set(); let myCar = null;

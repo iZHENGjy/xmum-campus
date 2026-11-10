@@ -130,34 +130,36 @@ const trGeo = new THREE.BufferGeometry(), trPos = new Float32Array(TR_N * TR_MAX
 }
 const trMat = new THREE.MeshBasicMaterial({vertexColors:true, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide, fog:false});
 const trMesh = new THREE.Mesh(trGeo, trMat); trMesh.frustumCulled = false; trMesh.visible = false; trMesh.renderOrder = 3; scene.add(trMesh);
-const TR = {pts:[[], [], []], kind:'', car:null, spark:0};
-const TR_LOOK = {streak:{life:.42, w:.16, auto:'#ff3344'}, flame:{life:.22, w:.22, auto:'#ff8a2a'}, plasma:{life:.6, w:.34, auto:'#35e0ff'}};
+const TR = {pts:[[], [], []], kind:'', car:null, spark:0, t:0};   /* t: the trail's own clock (game time, so a pause does not age it) */
+const TR_LOOK = {streak:{life:.5, w:.26, auto:'#ff3344'}, flame:{life:.24, w:.24, auto:'#ff9a2a'}, plasma:{life:.65, w:.55, auto:'#35e0ff'}};
 const trCols = {}, TR_WHITE = new THREE.Color('#ffffff');
 const trColOf = (c, kind) => { const it = TN.byKey['trailc.' + c.tn.fit.trailc], k = it && it.col || TR_LOOK[kind].auto; return trCols[k] || (trCols[k] = new THREE.Color(k)); };
-const _tc = new THREE.Color(), _v = new THREE.Vector3(), _d = new THREE.Vector3(), _s = new THREE.Vector3();
+const trC = new THREE.Color(), trV = new THREE.Vector3(), trD = new THREE.Vector3(), trS = new THREE.Vector3();
 /* write ribbon r from its points (newest first); width w, colour col times fade */
-function trWrite(r, pts, w, col, life, now, gain){
+const TR_EMBER = new THREE.Color('#ff2a10');
+/* flick: a flame — the width flickers and the colour cools to red toward the end */
+function trWrite(r, pts, w, col, life, now, gain, flick){
   const base = r * TR_MAX * 2, cam = camera.position;
   let n = Math.min(pts.length, TR_MAX);
   for (let i = 0; i < TR_MAX; i++){
     const p = pts[Math.min(i, n - 1)] || null, q = pts[Math.min(i + 1, n - 1)] || p, o = (base + i * 2) * 3;
     if (!p){ trPos.fill(0, o, o + 6); trCol.fill(0, o, o + 6); continue; }
-    _d.set(p[0] - q[0], p[1] - q[1], p[2] - q[2]); if (_d.lengthSq() < 1e-6) _d.set(0, 0, 1);
-    _v.set(cam.x - p[0], cam.y - p[1], cam.z - p[2]); _s.crossVectors(_d, _v).normalize();
-    const age = (now - p[3]) / life, f = i < n ? Math.max(0, 1 - age) : 0, ww = w * (.35 + .65 * f) * .5;
-    trPos[o] = p[0] + _s.x * ww; trPos[o + 1] = p[1] + _s.y * ww; trPos[o + 2] = p[2] + _s.z * ww;
-    trPos[o + 3] = p[0] - _s.x * ww; trPos[o + 4] = p[1] - _s.y * ww; trPos[o + 5] = p[2] - _s.z * ww;
-    const k = f * f * gain; _tc.copy(col).multiplyScalar(k);
-    trCol[o] = trCol[o + 3] = _tc.r; trCol[o + 1] = trCol[o + 4] = _tc.g; trCol[o + 2] = trCol[o + 5] = _tc.b;
+    trD.set(p[0] - q[0], p[1] - q[1], p[2] - q[2]); if (trD.lengthSq() < 1e-6) trD.set(0, 0, 1);
+    trV.set(cam.x - p[0], cam.y - p[1], cam.z - p[2]); trS.crossVectors(trD, trV).normalize();
+    const age = (now - p[3]) / life, f = i < n ? Math.max(0, 1 - age) : 0, ww = w * (.35 + .65 * f) * .5 * (flick ? .55 + .5 * Math.abs(Math.sin(i * 1.9 + now * 23 + r)) : 1);
+    trPos[o] = p[0] + trS.x * ww; trPos[o + 1] = p[1] + trS.y * ww; trPos[o + 2] = p[2] + trS.z * ww;
+    trPos[o + 3] = p[0] - trS.x * ww; trPos[o + 4] = p[1] - trS.y * ww; trPos[o + 5] = p[2] - trS.z * ww;
+    const k = f * f * gain; trC.copy(col); if (flick) trC.lerp(TR_EMBER, 1 - f); trC.multiplyScalar(k);
+    trCol[o] = trCol[o + 3] = trC.r; trCol[o + 1] = trCol[o + 4] = trC.g; trCol[o + 2] = trCol[o + 5] = trC.b;
   }
 }
 function trUpdate(dt, demo){
   const c = myCar, kind = c && c.tn ? c.tn.fit.trail : 'none', on = kind !== 'none' && !tune.trailOff && c && (demo || driving === c);
   if (!on){ trMesh.visible = false; TR.pts.forEach(a => a.length = 0); return; }
-  const now = performance.now() / 1000, L = TR_LOOK[kind], low = typeof XQ !== 'undefined' && XQ.level === 'low';
-  const life = L.life * (low ? .55 : 1), col = trColOf(c, kind), lamp = typeof cur !== 'undefined' ? Math.min(1, cur.lamp || 0) : 0, gain = (kind === 'flame' ? .8 : 1) * (.6 + .65 * lamp);
+  TR.t += dt; const now = TR.t, L = TR_LOOK[kind], low = typeof XQ !== 'undefined' && XQ.level === 'low';
+  const life = L.life * (low ? .55 : 1), col = trColOf(c, kind), lamp = typeof cur !== 'undefined' ? Math.min(1, cur.lamp || 0) : 0, gain = (kind === 'flame' ? .9 : 1.15) * (.75 + .6 * lamp);
   if (TR.car !== c || TR.kind !== kind){ TR.car = c; TR.kind = kind; TR.pts.forEach(a => a.length = 0); }
-  const tails = kind === 'flame' ? c.tn.rear : c.tn.tail, sp = Math.hypot(c.vx, c.vz);
+  const t0 = kind === 'flame' ? c.tn.rear : c.tn.tail, tails = t0.length > 2 ? [t0[0], t0[t0.length - 1]] : t0, sp = Math.hypot(c.vx, c.vz);
   if (demo){
     /* the workshop turntable: a still trail streaming out behind the car, so the preview shows something */
     const fx = Math.sin(c.h), fz = Math.cos(c.h);
@@ -171,13 +173,13 @@ function trUpdate(dt, demo){
   }
   const ok = TR.pts[0].length > 1;
   trMesh.visible = ok; if (!ok) return;
-  for (let r = 0; r < 2; r++) trWrite(r, TR.pts[r], L.w * (tails.length > 1 || kind !== 'plasma' ? 1 : 1.5), col, life, now, gain);
+  for (let r = 0; r < 2; r++) trWrite(r, TR.pts[r], L.w * (tails.length > 1 || kind !== 'plasma' ? 1 : 1.5), col, life, now, gain, kind === 'flame');
   /* plasma: a white-hot core down the middle of the first ribbon */
   if (kind === 'plasma') trWrite(2, TR.pts[0], L.w * .35, TR_WHITE, life * .7, now, .8 * gain); else trWrite(2, [], 0, col, 1, now, 0);
   trGeo.attributes.position.needsUpdate = true; trGeo.attributes.color.needsUpdate = true;
   /* flames lick out of the pipes; plasma throws sparks. Not on 流畅 */
   if (!demo && sp > 3 && !low){
-    TR.spark += dt * (kind === 'flame' ? 26 : kind === 'plasma' ? 12 : 0) * (.4 + Math.min(1, sp / 30));
+    TR.spark += dt * (kind === 'flame' ? 40 : kind === 'plasma' ? 14 : 0) * (.4 + Math.min(1, sp / 30));
     while (TR.spark > 1){ TR.spark--; const t = tails[(rnd() * tails.length) | 0], [x, y, z] = ndWorld(c, t), fx = Math.sin(c.h), fz = Math.cos(c.h);
       if (kind === 'flame') spawnPart('dust', x, y, z, .18 + rnd() * .14, {grow:1.8, vx:c.vx * .6 - fx * 3, vy:.6 + rnd(), vz:c.vz * .6 - fz * 3, life:.12 + rnd() * .1, op:1, color:rnd() < .5 ? '#ffd36a' : col.getStyle()});
       else spawnPart('dust', x, y, z, .08 + rnd() * .06, {vx:c.vx * .5 + (rnd() - .5) * 4, vy:1 + rnd() * 2, vz:c.vz * .5 + (rnd() - .5) * 4, g:9, life:.35 + rnd() * .3, op:1, color:rnd() < .5 ? '#ffffff' : col.getStyle()}); }

@@ -347,7 +347,7 @@ function rcFinish(){
     head = done ? `第 ${place} 名` : '没跑完'; sub = runT ? '完赛 ' + rcFmt(runT) + (lap && T.closed ? ' · 最快圈 ' + rcFmt(lap) : '') : '';
     if (done && place === 1){ unlock('racewin'); rcSave.wins[T.id] = (rcSave.wins[T.id] || 0) + 1; }
   }
-  const allNew = done && !prog.ach.raceall;
+  const allDone = () => RC_TRACKS.every(t => rcSave.best[t.id] && rcSave.best[t.id].done), allBefore = allDone();
   if (done){ unlock('race1'); rec.done = 1; if (RC_TRACKS.every(t => rcSave.best[t.id] && rcSave.best[t.id].done)) unlock('raceall'); }
   rcWrite(); if (pay) earn(pay);
   /* 改装零件 (js/93-tuning-ui.js): by place, or for beating the ghost; the first win on a track brings the 氮气 recipe, all five tracks the engine one */
@@ -357,7 +357,7 @@ function rcFinish(){
     loot = mode === 'ghost' ? P.reward('ghost', ghostWin ? 0 : 3, ghostWin ? '跑赢影线' : '影线 1v1') : P.reward('race', place - 1, `竞速第 ${place} 名`);
     const bp = (id, why) => { const had = P.has(id); if (P.grant(id, 1, why)) loot.push({id:had ? 'plan' : id, n:1}); };
     if (mode !== 'ghost' && place === 1 && rcSave.wins[T.id] === 1) bp('bp_nitro', '第一次在「' + T.name + '」夺冠');
-    if (allNew && prog.ach.raceall) bp('bp_race', '五条赛道都跑完');
+    if (!allBefore && allDone()) bp('bp_race', '五条赛道都跑完');
   }
   if (done && (place === 1 && mode !== 'ghost' || head.startsWith('跑赢'))) for (let i = 0; i < 5; i++) tone('triangle', 523 * Math.pow(1.19, i), 523 * Math.pow(1.19, i), .18, .13, i * .09); else sfx.ding();
   gx.callout(head, sub, T.color);

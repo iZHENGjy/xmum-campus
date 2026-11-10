@@ -255,7 +255,7 @@ const TN_DROPS = {
   ghost:   {name:'影线 1v1', g:[[['nos', 1], ['turbo', 1], ['bp_moto', 1, .25]], [], [], [['lacq', 1]]]},
   hoops:   {name:'奶娃投篮', g:[[['rim', 3], ['ecu', 1], ['ti', 1, .08]], [['rim', 2], ['lacq', 1]], [['rim', 1]], []]},
   canteen: {name:'食堂端盘子', g:[[['rim', 3], ['lacq', 2]], [['rim', 2], ['lacq', 1]], [['rim', 1]], []]},
-  kipmart: {name:'KIP 大乱斗', g:[[['susp', 1], ['tyre', 1], ['bp_offroad', 1, .35]], [['susp', 1]], [['tyre', 1]], [['lacq', 1]]]},
+  kipmart: {name:'KIP 大乱斗', g:[[['susp', 1], ['tyre', 1], ['bp_offroad', 1, .35]], [['susp', 1]], [['tyre', 1]], []]},
   monkey:  {name:'猴子大战', g:[[['cf', 3], ['tyre', 1], ['ti', 1, .12], ['bp_drift', 1, .3]], [['cf', 2]], [['cf', 1]], []]},
   dorm:    {name:'宿舍撤离', g:[[['neon', 1], ['cf', 1], ['susp', 1], ['ti', 1], ['bp_*', 1]], [['neon', 1], ['cf', 1], ['bp_*', 1, .6]], [['neon', 1], ['susp', 1, .3]], []]},
   heist:   {name:'教学楼潜入', g:[[['ecu', 2], ['core', 1, .25], ['bp_*', 1]], [['ecu', 1], ['bp_*', 1, .5]], [['ecu', 1]], []]},
@@ -556,8 +556,8 @@ function tnMoto(fit){
     rbx('aero', .24, .1, .3, .03, 0, 1.06, -.78, .35);                       /* seat cowl hump */
     for (const s of [-1, 1]) rbx('aero', .14, .014, .1, .006, s * .25, .78, .6, 0, 0, s * .2);
   }
-  const out = {tips:TN_MOTO_TIPS[fit.mexh] || TN_MOTO_TIPS.stock};
-  for (const k in P) if (P[k].length){ const g = geoMergeUV(P[k].map(g => tnUV(g.index ? g.toNonIndexed() : g, 7))); g.keep = true; out[k] = g; }
+  const sc = p => p.map(v => v * MOTO_S), out = {tips:(TN_MOTO_TIPS[fit.mexh] || TN_MOTO_TIPS.stock).map(sc), tail:[sc([0, .98, -.86])]};
+  for (const k in P) if (P[k].length){ const g = geoMergeUV(P[k].map(g => tnUV(g.index ? g.toNonIndexed() : g, 7))); g.scale(MOTO_S, MOTO_S, MOTO_S); g.keep = true; out[k] = g; }
   return tnMotoCache[key] = out;
 }
 
@@ -587,7 +587,7 @@ function tnApply(c, fit){
     if (B.ti) add(c.body, B.ti, TN_MAT.ti);
     if (B.glass) add(c.body, B.glass, CAR_MAT.glass);
     if (B.head) add(c.body, B.head, CAR_MAT.head);
-    c.tn = {key, fit, meshes, cls, tips:fit.mexh === 'stock' ? [] : B.tips, rear:B.tips, tail:[[0, .98, -.86]], pool:null, exh:fit.mexh === 'ti' ? 'quad' : fit.mexh === 'high' ? 'dual' : 'stock'};
+    c.tn = {key, fit, meshes, cls, tips:fit.mexh === 'stock' ? [] : B.tips, rear:B.tips, tail:B.tail, pool:null, exh:fit.mexh === 'ti' ? 'quad' : fit.mexh === 'high' ? 'dual' : 'stock'};
     return;
   }
   /* stance: lower the body, keep the wheels on the ground, push them out under the arches, tilt them in at the top.

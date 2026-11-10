@@ -44,8 +44,9 @@ const CAR_T = {
   /* 方盒子豪华越野（只借造型风格）：又高又重又抗撞，极速一般 */
   gwag:  {L:4.7, W:1.98, H:1.98, wb:2.85, r:.42, maxV:54, acc:18, grip:6.6, steer:.5, mass:2.5, seat:[0, .55, -.35], name:'铁方越野', armor:.7},
   /* 运动摩托：两个轮子，过弯会压车（lean = 最大倾角，弧度），轻、快、不抗撞 */
-  moto:  {L:2.1, W:.78, H:1.2, wb:1.42, r:.31, maxV:76, acc:31, grip:7.4, steer:.78, mass:.5, seat:[0, .62, -.3], name:'疾风 R 运动摩托', armor:1.45, lean:.62, bike:true}
+  moto:  {L:2.73, W:1.0, H:1.56, wb:1.85, r:.4, maxV:70, acc:30, grip:7.4, steer:.78, mass:.6, seat:[0, .8, -.4], name:'疾风 R 运动摩托', armor:1.45, lean:.62, bike:true}
 };
+const MOTO_S = 1.3;   /* the motorbike's model and its tuning parts (js/42-tuning.js) are drawn small and scaled by this */
 const glassMat = new THREE.MeshStandardMaterial({color:'#1a242b', roughness:.05, metalness:.6, transparent:true, opacity:.84});
 const tyreMat = M('#1c1c1e', {roughness:.7}), headMat = new THREE.MeshStandardMaterial({color:'#fff6d8', emissive:'#fff1c0', emissiveIntensity:.1});
 const tailMat = new THREE.MeshStandardMaterial({color:'#b3261e', emissive:'#ff3b2f', emissiveIntensity:.1});
@@ -255,7 +256,7 @@ function carParts(kind, T){
     rb('trim', W * .9, .04, 2.4, .02, 0, 1.95, -.7);
     plates(.5, .62, 2.48, -2.48); mirrors(1.36, .9); handles([.4, -.6], 1.02);
   } else if (kind === 'moto'){
-    /* sport bike: twin-spar frame, fuel tank, sharp nose cowl ('fair', can come off in the workshop), clip-on bars,
+    /* sport bike (drawn at 1 / MOTO_S and scaled up at the end, so it stands right next to the big-headed 奶娃): twin-spar frame, fuel tank, sharp nose cowl ('fair', can come off in the workshop), clip-on bars,
        upside-down forks, swingarm, belly exhaust. Style only, no maker's name or badge */
     put('fair', geoAt(roundBox(.42, .36, .52, .1, 2), 0, .86, .64, -.35));
     sym(s => put('fair', geoAt(roundBox(.06, .34, .62, .03, 2), s * .17, .64, .34, 0, s * .06, 0)));
@@ -295,7 +296,7 @@ function carParts(kind, T){
     }
   }
   const out = {};
-  for (const k in P) out[k] = geoMerge(P[k]);
+  for (const k in P){ out[k] = geoMerge(P[k]); if (kind === 'moto') out[k].scale(MOTO_S, MOTO_S, MOTO_S); }
   return carGeoCache[kind] = out;
 }
 const cars = [];
