@@ -307,6 +307,7 @@ function frame(now){
     controls.update();
   }
   if (mode !== 'naiwa'){ for (const pk of PICKUPS) pk.m.visible = false; destMark.visible = false; }
+  if (gx.frame) gx.frame(dt, T);   /* every frame, paused or not, in every mode: the B1 arcade runs from here (js/91-arcade.js) */
   animNaiwa(dt, T);
   updateNPCs(dt, T); updateFountain(dt);
   if (typeof updateOutskirts === 'function') updateOutskirts(dt, T);   /* js/13-outskirts.js */
