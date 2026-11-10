@@ -103,7 +103,7 @@ let roomBoard = null;
   const solid = (w, h, d, x, z, col, cover) => { const m = box(w, h, d, M(col, {roughness:.7}), RX(x), h / 2, RZ(z), roomG); addBox(RX(x), RZ(z), w / 2, d / 2, 0); if (cover) LV.cover.push({x:RX(x), z:RZ(z)}); return m; };
   /* office: the teacher's desk facing the print-room door, a sofa and a stack of boxes to hide behind, cabinets on the walls */
   solid(3.2, .8, 1.4, 20, -5, '#6b4a34'); box(1.2, .06, .9, M('#f4f1e8'), RX(20.4), .84, RZ(-5), roomG); box(.7, .5, .7, M('#3b3f48'), RX(20), .25, RZ(-6.5), roomG);
-  solid(3, .9, 1.2, 16.6, -1.5, '#7a5a8a', true); solid(1.7, 1.5, 1.5, 24.2, -1.3, '#b58a55', true);      /* far enough from the wall to get in behind them */
+  solid(3, .9, 1.2, 16.6, -.9, '#7a5a8a', true); solid(1.7, 1.5, 1.5, 24.6, .6, '#b58a55', true);      /* placed so that 奶娃 (who is wide) can still get round the desk on either side */
   cab('file', 25.6, -6.5, .4, 3, '#7c8794'); cab('book', 17, -9.55, 3, .5, '#8a6a45'); cab('box', 24.6, -9.5, 1.6, .6, '#a23b3b', 1.1); cab('tray', 20, -4.1, .9, .4, '#3e7a5a', .98);
   /* print room: the printer, a paper shelf, a store cupboard */
   solid(1.8, 1.3, 1.3, 24.4, 8.4, '#d9dde2', true); box(1.2, .1, .5, M('#2b2f36'), RX(24.4), 1.36, RZ(8.2), roomG);
