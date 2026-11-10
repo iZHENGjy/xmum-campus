@@ -10,6 +10,7 @@ B1 学生活动中心里是一个游戏厅（`js/91-arcade.js`，对外是 `wind
 |---|---|---|
 | `js/minigames/hoops.js` 奶娃投篮 | 一个键，看准时机出手 | `ctx.input.pressed`、固定镜头、抛物线、连击、加时 |
 | `js/minigames/canteen.js` 食堂端盘子 | 摇杆，在人群里穿行 | `ctx.player.walk`、`ctx.camera.fit`、`InstancedMesh` 人群 |
+| `js/minigames/kipmart.js` KIP 超市大乱斗 | 摇杆加一个键，和 AI 抢货、互撞 | 自己写的带惯性的移动、格子寻路的 AI、横竖屏换镜头方向、`ctx.ui` |
 
 ## 1. 最小示例
 
@@ -145,6 +146,7 @@ XMini.register((() => {
 | `XMini.open()` | 进游戏厅并打开游戏列表（标题页的「小游戏」按钮） |
 | `XMini.play(id)` | 打开某个游戏的玩法卡片 |
 | `XMini.start(id)` | 跳过卡片直接开一局（测试用） |
+| `XMini.startAt(id, door)` | 从地图上别的门口直接开一局，不经过游戏厅；这一局结束（不再来一局）时把奶娃放回 `door = {x, z, h, name}`。KIP 商场门口的「超市大乱斗」用的是这个 |
 | `XMini.quit()` | 结束当前这一局，回游戏厅 |
 | `XMini.inside` / `XMini.active` / `XMini.state` | 在不在游戏厅里 / 正在玩的游戏 id / `'out' 'hall' 'count' 'play' 'pause' 'result'` |
 | `XMini.best(id)` | 本机最好成绩 |

@@ -1,9 +1,9 @@
-/* XMUM 校园漫游 · 校外玩法：麦当当得来速、KIP 购物车大促、山梁拉力、蜜雪冰橙打工、Bell 夜市、抓小偷和通缉榜、跨区外卖
+/* XMUM 校园漫游 · 校外玩法：麦当当得来速、KIP 超市大乱斗的入口、山梁拉力、蜜雪冰橙打工、Bell 夜市、抓小偷和通缉榜、跨区外卖
  *
  * 麦当当得来速：开车进点餐圈停稳，选一份（三种脾气不同的单），绕到取餐窗口停准，再限时送回学校。
  *   路上撞车、落地太猛会把餐洒掉，扣报酬。夜晚全是「夜宵加急」，报酬更高、时间更紧。
- * KIP 大促 · 购物车冲刺：在商场门口坐上购物车，60 秒内在停车场里撞特价购物袋，金色的「限时闪购」值 3 分，
- *   倒计时结束前推回收银圈结账。购物车平时也能坐上去开着玩。
+ * KIP 超市大乱斗：商场门口的粉圈按 F 进门，里面是小游戏 js/minigames/kipmart.js（和 AI 顾客抢货、互撞、结账）。
+ *   停车场上的购物车还在，可以坐上去开着玩。
  * 山梁拉力：校门外沿着去 KIP 的山路跑一趟计时赛（直接用 js/85-activities.js 的计时赛）。
  * 蜜雪冰橙打工：走到店门口，按顺序加料，再在指针走到绿色时摇，45 秒内做得越多越好。
  * Bell 夜市：夜晚才摆出来的一排摊位，走过去把五种小吃吃一遍。
@@ -63,12 +63,12 @@ const opDest = gxMarker('#ffc72c', 1.1);
 let opMsg = '', opFBtn = '';
 
 /* achievements: through achAdd() when js/80-gta.js has it; otherwise the save there only keeps ids it knows, so re-read ours after adding them */
-const OP_ACH = [['dthru', '得来速常客', '麦当当得来速送达 5 单', 60], ['supper', '夜宵骑士', '夜里送达一单夜宵加急', 40], ['sale', '剁手党', 'KIP 大促冲刺拿到金牌', 60],
+const OP_ACH = [['dthru', '得来速常客', '麦当当得来速送达 5 单', 60], ['supper', '夜宵骑士', '夜里送达一单夜宵加急', 40], ['sale', '剁手党', 'KIP 超市大乱斗拿到金牌', 60],
   ['tea', '奶茶大师', '蜜雪冰橙打工拿到金牌', 50], ['cross', '跨区骑手', '累计送出 10 单跨区外卖', 80], ['nmkt', '夜市吃货', '一晚上吃遍夜市五种小吃', 30],
   ['thief1', '见义勇为', '抓住第一个偷外卖的小偷', 30], ['back', '完璧归赵', '被抢走的外卖追回来，还按时送到', 50], ['wanted', '神探奶娃', '把通缉榜上的六个小偷全部抓住', 150]];
 if (typeof achAdd === 'function') achAdd(OP_ACH);
 else { ACH.push(...OP_ACH); try { const d = JSON.parse(localStorage.getItem('xmum-gta-v1') || 'null'); if (d && d.ach) for (const a of OP_ACH) if (d.ach[a[0]]) prog.ach[a[0]] = +d.ach[a[0]] || 1; } catch(e){} }
-GX_MORE.push({id:'o_sale', name:'KIP 购物车冲刺', fmt:v => Math.round(v) + ' 分'}, {id:'o_tea', name:'蜜雪冰橙打工', fmt:v => Math.round(v) + ' 分'},
+GX_MORE.push({id:'o_tea', name:'蜜雪冰橙打工', fmt:v => Math.round(v) + ' 分'},
   {id:'o_dt', name:'得来速送达', fmt:v => Math.round(v) + ' 单'}, {id:'o_thief', name:'抓到的小偷', fmt:v => Math.round(v) + ' 个'});
 
 /* ---------- one small panel for the order menu and the tea counter; the game is paused while it is open ---------- */
@@ -303,113 +303,27 @@ const OP_CARTS = [0, 1, 2].map(i => { const c = makeCar('trolley', '#d7262d', -6
 /* two more parked cars, so the KIP car park has something to weave around (and to drive home in) */
 for (const [kind, col, x, z, h] of [['myvi', '#2d5d8a', -739.4, 881, Math.PI], ['sedan', '#6d4c8f', -579.8, 917, Math.PI]]) makeCar(kind, col, x, z, h).out = true;
 
-/* ---------- KIP 大促 · 购物车冲刺 ---------- */
-const SALE_N = 22, SALE_DUR = 60, SALE_MEDAL = [22, 15, 8], SALE_PAY = [70, 45, 25], SALE_FLASH = [10, 24, 38, 50];
-const SALE = {on:false, phase:'', t:0, cd:0, beep:4, score:0, got:0, chain:0, chainT:0, cart:null, left:false, flash:0, items:[...Array(SALE_N)].map(() => ({on:false, x:0, z:0, gold:false, life:0, ph:0})), spots:[]};
-SALE.S = opSpot('#ff5fa2', .55, -640, 927, 'KIP 大促 · 购物车冲刺');
-for (let x = -762; x <= -546; x += 12) for (const z of [875, 882, 890, 902, 911, 917, 923]) if (Math.hypot(x - SALE.S.x, z - SALE.S.z) > 10) SALE.spots.push([x, z]);
-const saleBags = (() => {
-  const geo = geoMerge([new THREE.BoxGeometry(.75, .8, .42).translate(0, .4, 0), new THREE.TorusGeometry(.2, .035, 5, 10, Math.PI).translate(0, .8, 0)]);
-  geo.boundingSphere = new THREE.Sphere(new THREE.Vector3(-655, 2, 900), 150);
-  const im = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({roughness:.5, emissive:'#553018', emissiveIntensity:.6}), SALE_N);
-  const bg = beamGeo.clone(); bg.boundingSphere = new THREE.Sphere(new THREE.Vector3(-655, 5, 900), 150);
-  const beam = new THREE.InstancedMesh(bg, gxGlow('#ffffff', .42), SALE_N);
-  for (const m of [im, beam]){ m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.visible = false; scene.add(m); }
-  for (let i = 0; i < SALE_N; i++){ im.setColorAt(i, _col.set('#ffffff')); beam.setColorAt(i, _col.set('#ff7ab8')); }
-  return {im, beam};
-})();
-const SALE_COL = ['#ff5fa2', '#4aa3ff', '#55d08a', '#ff8a3d', '#c46bff'];
-function salePut(gold, px, pz){
-  const it = SALE.items.find(o => !o.on); if (!it) return;
-  for (let k = 0; k < 30; k++){
-    const [x, z] = SALE.spots[(rnd() * SALE.spots.length) | 0];
-    if (Math.hypot(x - px, z - pz) < (gold ? 38 : 12) || SALE.items.some(o => o.on && Math.hypot(o.x - x, o.z - z) < 6) || cars.some(c => c !== SALE.cart && Math.hypot(c.x - x, c.z - z) < c.R + 2.2)) continue;
-    Object.assign(it, {on:true, x, z, gold, life:gold ? 11 : 1e9, ph:rnd() * 6});
-    const k = SALE.items.indexOf(it); saleBags.im.setColorAt(k, _col.set(gold ? '#ffd24a' : SALE_COL[(rnd() * SALE_COL.length) | 0])); saleBags.beam.setColorAt(k, _col.set(gold ? '#ffd24a' : '#ff7ab8'));
-    saleBags.im.instanceColor.needsUpdate = saleBags.beam.instanceColor.needsUpdate = true;
-    return;
-  }
+/* ---------- KIP 超市大乱斗: the pink ring at the mall door; the game itself is js/minigames/kipmart.js on the mini-game platform (js/91-arcade.js) ---------- */
+const KM = {near:false, door:{x:-640, z:925.5, h:Math.PI, name:'商场门口'}};
+KM.S = opSpot('#ff5fa2', .55, -640, 927, 'KIP 超市大乱斗 · 进门');
+function kmOpen(){
+  if (!window.XMini || !XMini.startAt || !window.XKipMart) return;
+  const g = XMini.games.find(x => x.id === 'kipmart'); if (!g) return;
+  const t = XKipMart.tier(), best = XMini.best('kipmart'), go = () => { opClose(true); XMini.startAt('kipmart', KM.door); };
+  opOpen('🛒 KIP 超市大乱斗', `<p class="op-note">推着购物车进超市，和 ${t.bots.length} 个顾客抢货。<b>抢</b>清单上的三样东西（头顶有箭头），<b>推到收银台</b>结账才算分，凑齐一张清单再加 5 分。
+    按「冲撞」<b>撞</b>别人，他车里的东西会掉出来，掉一件你加 1 分；别人蓄力时地上有红线，躲开他就撞货架。90 秒后分数最高的赢。</p>
+    <button type="button" class="op-card" id="kmGo"><kbd>F</kbd><b>开始 · ${t.n}</b><span>${t.mult > 1 ? `得分 ×${t.mult} · ` : ''}赢一局升一场，对手更快更爱撞人${t.thief.length ? '，还有扒手' : ''}</span>
+    <span>${best != null ? `最好 <em>${Math.round(best)} 分</em> · ` : ''}金牌 ${g.medals[0]} 分 · 银牌 ${g.medals[1]} 分 · 铜牌 ${g.medals[2]} 分</span></button>`,
+    code => { if (code === 'KeyF' || code === 'Enter' || code === 'Space' || code === 'Digit1') go(); });
+  $('#kmGo').addEventListener('click', go);
 }
-function saleDraw(T){
-  SALE.items.forEach((it, i) => {
-    /* big enough to read from across the car park: bags twice life size, a tall beam over each (gold ones taller and pulsing) */
-    const s = !it.on ? 0 : it.gold ? 2.6 * Math.min(1, it.life / 1.5) * (1 + Math.sin(T * 9) * .08) : 1.9, w = !it.on ? 0 : it.gold ? 1.3 : .75;
-    _cm.compose(_cp.set(it.x, .5 + Math.sin(T * 3 + it.ph) * .18, it.z), _cq.setFromAxisAngle(UP, T * 1.6 + it.ph), _cs.setScalar(s)); saleBags.im.setMatrixAt(i, _cm);
-    _cm.compose(_cp.set(it.x, 0, it.z), _cq.identity(), _cs.set(w, !it.on ? 0 : it.gold ? .34 : .2, w)); saleBags.beam.setMatrixAt(i, _cm);
-  });
-  saleBags.im.instanceMatrix.needsUpdate = saleBags.beam.instanceMatrix.needsUpdate = true;
-}
-function saleStart(){
-  let c = driving && driving.kind === 'trolley' ? driving : null;
-  if (!c){ let bd = 1e9; for (const o of OP_CARTS){ const d = Math.hypot(o.x - nw.x, o.z - nw.z); if (d < bd){ bd = d; c = o; } } }
-  Object.assign(c, {x:SALE.S.x, z:SALE.S.z - 1, h:Math.PI, vx:0, vz:0, y:0, vy:0, air:false, hp:100, wrecked:false}); c.paint.color.set(c.color0);
-  c.root.position.set(c.x, 0, c.z); c.root.rotation.set(0, c.h, 0);
-  if (driving !== c) enterCar(c);
-  Object.assign(SALE, {on:true, phase:'count', t:0, cd:3, beep:4, score:0, got:0, chain:0, chainT:0, cart:c, left:false, flash:0, warned:false});
-  for (const it of SALE.items) it.on = false;
-  for (let i = 0; i < 12; i++) salePut(false, c.x, c.z);
-  saleBags.im.visible = saleBags.beam.visible = true; opHide(SALE.S); sfx.ding();
-  toast('KIP 大促 · 购物车冲刺', '60 秒内撞特价购物袋，3 秒内连着撞有连抢加分，金色的「限时闪购」值 3 分；倒计时结束前推回门口结账', 3600);
-}
-function saleEnd(){
-  SALE.on = false; SALE.phase = ''; SALE.S.rearm = true; saleBags.im.visible = saleBags.beam.visible = false; missionEl.classList.remove('urgent');
-}
-function saleFinish(paid){
-  const raw = SALE.score, score = paid ? raw : Math.floor(raw * .6);
-  let medal = 3; for (let i = 0; i < 3; i++) if (score >= SALE_MEDAL[i]){ medal = i; break; }
-  const prev = prog.best.o_sale, rec = prev == null || score > prev; if (rec) prog.best.o_sale = score;
-  let pay = (medal < 3 ? SALE_PAY[medal] : 8) + score; if (rec && prev != null) pay += 15;
-  sess.acts++; if (medal < 3) sess.medals++;
-  earn(pay); saveGame();
-  toast(medal < 3 ? `${GX_MEDAL[medal]} · KIP 大促` : 'KIP 大促 · 结账了', `${score} 分${paid ? '' : `（没赶上结账，${raw} 分只算六成）`}${rec ? (prev != null ? ' · 新纪录！' : ' · 首次完成') : ` · 纪录 ${prev} 分`} · +RM ${pay}`, 3800);
-  if (medal < 3){ gxCallout(GX_MEDAL[medal], score + ' 分', OP_MEDAL_C[medal]); opFanfare(); } else sfx.ding();
-  if (medal === 0){ unlock('gold'); unlock('sale'); }
-  saleEnd();
-}
-function saleUpdate(dt, px, pz, sp, free, T){
-  if (!SALE.on){
-    if (opRing(SALE.S, free && Math.abs(px - SALE.S.x) < 420 && Math.abs(pz - SALE.S.z) < 420, px, pz)){
-      if (driving && driving.kind !== 'trolley') opMsg = '大促要推购物车：下车走进圈里';
-      else if (driving || nw.state !== 'fly') saleStart();
-    } else if (free && !driving && SALE.S.mark.visible && Math.hypot(px - SALE.S.x, pz - SALE.S.z) < 12 && prog.best.o_sale != null) opMsg = `KIP 大促纪录 ${prog.best.o_sale} 分 · 金牌 ${SALE_MEDAL[0]} 分`;
-    return;
+function kmUpdate(px, pz, free){
+  const was = KM.near; KM.near = false;
+  if (opRing(KM.S, free && window.XMini && Math.abs(px - KM.S.x) < 420 && Math.abs(pz - KM.S.z) < 420, px, pz)){
+    if (driving) opMsg = driving.kind === 'trolley' ? '超市里有车：下来走进圈里' : '下车走进圈里，进 KIP 超市';
+    else if (nw.state !== 'fly'){ KM.near = true; opMsg = TOUCH ? '点「进门」进 KIP 超市 · 购物车大乱斗' : '按 F 进 KIP 超市 · 购物车大乱斗'; opSetF('进门'); }
   }
-  const c = SALE.cart; opHide(SALE.S); c.hp = 100;
-  if (SALE.phase === 'count'){
-    SALE.cd -= dt; c.vx *= .5; c.vz *= .5;
-    const n = Math.ceil(SALE.cd);
-    if (n < SALE.beep){ SALE.beep = n; if (n > 0){ gxCallout(String(n), 'KIP 大促', '#ff5fa2'); gxBeep(660, .14); } else { gxCallout('开抢！', '', '#ff5fa2'); gxBeep(1320, .3, .12); } }
-    missionEl.textContent = `KIP 大促 · 准备 ${Math.max(1, n)}`;
-    if (SALE.cd <= 0) SALE.phase = 'run';
-    saleDraw(T); return;
-  }
-  SALE.t += dt; SALE.chainT -= dt; const left = SALE_DUR - SALE.t, dS = Math.hypot(px - SALE.S.x, pz - SALE.S.z);
-  if (dS > 14) SALE.left = true;
-  if (SALE.flash < SALE_FLASH.length && SALE.t >= SALE_FLASH[SALE.flash]){
-    SALE.flash++; salePut(true, px, pz); salePut(true, px, pz);
-    gxCallout('限时闪购！', '金色购物袋 3 分，只有 11 秒', '#ffd24a'); tone('square', 880, 1320, .25, .09);
-  }
-  let normal = 0;
-  for (const it of SALE.items){
-    if (!it.on) continue;
-    if (it.gold){ it.life -= dt; if (it.life <= 0){ it.on = false; continue; } } else normal++;
-    if (driving === c && Math.hypot(px - it.x, pz - it.z) < 2.1){
-      it.on = false; SALE.score += it.gold ? 3 : 1; SALE.got++; if (!it.gold) normal--;
-      SALE.chain = SALE.chainT > 0 ? SALE.chain + 1 : 1; SALE.chainT = 3; gxChime(Math.min(6, SALE.chain)); camShake = Math.max(camShake, it.gold ? .5 : .2);
-      if (SALE.chain % 4 === 0){ SALE.score++; gxCallout(`连抢 ×${SALE.chain}`, '手快 +1 分', '#ff5fa2'); }
-      for (let k = 0; k < 5; k++) spawnPart('dust', it.x + (rnd() - .5), 1 + rnd(), it.z + (rnd() - .5), .5, {vx:(rnd() - .5) * 5, vy:3 + rnd() * 3, vz:(rnd() - .5) * 5, g:9, life:.6, op:1, color:it.gold ? '#ffd24a' : '#ff9ac6'});
-      if (it.gold && SALE.chain % 4) gxCallout('+3', '限时闪购到手', '#ffd24a');
-    }
-  }
-  for (let k = normal; k < 9; k++) salePut(false, px, pz);
-  saleDraw(T);
-  const nx = SALE.score >= SALE_MEDAL[0] ? '金牌到手' : `下一档 ${SALE_MEDAL.slice().reverse().find(m => m > SALE.score)} 分`;
-  missionEl.textContent = `${Math.ceil(left)} 秒 · 大促 ${SALE.score} 分 · ${nx}${left < 15 ? ' · 回门口结账' : ''}`;
-  missionEl.classList.toggle('urgent', left < 10);
-  if (left < 10 && !SALE.warned){ SALE.warned = true; gxCallout('还剩 10 秒', '推回门口结账', '#ff5fa2'); gxBeep(880, .2); }
-  if (driving !== c) opMsg = TOUCH ? '回购物车上（走过去点「上车」）' : '回购物车上（走过去按 F）';
-  if (SALE.left && SALE.score > 0 && dS < 4.5 && driving === c){ saleFinish(true); return; }
-  if (left <= 0) saleFinish(dS < 8);
+  if (was && !KM.near && opFBtn === '进门') opSetF('');
 }
 
 /* ---------- 山梁拉力: a timed run over the hill road to the KIP car park, on the race engine of js/85-activities.js ---------- */
@@ -823,6 +737,7 @@ function thUpdate(dt, px, pz, sp, free){
 /* the F button label on phones (js/87-classroom.js resets it every frame, so setting it after that wins) */
 function opSetF(t){ opFBtn = t; if (typeof setFLabel === 'function') setFLabel(t); }
 function opTryF(){
+  if (KM.near && !driving && nw.state !== 'fly'){ kmOpen(); return true; }
   if (TH.on && ((TH.st === 'run' && TH.burst <= 0) || TH.down > 0 || TH.slow > 0) && !driving && nw.state !== 'fly' && Math.hypot(nw.x - TH.x, nw.z - TH.z) < 3.4){ thCatch(); return true; }
   return false;
 }
@@ -847,10 +762,10 @@ thBoard.rotation.y = Math.PI; thBoard.position.set(138, 2.5, 299.4);
 TH.B = opSpot('#e84d8a', .34, 138, 296.6, '通缉榜 · 接悬赏');
 
 /* ---------- wire into the game loop: wraps the hooks of js/80-gta.js after 85, 87 and 88 have filled them ---------- */
-const opBusy = () => !!DT.st || SALE.on || TH.on;
+const opBusy = () => !!DT.st || TH.on;
 function opUpdate(dt, px, pz){
   opMsg = '';
-  const sp = driving ? Math.hypot(driving.vx, driving.vz) : 0, T = performance.now() / 1000;
+  const sp = driving ? Math.hypot(driving.vx, driving.vz) : 0;
   const other = mission.on || !!gxA.act || gxTaxi.on || (typeof EX !== 'undefined' && EX.on) || (typeof ROOM !== 'undefined' && ROOM.in);
   const mine = opBusy(), free = !other && !mine;
   /* orders delivered by js/50-missions.js: count the cross-zone ones, and the ones that were stolen and won back */
@@ -860,7 +775,7 @@ function opUpdate(dt, px, pz){
   opWas = mission.on ? (mission.cross ? 1 : 0) | (mission.recovered ? 2 : 0) : 0;
   if (mission.on && mission.stolen && Math.hypot(px - mission.to.x, pz - mission.to.z) < 9) opMsg = '外卖还在小偷手里，先追回来';
   dtUpdate(dt, px, pz, sp, free);
-  saleUpdate(dt, px, pz, sp, free, T);
+  kmUpdate(px, pz, free);
   teaUpdate(px, pz, free);
   nmUpdate(px, pz, !mine);
   thUpdate(dt, px, pz, sp, free);
@@ -871,26 +786,19 @@ function opTarget(){
   if (TH.on && (TH.own || (!opOrder() && TH.st === 'run'))) return {x:TH.x, z:TH.z, label:(TH.own ? '抢你外卖的 ' : '小偷 ') + TH.who.name};
   if (DT.st === 'win') return {x:DT.wx, z:DT.wz, label:'取餐窗口'};
   if (DT.st === 'go') return {x:DT.job.to.x, z:DT.job.to.z, label:'送到 ' + DT.job.to.name};
-  if (SALE.on){
-    if (SALE_DUR - SALE.t < 15) return {x:SALE.S.x, z:SALE.S.z, label:'回门口结账'};
-    let best = null, bd = 1e9; const p = driving || nw;
-    for (const it of SALE.items) if (it.on){ const d = Math.hypot(it.x - p.x, it.z - p.z) - (it.gold ? 25 : 0); if (d < bd){ bd = d; best = it; } }
-    if (best) return {x:best.x, z:best.z, label:best.gold ? '限时闪购' : '特价购物袋'};
-  }
   return null;
 }
 function opMini(dot){
   if (TH.on) dot(TH.x, TH.z, '#e84d8a', 9);
   if (DT.st === 'win'){ dot(DT.wx, DT.wz, '#4fd18b', 8); return; }
   if (DT.st === 'go'){ dot(DT.job.to.x, DT.job.to.z, '#ffc72c', 9); return; }
-  if (SALE.on){ for (const it of SALE.items) if (it.on) dot(it.x, it.z, it.gold ? '#ffd24a' : '#ff9ac6', it.gold ? 7 : 5); dot(SALE.S.x, SALE.S.z, '#ff5fa2', 7); return; }
   if (TH.on || mission.on || gxA.act || gxTaxi.on || (typeof EX !== 'undefined' && EX.on)) return;
-  dot(DT.x, DT.z, '#ffc72c', 7); dot(SALE.S.x, SALE.S.z, '#ff5fa2', 7); dot(TEA.S.x, TEA.S.z, '#ff6f91', 6); dot(TH.B.x, TH.B.z, '#e84d8a', 5);
+  dot(DT.x, DT.z, '#ffc72c', 7); dot(KM.S.x, KM.S.z, '#ff5fa2', 7); dot(TEA.S.x, TEA.S.z, '#ff6f91', 6); dot(TH.B.x, TH.B.z, '#e84d8a', 5);
   if (NM.k > .9) dot(270, NM_Z, '#ff8a3d', 6);
 }
 /* everything of ours stops quietly: leaving 奶娃 mode, or getting arrested */
 function opStop(){
-  opClose(); if (TH.on) thEnd(); if (DT.st) dtEnd(); if (SALE.on) saleEnd();
+  opClose(); if (TH.on) thEnd(); if (DT.st) dtEnd();
   opDest.visible = false; opMsg = '';
 }
 {
@@ -909,7 +817,7 @@ function opStop(){
       opStop(); base.onBust();
     },
     leave(){
-      opStop(); for (const o of [DT.A, DT.B, SALE.S, TEA.S, TH.B]){ opHide(o); o.rearm = false; }
+      opStop(); for (const o of [DT.A, DT.B, KM.S, TEA.S, TH.B]){ opHide(o); o.rearm = false; }
       NM.S.visible = false; for (const i in NM.lbls) NM.lbls[i].dead = true; if (opFBtn) opSetF('');
       base.leave();
     }
