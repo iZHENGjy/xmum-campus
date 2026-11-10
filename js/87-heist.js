@@ -30,9 +30,9 @@ const HW_START = (() => {      /* a second ring beside the first, along the fron
 })();
 const EX_KIND = {
   exam:{name:'抢救期末卷', color:'#ff6f61', time:d => d * 2 / 12 + 120, pay:35, rate:.8, bonus:[30, 15, 5]},
-  hw:{name:'赶 DDL 交作业', color:'#4aa3ff', time:d => d / 11 + 85, pay:25, rate:.6, bonus:[25, 12, 4]},
-  phone:{name:'拿回被没收的手机', color:'#4aa3ff', time:d => d / 11 + 100, pay:30, rate:.6, bonus:[28, 14, 5]},
-  night:{name:'夜闯自习楼', color:'#4aa3ff', time:d => d / 11 + 115, pay:30, rate:.6, bonus:[28, 14, 5]}
+  hw:{name:'赶 DDL 交作业', color:'#4aa3ff', time:d => d / 11 + 55, pay:25, rate:.6, bonus:[25, 12, 4]},
+  phone:{name:'拿回被没收的手机', color:'#4aa3ff', time:d => d / 11 + 75, pay:30, rate:.6, bonus:[28, 14, 5]},
+  night:{name:'夜闯自习楼', color:'#4aa3ff', time:d => d / 11 + 90, pay:30, rate:.6, bonus:[28, 14, 5]}
 };
 const EX_SIDE = ['hw', 'phone', 'night'];
 const exSideKind = () => EX_SIDE[(prog.best.exside | 0) % EX_SIDE.length];
@@ -129,7 +129,7 @@ const P2 = (x, z) => [RX(x), RZ(z)];
 const GUARD_VIEW = 8.5, GUARD_FOV = .62, GUARD_RUN = 6.2, TORCH_VIEW = 12, TORCH_FOV = .36;
 const GUARD_ROUTES = [
   [P2(-9, 13), P2(23, 13), P2(12.5, 8.45), P2(12.5, -5.4), P2(-12.5, -5.4), P2(-12.5, 8.45)],                           /* corridor, then round the classroom */
-  [P2(20, 6), P2(20, -1.5), P2(16, -3), P2(16, -8), P2(24, -8), P2(24, -2.5), P2(20, -1.5), P2(20, 6), P2(16.5, 6), P2(22, 4.5)]   /* print room and office (night only) */
+  [P2(20, 6), P2(20, -2.9), P2(16, -3.5), P2(16, -8), P2(24, -8), P2(23.6, -3.5), P2(20, -2.9), P2(20, 6), P2(16.5, 6), P2(22, 4.5)]   /* print room and office (night only) */
 ];
 const mkGuard = buddy => Object.assign(exFig(buddy ? '#3b4a2a' : '#24324a', {cap:'#1a2438', badge:true}), {cone:exCone(), torch:exCone('#fff3c4'), bang:exBang(), buddy,
   x:0, z:0, h:0, state:'patrol', route:GUARD_ROUTES[0], wp:0, stun:0, catchT:0, walkT:0, side:0, alert:0, knows:0, lostT:0, lookT:0, walkMax:0, pause:0, scan:1, lx:0, lz:0, room:'C', leg:null, legStage:0, chat:0, hasKey:false, on:false});
@@ -139,7 +139,7 @@ function guardShow(g, on){ g.on = on; g.g.visible = on; if (!on){ g.cone.visible
 function guardReset(){
   const a = guards[0], b = guards[1], night = EX.kind === 'night';
   Object.assign(a, {route:GUARD_ROUTES[0], wp:4, x:RX(12.5), z:RZ(-5.4), h:-Math.PI / 2, room:'C'});
-  if (night) Object.assign(b, {route:GUARD_ROUTES[1], wp:3, x:RX(16), z:RZ(-3), h:Math.PI, room:'O'});
+  if (night) Object.assign(b, {route:GUARD_ROUTES[1], wp:3, x:RX(16), z:RZ(-3.5), h:Math.PI, room:'O'});
   else Object.assign(b, {route:GUARD_ROUTES[0], wp:1, x:ROOM_DOOR[0] + 1, z:ROOM_DOOR[1], h:Math.PI / 2, room:'H'});
   for (const g of guards) Object.assign(g, {state:'patrol', stun:0, catchT:0, side:0, alert:0, knows:0, lostT:0, lookT:0, pause:0, leg:null, chat:0});
 }
