@@ -16,7 +16,12 @@ for (const set of knockSets) set.spots.forEach((o, i) => {
     o.down = true; o.hidden = true; o.s = 0; setKnock(set, i, false, 0, 0);
   }
 });
+/* clear the palms, lamps and benches that stood on the strip of land the lake bridge replaced (now water) */
+for (const set of knockSets) set.spots.forEach((o, i) => {
+  if (!o.hidden && (bridgeY(o.x, o.z) || lakes.some(L => inPoly(o.x, o.z, L)))){ o.down = true; o.hidden = true; o.s = 0; setKnock(set, i, false, 0, 0); }
+});
 function groundAt(x, z){
+  const by = bridgeY(x, z); if (by) return by;   /* on the lake bridge (js/10-world.js) */
   for (const r of RAMPS){
     const dx = x - r.x, dz = z - r.z, u = dx * r.fx + dz * r.fz, v = dx * r.fz - dz * r.fx;
     if (Math.abs(v) < r.W / 2 && u > -r.L / 2 && u < r.L / 2) return r.H * (u + r.L / 2) / r.L;

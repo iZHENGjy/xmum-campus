@@ -121,38 +121,79 @@ function arcStep(list, cx, cz, r0, r1, a0, a1, y0, y1, top, riser, seg){
   }
 }
 
-/* 芙蓉湖石拱桥: a nine-arch stone footbridge across the waist of the big lake (to look at: the water under it is still out of bounds) */
+/* 芙蓉桥: the red-framed, timber-decked bridge where the strip of land between the two lakes used to be.
+   The strip is now water (two more polygons in `lakes`, so walking, driving, spawning and the minimap all treat it as lake), and the bridge carries the old path across.
+   People and cars cross it: bridgeY() gives the deck height to groundAt (js/40-vehicles.js) and to the students (js/60-details.js), and the railings are colliders.
+   The deck rises 1.5 m in the middle (8 % at the steepest, at the ends), so a car rolls over without leaving the ground. */
+const FUR = (() => {
+  const A = P(1188, 363), B = P(1302, 324.5), L = Math.hypot(B[0] - A[0], B[1] - A[1]), dx = (B[0] - A[0]) / L, dz = (B[1] - A[1]) / L;
+  return {ax:A[0], az:A[1], dx, dz, nx:-dz, nz:dx, L, hw:3.3, rise:1.5, ry:Math.atan2(-dz, dx)};   /* (nx, nz): across the deck, toward the south lake */
+})();
+const furDeck = t => .14 + FUR.rise * (1 - (2 * t - 1) * (2 * t - 1));
+const furLampMat = new THREE.MeshStandardMaterial({color:'#fff3da', emissive:'#ffcf8f', emissiveIntensity:0});   /* lanterns on the uprights, lit with the street lamps (applyTime) */
+/* deck height at a world position, or 0 when it is not on the bridge */
+function bridgeY(x, z){
+  const px = x - FUR.ax, pz = z - FUR.az, u = px * FUR.dx + pz * FUR.dz, v = px * FUR.nx + pz * FUR.nz;
+  return u < 0 || u > FUR.L || Math.abs(v) > FUR.hw + .25 ? 0 : furDeck(u / FUR.L);
+}
 (function(){
-  const [bx, z0] = P(1290, 341), z1 = P(1290, 484)[1], L = z1 - z0, N = 9, span = L / N, W = 3.8, STONE = '#cdc6b7', DARK = '#a79f90', CAP = '#e2dccf', parts = [];
-  const info = {name:'芙蓉湖石拱桥', tag:'景观', desc:'横跨湖面的多孔石拱桥，是湖边最上镜的地方。游戏里只能在岸上看：桥下的水面还是不能走。', spawn:[bx - 16, z0 - 8, -2.2]};
-  const deckY = t => 4.5 + 1.5 * (1 - Math.pow(2 * t - 1, 2));   /* gentle camber: higher in the middle */
-  const M2 = 10;
-  for (let k = 0; k < N; k++){
-    const za = z0 + k * span, r = span / 2 - .55, zc = za + span / 2;
-    for (let i = 0; i < M2; i++){
-      const u0 = i / M2, u1 = (i + 1) / M2, p0 = za + u0 * span, p1 = za + u1 * span, t0 = (p0 - z0) / L, t1 = (p1 - z0) / L;
-      const arc = p => { const dz = Math.abs(p - zc); return dz >= r ? -.4 : -.4 + Math.sqrt(r * r - dz * dz) * .92; };   /* round arch springing just below the water line */
-      const a0 = arc(p0), a1 = arc(p1), d0 = deckY(t0) - .25, d1 = deckY(t1) - .25;
-      for (const s of [-1, 1]){
-        const x = bx + s * W / 2;
-        parts.push(s > 0 ? quadGeo([x, a0, p0], [x, d0, p0], [x, d1, p1], [x, a1, p1], STONE) : quadGeo([x, a1, p1], [x, d1, p1], [x, d0, p0], [x, a0, p0], STONE));
-        /* parapet */
-        const xo = bx + s * (W / 2 + .12), xi = bx + s * (W / 2 - .2), yt0 = deckY(t0) + .85, yt1 = deckY(t1) + .85;
-        parts.push(s > 0 ? quadGeo([xo, d0, p0], [xo, yt0, p0], [xo, yt1, p1], [xo, d1, p1], CAP) : quadGeo([xo, d0, p1], [xo, yt1, p1], [xo, yt0, p0], [xo, d0, p0], CAP),
-          s > 0 ? quadGeo([xi, yt0, p0], [xi, d0 + .25, p0], [xi, d1 + .25, p1], [xi, yt1, p1], CAP) : quadGeo([xi, yt1, p1], [xi, d1 + .25, p1], [xi, d0 + .25, p0], [xi, yt0, p0], CAP),
-          quadGeo([xi, yt0, p0], [xi, yt1, p1], [xo, yt1, p1], [xo, yt0, p0], CAP));
-      }
-      /* deck and the underside of the arch */
-      parts.push(quadGeo([bx - W / 2, d0 + .25, p0], [bx - W / 2, d1 + .25, p1], [bx + W / 2, d1 + .25, p1], [bx + W / 2, d0 + .25, p0], '#bdb5a5'),
-        quadGeo([bx - W / 2, a0, p0], [bx + W / 2, a0, p0], [bx + W / 2, a1, p1], [bx - W / 2, a1, p1], DARK));
+  const {ax, az, dx, dz, nx, nz, L, hw, ry} = FUR, S2 = hw / SC;   /* S2: half the deck width in map pixels */
+  const info = {name:'芙蓉桥', tag:'景观', desc:'芙蓉湖中间的红桥：红色的钢架和栏杆，木板桥面，把两片湖之间连起来。人和车都能过，桥面中间微微拱起。', spawn:[ax - dx * 9, az - dz * 9, Math.atan2(dx, dz)]};
+  /* ---- the strip between the lakes becomes water: one sheet to look at, two polygons (north and south of the deck) that count as lake ---- */
+  const An = [1188 - nx * S2, 363 - nz * S2], As = [1188 + nx * S2, 363 + nz * S2], Bn = [1302 - nx * S2, 324.5 - nz * S2], Bs = [1302 + nx * S2, 324.5 + nz * S2];
+  const north = [An, [1165, 332], [1200, 322], [1270, 300], [1297, 306], Bn], south = [As, Bs, [1330, 345], [1262, 364], [1200, 398], [1186, 385]];
+  const sheet = flatPoly(pxPts([An, [1165, 332], [1200, 322], [1270, 300], [1297, 306], Bn, Bs, [1330, 345], [1262, 364], [1200, 398], [1186, 385], As]), waterMat, .1, false);
+  sheet.mesh.userData.info = lakeInfo; pickables.push(sheet.mesh);
+  lakes.push(pxPts(north), pxPts(south));
+  /* ---- the bridge, in its own frame: u along it, y up, v across; everything goes into one vertex-coloured mesh ---- */
+  const W3 = (u, y, v) => [ax + dx * u + nx * v, y, az + dz * u + nz * v], dk = u => furDeck(u / L), parts = [], rr = mkRng(5251);
+  const RED = '#ad2a20', RED2 = '#8f2019', WOOD = ['#70492c', '#644027', '#7b5334', '#6b462d'], DARK = '#3d2c1e', PILE = '#4a3a2a';
+  const quad = (a, b2, c, e, col) => parts.push(quadGeo(a, b2, c, e, col));
+  const rod = (r, a, b2, col) => parts.push(geoTint(rodGeo(r, r, a, b2, 6).toNonIndexed(), col));
+  const boxAt = (w, h, d, u, y, v, col) => { const p = W3(u, y, v); parts.push(geoTint(geoAt(new THREE.BoxGeometry(w, h, d), p[0], p[1], p[2], 0, ry, 0), col)); };
+  /* planks across the deck, each its own shade, with a dark sub-deck showing through the gaps and from below */
+  for (let u = 0; u < L; u += .56){ const u1 = Math.min(L, u + .5), y0 = dk(u), y1 = dk(u1); quad(W3(u, y0, -hw), W3(u, y0, hw), W3(u1, y1, hw), W3(u1, y1, -hw), WOOD[(rr() * WOOD.length) | 0]); }
+  const NS = 24;
+  for (let i = 0; i < NS; i++){
+    const u0 = L * i / NS, u1 = L * (i + 1) / NS, y0 = dk(u0), y1 = dk(u1);
+    quad(W3(u0, y0 - .06, -hw), W3(u0, y0 - .06, hw), W3(u1, y1 - .06, hw), W3(u1, y1 - .06, -hw), DARK);
+    quad(W3(u0, y0 - .5, hw), W3(u0, y0 - .5, -hw), W3(u1, y1 - .5, -hw), W3(u1, y1 - .5, hw), DARK);
+    for (const s of [-1, 1]){
+      /* red edge girder: outer face and top; then the handrail and two lower rails */
+      const vo = s * (hw + .3), vi = s * hw, g0 = [W3(u0, y0 - .5, vo), W3(u0, y0 + .08, vo), W3(u1, y1 + .08, vo), W3(u1, y1 - .5, vo)];
+      if (s > 0) quad(g0[3], g0[2], g0[1], g0[0], RED2); else quad(g0[0], g0[1], g0[2], g0[3], RED2);
+      if (s > 0) quad(W3(u0, y0 + .08, vi), W3(u0, y0 + .08, vo), W3(u1, y1 + .08, vo), W3(u1, y1 + .08, vi), RED); else quad(W3(u0, y0 + .08, vo), W3(u0, y0 + .08, vi), W3(u1, y1 + .08, vi), W3(u1, y1 + .08, vo), RED);
+      rod(.075, W3(u0, y0 + 1.15, s * (hw + .15)), W3(u1, y1 + 1.15, s * (hw + .15)), RED);
+      rod(.035, W3(u0, y0 + .78, s * (hw + .15)), W3(u1, y1 + .78, s * (hw + .15)), RED); rod(.035, W3(u0, y0 + .44, s * (hw + .15)), W3(u1, y1 + .44, s * (hw + .15)), RED);
     }
-    /* cutwater pier between two arches */
-    if (k) parts.push(geoTint(new THREE.CylinderGeometry(.6, .95, 3, 6).translate(bx - W / 2 - .3, .5, za), DARK), geoTint(new THREE.CylinderGeometry(.6, .95, 3, 6).translate(bx + W / 2 + .3, .5, za), DARK));
   }
-  /* abutments and a few steps down to each bank */
-  for (const [zz, dir] of [[z0, -1], [z1, 1]]) for (let i = 0; i < 12; i++) parts.push(geoTint(new THREE.BoxGeometry(W + .5, 4.5 - i * .37, .62).translate(bx, (4.5 - i * .37) / 2, zz + dir * (.3 + i * .6)), i % 2 ? STONE : CAP));
+  /* railing posts, and every fourth one a tall upright of the frame; top chords and diagonals between the uprights; a cross-beam over the deck at every second upright */
+  const NP = 30, TOP = 4.7, lamps = [];
+  for (let i = 0; i <= NP; i++){
+    const u = Math.min(L - .25, Math.max(.25, L * i / NP)), y = dk(u), tall = i % 5 === 0;
+    for (const s of [-1, 1]) boxAt(tall ? .3 : .12, tall ? TOP + .2 : 1.15, tall ? .3 : .12, u, y + (tall ? TOP + .2 : 1.15) / 2, s * (hw + .15), tall ? RED2 : RED);
+    if (tall && i < NP){
+      const un = Math.min(L - .25, L * (i + 5) / NP), yn = dk(un);
+      for (const s of [-1, 1]){
+        const v = s * (hw + .15);
+        rod(.13, W3(u, y + TOP, v), W3(un, yn + TOP, v), RED);
+        rod(.06, (i / 5) % 2 ? W3(u, y + TOP, v) : W3(u, y + 1.15, v), (i / 5) % 2 ? W3(un, yn + 1.15, v) : W3(un, yn + TOP, v), RED);
+      }
+    }
+    if (tall){
+      for (const s of [-1, 1]){ const p = W3(u, y + 1.62, s * (hw + .15)); lamps.push(new THREE.BoxGeometry(.5, .42, .5).translate(p[0], p[1], p[2])); boxAt(.62, .08, .62, u, y + 1.87, s * (hw + .15), RED2); }
+      boxAt(.34, .34, hw * 2 + .7, u, y + TOP + .05, 0, RED2);
+      if (i === 0 || i === NP){ boxAt(.4, .46, hw * 2 + 2.2, u, y + TOP + .75, 0, RED); boxAt(.26, .5, .26, u, y + TOP + .4, -hw * .5, RED2); boxAt(.26, .5, .26, u, y + TOP + .4, hw * .5, RED2); }   /* bridge-head gate: a longer beam on top */
+    }
+  }
+  /* timber piles under the deck, stone footings at both ends */
+  for (let u = 6; u < L - 3; u += 6) for (const s of [-1, 1]){ const p = W3(u, 0, s * (hw - .7)), h = dk(u) + .6; parts.push(geoTint(new THREE.CylinderGeometry(.2, .24, h, 6).translate(p[0], h / 2 - 1, p[2]).toNonIndexed(), PILE)); }
+  for (const u of [-.6, L + .6]) boxAt(1.6, .5, hw * 2 + 1.6, u, .05, 0, '#b9b1a2');
   const m = new THREE.Mesh(geoMerge(parts), decoMat); m.castShadow = m.receiveShadow = true; m.userData.info = info; pickables.push(m); scene.add(m);
-  addLabel('石拱桥', bx, 11, (z0 + z1) / 2, true);
+  scene.add(new THREE.Mesh(geoMerge(lamps), furLampMat));
+  /* the railings stop people and cars from going over the side */
+  for (const s of [-1, 1]) addBox(ax + dx * L / 2 + nx * s * (hw + .2), az + dz * L / 2 + nz * s * (hw + .2), L / 2, .22, ry);
+  addLabel('芙蓉桥', ax + dx * L / 2, 9, az + dz * L / 2, true);
 })();
 
 /* Musical Island: a ribbed red-and-white shell, with a fan of grass steps beside it */
@@ -646,6 +687,7 @@ function applyTime(k){
   for (const m of wallMats) m.emissiveIntensity = cur.win;
   eaveMat.emissiveIntensity = Math.min(1.6, cur.lamp * 1.3);
   bulbMat.emissiveIntensity = cur.lamp;
+  furLampMat.emissiveIntensity = cur.lamp;
   starMat.opacity = cur.stars; stars.visible = cur.stars > .01;
   moonMat.opacity = cur.moon; moon.visible = cur.moon > .01; moon.position.copy(cur.d).multiplyScalar(3600);
   cloudMat.opacity = cur.cloud; cloudMat.color.copy(cur.cc);
@@ -660,7 +702,7 @@ function applyTime(k){
     hemi.intensity = cur.hi * (1 - .12 * r); sun.intensity = cur.si * (1 - .7 * r);
     cloudMat.opacity = cur.cloud + (1 - cur.cloud) * r; _rainC.copy(cur.cc).multiplyScalar(.62); cloudMat.color.lerp(_rainC, r);
     waterMat.color.lerp(_rainC.setRGB(l * .55, l * .62, l * .7), r * .6);
-    bulbMat.emissiveIntensity = Math.max(cur.lamp, r * .9);
+    bulbMat.emissiveIntensity = Math.max(cur.lamp, r * .9); furLampMat.emissiveIntensity = bulbMat.emissiveIntensity;
   }
   if (Math.abs(wx.wet - lastWet) > .002 || (wx.wet === 0 && lastWet !== 0)){
     lastWet = wx.wet;
