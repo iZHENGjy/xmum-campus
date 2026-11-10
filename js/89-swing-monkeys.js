@@ -612,7 +612,11 @@ function mkUpdate(dt, px, pz){
     if (MK.rearm){ if (d > 14) MK.rearm = false; }
     else if (d < 6.5){
       if (driving) smPrompt = '下车走进圈，开始「猴子大战」' + (prog.best.monkey != null ? ` · 纪录剩 ${Math.round(prog.best.monkey)} 秒` : '');
-      else if (nw.state !== 'fly') mkWarStart();
+      else if (nw.state !== 'fly'){
+        if (typeof offerJob !== 'function') mkWarStart();
+        else offerJob('monkeywar', () => { const lv = smLv(); return {icon:'🐒', title:'猴子大战', desc:`限时赶跑 ${10 + 2 * lv} 只猴子，抢回 3 袋外卖：水枪淋，凑近了大笑`, accept:'开打', time:70 + 8 * lv,
+          risk:(lv ? '对手' + PVE_NAME[lv] + ' · ' : '') + (prog.best.monkey != null ? `纪录剩 ${Math.round(prog.best.monkey)} 秒` : '猴子会成群反击'), onAccept:() => { if (!MK.war && !driving) mkWarStart(); }}; });
+      }
     }
   }
   if (MK.war){

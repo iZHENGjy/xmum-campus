@@ -212,9 +212,9 @@ DT.B = opSpot('#4fd18b', .55, DT.wx, DT.wz, '取餐窗口');
   arrow.rotation.set(-Math.PI / 2, 0, -Math.PI / 2); arrow.position.set(DT.x - 11.5, .09, DT.z);   /* reads upright for a car driving in (heading +x) */
 }
 const DT_MENU = [
-  {name:'巨无霸套餐', note:'普通单，稳稳送到就行', pay:1, time:1, frag:1},
-  {name:'麦旋风 ×4', note:'冰淇淋会化：时间更紧，报酬更高', pay:1.35, time:.82, frag:.7},
-  {name:'派对桶 + 可乐 ×6', note:'可乐怕颠：撞车和飞跃洒得多，报酬最高', pay:1.6, time:1, frag:2.2}
+  {name:'巨无霸套餐', note:'普通单，稳稳送到就行', risk:'', pay:1, time:1, frag:1},
+  {name:'麦旋风 ×4', note:'冰淇淋会化：时间更紧，报酬更高', risk:'会化：时间紧', pay:1.35, time:.82, frag:.7},
+  {name:'派对桶 + 可乐 ×6', note:'可乐怕颠：撞车和飞跃洒得多，报酬最高', risk:'怕颠：撞车、飞跃会洒', pay:1.6, time:1, frag:2.2}
 ];
 function dtOpen(){
   const night = opNight(), pool = DESTS.filter(d => opIn(d.x, d.z, CAMPUS_R) && (!night || /^(LY|D)\d/.test(d.name)));
@@ -228,6 +228,10 @@ function dtOpen(){
     DT.job = Object.assign(c, {t:c.limit, intact:1, perfect:false, air:0, stolen:false, recovered:false}); DT.st = 'win'; opClose(true); sfx.ding();
     toast('点好了：' + c.m.name, '往前开，绕到楼后面的取餐窗口', 2600);
   };
+  /* the order card of js/89-offers.js: three orders to pick from without stopping the game (the paused menu below is the fallback) */
+  if (typeof offerJob === 'function') return {icon:'🍔', title:night ? '麦当当得来速 · 夜宵加急' : '麦当当得来速', desc:night ? '夜宵时段：报酬 ×1.5，时间更紧' : '点一份，绕到取餐窗口拿餐，限时送回学校',
+    options:cards.map((c, i) => ({title:c.m.name, tag:night ? '夜宵' : '', desc:'送到 ' + c.to.name, pay:'约 RM ' + c.est, time:c.limit, dist:c.route, risk:c.m.risk, onAccept:() => { if (!DT.st && driving) pick(i); }})),
+    onDecline:() => { DT.A.rearm = true; }};
   opOpen(night ? '麦当当得来速 · 夜宵加急' : '麦当当得来速',
     `<p class="op-note">${night ? '夜宵时段：全是加急单，报酬 ×1.5，时间更紧。' : '点一份，绕到取餐窗口拿餐，再限时送回学校。夜里来有夜宵加急单。'}</p>` +
     cards.map((c, i) => `<button type="button" class="op-card" data-i="${i}"><kbd>${i + 1}</kbd><b>${night ? '夜宵 · ' : ''}${c.m.name}</b><span>送到 <em>${c.to.name}</em> · 限时 ${c.limit} 秒 · 约 RM ${c.est}</span><span>${c.m.note}</span></button>`).join(''),
@@ -246,6 +250,7 @@ function dtUpdate(dt, px, pz, sp, free){
     opHide(DT.B);
     if (opRing(DT.A, free && Math.abs(px - DT.x) < 420 && Math.abs(pz - DT.z) < 420, px, pz)){
       if (!driving) opMsg = '得来速只接待开车的：开车进来点餐';
+      else if (typeof offerJob === 'function'){ if (sp > 9) opMsg = '慢下来看菜单'; else offerJob('dt', dtOpen); }
       else if (sp > 2.5) opMsg = '慢下来，停在点餐牌旁边';
       else dtOpen();
     }
@@ -492,7 +497,11 @@ function teaEnd(quit){
 function teaUpdate(px, pz, free){
   if (opRing(TEA.S, free && Math.abs(px - TEA.S.x) < 300 && Math.abs(pz - TEA.S.z) < 300, px, pz)){
     if (driving) opMsg = '打工要下车：走到蜜雪冰橙门口的圈里';
-    else if (nw.state !== 'fly' && !nw.air) teaOpen();
+    else if (nw.state !== 'fly' && !nw.air){
+      if (typeof offerJob !== 'function') teaOpen();
+      else offerJob('tea', () => ({icon:'🧋', title:'蜜雪冰橙 · 打工摇奶茶', desc:'照订单按顺序加料，指针到绿色时摇', accept:'开工', time:TEA_DUR, pay:'金牌 RM ' + TEA_PAY[0] + '+',
+        risk:prog.best.o_tea != null ? `纪录 ${prog.best.o_tea} 分 · 金牌 ${TEA_MEDAL[0]} 分` : `金牌 ${TEA_MEDAL[0]} 分`, onAccept:() => { if (!driving && !opUI.on) teaOpen(); }}));
+    }
   }
 }
 
@@ -753,7 +762,13 @@ function thUpdate(dt, px, pz, sp, free){
   if (!T.on){
     if (opRing(T.B, free && !indoor && Math.abs(px - T.B.x) < 300 && Math.abs(pz - T.B.z) < 300, px, pz)){
       if (sp > 6) opMsg = '慢一点，停下来看通缉榜';
-      else { T.B.rearm = true; const s = thNearShop(px, pz, 500); if (!s || !thSpawn('shop', px, pz, s)) toast('通缉榜', '附近暂时没有线索，过一会儿再来', 2000); }
+      else {
+        const take = () => { if (TH.on) return; T.B.rearm = true; const p = driving || nw, s = thNearShop(p.x, p.z, 500); if (!s || !thSpawn('shop', p.x, p.z, s)) toast('通缉榜', '附近暂时没有线索，过一会儿再来', 2000); };
+        if (typeof offerJob !== 'function') take();
+        else offerJob('wanted', () => { const n = opN('o_thief'), who = TH_LIST[n % TH_LIST.length], lap = Math.floor(n / TH_LIST.length);
+          return {icon:'🚨', title:'通缉榜 · ' + who.name, desc:'偷了别人的外卖，抓住有悬赏' + (lap ? ` · 第 ${lap + 1} 轮，跑得更快` : ''), accept:'接悬赏', pay:Math.round(who.bounty * (1 + .3 * lap) / 5) * 5, time:who.ride === 'bike' ? 70 : 55,
+            risk:(who.ride === 'bike' ? '骑电动车：开车撞或水枪淋' : '徒步：追上去，水枪能让他踉跄') + (who.alley ? ' · 会钻小巷' : who.juke ? ' · 会急转弯' : ''), onAccept:take}; });
+      }
     }
     if (free && !indoor && heat < 1 && nw.state !== 'fly'){
       const s = thNearShop(px, pz, 130);
