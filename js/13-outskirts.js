@@ -16,7 +16,7 @@ const BELL_S = [[146, '嘛嘛档 Nasi Kandar'], [164, '123 便利店'], [172, '�
   [299, '活动场地'], [303, '新疆拉面'], [312, '瑜伽 Yoga'], [321, '中医馆'], [327, '瓦煲鸡'], [332, '自助洗衣 Dobi'], [338, '八卦咖啡'], [343, '桌球 Snooker'],
   [348, '乐器行'], [352, '聚饺'], [360, '寿司 Sushi'], [369, '新疆炒米粉'], [405, '娘惹糕 Kueh']];
 const SIGN_STYLE = {'星爸爸咖啡':['#1f6b4b', '#ffffff', 1, 'cup'], '31 冰淇淋':['#f07aa6', '#ffffff', 0, 'cone'], '蜜雪冰橙':['#d7262d', '#ffffff', 0, 'snow'],
-  '店铺出租 To Let':['#f4f1ea', '#c0392b', 2], '麦当当 24h':['#c8102e', '#ffc72c', 0]};
+  '店铺出租 To Let':['#f4f1ea', '#c0392b', 2], '麦当当 24h':['#c8102e', '#ffc72c', 0], 'Bell 喷漆 Spray':['#1d1f24', '#ffcf3a', 2]};
 const SIGN_PAIRS = [['#1b5aa6', '#ffffff'], ['#2f6f3e', '#fff4d6'], ['#7a3b1d', '#ffe8b0'], ['#f08a1c', '#ffffff'], ['#2b9a8f', '#ffffff'], ['#3d3d3d', '#ffd84a'],
   ['#c0392b', '#ffffff'], ['#2a3f8f', '#ffffff'], ['#8a5a3c', '#fff1dc'], ['#b3261e', '#ffd84a'], ['#d98a1c', '#3a1d0a'], ['#ffffff', '#c0392b'], ['#3c6e9f', '#ffffff'],
   ['#e48aa8', '#ffffff'], ['#4e342e', '#ffd54f'], ['#00838f', '#ffffff'], ['#6a1b9a', '#ffffff'], ['#9e9d24', '#ffffff']];
@@ -29,12 +29,12 @@ function signOf(name){
   const shop = /咖啡|奶茶|甜品|冰淇淋|蛋糕|Kueh|冰雪/.test(name) ? 1 : /饭|面|粉|锅|餐|烧|鸡|鱼|饺|烫|Kandar|料理|小吃|食|快餐|寿司|小馆|哈密|菜/.test(name) ? 3 : /洗衣|租|学校|Pilates|瑜伽|Snooker|场地|乐器|汽车|出租/.test(name) ? 2 : 0;
   OUT_SIGNS.push(st ? [name, st[0], st[1], st[2], st[3]] : [name, pr[0], pr[1], shop]); signIdx.set(name, OUT_SIGNS.length - 1); return OUT_SIGNS.length - 1;
 }
-['店铺出租 To Let', '超市 Hypermarket', '影城 Cinema', '美食广场 Food Court', '麦当当 24h'].forEach(signOf);
+['店铺出租 To Let', '超市 Hypermarket', '影城 Cinema', '美食广场 Food Court', '麦当当 24h', 'Bell 喷漆 Spray'].forEach(signOf);
 /* Bell Avenue: one ~270 m block of back-to-back three-storey shophouses (north row faces Jalan Sunsuria, south row the back lane),
    split by two walk-through lanes; frontage lane, angled parking and a covered five-foot way on both sides */
 const BELL = {zF:307, zB:363, zMid:335.1, park:5.5, arc:2.6, unit:7.5, n:11, blocks:[142, 234.5, 327]};
 const BELL_UNITS = []; BELL.blocks.forEach(b0 => { for (let u = 0; u < BELL.n; u++) BELL_UNITS.push(b0 + (u + .5) * BELL.unit); });
-const SIGN_TOLET = 0, SIGN_KIP0 = 1, SIGN_MCD = 4;
+const SIGN_TOLET = 0, SIGN_KIP0 = 1, SIGN_MCD = 4, SIGN_SPRAY = 5;
 /* hand each shop to the nearest free unit of its row (units are filled in by the Bell Avenue builder below) */
 function bellNames(units, pois){
   const out = units.map(() => null);
@@ -272,6 +272,19 @@ const tTri = (b, A, B, C, col) => {
   gRect(surfNear, 420, 312, 540, 326, .06, PAVE);
   addLabel('Bell Suites', 472, 66, 344, true);
   OUT_DESTS.push({name:'Bell Suites 公寓', x:522, z:318});
+  /* Bell 喷漆: a drive-in spray garage at the west end of the block, open to the frontage lane (north).
+     Only its three walls collide; js/88-wardrobe-ui.js (the paint shop) reads window.XSPRAY to clear the wanted stars. */
+  { const X0 = 116, X1 = 130, Z0 = 316, Z1 = 334, H = 5.4, t = .4, wall = '#9aa3ab', inner = '#dfe3e6';
+    tBox(bellB, X0, 0, Z0, X0 + t, H, Z1, wall); tBox(bellB, X1 - t, 0, Z0, X1, H, Z1, wall); tBox(bellB, X0, 0, Z1 - t, X1, H, Z1, wall);
+    fX(bellB, X0 + t + .01, Z0, Z1 - t, 0, H, 1, null, inner); fX(bellB, X1 - t - .01, Z0, Z1 - t, 0, H, -1, null, inner); fZ(bellB, Z1 - t - .01, X0 + t, X1 - t, 0, H, -1, null, inner);
+    tBox(bellB, X0 - .3, H, Z0 - .6, X1 + .3, H + .5, Z1 + .3, '#6f767d', '');
+    tBox(bellB, X0, H - 1.5, Z0 - .1, X1, H, Z0 + .3, '#2a2d33', 'pz py');
+    fZ(bellB, Z0 - .15, X0 + 1.6, X1 - 1.6, H - 1.35, H - .15, -1, A_SIGN(SIGN_SPRAY), '#ffffff');
+    for (let k = 0; k < 6; k++) tBox(bellB, X0 + .05, k * .7, Z0 - .05, X0 + t + .05, k * .7 + .35, Z0 + .3, '#f2c230', 'ny'), tBox(bellB, X1 - t - .05, k * .7, Z0 - .05, X1 - .05, k * .7 + .35, Z0 + .3, '#f2c230', 'ny');
+    gRect(surfNear, X0, 309.9, X1, Z1, .06, '#8e8a83');
+    addBox(X0 + t / 2, (Z0 + Z1) / 2, t / 2 + .05, (Z1 - Z0) / 2, 0); addBox(X1 - t / 2, (Z0 + Z1) / 2, t / 2 + .05, (Z1 - Z0) / 2, 0); addBox((X0 + X1) / 2, Z1 - t / 2, (X1 - X0) / 2, t / 2 + .05, 0);
+    addFp({t:0, x:(X0 + X1) / 2, z:(Z0 + Z1) / 2, w:X1 - X0, d:Z1 - Z0, rot:0, color:'#7d858d'});
+    window.XSPRAY = {x:(X0 + X1) / 2, z:326.5, h:0, r:4.5}; }
   /* gate pillars at the opening in the hedge */
   for (const s of [-1, 1]){ const px = GX + s * 16.8; tBox(bellB, px - 1, 0, 262.2, px + 1, 3.2, 264.8, '#a4553a'); tBox(bellB, px - 1.25, 3.2, 261.9, px + 1.25, 3.6, 265.1, '#e6dece'); addBox(px, 263.5, 1.1, 1.4, 0); }
   OUT_DESTS.push({name:'Bell Avenue 后巷', x:250, z:BELL.zB});
