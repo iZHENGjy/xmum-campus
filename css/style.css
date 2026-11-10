@@ -668,6 +668,16 @@ body.wd-open .topbar,body.wd-open #acts,body.wd-open #joy,body.wd-open #prompt,b
 .t-namehint[data-tone="bad"]{color:var(--tile)}
 .t-namehint[data-tone="warn"]{color:#b7791f}
 
+/* ---------- title screen: quality picker (sits in the row of small buttons; on phones it takes a row of its own with a one-line hint) ---------- */
+.t-gfx{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted);margin-left:4px}
+.t-gfx-l{font-weight:700;letter-spacing:.12em;color:var(--ink)}
+.seg-gfx{height:38px;box-sizing:border-box;align-items:center;border-radius:999px;padding:3px}
+.seg-gfx button{font:inherit;font-size:13px;font-weight:500;height:32px;padding:0 14px;border-radius:999px}
+.seg-gfx button[aria-pressed="true"]{background:var(--tile);color:var(--on-accent);box-shadow:0 1px 4px rgba(120,30,10,.25)}
+.t-gfx-hint{display:none;line-height:1.4}
+@media (max-width:560px){
+  .t-gfx{flex-basis:100%;flex-wrap:wrap;margin-left:0}
+  .t-gfx-hint{display:block;flex-basis:100%}
 /* ---------- 宿舍搜刮 (js/89-dorm.js, js/89-dorm-ui.js) ---------- */
 .mission.dm-urgent{color:var(--tile);font-weight:700}
 body.dm-in #prompt{display:none!important}   /* indoors the hint sits in the stack above the backpack */

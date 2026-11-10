@@ -142,7 +142,7 @@ function updateWeather(dt, T){
   }
   wx.rain += Math.sign(wx.target - wx.rain) * Math.min(Math.abs(wx.target - wx.rain), dt / 5);
   wx.wet = wx.rain > .3 ? Math.min(1, wx.wet + dt * .12) : Math.max(0, wx.wet - dt * .02);
-  rainSound();
+  rainSound(); updatePlanes(dt, T);
 
   /* streaks */
   rainLines.visible = wx.rain > .01;
@@ -180,4 +180,74 @@ function updateWeather(dt, T){
     birdIm.instanceMatrix.needsUpdate = true;
   }
   updateCats(dt, T);
+}
+
+/* ---------- 奶娃航空: now and then an airliner in 奶娃 yellow crosses high overhead, trailing two contrails; at night its navigation lights blink ----------
+   One at a time, a couple of minutes apart (XQ.cfg.planes stretches the gap; 流畅 flies fewer and without contrails). 4 draw calls while one is in the sky, none otherwise. */
+const naiwaAir = (() => {
+  const root = new THREE.Group(); root.visible = false; scene.add(root);
+  const P2 = [], Y = '#f6c63c', W = '#fbf7ec', O = '#e9742a', DK = '#2f3a46';
+  const add = (g, c) => P2.push(geoTint(g.index ? g.toNonIndexed() : g, c));
+  /* a flat panel (wing, tailplane, fin) from four corners, drawn on both sides */
+  const panel = (a, b, c, e, col) => { const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([...a, ...b, ...c, ...a, ...c, ...e, ...a, ...c, ...b, ...a, ...e, ...c], 3)); g.computeVertexNormals(); P2.push(geoTint(g, col)); };
+  /* fuselage along z, nose at +z: yellow above, cream belly stripe, dark cockpit glass */
+  add(new THREE.CylinderGeometry(1.9, 1.9, 26, 12).rotateX(Math.PI / 2), Y);
+  add(new THREE.SphereGeometry(1.9, 12, 8).scale(1, 1, 2.6).translate(0, 0, 13), Y);
+  add(new THREE.CylinderGeometry(1.9, .5, 9, 12).rotateX(Math.PI / 2).translate(0, .55, -17.5), Y);
+  add(new THREE.BoxGeometry(2.3, .5, 2.2).translate(0, .9, 15.2), DK);
+  add(new THREE.BoxGeometry(1.2, .35, 30).translate(0, -1.72, -1), W);
+  for (const s of [-1, 1]){
+    panel([s * 1.6, -.5, 4], [s * 18, .6, -5.5], [s * 18, .6, -8.2], [s * 1.6, -.5, -4.5], Y);                 /* wing */
+    panel([s * 18, .6, -5.5], [s * 18.6, 2.4, -7], [s * 18.6, 2.4, -8.6], [s * 18, .6, -8.2], O);                /* winglet */
+    panel([s * .8, 1, -17], [s * 6.6, 1.4, -20.5], [s * 6.6, 1.4, -22.2], [s * .8, 1, -21], Y);                  /* tailplane */
+    add(new THREE.CylinderGeometry(1.05, .95, 4.4, 10).rotateX(Math.PI / 2).translate(s * 6.2, -1.5, -.4), W);   /* engine */
+    add(new THREE.CylinderGeometry(1.1, 1.1, .5, 10).rotateX(Math.PI / 2).translate(s * 6.2, -1.5, 1.9), O);
+  }
+  panel([0, 1.6, -15], [0, 8.2, -20.6], [0, 8.2, -22.6], [0, 1.6, -21.6], O);                                    /* fin */
+  const body = new THREE.Mesh(geoMerge(P2), new THREE.MeshLambertMaterial({vertexColors:true, fog:false})); root.add(body);
+  /* livery: 奶娃 (a round yellow chick-like face) and the airline name on a cream band, on both sides */
+  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 96; const g = cv.getContext('2d');
+  const paint = () => {
+    g.clearRect(0, 0, 512, 96); g.fillStyle = '#fbf7ec'; g.fillRect(0, 14, 512, 68);
+    g.fillStyle = '#f6c63c'; g.beginPath(); g.ellipse(52, 48, 30, 32, 0, 0, 7); g.fill(); g.strokeStyle = '#c98f14'; g.lineWidth = 3; g.stroke();
+    g.fillStyle = '#2b2b2b'; g.beginPath(); g.arc(42, 42, 3.6, 0, 7); g.arc(62, 42, 3.6, 0, 7); g.fill();
+    g.strokeStyle = '#2b2b2b'; g.lineWidth = 3; g.beginPath(); g.arc(52, 50, 9, .15 * Math.PI, .85 * Math.PI); g.stroke();
+    g.fillStyle = '#f29a9a'; g.beginPath(); g.arc(34, 54, 4.5, 0, 7); g.arc(70, 54, 4.5, 0, 7); g.fill();
+    g.fillStyle = '#d2541c'; g.textBaseline = 'middle'; g.font = '900 44px "Noto Sans SC","Microsoft YaHei",sans-serif'; g.fillText('奶娃航空', 96, 44);
+    g.fillStyle = '#7a5a1c'; g.font = '700 20px Arial, sans-serif'; g.fillText('NAIWA AIR', 290, 60); tex.needsUpdate = true;
+  };
+  const tex = new THREE.CanvasTexture(cv); paint(); document.fonts && document.fonts.ready.then(paint);
+  const dg = [];
+  for (const s of [-1, 1]) dg.push(new THREE.PlaneGeometry(17, 3.2).rotateY(s * Math.PI / 2).translate(s * 1.93, .25, 1.5).toNonIndexed());
+  const decal = new THREE.Mesh(geoMergeUV(dg), new THREE.MeshBasicMaterial({map:tex, transparent:true, fog:false, side:THREE.DoubleSide})); root.add(decal);
+  /* contrails: two long ribbons fading out behind the engines */
+  const tc = document.createElement('canvas'); tc.width = 8; tc.height = 128; const tg = tc.getContext('2d'), gr = tg.createLinearGradient(0, 0, 0, 128);
+  gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(.04, 'rgba(255,255,255,.9)'); gr.addColorStop(.35, 'rgba(255,255,255,.5)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  tg.fillStyle = gr; tg.fillRect(0, 0, 8, 128);
+  const trailMat = new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(tc), transparent:true, opacity:.8, depthWrite:false, fog:false, side:THREE.DoubleSide});
+  const tgs = []; for (const s of [-1, 1]) tgs.push(new THREE.PlaneGeometry(2.6, 420).rotateX(-Math.PI / 2).translate(s * 6.2, -1.2, -216).toNonIndexed());
+  const trail = new THREE.Mesh(geoMergeUV(tgs), trailMat); trail.renderOrder = 1; root.add(trail);
+  /* navigation lights: red on the port wing tip, green on the starboard one, a white strobe under the belly */
+  const lamp = (c, x, y, z) => { const m = new THREE.Mesh(new THREE.SphereGeometry(.55, 6, 4), new THREE.MeshBasicMaterial({color:c, fog:false})); m.position.set(x, y, z); root.add(m); return m; };
+  const red = lamp('#ff3b30', 18.6, 2.4, -7.6), green = lamp('#3bff6a', -18.6, 2.4, -7.6), strobe = lamp('#ffffff', 0, -2.1, -2);
+  root.scale.setScalar(2.2);
+  return {root, body, trail, trailMat, red, green, strobe, on:false, wait:40 + ambRng() * 45, t:0, dur:0, a:new THREE.Vector3(), b:new THREE.Vector3()};
+})();
+function updatePlanes(dt, T){
+  const A = naiwaAir, k = typeof XQ !== 'undefined' ? XQ.cfg.planes : 1;
+  if (!A.on){
+    if (!k || document.hidden) return;
+    A.wait -= dt; if (A.wait > 0) return;
+    /* a straight line across the sky, passing within half a kilometre of the middle of campus */
+    const h = ambRng() * Math.PI * 2, side = (ambRng() - .5) * 900, alt = 430 + ambRng() * 130, R = 3300, dx = Math.sin(h), dz = Math.cos(h);
+    A.a.set(-dx * R + dz * side, alt, -dz * R - dx * side); A.b.set(dx * R + dz * side, alt, dz * R - dx * side);
+    A.t = 0; A.dur = 2 * R / 105; A.on = true; A.root.visible = true; A.root.rotation.set(0, h, 0); A.trail.visible = k < 2;
+  }
+  A.t += dt / A.dur;
+  if (A.t >= 1){ A.on = false; A.root.visible = false; A.wait = (95 + ambRng() * 150) * k; return; }
+  A.root.position.lerpVectors(A.a, A.b, A.t);
+  /* lights: small by day, bright and blinking after dark; contrails fade at both ends of the pass and dim at night */
+  const night = Math.min(1, cur.lamp), s = .5 + night * 1.1;
+  A.red.scale.setScalar(s); A.green.scale.setScalar(s); A.strobe.scale.setScalar(s * 1.3); A.strobe.visible = (T % 1.3) < .09 || (T % 1.3 > .22 && T % 1.3 < .3);
+  A.trailMat.opacity = (.8 - night * .5) * Math.min(1, A.t * 12, (1 - A.t) * 12) * (1 - wx.rain * .7);
 }

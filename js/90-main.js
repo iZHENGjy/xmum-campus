@@ -276,21 +276,24 @@ window.addEventListener('resize', resize); resize();
 const v3 = new THREE.Vector3();
 let last = performance.now(); const t0 = last;
 setHelp(); applyTime(1); updateActs();
-/* adaptive quality: step down resolution, then shadows, if the frame rate stays low */
-const QUAL = {level:0, acc:0, frames:0, wait:4};
+/* adaptive quality: if the frame rate stays low, step down one quality tier (js/quality.js) at a time.
+   A tier the player picked by hand is never changed: they only get one hint. On 流畅 the last step is 3/4 resolution. */
+const QUAL = {acc:0, frames:0, wait:4, hinted:false};
 function adaptQuality(dt){
-  if (document.hidden || QUAL.level >= 3) return;
+  if (document.hidden) return;
   QUAL.acc += dt; QUAL.frames++;
   if (QUAL.acc < 3) return;
   const fps = QUAL.frames / QUAL.acc; QUAL.acc = 0; QUAL.frames = 0;
   if (QUAL.wait > 0){ QUAL.wait--; return; }
   if (fps >= 40 || fps < 8) return;   /* under 8 fps is the browser throttling a hidden page, not the GPU */
-  QUAL.level++; QUAL.wait = 1;
-  if (QUAL.level === 1){ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25)); resize(); }
-  else if (QUAL.level === 2){ for (const set of knockSets) for (const im of set.ims) im.castShadow = false; sun.shadow.mapSize.set(1024, 1024); if (sun.shadow.map){ sun.shadow.map.dispose(); sun.shadow.map = null; } }
-  else { renderer.setPixelRatio(1); renderer.shadowMap.enabled = false; scene.traverse(o => { if (o.material) [].concat(o.material).forEach(m => m.needsUpdate = true); }); resize(); }
-  toast('已切换到更流畅的画质', `画质档位 ${3 - QUAL.level} / 3`, 1600);
+  QUAL.wait = 2;
+  if (XQ.level === 'low'){ if (XQ.scale > .8 && fps < 30) XQ.setScale(.75); return; }
+  if (XQ.manual){ if (!QUAL.hinted){ QUAL.hinted = true; toast('画面有点卡？', '回菜单把画质改成「' + XQ.labels[XQ.level === 'high' ? 'mid' : 'low'] + '」会顺很多', 3600); } return; }
+  XQ.set(XQ.level === 'high' ? 'mid' : 'low', {auto:true});
+  toast('已切换到更流畅的画质', '画质：' + XQ.label + ' · 菜单里可以改', 2000);
 }
+XQ.onChange(() => { QUAL.acc = 0; QUAL.frames = 0; QUAL.wait = Math.max(QUAL.wait, 2); });
+let miniTick = 0;
 function frame(now){
   const dt = Math.min(.05, (now - last) / 1000); last = now; const T = (now - t0) / 1000;
   adaptQuality((now - (frame.prev || now)) / 1000); frame.prev = now;
@@ -321,19 +324,23 @@ function frame(now){
   if (!REDUCED) for (const c of clouds){ c.position.x += dt * 5; if (c.position.x > 1600) c.position.x = -1600; }
   const W = window.innerWidth, H = window.innerHeight, dist = camera.position.distanceTo(controls.target);
   for (const L of labels){
-    if (L.dead){ L.el.style.visibility = 'hidden'; continue; }
+    if (L.dead){ if (L.shown !== false){ L.shown = false; L.el.style.visibility = 'hidden'; } continue; }
     v3.copy(L.pos).project(camera);
     let show = v3.z < 1 && Math.abs(v3.x) < 1.05 && Math.abs(v3.y) < 1.05;
     if (show && mode === 'hole') show = L.hole || camera.position.distanceTo(L.pos) < (L.minor ? 220 : 600);
     else if (show && mode !== 'orbit') show = camera.position.distanceTo(L.pos) < (L.minor ? 160 : 320);
     else if (show && L.minor) show = dist < 650;
-    if (show){ L.el.style.visibility = 'visible'; L.el.style.transform = `translate(-50%,-100%) translate(${(v3.x * .5 + .5) * W}px,${(-v3.y * .5 + .5) * H}px)`; }
-    else L.el.style.visibility = 'hidden';
+    if (show){ if (L.shown !== true){ L.shown = true; L.el.style.visibility = 'visible'; } L.el.style.transform = `translate(-50%,-100%) translate(${((v3.x * .5 + .5) * W).toFixed(1)}px,${((-v3.y * .5 + .5) * H).toFixed(1)}px)`; }
+    else if (L.shown !== false){ L.shown = false; L.el.style.visibility = 'hidden'; }
   }
-  if (mode === 'walk') drawMini(player.x, player.z, player.yaw);
-  else if (mode === 'hole') drawMini(hole.x, hole.z, camYaw);
-  else if (mode === 'naiwa') drawMini(driving ? driving.x : nw.x, driving ? driving.z : nw.z, (driving ? driving.h : nw.h) + Math.PI);
-  renderer.render(scene, camera);
+  /* the minimap is a full 2D redraw: every third frame is plenty (every fourth on 流畅) */
+  if (++miniTick >= (XQ.tier ? 3 : 4)){
+    miniTick = 0;
+    if (mode === 'walk') drawMini(player.x, player.z, player.yaw);
+    else if (mode === 'hole') drawMini(hole.x, hole.z, camYaw);
+    else if (mode === 'naiwa') drawMini(driving ? driving.x : nw.x, driving ? driving.z : nw.z, (driving ? driving.h : nw.h) + Math.PI);
+  }
+  gfxRender(dt, T);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

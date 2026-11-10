@@ -137,20 +137,23 @@ const npcGroups = [];
     for (let j = 0; j < n && npcs.length < NPC_N; j++) npcs.push({grp:g, slot:j, ga:j / n * Math.PI * 2 + rr() * .5, x:gx, z:gz, y:0, h:0, ox:0, oz:0, dodge:0, dvx:0, dvz:0, state:'walk', tilt:0, tdx:0, tdz:0, ph:rr() * 6, sp:0});
   });
 })();
-/* looks: shirt and skin as before for the walkers; every third student wears a skirt (bare legs) and long hair */
+/* looks: shirt and skin as before for the walkers; every third student wears a skirt (bare legs) and long hair.
+   Torso and head are drawn for everyone; limbs, backpack, skirt and hair only for the students near the camera (XQ.cfg.npcDetail),
+   packed into the first slots of their meshes each frame, so the colours are kept per student and written along with the matrices. */
 const npcSkirtIdx = [], npcHairIdx = [];
 npcs.forEach((n, i) => {
   const skin = SKIN[i % SKIN.length], skirt = i % 3 === 1;
-  npcBodyIm.setColorAt(i, _col.set(SHIRTS[i % SHIRTS.length])); npcHeadIm.setColorAt(i, _col.set(skin));
-  for (const s of [0, 1]){ npcSleeveIm.setColorAt(i * 2 + s, _col.set(SHIRTS[i % SHIRTS.length])); npcForeIm.setColorAt(i * 2 + s, _col.set(skin)); npcLegIm.setColorAt(i * 2 + s, _col.set(skirt ? skin : PANTS[i % PANTS.length])); }
-  if (skirt) npcSkirtIdx.push(i);
-  if (skirt || i % 7 === 3) npcHairIdx.push(i);
+  n.cShirt = new THREE.Color(SHIRTS[i % SHIRTS.length]); n.cSkin = new THREE.Color(skin); n.cLeg = new THREE.Color(skirt ? skin : PANTS[i % PANTS.length]);
+  npcBodyIm.setColorAt(i, n.cShirt); npcHeadIm.setColorAt(i, n.cSkin);
+  for (const s of [0, 1]){ npcSleeveIm.setColorAt(i * 2 + s, n.cShirt); npcForeIm.setColorAt(i * 2 + s, n.cSkin); npcLegIm.setColorAt(i * 2 + s, n.cLeg); }
+  if (skirt){ npcSkirtIdx.push(i); n.cSkirt = new THREE.Color(SKIRTS[i % SKIRTS.length]); }
+  if (skirt || i % 7 === 3){ npcHairIdx.push(i); n.cHair = new THREE.Color(HAIRS[i % HAIRS.length]); }
   n.walk = n.ph; n.umb = .05 + (i * 7 % 10) / 13;
 });
 const npcSkirtIm = npcIm(npcSkirtGeo, new THREE.MeshStandardMaterial({roughness:.85, side:THREE.DoubleSide}), npcSkirtIdx.length);
-npcSkirtIdx.forEach((i, k) => npcSkirtIm.setColorAt(k, _col.set(SKIRTS[i % SKIRTS.length])));
+npcSkirtIdx.forEach((i, k) => npcSkirtIm.setColorAt(k, npcs[i].cSkirt));
 const npcHairIm = npcIm(npcHairGeo, new THREE.MeshStandardMaterial({roughness:.75}), npcHairIdx.length);
-npcHairIdx.forEach((i, k) => npcHairIm.setColorAt(k, _col.set(HAIRS[i % HAIRS.length])));
+npcHairIdx.forEach((i, k) => npcHairIm.setColorAt(k, npcs[i].cHair));
 const npcUmbIm = npcIm(npcUmbGeo, new THREE.MeshStandardMaterial({roughness:.7, vertexColors:true, side:THREE.DoubleSide}), NPC_N);
 npcs.forEach((n, i) => npcUmbIm.setColorAt(i, _col.set(UMBS[i % UMBS.length]))); npcUmbIm.count = 0;
 function npcStep(n, dt){
@@ -174,7 +177,8 @@ function updateNPCs(dt, T){
   updateProps(dt, T); updateWeather(dt, T);
   const car = driving, csp = car ? Math.hypot(car.vx, car.vz) : 0, rain = wx.rain;
   for (const g of npcGroups){ g.next -= dt; if (g.next <= 0){ g.talk = (g.talk + 1) % 4; g.next = 1.5 + ((g.x * 13 + T * 7) % 3); } }
-  let sk = 0, hk = 0, uk = 0;
+  let sk = 0, hk = 0, uk = 0, dk = 0;
+  const cam = camera.position, dd = lodOverview ? 0 : XQ.cfg.npcDetail * XQ.cfg.npcDetail;
   for (let i = 0; i < NPC_N; i++){
     const n = npcs[i]; let y = 0, tiltX = 0, sc = 1, swing = 0, gest = 0, sway = 0;
     if (n.state === 'walk'){
@@ -201,21 +205,25 @@ function updateNPCs(dt, T){
     _cp.set(n.x, y, n.z); _cq.setFromAxisAngle(UP, n.h + sway);
     if (tiltX){ _cq2.setFromAxisAngle(_ax.set(n.tdz, 0, -n.tdx).normalize(), tiltX); _cq.premultiply(_cq2); }
     _cs.setScalar(sc); _nb.compose(_cp, _cq, _cs);
-    npcBodyIm.setMatrixAt(i, _nb); npcHeadIm.setMatrixAt(i, _nb); npcGearIm.setMatrixAt(i, _nb);
+    npcBodyIm.setMatrixAt(i, _nb); npcHeadIm.setMatrixAt(i, _nb);
     const umb = sc > 0 && n.state === 'walk' && rain > n.umb;
-    for (const s of [-1, 1]){
-      const j = i * 2 + (s > 0 ? 1 : 0);
-      npcLegIm.setMatrixAt(j, npcLimb(s * .09, .92, 0, swing * s));
-      /* the right arm holds the umbrella up, a talker gestures with the left, otherwise arms swing against the legs */
-      const arm = s > 0 && umb ? -1.2 : s < 0 && gest ? -.5 - gest * .9 : -swing * s * .8;
-      const m = npcLimb(s * .215, 1.39, s * (s > 0 && umb ? .03 : .1), arm);
-      npcSleeveIm.setMatrixAt(j, m); npcForeIm.setMatrixAt(j, m);
+    if (sc > 0 && (n.x - cam.x) * (n.x - cam.x) + (n.z - cam.z) * (n.z - cam.z) < dd){
+      npcGearIm.setMatrixAt(dk, _nb);
+      for (const s of [-1, 1]){
+        const j = dk * 2 + (s > 0 ? 1 : 0);
+        npcLegIm.setMatrixAt(j, npcLimb(s * .09, .92, 0, swing * s)); npcLegIm.setColorAt(j, n.cLeg);
+        /* the right arm holds the umbrella up, a talker gestures with the left, otherwise arms swing against the legs */
+        const arm = s > 0 && umb ? -1.2 : s < 0 && gest ? -.5 - gest * .9 : -swing * s * .8;
+        const m = npcLimb(s * .215, 1.39, s * (s > 0 && umb ? .03 : .1), arm);
+        npcSleeveIm.setMatrixAt(j, m); npcSleeveIm.setColorAt(j, n.cShirt); npcForeIm.setMatrixAt(j, m); npcForeIm.setColorAt(j, n.cSkin);
+      }
+      if (n.cSkirt){ npcSkirtIm.setMatrixAt(sk, _nb); npcSkirtIm.setColorAt(sk++, n.cSkirt); }
+      if (n.cHair){ npcHairIm.setMatrixAt(hk, _nb); npcHairIm.setColorAt(hk++, n.cHair); }
+      dk++;
     }
-    if (npcSkirtIdx[sk] === i) npcSkirtIm.setMatrixAt(sk++, _nb);
-    if (npcHairIdx[hk] === i) npcHairIm.setMatrixAt(hk++, _nb);
     if (umb){ npcUmbIm.setMatrixAt(uk, _nb); npcUmbIm.setColorAt(uk++, _col.set(UMBS[i % UMBS.length])); }
   }
-  /* only open umbrellas are drawn */
-  npcUmbIm.count = uk; if (uk && npcUmbIm.instanceColor) npcUmbIm.instanceColor.needsUpdate = true;
-  for (const im of [npcBodyIm, npcHeadIm, npcGearIm, npcLegIm, npcSleeveIm, npcForeIm, npcSkirtIm, npcHairIm, npcUmbIm]) im.instanceMatrix.needsUpdate = true;
+  /* only open umbrellas, and the limbs and gear of nearby students, are drawn */
+  npcUmbIm.count = uk; npcGearIm.count = dk; npcLegIm.count = npcSleeveIm.count = npcForeIm.count = dk * 2; npcSkirtIm.count = sk; npcHairIm.count = hk;
+  for (const im of [npcBodyIm, npcHeadIm, npcGearIm, npcLegIm, npcSleeveIm, npcForeIm, npcSkirtIm, npcHairIm, npcUmbIm]){ im.instanceMatrix.needsUpdate = true; if (im.instanceColor && im !== npcBodyIm && im !== npcHeadIm) im.instanceColor.needsUpdate = true; }
 }

@@ -166,7 +166,7 @@ function terrainY(x, z){
 })();
 
 /* ---------- drawn hills: one mesh per ninth of the map (frustum-culled), plus the campus forest (hidden in black-hole mode) ---------- */
-const terrMat = regWet(M('#ffffff', {vertexColors:true, roughness:.95}), .62);
+const terrMat = regWet(M('#b4b4b4', {vertexColors:true, roughness:.95}), .62);   /* grey, not white: the hills' vertex greens were clipping to neon in full sun */
 (function buildTerrainMeshes(){
   const {nx, nz, C, x0, z0, Y} = TG, N = nx * nz, nor = new Float32Array(N * 3), col = new Float32Array(N * 3);
   const cLow = new THREE.Color('#4f7a3b'), cMid = new THREE.Color('#3f6f2f'), cHigh = new THREE.Color('#2b5124'), cSoil = new THREE.Color('#9c6440'),
