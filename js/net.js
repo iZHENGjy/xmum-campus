@@ -24,7 +24,7 @@
  *   /boards/{board}/{uid} = {name, value, ts}
  *   /mini/{gameId}/{uid} = {name, value, ts}   小游戏榜，每个小游戏一张，规则和 /boards 一样（名字必须是注册昵称，成绩只能变高）
  *   /saves/{uid} = {data, score, ts}   只有 Google 登录的人才有：本机所有 xmum-* 存档的 JSON，双向同步，进度多的一边为准
- *   /looks/{uid} = "pink,santa,melon,mblue,d_flames"   奶娃穿戴和自己车的喷漆（js/88-wardrobe-ui.js 的 XWard.lookStr()），
+ *   /looks/{uid} = "pink,santa,melon,mblue,d_flames,tk0300…"   奶娃穿戴、自己车的喷漆和改装（js/88-wardrobe-ui.js 的 XWard.lookStr()，改装段由 js/93-tuning-ui.js 加上），
  *                  只在变化时写一次；单独一个节点，规则还没发布时写入失败也不影响 presence
  *   /names/{昵称小写} = {uid, name, ts}  昵称先到先得，永久归主人：只有主人能改名放出或删掉（ts 是最近一次上线）
  *   /users/{uid} = {name, key}          自己现在注册的昵称；排行榜规则要求成绩上的名字和这里一致，防止冒充
@@ -349,6 +349,7 @@
       g(() => {                                                     // 自己的车的喷漆和贴花（look 里带着的话）
         const ids = G.n.lookStr.split(','), p = ids.find(x => WD_PAINT[x]), d = ids.find(x => /^d_/.test(x));
         if (p || d) carPaint(c, p || 'stock', d ? d.slice(2) : 'none', color);
+        tnApply(c, tnFromToken(G.n.lookStr));                      // 改装件（js/42-tuning.js，look 里的 tk… 那一段）
       });
       c.root.traverse(m => { if (m.isMesh) m.castShadow = false; });
       c.body.add(G.n.root); G.n.root.position.set(...c.T.seat); G.n.root.rotation.set(0, 0, 0);
