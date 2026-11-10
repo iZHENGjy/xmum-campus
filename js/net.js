@@ -21,7 +21,7 @@
  *   /presence/{uid} = {name, mode, x, z, y, h, car?, color, t}
  *   /boards/{board}/{uid} = {name, value, ts}
  *   /saves/{uid} = {data, score, ts}   只有 Google 登录的人才有：本机所有 xmum-* 存档的 JSON，双向同步，进度多的一边为准
- *   /names/{昵称小写} = {uid, name, ts}  昵称先到先得：只有主人能改或删；主人 30 天没上线，别人可以接手
+ *   /names/{昵称小写} = {uid, name, ts}  昵称先到先得，永久归主人：只有主人能改名放出或删掉（ts 是最近一次上线）
  *   /users/{uid} = {name, key}          自己现在注册的昵称；排行榜规则要求成绩上的名字和这里一致，防止冒充
  *   XNet.claimedName()   已注册的昵称（还没注册或离线时为 ''）
  */
@@ -74,7 +74,7 @@
   }
 
   /* ---------- 昵称注册：先到先得 ---------- */
-  const NAME_RE = /^[0-9A-Za-z一-龥 _·~!?-]{1,12}$/, NAME_TTL = 30 * 864e5;
+  const NAME_RE = /^[0-9A-Za-z一-龥 _·~!?-]{1,12}$/;
   const nameOk = n => NAME_RE.test(n) && n === n.trim() && !n.includes('  ');
   let claimed = '', claimedKey = '';
   XNet.claimedName = () => claimed;
@@ -85,8 +85,7 @@
     const key = name.toLowerCase(), uid = XNet.uid;
     try {
       const cur = (await timeout(db.ref('names/' + key).once('value'), 10000, '读取昵称')).val();
-      const stale = cur && typeof cur.ts === 'number' && Date.now() + serverOffset - cur.ts > NAME_TTL;
-      if (cur && cur.uid !== uid && !stale) return 'taken';
+      if (cur && cur.uid !== uid) return 'taken';
       const up = {};
       up['names/' + key] = {uid, name, ts:firebase.database.ServerValue.TIMESTAMP};
       up['users/' + uid] = {name, key};
@@ -146,7 +145,7 @@
     }
     let want = ''; try { want = String(XUI.playerName() || localStorage.getItem('xmum-name') || ''); } catch(e){}
     if (want && want === claimed){
-      db.ref('names/' + claimedKey + '/ts').set(firebase.database.ServerValue.TIMESTAMP).catch(() => {});   // 续期：30 天内回来过
+      db.ref('names/' + claimedKey + '/ts').set(firebase.database.ServerValue.TIMESTAMP).catch(() => {});   // 记一下最近上线时间（名字本身永久有效）
       if (fromUser) hint('名字已注册，只有你能用', 'ok');
       fixBoardNames();
       return;

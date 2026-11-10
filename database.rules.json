@@ -85,7 +85,7 @@
     "names": {
       ".read": "auth != null",
       "$key": {
-        ".write": "auth != null && (!data.exists() || data.child('uid').val() === auth.uid || data.child('ts').val() < now - 2592000000)",
+        ".write": "auth != null && (!data.exists() || data.child('uid').val() === auth.uid)",
         ".validate": "newData.hasChildren(['uid', 'name', 'ts']) && newData.child('uid').val() === auth.uid && $key === newData.child('name').val().toLowerCase()",
         "uid": {
           ".validate": "newData.isString()"
