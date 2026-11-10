@@ -240,11 +240,39 @@ const farHills = [];
     parts.push(geoTint(b.translate(x, y + h / 2 - 2, z), tint));
     parts.push(geoTint(new THREE.BoxGeometry(w * .5, 5, d * .5).translate(x, y + h, z), '#b9b3a8'));
   };
-  for (const [cx, cz, n, sp] of [[1050, -1750, 7, 300], [1950, -900, 6, 260], [2150, 250, 5, 240], [-1900, -1100, 6, 280], [-300, -1950, 6, 300], [-2100, 300, 4, 220]])
+  for (const [cx, cz, n, sp] of [[1050, -1750, 7, 300], [1950, -900, 6, 260], [2150, 250, 5, 240], [-1900, -1100, 6, 280], [-300, -1950, 6, 300], [-2100, 300, 4, 220], [260, 1560, 7, 300], [-420, 1680, 5, 260], [900, 1500, 5, 240]])
     for (let k = 0; k < n; k++){ const x = cx + (rr() - .5) * sp * 2, z = cz + (rr() - .5) * sp * 1.4, tall = rr(); tower(x, z, 34 + rr() * 26, 22 + rr() * 10, 80 + tall * 95, TINT[(rr() * TINT.length) | 0]); }
   const m = new THREE.Mesh(geoMergeUV(parts), mat); m.frustumCulled = false; scene.add(m);
   farHills.towers = mat;
 })();
+
+/* ---------- aviation obstruction lights on the LY towers: a red beacon that flashes slowly on each crown, steady blue lights at the arm ends ----------
+   Two point clouds (2 draw calls for all eight towers), lit from dusk. A tower the black hole has swallowed takes its lights with it. */
+const gfxAvi = (() => {
+  const mk = (list, col, size) => {
+    const pos = new Float32Array(list.length * 3); list.forEach((l, i) => { pos[i * 3] = l.x; pos[i * 3 + 1] = l.y; pos[i * 3 + 2] = l.z; });
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const m = new THREE.Points(g, new THREE.PointsMaterial({color:col, map:glowTex, size, sizeAttenuation:true, transparent:true, opacity:0, blending:THREE.AdditiveBlending, depthWrite:false, fog:false}));
+    m.frustumCulled = false; m.visible = false; m.renderOrder = 3; scene.add(m); return {m, list, gone:list.map(() => false)};
+  };
+  return {red:mk(AVI_LIGHTS.filter(l => l.red), '#ff2a1c', 11), blue:mk(AVI_LIGHTS.filter(l => !l.red), '#2f6bff', 7), tick:0};
+})();
+function gfxAviTick(lamp, T){
+  const on = lamp > .12;
+  for (const k of ['red', 'blue']){
+    const a = gfxAvi[k]; a.m.visible = on; if (!on) continue;
+    /* red: about one slow flash every 2.4 s; blue: steady */
+    a.m.material.opacity = Math.min(1, lamp) * (k === 'red' ? .12 + .88 * Math.pow(.5 + .5 * Math.sin(T * 2.6), 3) : .85);
+  }
+  if (!on || ++gfxAvi.tick < 20) return;
+  gfxAvi.tick = 0;
+  for (const k of ['red', 'blue']){
+    const a = gfxAvi[k], p = a.m.geometry.attributes.position; let ch = false;
+    a.list.forEach((l, i) => { const g = !!l.st.gone; if (g !== a.gone[i]){ a.gone[i] = g; p.setY(i, g ? -9999 : l.y); ch = true; } });
+    if (ch) p.needsUpdate = true;
+  }
+}
+let gfxWashOn = false;
 
 /* ---------- quality tier -> which of the effects above are on ---------- */
 function gfxDefine(m, name, on){ if (!!m.defines[name] === on) return; if (on) m.defines[name] = 1; else delete m.defines[name]; m.needsUpdate = true; }
@@ -326,6 +354,10 @@ function gfxRender(dt, T){
   const glow = XQ.cfg.glow && lamp > .04;
   glowMat.opacity = Math.min(1, lamp) * .5; beamMat.opacity = Math.min(1, lamp) * .42;
   for (const g of glowSets) g.im.visible = glow;
+  /* facade lighting (washMat, js/00-core.js) comes up with the lamps; 流畅 leaves it off */
+  { const k = XQ.cfg.glow ? Math.min(1, lamp) : 0, won = k > .03; washMat.color.setScalar(k * .8); if (won !== gfxWashOn){ gfxWashOn = won; for (const m of washMeshes) m.visible = won; } }
+  gfxAviTick(lamp, T);
+  if (typeof gateNight === 'function') gateNight(lamp);   /* js/42-gate.js: booth windows, lawn bollards, hotel sign */
   if (typeof NW !== 'undefined'){
     if (!gfxNwBlob){ gfxNwBlob = gfxBlob(2.2, 2.2); NW.root.add(gfxNwBlob); }
     gfxNwBlob.visible = !renderer.shadowMap.enabled; gfxNwBlob.position.y = .07 - NW.root.position.y + (typeof groundAt === 'function' ? Math.max(0, groundAt(NW.root.position.x, NW.root.position.z)) : 0);
