@@ -635,6 +635,14 @@ body.titled #labels{opacity:0}
 .wd-it i{position:absolute;top:4px;right:4px;font-style:normal;font-size:9.5px;font-weight:700;padding:0 5px;border-radius:999px;line-height:15px}
 .wd-it i.t-r{background:#4a86d8;color:#fff}
 .wd-it i.t-l{background:var(--gold);color:#1f2a33}
+.wd-done{flex:none;display:grid;gap:1px;margin-top:8px;padding:8px 12px;border-radius:var(--r-md);background:color-mix(in srgb,var(--ok) 14%,transparent);border:1px solid color-mix(in srgb,var(--ok) 45%,transparent)}
+.wd-done b{font-family:var(--display);font-size:14.5px;color:var(--ok)}
+.wd-done b::before{content:'✓ '}
+.wd-done span{font-size:12px;color:var(--ink);line-height:1.45}
+.wd-done.pop{animation:wdPop .3s ease-out}
+@keyframes wdPop{from{transform:scale(.96);opacity:0}to{transform:none;opacity:1}}
+/* while the wardrobe / paint shop is open the toast must sit above it, in the part of the screen it leaves free */
+body.wd-open #toast{z-index:10;top:calc(var(--safe-t) + 70px);left:calc((100% - min(400px,42vw) - 32px) / 2)}
 .wd-foot{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:10px;margin-top:8px;flex:none}
 .wd-sel{flex:1 1 150px;min-width:0;display:grid;gap:1px}
 .wd-sel b{font-family:var(--display);font-size:15px}
@@ -658,6 +666,8 @@ body.wd-open .topbar,body.wd-open #acts,body.wd-open #joy,body.wd-open #prompt,b
   .wd-btns .btn{padding:5px 10px}
 }
 @media (max-width:560px){ body.naiwa #gstat #wardBtn{display:none} }
+@media (max-width:760px){ body.wd-open #toast{left:50%;top:calc(var(--safe-t) + 56px)} }
+@media (prefers-reduced-motion: reduce){ .wd-done.pop{animation:none} }
 /* ---------- water gun (js/87-classroom.js) ---------- */
 #act-w{grid-column:1 / -1}
 #act-w:not([disabled]){border-color:#7cc7ff}

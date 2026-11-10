@@ -10,7 +10,7 @@
  *   XNet.top(board, n=10)    → Promise<[{name, value, ts}]>，最好的在前；离线返回 []
  *   XNet.submit(board, value) → Promise<boolean>，成绩比自己记录好才写入，写入成功为 true
  *   XNet.ready           Promise，联机初始化结束（成功或失败）后 resolve
- *   board: 'hole2'（黑洞 2.0 单局吞掉的 %）| 'hole'（旧版黑洞，只读保留）| 'stunt'（特技总分）| 'rich'（RM）
+ *   board: 'hole2'（黑洞 2.0 单局吞掉的 %）| 'hole'（旧版黑洞，只读保留）| 'stunt'（特技总分）| 'rich'（总资产 RM：现金 + 买过的东西，js/80-gta.js 的 netWorth()；以前只算现金，旧记录照常保留）
  *   XNet.miniTop(gameId, n=10)    → 同 top，读 B1 游戏厅某个小游戏的榜（js/91-arcade.js）
  *   XNet.miniSubmit(gameId, value) → 同 submit；gameId 要匹配 ^[a-z][a-z0-9_]{1,15}$，value 取整，0 到 1,000,000，越大越好
  *   XNet.account         {google:boolean, email, name}：是否已用 Google 登录
@@ -273,7 +273,7 @@
     holeWasOn = on;
     const t = performance.now();
     if (!force && t - lastAuto < 20000) return;
-    const st = clean('stunt', g(() => stunt.total, 0)), rm = clean('rich', g(() => money, 0));
+    const st = clean('stunt', g(() => stunt.total, 0)), rm = clean('rich', g(() => netWorth(), g(() => money, 0)));
     let sent = false;
     if (st > 0 && st > best.stunt){ XNet.submit('stunt', st); sent = true; }
     if (rm > 0 && rm > best.rich){ XNet.submit('rich', rm); sent = true; }
