@@ -29,7 +29,11 @@ try {
   if (d && d.life) for (const k of DM_LIFE) prog.life[k] = Math.max(0, +d.life[k] || 0);
   if (d && d.ach) for (const a of DM_ACH) if (d.ach[a[0]]) prog.ach[a[0]] = +d.ach[a[0]] || 1;
 } catch(e){}
-GX_MORE.push({id:'dorm', name:'宿舍搜刮', fmt:v => `最多带出 RM ${Math.round(v)}`});
+GX_MORE.push({id:'dorm', name:'宿舍搜刮', fmt:v => `单局最高收入 RM ${Math.round(v)}`});
+/* 排行榜：一局撤离后的最高收入，和 B1 小游戏放在同一张「小游戏」榜里（/mini/dorm/{uid}，js/91-arcade.js 的 XMini.addBoard，js/net.js 的 miniTop / miniSubmit） */
+const DM_BOARD = 'dorm';
+if (window.XMini && XMini.addBoard) XMini.addBoard({id:DM_BOARD, name:'宿舍搜刮', icon:'🎒', fmt:v => 'RM ' + Math.round(+v || 0), what:'🎒 宿舍搜刮：一局从 LY 宿舍撤离后的最高收入（卖掉的东西、出口加成、抓小偷的悬赏）',
+  local:() => +prog.best.dorm || 0, empty:'还没从宿舍带东西出来过，去 LY 宿舍门口的紫圈'});
 
 /* ---------- things to find: [id, name, value, tier, kind, fits the pocket, 周边券] ---------- */
 const DM_ITEMS = [
@@ -259,6 +263,9 @@ function dmRing(color, r){
   m.add(new THREE.Mesh(new THREE.CircleGeometry(r * .62, 36).rotateX(-Math.PI / 2), gxGlow(color, .2))); m.visible = false; dmG.add(m); return m;
 }
 const DM_EXIT_COL = {main:'#4fd18b', fire:'#ff9f43', back:'#4aa3ff'};
+/* the riskier the way out, the better it pays: the fire stairs set off the alarm, the back door needs its code */
+const DM_EXIT_PAY = {main:0, fire:.25, back:.5};
+const dmPct = k => Math.round(DM_EXIT_PAY[k] * 100);
 const dmExitFx = ['main', 'fire', 'back'].map(k => ({kind:k, ring:dmRing(DM_EXIT_COL[k], 1.25), slab:box(2.2, 2.3, .16, M(DM_EXIT_COL[k], {emissive:DM_EXIT_COL[k], emissiveIntensity:.35, roughness:.5}), 0, 1.15, 0, dmG), lbl:addLabel('', 0, 3.2, 0, true)}));
 const dmDoorSlab = box(1, 2.2, .24, M('#7a3f2a', {roughness:.6}), 0, 1.1, 0, dmG);
 const dmSwFx = DM_SW.map(([, c]) => { const g = new THREE.Group(), lamp = new THREE.Mesh(new THREE.SphereGeometry(.2, 14, 10), M(c, {emissive:c, emissiveIntensity:.08, roughness:.4}));
@@ -449,7 +456,7 @@ function dmEnter(door, seed){
   const L = DORM.L = dmGen(seed);
   /* until you have got something out once, a run comes with four short tips and half a minute more */
   const coach = prog.life.dormOut < 1 && prog.life.dormRuns < 4;
-  DORM.run = {t:0, limit:DM_LIMIT + (coach ? 30 : 0), bag:new Array(DM_SLOTS).fill(null), seen:false, solved:0, caught:0, told:{}, noiseT:0, alarm:0, bell:false, lockup:false, lastCd:0, lblT:0, dg:0, hb:0, opened:0, coach:coach ? 0 : -1, coachT:0, tip:''};
+  DORM.run = {t:0, limit:DM_LIMIT + (coach ? 30 : 0), bag:new Array(DM_SLOTS).fill(null), seen:false, solved:0, caught:0, bounty:0, told:{}, noiseT:0, alarm:0, bell:false, lockup:false, lastCd:0, lblT:0, dg:0, hb:0, opened:0, coach:coach ? 0 : -1, coachT:0, tip:''};
   dmBuild(L);
   DORM.in = true; DORM.door = door; DORM.keep = {dist:camDist, pitch:camPitch}; DORM.near = null; DORM.hold = 0; DORM.lootBox = null;
   window.XINDOOR = 'dorm'; window.XINDOOR_AT = door;
@@ -474,21 +481,27 @@ function dmLeaveWorld(){
 }
 const dmBagItems = () => DORM.run.bag.filter(Boolean);
 const dmBagValue = () => dmBagItems().reduce((s, it) => s + it.v, 0);
+/* what a run brought in, for the result panel: the thing worth most, and how long it took */
+const dmTop = items => items.reduce((b, it) => (!b || it.v > b.v ? it : b), null);
 function dmFinish(how){
   const run = DORM.run, items = dmBagItems().filter(it => !it.key), value = items.reduce((s, it) => s + it.v, 0), tok = items.reduce((s, it) => s + it.tok, 0), bonus = [];
-  let mult = 1; const left = run.limit - run.t;
-  if (how === 'back'){ mult += .1; bonus.push('走后门没人看见 +10%'); }
-  if (left < 15 && items.length){ mult += .15; bonus.push(`压哨撤离，只剩 ${Math.ceil(left)} 秒 +15%`); }
-  if (!run.seen && items.length){ mult += .2; bonus.push('全程没被宿管发现 +20%'); }
-  const pay = Math.round(value * mult), prev = prog.best.dorm, rec = pay > 0 && (prev == null || pay > prev);
-  if (rec) prog.best.dorm = pay;
+  const left = run.limit - run.t, add = (text, pct) => bonus.push({text, pct, rm:Math.round(value * pct)});
+  if (items.length){
+    if (how === 'fire') add('走消防梯，警报响着冲出去', DM_EXIT_PAY.fire);
+    if (how === 'back') add('解开密码走后门，没人看见', DM_EXIT_PAY.back);
+    if (left < 15) add(`压哨撤离，只剩 ${Math.ceil(left)} 秒`, .15);
+    if (!run.seen) add('全程没被宿管发现', .2);
+  }
+  /* pay: what the things sold for with the bonuses. income: everything this run put in the wallet (the thief's bounty was paid when you caught him) */
+  const pay = value + bonus.reduce((s, b) => s + b.rm, 0), income = pay + run.bounty, prev = prog.best.dorm, rec = pay > 0 && (prev == null || income > prev);
+  if (rec) prog.best.dorm = income;
   if (items.length) prog.life.dormOut++; prog.life.dormTok += tok; sess.acts++;
   dmLeaveWorld();
   if (pay > 0) earn(pay); else saveGame();
   if (items.length) unlock('dorm1'); if (pay >= 300) unlock('dormrich'); if (!run.seen && items.length) unlock('dormghost');
   const behind = DORM.L.boxes.reduce((s, b) => s + b.items.reduce((q, it) => q + it.v, 0), 0);
-  if (items.length){ gxCallout(left < 15 ? '压哨撤离！' : '撤离成功', `带出 RM ${pay}`, '#4fd18b'); for (let i = 0; i < 6; i++) tone('triangle', 523 * Math.pow(1.19, i), 523 * Math.pow(1.19, i), .18, .13, i * .08); } else sfx.ding();
-  dmUiEnd({ok:true, how, items, value, pay, tok, bonus, rec, prev, solved:run.solved, caught:run.caught, behind});
+  if (items.length){ gxCallout(left < 15 ? '压哨撤离！' : '撤离成功', `+RM ${pay}`, '#4fd18b'); for (let i = 0; i < 6; i++) tone('triangle', 523 * Math.pow(1.19, i), 523 * Math.pow(1.19, i), .18, .13, i * .08); } else sfx.ding();
+  dmUiEnd({ok:true, how, items, value, pay, income, bounty:run.bounty, tok, bonus, rec, prev, top:dmTop(items), time:run.t, left, solved:run.solved, caught:run.caught, behind});
 }
 function dmFail(why, quiet){
   const run = DORM.run, kept = run.bag[0] && !run.bag[0].key ? run.bag[0] : null, lost = run.bag.slice(1).filter(it => it && !it.key);
@@ -498,7 +511,7 @@ function dmFail(why, quiet){
   if (quiet){ if (lost.length || kept) toast('离开了宿舍', lost.length ? `没走撤离点，背包里的 ${lost.length} 件东西没带出来` : '贴身口袋里的东西带出来了', 2600); return; }
   sfx.fail();
   if (why === 'late'){ tone('square', 196, 98, .9, .16); noise(.5, .3, 300); }
-  dmUiEnd({ok:false, why, lost, kept, lostValue:lost.reduce((s, it) => s + it.v, 0), solved:run.solved, caught:run.caught});
+  dmUiEnd({ok:false, why, lost, kept, lostValue:lost.reduce((s, it) => s + it.v, 0), income:(kept ? kept.v : 0) + run.bounty, bounty:run.bounty, top:dmTop(lost), time:run.t, solved:run.solved, caught:run.caught});
 }
 
 /* ---------- backpack ---------- */
@@ -700,7 +713,7 @@ function dmSoakThief(power){
 }
 function dmGrab(){
   const t = DORM.thief, run = DORM.run, L = DORM.L; if (!t.on || t.state !== 'down') return;
-  t.on = false; dmThiefFig.g.visible = false; dmThiefLbl.dead = true; run.caught++; prog.life.dormThief++;
+  t.on = false; dmThiefFig.g.visible = false; dmThiefLbl.dead = true; run.caught++; run.bounty += 40; prog.life.dormThief++;
   const c = dmNearFree(dmCi(t.x, t.z)), sx = c >= 0 ? dmCx(c) : t.x, sz = c >= 0 ? dmCz(c) : t.z;
   earn(40); unlock('dormthief'); sfx.sparkle(); gxCallout('抓住了！', '悬赏 +RM 40', '#4fd18b');
   for (let i = 0; i < 8; i++) spawnPart('heart', t.x + (Math.random() - .5) * 2, 1.5 + Math.random(), t.z + (Math.random() - .5) * 2, .7, {vy:2.2, life:1.2, op:1, color:'#ffd24a'});
@@ -785,9 +798,9 @@ function dmCoach(dt){
   const F = TOUCH ? '按住「搜」' : '按住 F';
   const steps = [
     [`① 金色菱形 = 还没搜过的柜子。走过去，${F}`, () => run.opened > 0, 60],
-    ['② 点东西放进背包。只有 6 格，便宜的别拿；第一格是贴身口袋，自动装最值钱的小件', () => dmBagItems().length > 0, 14],
+    ['② 点东西放进背包。只有 6 格，便宜的别拿；第一格是贴身口袋，自动装最值钱的小件', () => dmBagItems().length > 0, 14],   /* shown inside the list while a container is open (js/89-dorm-ui.js) */
     [`③ 地上的光扇是宿管的视野，绕开走。${TOUCH ? '摇杆推到底是跑，' : '按 Shift 是跑，'}她听得见`, () => false, 9],
-    ['④ 23:00 前回到绿圈撤离，东西才算你的。小地图上的绿点是大门', () => false, 9]
+    [`④ 23:00 前走到撤离点，东西才算你的。绿圈大门最稳；消防梯（橙）多卖 ${dmPct('fire')}%，后门（蓝，要密码）多卖 ${dmPct('back')}%`, () => false, 11]
   ];
   const s = steps[run.coach]; run.coachT += dt;
   if (!s || s[1]() || run.coachT > s[2]){ run.coach = s && run.coach + 1 < steps.length ? run.coach + 1 : -1; run.coachT = 0; if (run.coach >= 0) tone('triangle', 880, 1100, .1, .08); }
@@ -845,9 +858,10 @@ function dmUpdate(dt, px, pz){
     else if (n.kind === 'sw'){ label = '按'; dmPrompt = (TOUCH ? '点「按」' : '按 F ') + `按下${DM_SW[o.i][0]}色开关`; }
     else if (n.kind === 'lock'){ label = '开锁'; dmPrompt = o.name + (o.kind === 'key' ? ' · 要钥匙' : ' · 电控锁，要按对四个开关'); }
     else if (n.kind === 'exit'){
-      if (o.kind === 'main'){ label = '撤离'; dmPrompt = (TOUCH ? '点「撤离」' : '按 F ') + `从大门撤离 · 带出 ${dmBagItems().filter(it => !it.key).length} 件`; }
-      else if (o.kind === 'back'){ label = dmLocked(o) ? '开锁' : '撤离'; dmPrompt = dmLocked(o) ? '后门锁着 · ' + (TOUCH ? '点「开锁」输密码' : '按 F 输密码') : (TOUCH ? '点「撤离」' : '按 F ') + '从后门溜走 · 多卖 10%'; }
-      else { label = '推门'; need = 2.2; dmPrompt = `${TOUCH ? '按住「推门」' : '按住 F '}推开消防门（会响警报） · ${Math.round(DORM.hold / need * 100)}%`; }
+      const v = dmBagValue(), sell = k => (v ? ` · 能卖 RM ${v + Math.round(v * DM_EXIT_PAY[k])}` : ' · 背包是空的');
+      if (o.kind === 'main'){ label = '撤离'; dmPrompt = (TOUCH ? '点「撤离」' : '按 F ') + `从大门撤离${sell('main')}`; }
+      else if (o.kind === 'back'){ label = dmLocked(o) ? '开锁' : '撤离'; dmPrompt = dmLocked(o) ? `后门锁着 · 从这里走多卖 ${dmPct('back')}% · ` + (TOUCH ? '点「开锁」输密码' : '按 F 输密码') : (TOUCH ? '点「撤离」' : '按 F ') + `从后门溜走 · 多卖 ${dmPct('back')}%${sell('back')}`; }
+      else { label = '推门'; need = 2.2; dmPrompt = DORM.hold > 0 ? `推开消防门 · ${Math.round(DORM.hold / need * 100)}%` : `${TOUCH ? '按住「推门」' : '按住 F '}推开消防门 · 会响警报 · 多卖 ${dmPct('fire')}%${sell('fire')}`; }
     }
     else if (n.kind === 'box'){
       const name = o.type === 'sack' ? DM_FUR.sack.name : DM_FUR[o.type].name;
@@ -879,7 +893,7 @@ function dmUpdate(dt, px, pz){
   /* door plates only near you; the rest would bury a phone screen */
   run.lblT -= dt;
   if (run.lblT <= 0){ run.lblT = .2; for (const l of dmLbls) l.dead = !l.on || Math.hypot(nw.x - l.pos.x, nw.z - l.pos.z) > 13;
-    for (const e of L.exits){ const t = e.name + (e.kind === 'fire' ? ' · 会响警报' : dmLocked(e) ? ' · 锁着' : ' · 撤离'); if (e.fx.lbl.el.textContent !== t) e.fx.lbl.el.textContent = t; e.fx.lbl.dead = Math.hypot(nw.x - e.x, nw.z - e.z) > 22; } }
+    for (const e of L.exits){ const t = e.name + (e.kind === 'fire' ? ' · 会响警报' : dmLocked(e) ? ' · 锁着' : ' · 撤离') + (DM_EXIT_PAY[e.kind] ? ` · 多卖 ${dmPct(e.kind)}%` : ''); if (e.fx.lbl.el.textContent !== t) e.fx.lbl.el.textContent = t; e.fx.lbl.dead = Math.hypot(nw.x - e.x, nw.z - e.z) > 22; } }
   const T = performance.now() / 300; for (const e of dmExitFx) if (e.ring.visible) e.ring.scale.setScalar(1 + Math.sin(T) * .08);
   const m = Math.floor(left / 60), s = Math.floor(left % 60), txt = `门禁 ${m}:${String(s).padStart(2, '0')} · 背包 ${dmBagItems().length}/${DM_SLOTS} · RM ${dmBagValue()}`;
   if (missionEl.textContent !== txt) missionEl.textContent = txt;

@@ -109,7 +109,7 @@ function uiBoardDef(board){
   const m = /^mini:([a-z][a-z0-9_]{1,15})$/.exec(board || '');
   return (m && window.XMini && XMini.board(m[1])) || null;
 }
-function uiMiniBoards(){ return window.XMini ? XMini.games.filter(g => g.board).map(g => 'mini:' + g.id) : []; }
+function uiMiniBoards(){ return window.XMini ? (XMini.boards || XMini.games.filter(g => g.board).map(g => g.id)).map(id => 'mini:' + id) : []; }
 const lbEl = $('#lb'), lbBody = $('#lbBody'), lbTabs = [...lbEl.querySelectorAll('[role="tab"]')];
 let lbBoard = 'hole2', lbReq = 0;
 function uiEl(tag, cls, text){ const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
