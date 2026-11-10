@@ -26,6 +26,10 @@ function wardWrite(){
 ACH.push(['newlook', '新衣服', '第一次在奶娃衣橱买东西', 10], ['repaint', '改头换面', '第一次给自己的车喷漆', 20]);
 try { const d = JSON.parse(localStorage.getItem('xmum-gta-v1') || 'null'); if (d && d.ach) for (const k of ['newlook', 'repaint']) if (d.ach[k]) prog.ach[k] = +d.ach[k] || 1; } catch(e){}
 
+/* 总资产 (js/80-gta.js netWorth): clothes and paint jobs at their shop price; the 宿舍 exclusives are counted in js/89-dorm-ui.js */
+assetSource('wardrobe', () => [...wardSave.own].reduce((s, id) => { const it = WD.byId[id]; return s + (it && !it.dorm ? it.price || 0 : 0); }, 0));
+assetSource('paint', () => [...wardSave.pOwn].reduce((s, id) => s + ((WD.byId[id] && WD.byId[id].price) || 0), 0));
+
 /* the player wears the saved look from the start; personal cars get their saved paint whenever they are summoned */
 nwDress(NW, wardSave.look);
 const wardStock = kind => (SHOP.find(s => s.kind === kind) || {}).color;
@@ -43,6 +47,7 @@ wardEl.innerHTML = `<button class="x" id="wardx" aria-label="关闭">×</button>
   <div class="shop-h"><h2 id="wardT">奶娃衣橱</h2><span id="wardMoney">RM 0.00</span></div>
   <div class="wd-tabs" id="wardTabs" role="tablist"></div>
   <div class="wd-grid" id="wardList" role="listbox"></div>
+  <div class="wd-done" id="wardDone" role="status" aria-live="polite" hidden></div>
   <div class="wd-foot"><div class="wd-sel"><b id="wardName"></b><span id="wardDesc"></span></div><div class="wd-btns"><button class="btn" id="wardOff" hidden>脱下</button><button class="btn buy" id="wardBuy"></button></div></div>`;
 document.body.appendChild(wardEl);
 const ward = {on:false, spray:0, kind:'naiwa', tab:'skin', sel:null, try:null, yaw:0, drag:null, wasPaused:false, pose:0, view:''};
@@ -75,7 +80,7 @@ const fmtP = v => 'RM ' + Math.round(v).toLocaleString();
 
 function wardRender(){
   $('#wardMoney').textContent = fmtRM(money);
-  $('#wardT').textContent = ward.kind === 'car' ? (ward.spray ? '喷漆车间 · ' : '喷漆店 · ') + (myCar ? myCar.T.name : '') : '奶娃衣橱';
+  $('#wardT').textContent = ward.kind === 'car' ? (ward.garage ? '喷漆车间 · ' : '喷漆店 · ') + (myCar ? myCar.T.name : '') : '奶娃衣橱';
   const tabs = wTabs[ward.kind];
   $('#wardTabs').innerHTML = tabs.map(([s, n]) => `<button type="button" role="tab" data-tab="${s}" aria-selected="${s === ward.tab}">${n}</button>`).join('');
   const items = wardItems(ward.tab), worn = wardWorn(ward.tab), cur = ward.try[ward.tab];
@@ -111,27 +116,49 @@ function wardShow(){
   else nwDress(NW, ward.try);
 }
 function wardPick(id){
+  $('#wardDone').hidden = true;
   ward.sel = id || null; ward.try[ward.tab] = id || (wdOptional(ward.tab) ? null : ward.try[ward.tab]);
   wardShow(); wardRender(); tone('triangle', 660, 880, .08, .05);
   if (ward.kind === 'naiwa' && !driving && !nw.air && nw.state !== 'fly' && id){ nw.state = 'pose'; nw.t = 0; ward.pose = 2.4; }
 }
 function wardEquip(slot, id){
+  let cleared = null;
   if (ward.kind === 'car'){
     const c = wardSave.cars[myCar.kind] || (wardSave.cars[myCar.kind] = {p:'stock', d:'none'});
     if (slot === 'paint') c.p = id; else c.d = id.slice(2);
-    if (ward.spray) sprayClear();
+    if (ward.spray) cleared = sprayClear();
   } else wardSave.look[slot] = id;
   wardWrite();
+  return cleared;
+}
+/* feedback that stays inside the panel until the next tap (the toast and the HUD stars are behind it on phones) */
+function wardDone(title, sub){
+  const el = $('#wardDone'); el.innerHTML = '<b></b><span></span>'; el.querySelector('b').textContent = title; el.querySelector('span').textContent = sub || '';
+  el.hidden = false; el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+}
+/* a puff of the new colour round the car, with a spray-can hiss */
+function wardSprayFx(){
+  if (!myCar) return;
+  const col = '#' + myCar.paint.color.getHexString(), fx = Math.sin(myCar.h), fz = Math.cos(myCar.h), L = myCar.T.L, W = myCar.T.W;
+  for (let i = 0; i < 26; i++){
+    const a = (rnd() - .5) * L, side = rnd() < .5 ? -1 : 1, x = myCar.x + fx * a + fz * side * W * .6, z = myCar.z + fz * a - fx * side * W * .6;
+    spawnPart('dust', x, myCar.y + .4 + rnd() * myCar.T.H, z, .9 + rnd() * .8, {grow:1.6, vx:fz * side * (1 + rnd() * 2), vy:.6 + rnd(), vz:-fx * side * (1 + rnd() * 2), life:1.1 + rnd() * .6, op:.75, color:col});
+  }
+  tone('sawtooth', 5200, 3800, .55, .025); tone('square', 6400, 5600, .4, .015, .05); sfx.sparkle();
 }
 function wardBuy(){
   const id = ward.sel, it = id && WD.byId[id]; if (!it) return;
   if (!wardOwned(id)){
     if (money < it.price) return;
     money -= it.price; wardSave.spent += it.price; (ward.kind === 'car' ? wardSave.pOwn : wardSave.own).add(id); moneyChanged();
-    sfx.sparkle(); toast('买下了：' + it.name, `余额 ${fmtRM(money)}`, 2200);
+    if (ward.kind !== 'car') sfx.sparkle();
     unlock(ward.kind === 'car' ? 'repaint' : 'newlook');
-  } else sfx.ding();
-  wardEquip(ward.tab, id); wardRender();
+  } else if (ward.kind !== 'car') sfx.ding();
+  const fee = wardEquip(ward.tab, id); wardRender();
+  if (ward.kind === 'car'){
+    wardSprayFx();
+    wardDone('喷好了：' + it.name, fee != null ? `警戒解除，保安认不出你了 · 加急费 ${fmtRM(fee)}` : `已存档，下次叫车也是这个样子 · 余额 ${fmtRM(money)}`);
+  } else wardDone('穿上了：' + it.name, `已存档 · 余额 ${fmtRM(money)}`);
 }
 $('#wardList').addEventListener('click', e => { const b = e.target.closest('.wd-it'); if (b){ ac(); wardPick(b.dataset.id); } });
 $('#wardTabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (!b) return; ac(); ward.tab = b.dataset.tab; ward.sel = ward.try[ward.tab] || null; wardRender(); });
@@ -141,7 +168,7 @@ $('#wardTabs').addEventListener('keydown', e => {
   const n = $('#wardTabs [aria-selected="true"]'); if (n) n.focus();
 });
 $('#wardBuy').addEventListener('click', () => { ac(); wardBuy(); });
-$('#wardOff').addEventListener('click', () => { ac(); ward.try[ward.tab] = null; ward.sel = null; wardEquip(ward.tab, null); wardShow(); wardRender(); });
+$('#wardOff').addEventListener('click', () => { ac(); ward.try[ward.tab] = null; ward.sel = null; wardEquip(ward.tab, null); wardShow(); wardRender(); wardDone('脱下了', '已存档'); });
 $('#wardx').addEventListener('click', () => wardClose());
 
 /* ---------- open / close, fitting-room camera ---------- */
@@ -155,6 +182,7 @@ function wardOpen(kind, atSpray){
   ward.try = kind === 'car' ? {paint:wardWorn('paint'), decal:wardWorn('decal')} : Object.assign({}, wardSave.look);
   ward.sel = ward.try[ward.tab] || null;
   ward.spray = kind === 'car' && atSpray && heat >= 1 ? Math.min(5, Math.floor(heat)) : 0;
+  ward.garage = kind === 'car' && !!atSpray;
   ward.wasPaused = gx.paused; gx.paused = true; ward.on = true; keys.Space = false; engineUpdate(0, 0, false);
   const t = wardTarget(); ward.yaw = kind === 'car' ? t.h + .8 : t.h;
   document.body.classList.add('wd-open'); wardEl.hidden = false; wardRender();
@@ -163,8 +191,11 @@ function wardOpen(kind, atSpray){
 }
 function wardClose(){
   if (!ward.on) return;
-  ward.on = false; wardEl.hidden = true; document.body.classList.remove('wd-open');
+  /* tapping a tile only previews; say so if the player closes before buying, instead of quietly changing back */
+  const tried = ward.kind === 'car' ? myCar && (ward.try.paint !== wardWorn('paint') || ward.try.decal !== wardWorn('decal')) : Object.keys(WD_DEFAULT).some(k => (ward.try[k] || null) !== (wardSave.look[k] || null));
+  ward.on = false; wardEl.hidden = true; document.body.classList.remove('wd-open'); $('#wardDone').hidden = true;
   if (ward.kind === 'car') wardPaintMine(); else nwDress(NW, wardSave.look);
+  if (tried) toast(ward.kind === 'car' ? '刚才只是试色，没有喷上' : '刚才只是试穿，换回原来的了', ward.kind === 'car' ? '选好后点「买下」或「换上」才会喷到车上' : '选好后点「买下」或「穿上」才算数', 3000);
   if (nw.state === 'pose' && ward.pose > 0) nw.state = 'idle';
   gx.paused = ward.wasPaused; camera.clearViewOffset(); ward.view = ''; camera.near = .3; camera.updateProjectionMatrix();
   if (!driving) camYaw = nw.h + Math.PI;
@@ -200,13 +231,14 @@ function wardFrame(now){
 const spray = {inT:0, latched:false, msg:''};
 const sprayFee = () => Math.min(money, 50 * ward.spray);
 function sprayClear(){
-  const st = ward.spray; ward.spray = 0; if (st < 1 || heat < 1) return;
+  const st = ward.spray; ward.spray = 0; if (st < 1 || heat < 1) return null;
   const fee = Math.min(money, 50 * st);
   money -= fee; moneyChanged();
   const peak = Math.max(chasePeak, st);
   heat = 0; calmT = 0; chasePeak = 0; despawnChasers();
   sfx.ding(); toast('换了一身漆，保安认不出你了', `警戒解除 · 加急喷漆费 ${fmtRM(fee)}`, 2800);
   if (peak >= 4) unlock('escape4');
+  return fee;
 }
 function sprayUpdate(dt){
   spray.msg = ''; const S = window.XSPRAY;

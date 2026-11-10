@@ -204,6 +204,10 @@ const DM_WEAR = [
   }}
 ];
 for (const it of DM_WEAR){ WD_ITEMS.push(it); WD.byId[it.id] = it; }
+/* 总资产 (js/80-gta.js netWorth): a 周边券 counts as RM 35, about what the 周边 that give one sell for (钥匙扣 RM 30 → 1, 盲盒 RM 50 → 2, 公仔 RM 150 → 4);
+   unspent vouchers and the exclusives bought with them both count */
+const DM_TOK_RM = 35;
+assetSource('dorm', () => (prog.life.dormTok || 0) * DM_TOK_RM + DM_WEAR.reduce((s, it) => s + (wardSave.own.has(it.id) ? it.dorm * DM_TOK_RM : 0), 0));
 /* the wardrobe loaded its save before these six existed: read what was owned and worn again */
 try {
   const d = JSON.parse(localStorage.getItem(WD_KEY) || 'null');
