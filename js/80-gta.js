@@ -119,9 +119,9 @@ function busted(){
   sfx.fail(); toast('被保安抓住了', fine > .005 ? `罚款 RM ${fine.toFixed(2)}，警戒解除` : '没钱罚，警告一次，警戒解除', 2800);
 }
 function updateChase(dt){
-  /* hiding in a classroom (js/87-classroom.js): the patrol cars wait at that building's door and cannot arrest you */
-  const indoor = typeof ROOM !== 'undefined' && ROOM.in && ROOM.from;
-  const tx = indoor ? ROOM.from.x : driving ? driving.x : nw.x, tz = indoor ? ROOM.from.z : driving ? driving.z : nw.z;
+  /* hiding indoors (a classroom, the dorm: indoorNow() in js/40-vehicles.js): the patrol cars wait at that building's door and cannot arrest you */
+  const indoor = indoorNow() && indoorDoor();
+  const tx = indoor ? indoor.x : driving ? driving.x : nw.x, tz = indoor ? indoor.z : driving ? driving.z : nw.z;
   const stars = Math.min(5, Math.floor(heat)), lv = pveLevel();
   const active = patrols.filter(c => c.active && c !== driving);
   if (stars >= 1 && !warned){ warned = true; toast('保安盯上你了', '撞东西、吓到同学都会让警戒升级', 2400); }
