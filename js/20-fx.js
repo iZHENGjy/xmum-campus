@@ -53,7 +53,7 @@ function skidAt(x, z, h, y){
 /* knock trees and lamps */
 function setKnock(set, i, down, dx, dz){
   const o = set.spots[i];
-  _p.set(o.x, 0, o.z); _q.setFromAxisAngle(UP, o.r);
+  _p.set(o.x, o.y || 0, o.z); _q.setFromAxisAngle(UP, o.r);
   if (down){ _q2.setFromAxisAngle(_ax.set(dz, 0, -dx).normalize(), set.kind === 'lamp' ? 1.35 : 1.45); _q.premultiply(_q2); }
   _s.setScalar(o.s); _m4.compose(_p, _q, _s);
   for (const im of set.ims){ im.setMatrixAt(i, _m4); im.instanceMatrix.needsUpdate = true; }
