@@ -388,8 +388,8 @@ function mkLaugh(){
   }
   if (n > 1) gxCallout('哈哈哈哈哈', `一口气笑跑 ${n} 只猴子`, '#c0392b');
 }
-wgAddTarget(() => MK.pool.filter(m => m.on && m.st !== 'scared' && m.st !== 'drop').map(m => ({x:m.x, z:m.z, r:m.big ? .95 : .65, hit:(p, i) => mkHit(m, p, i)})));
-const MK_TREE_R = 9.5, MK_DODGE = [.4, .5, .6, .7];
+wgAddTarget(() => MK.pool.filter(m => m.on && m.st !== 'scared' && m.st !== 'drop').map(m => ({x:m.x, z:m.z, r:m.big ? .95 : .6, hit:(p, i) => mkHit(m, p, i)})));
+const MK_TREE_R = 9.5, MK_DODGE = [.5, .58, .66, .74];
 /* A jet is coming this way: hop sideways off its line. Not when it is fired from point blank, not twice in a row, not while winding up a pass,
    never the king. The hop is short enough that the player sees it was close, and the scatter nozzle's side jets catch it. */
 function mkDodge(m, lv){
@@ -507,7 +507,10 @@ function mkStep(m, dt, px, pz, slow, sp, lv){
       if (m.tired > 0){ m.tired -= dt; m.h = Math.atan2(dx, dz); if (m.tired <= 0) m.stam = 2 + .35 * lv; }
       else if (d < 12 && m.stam > 0){ mkGo(m, m.x + (ax - az * wv) * 6, m.z + (az + ax * wv) * 6, 8.8 + .4 * lv, dt); m.stam -= dt; if (m.stam <= 0){ m.tired = 2.3 - .3 * lv; mkSqueak(); } }
       else if (d > 21) mkGo(m, px, pz, 6, dt);      /* do not wander off: come back and tease */
-      else { m.h = Math.atan2(dx, dz); m.stam = Math.min(2 + .35 * lv, m.stam + dt * .6); }
+      else {      /* out of reach: it does not stand there as a target, it skips from side to side with the bag */
+        if ((m.covT -= dt) <= 0){ m.covT = 1 + rnd() * 1.2; m.side = -m.side; }
+        mkGo(m, m.x - az * m.side * 4 + ax * (d < 15 ? 2 : -1), m.z + ax * m.side * 4 + az * (d < 15 ? 2 : -1), 4.6 + .3 * lv, dt); m.stam = Math.min(2 + .35 * lv, m.stam + dt * .6);
+      }
       break; }
     case 'tree': {      /* up a tree at the rim: run there, climb, throw a couple from the branch, come down */
       const T = m.tree; if (!T || T.o.down || T.o.hidden){ if (T){ T.m = null; m.tree = null; } m.st = 'throw'; m.cd = 1; m.air = m.up; m.vAir = 0; m.up = 0; break; }
@@ -560,7 +563,7 @@ function mkStep(m, dt, px, pz, slow, sp, lv){
 /* ---------- 猴子大战 ---------- */
 const MK_MEDAL = [.45, .25];      /* share of the time that must be left for gold / silver */
 function mkWarStart(){
-  mkClear(); const lv = smLv(), need = 10 + 2 * lv, limit = 80 + 8 * lv;
+  mkClear(); const lv = smLv(), need = 10 + 2 * lv, limit = 75 + 8 * lv;
   MK.war = {t:0, lv, need, limit, done:0, got:0, spawned:0, spawnCd:.4, cap:Math.min(MK_N, 4 + lv), bigs:[1, 1, 1, 2][lv], ot:false};
   MK.rage = 0; for (const h of MK.homes) h.m = null;
   mkMark.visible = false; mkLbl.dead = true; sfx.ding(); mkScreech();

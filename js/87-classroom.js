@@ -446,7 +446,7 @@ achAdd([['wg1', '水枪改装', '在水枪工坊升级一次', 20], ['wgmax', '�
 function wgStat(){
   const u = prog.up;
   return {range:16 + 3.5 * (u.wr || 0), power:(1 + .3 * (u.wp || 0)) * (u.wx >= 2 ? 1.4 : 1), max:6 + 2 * (u.wt || 0), regen:1.6 * Math.pow(.75, u.wg || 0),
-    multi:u.wx >= 1 ? 3 : 1, push:u.wx >= 2, speed:32 * (1 + .14 * (u.wp || 0)), w:u.wx >= 2 ? .75 : .6};
+    multi:u.wx >= 1 ? 3 : 1, push:u.wx >= 2, speed:32 * (1 + .14 * (u.wp || 0)), w:u.wx >= 2 ? .65 : .5};
 }
 function wgRefresh(fill){ WG.max = wgStat().max; WG.ammo = fill ? WG.max : Math.min(WG.ammo, WG.max); wgShow(); }
 function wgShow(){
