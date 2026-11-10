@@ -21,11 +21,12 @@ const XQ = window.XQ = (() => {
   const mem = navigator.deviceMemory || 0, cores = navigator.hardwareConcurrency || 0;
   /* pr: 像素比上限；aa: 抗锯齿（只在打开页面时生效）；shadow: 0 关 / 1 普通 / 2 柔和；smap: 阴影贴图边长；
      lod: 近处精细模型的距离倍数；props: 小物件多远以内才画（米）；particles: 粒子密度倍数；
-     bloom: 泛光；water: 水面波纹和反光；wind: 树叶摆动；glow: 夜晚路灯光斑；npcDetail: 行人四肢多远以内才画（米） */
+     bloom: 泛光；water: 水面波纹和反光；wind: 树叶摆动；glow: 夜晚路灯光斑；npcDetail: 行人四肢多远以内才画（米）；
+     detail: 地面的草纹、路面颗粒和铺装缝；tex: 外墙贴图边长；planes: 奶娃航班间隔倍数（0 = 不飞） */
   const CFG = {
-    low:  {pr:1,   aa:false, shadow:0, smap:0,                   lod:.6,  props:260, particles:.35, bloom:false, water:false, wind:false, glow:false, npcDetail:120, tex:256},
-    mid:  {pr:1.5, aa:true,  shadow:1, smap:2048,                lod:1,   props:420, particles:.7,  bloom:false, water:true,  wind:false, glow:true,  npcDetail:220, tex:256},
-    high: {pr:2,   aa:true,  shadow:2, smap:touch ? 2048 : 4096, lod:1.5, props:650, particles:1,   bloom:true,  water:true,  wind:true,  glow:true,  npcDetail:400, tex:512}
+    low:  {pr:1,   aa:false, shadow:0, smap:0,                   lod:.6,              props:260, particles:.35, bloom:false, water:false, wind:false, glow:false, npcDetail:120, detail:false, tex:256, planes:2.5},
+    mid:  {pr:1.5, aa:true,  shadow:1, smap:touch ? 1536 : 2048, lod:touch ? .85 : 1, props:420, particles:.7,  bloom:false, water:true,  wind:false, glow:true,  npcDetail:220, detail:true,  tex:touch ? 256 : 512, planes:1},
+    high: {pr:2,   aa:true,  shadow:2, smap:touch ? 2048 : 4096, lod:1.4,             props:650, particles:1,   bloom:true,  water:true,  wind:true,  glow:true,  npcDetail:400, detail:true,  tex:512, planes:1}
   };
   /* 没选过的时候：手机默认标准，内存小的手机默认流畅；电脑默认高清，内存小的默认标准 */
   function guess(){ const small = mem && mem <= 4; return touch ? (small ? 'low' : 'mid') : (small || (cores && cores <= 2) ? 'mid' : 'high'); }

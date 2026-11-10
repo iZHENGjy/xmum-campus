@@ -115,7 +115,7 @@ function paintAtlas(){
 }
 paintAtlas(); document.fonts && document.fonts.ready.then(paintAtlas);
 const townMat = regWet(new THREE.MeshStandardMaterial({color:'#ffffff', vertexColors:true, map:atlTex, emissive:'#ffffff', emissiveMap:emTex, emissiveIntensity:0, roughness:.8}), .45);
-const outGroundMat = regWet(M('#ffffff', {vertexColors:true, roughness:.85, polygonOffset:true, polygonOffsetFactor:-5, polygonOffsetUnits:-20, side:THREE.DoubleSide}), .3);
+const outGroundMat = regWet(M('#d4d4d4', {vertexColors:true, roughness:.85, polygonOffset:true, polygonOffsetFactor:-5, polygonOffsetUnits:-20, side:THREE.DoubleSide}), .3);
 const outMarkMat = M('#ffffff', {vertexColors:true, roughness:.7, polygonOffset:true, polygonOffsetFactor:-9, polygonOffsetUnits:-36, side:THREE.DoubleSide});
 
 /* ---------- tiny geometry builder: quads with position, normal, atlas uv and vertex colour, merged into one mesh per area ---------- */

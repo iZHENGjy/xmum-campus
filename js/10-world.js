@@ -15,19 +15,19 @@ function flatPoly(pts, mat, y, smooth){
   return {mesh:m, poly:s.getPoints(10).map(p => [p.x, -p.y])};
 }
 const pxPts = arr => arr.map(p => P(p[0], p[1]));
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), regWet(M('#4f7a3b'), .6));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), regWet(M('#3c5f2e'), .6));
 ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
-flatPoly(pxPts([[300,870],[100,820],[25,690],[22,320],[80,120],[240,20],[560,5],[1840,12],[1925,100],[1925,870]]), regWet(flatMat('#74a955', 1), .55), .02, false);
+flatPoly(pxPts([[300,870],[100,820],[25,690],[22,320],[80,120],[240,20],[560,5],[1840,12],[1925,100],[1925,870]]), regWet(flatMat('#466b33', 1), .55), .02, false);
 const FOREST = pxPts([[330,60],[760,45],[790,240],[900,290],[980,440],[900,540],[760,600],[560,640],[510,560],[500,440],[330,260],[250,170]]);
-flatPoly(FOREST, regWet(flatMat('#4d8a3e', 2), .6), .03, true);
+flatPoly(FOREST, regWet(flatMat('#365c2c', 2), .6), .03, true);
 const LAWN_SQ = pxPts([[385,140],[600,130],[640,200],[630,330],[400,340],[380,250]]);
-flatPoly(LAWN_SQ, regWet(flatMat('#8cbf62', 3), .55), .035, false);
+flatPoly(LAWN_SQ, regWet(flatMat('#527838', 3), .55), .035, false);
 const GATE_LAWNS = [pxPts([[890,738],[1000,712],[1166,706],[1166,800],[900,800]]), pxPts([[1194,706],[1350,708],[1500,722],[1500,800],[1194,800]])];
-const gateLawnMat = regWet(flatMat('#8cc461', 3), .55);
+const gateLawnMat = regWet(flatMat('#4f7436', 3), .55);
 GATE_LAWNS.forEach(L => flatPoly(L, gateLawnMat, .035, true));
 
 /* ---------- roads ---------- */
-const asphalt = regWet(flatMat('#74716b', 4), .28), paving = regWet(flatMat('#9c917e', 5), .32), pathMat = regWet(flatMat('#a59a86', 6), .35);
+const asphalt = regWet(flatMat('#605e5a', 4), .28), paving = regWet(flatMat('#8b8170', 5), .32), pathMat = regWet(flatMat('#92886f', 6), .35);
 const ROADS = [
   {w:12, m:asphalt, p:[[300,855],[120,815],[45,690],[40,320],[95,140],[240,40],[560,22],[1000,25],[1500,28],[1830,35],[1905,110],[1905,855],[300,855]]},
   {w:10, m:asphalt, p:[[1905,340],[1580,340]]},
@@ -50,7 +50,7 @@ const ROADS = [
   {w:6,  m:pathMat, p:[[1450,500],[1560,520]]}
 ];
 const ROADS_W = ROADS.map(r => ({w:r.w, m:r.m, p:pxPts(r.p)}));
-const kerbMat = regWet(flatMat('#b9b0a0', 3), .4);
+const kerbMat = regWet(flatMat('#a39a8b', 3), .4);
 const KERBS = ROADS_W.filter(r => r.m === asphalt).map(r => ({w:r.w + 2.6, m:kerbMat, p:r.p}));
 (function buildRoads(){
   const byMat = new Map();
@@ -93,8 +93,8 @@ function segDist(x, z, a, b){
 const onRoad = (x, z, pad) => roadSegs.some(s => segDist(x, z, s.a, s.b) < s.h + pad);
 
 /* ---------- lakes ---------- */
-const waterMat = M('#3f8fb0', {roughness:.18, metalness:.15, polygonOffset:true, polygonOffsetFactor:-9, polygonOffsetUnits:-36, side:THREE.DoubleSide});
-const rimMat = flatMat('#cfc2aa', 7);
+const waterMat = M('#4f877a', {roughness:.18, metalness:.15, polygonOffset:true, polygonOffsetFactor:-9, polygonOffsetUnits:-36, side:THREE.DoubleSide});
+const rimMat = flatMat('#b3a791', 7);
 const lakeInfo = {name:'中心湖', tag:'景观', desc:'两片相连的湖，北边是 LY 宿舍区，南边是教学楼。西边那片的尽头是音乐岛。', spawn:[228, 37, 0]};
 const LAKE_PX = [
   [[1030,270],[1100,250],[1200,255],[1280,275],[1300,305],[1250,328],[1150,342],[1060,335],[1035,305]],
@@ -110,38 +110,96 @@ LAKE_PX.forEach(px => {
 });
 addLabel('中心湖', ...(() => { const p = P(1380, 410); return [p[0], 6, p[1]]; })(), true);
 
-/* Musical Island: pink shell dome */
+/* low-poly helpers for curved stonework and stepped lawns (all end up in one vertex-coloured mesh per feature) */
+function quadGeo(a, b, c, e, col){ const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute([...a, ...b, ...c, ...a, ...c, ...e], 3)); g.computeVertexNormals(); return geoTint(g, col); }
+/* ring sector with a flat top at height y1 and a riser on its inner edge from y0 (angles in radians, measured from +x toward +z) */
+function arcStep(list, cx, cz, r0, r1, a0, a1, y0, y1, top, riser, seg){
+  for (let i = 0; i < seg; i++){
+    const b0 = a0 + (a1 - a0) * i / seg, b1 = a0 + (a1 - a0) * (i + 1) / seg, c0 = Math.cos(b0), s0 = Math.sin(b0), c1 = Math.cos(b1), s1 = Math.sin(b1);
+    list.push(quadGeo([cx + c0 * r0, y1, cz + s0 * r0], [cx + c0 * r1, y1, cz + s0 * r1], [cx + c1 * r1, y1, cz + s1 * r1], [cx + c1 * r0, y1, cz + s1 * r0], top),
+      quadGeo([cx + c0 * r0, y0, cz + s0 * r0], [cx + c0 * r0, y1, cz + s0 * r0], [cx + c1 * r0, y1, cz + s1 * r0], [cx + c1 * r0, y0, cz + s1 * r0], riser));
+  }
+}
+
+/* 芙蓉湖石拱桥: a nine-arch stone footbridge across the waist of the big lake (to look at: the water under it is still out of bounds) */
+(function(){
+  const [bx, z0] = P(1290, 341), z1 = P(1290, 484)[1], L = z1 - z0, N = 9, span = L / N, W = 3.8, STONE = '#cdc6b7', DARK = '#a79f90', CAP = '#e2dccf', parts = [];
+  const info = {name:'芙蓉湖石拱桥', tag:'景观', desc:'横跨湖面的多孔石拱桥，是湖边最上镜的地方。游戏里只能在岸上看：桥下的水面还是不能走。', spawn:[bx - 16, z0 - 8, -2.2]};
+  const deckY = t => 1.1 + 2.3 * (1 - Math.pow(2 * t - 1, 2));   /* gentle camber: higher in the middle */
+  const M2 = 8;
+  for (let k = 0; k < N; k++){
+    const za = z0 + k * span, r = span / 2 - .55, zc = za + span / 2;
+    for (let i = 0; i < M2; i++){
+      const u0 = i / M2, u1 = (i + 1) / M2, p0 = za + u0 * span, p1 = za + u1 * span, t0 = (p0 - z0) / L, t1 = (p1 - z0) / L;
+      const arc = p => { const dz = Math.abs(p - zc); return dz >= r ? -.6 : -.6 + Math.sqrt(r * r - dz * dz) * .62; };   /* flattened arch springing below the water line */
+      const a0 = arc(p0), a1 = arc(p1), d0 = deckY(t0) - .25, d1 = deckY(t1) - .25;
+      for (const s of [-1, 1]){
+        const x = bx + s * W / 2;
+        parts.push(s > 0 ? quadGeo([x, a0, p0], [x, d0, p0], [x, d1, p1], [x, a1, p1], STONE) : quadGeo([x, a0, p1], [x, d1, p1], [x, d0, p0], [x, a0, p0], STONE));
+        /* parapet */
+        const xo = bx + s * (W / 2 + .12), xi = bx + s * (W / 2 - .2), yt0 = deckY(t0) + .85, yt1 = deckY(t1) + .85;
+        parts.push(s > 0 ? quadGeo([xo, d0, p0], [xo, yt0, p0], [xo, yt1, p1], [xo, d1, p1], CAP) : quadGeo([xo, d0, p1], [xo, yt1, p1], [xo, yt0, p0], [xo, d0, p0], CAP),
+          s > 0 ? quadGeo([xi, yt0, p0], [xi, d0 + .25, p0], [xi, d1 + .25, p1], [xi, yt1, p1], CAP) : quadGeo([xi, yt1, p1], [xi, d1 + .25, p1], [xi, d0 + .25, p0], [xi, yt0, p0], CAP),
+          quadGeo([xi, yt0, p0], [xi, yt1, p1], [xo, yt1, p1], [xo, yt0, p0], CAP));
+      }
+      /* deck and the underside of the arch */
+      parts.push(quadGeo([bx - W / 2, d0 + .25, p0], [bx - W / 2, d1 + .25, p1], [bx + W / 2, d1 + .25, p1], [bx + W / 2, d0 + .25, p0], '#bdb5a5'),
+        quadGeo([bx - W / 2, a0, p0], [bx + W / 2, a0, p0], [bx + W / 2, a1, p1], [bx - W / 2, a1, p1], DARK));
+    }
+    /* cutwater pier between two arches */
+    if (k) parts.push(geoTint(new THREE.CylinderGeometry(.75, .95, 2.4, 6).translate(bx - W / 2 - .35, .2, za), DARK), geoTint(new THREE.CylinderGeometry(.75, .95, 2.4, 6).translate(bx + W / 2 + .35, .2, za), DARK));
+  }
+  /* abutments and a few steps down to each bank */
+  for (const [zz, dir] of [[z0, -1], [z1, 1]]) for (let i = 0; i < 4; i++) parts.push(geoTint(new THREE.BoxGeometry(W + .5, 1.1 - i * .27, 1).translate(bx, (1.1 - i * .27) / 2, zz + dir * (.5 + i)), STONE));
+  const m = new THREE.Mesh(geoMerge(parts), decoMat); m.castShadow = m.receiveShadow = true; m.userData.info = info; pickables.push(m); scene.add(m);
+  addLabel('石拱桥', bx, 9, (z0 + z1) / 2, true);
+})();
+
+/* Musical Island: a ribbed red-and-white shell, with a fan of grass steps beside it */
 structBlock(function(){
   const [x, z] = P(1015, 295);
-  const info = {name:'音乐岛', tag:'景观', desc:'湖西端的粉色贝壳形圆顶，平面图上叫 Musical Island。从高处看像一枚扣在湖边的贝壳。', spawn:[-3, -66, 0.4]};
+  const info = {name:'音乐岛', tag:'景观', desc:'湖西端红白相间的贝壳形穹顶，平面图上叫 Musical Island，旁边是一圈草坪台阶。从高处看像一枚扣在湖边的贝壳。', spawn:[-3, -66, 0.4]};
   const base = new THREE.Mesh(new THREE.CylinderGeometry(15, 16, .8, 40), granite); base.position.set(x, .4, z); base.receiveShadow = true; scene.add(base);
   const shellGeo = new THREE.SphereGeometry(1, 40, 16, 0, Math.PI * 2, 0, Math.PI / 2);
   const p = shellGeo.attributes.position;
   for (let i = 0; i < p.count; i++){ const vx = p.getX(i), vz = p.getZ(i), a = Math.atan2(vz, vx), f = 1 + .06 * Math.cos(a * 14); p.setX(i, vx * f); p.setZ(i, vz * f); }
   shellGeo.computeVertexNormals();
-  const shell = new THREE.Mesh(shellGeo, M('#e6a7b4', {roughness:.5})); shell.scale.set(11, 7.5, 11); shell.position.set(x, .8, z);
+  /* white panels between red ribs (the ribs sit on the scallop ridges) and red hoops; the dark arch is the open mouth toward the lake */
+  const scv = document.createElement('canvas'); scv.width = 512; scv.height = 256; const sg = scv.getContext('2d');
+  sg.fillStyle = '#f6f1e8'; sg.fillRect(0, 0, 512, 256);
+  sg.fillStyle = '#3b2824'; sg.beginPath(); sg.ellipse(256, 256, 44, 150, 0, 0, 7); sg.fill();
+  sg.fillStyle = '#c9382d'; for (let k = 0; k <= 14; k++){ sg.fillRect(k * 512 / 14 - 5, 0, 10, 256); sg.fillRect((k + .5) * 512 / 14 - 1.5, 0, 3, 256); }
+  for (let j = 1; j < 7; j++) sg.fillRect(0, 256 * j / 7 - 1.5, 512, 3);
+  sg.fillRect(0, 248, 512, 8);
+  const stex = new THREE.CanvasTexture(scv); stex.anisotropy = ANISO;
+  const shell = new THREE.Mesh(shellGeo, new THREE.MeshStandardMaterial({map:stex, roughness:.45})); shell.scale.set(11, 7.5, 11); shell.position.set(x, .8, z);
   shell.castShadow = shell.receiveShadow = true; scene.add(shell);
-  [base, shell].forEach(m => { m.userData.info = info; pickables.push(m); });
+  /* grass steps fanning out on the landward side */
+  const steps = [];
+  for (let k = 0; k < 3; k++) arcStep(steps, x, z, 16.4 + k * 2.3, 18.7 + k * 2.3, Math.PI * .62, Math.PI * 1.42, k * .32, (k + 1) * .32, k % 2 ? '#476a32' : '#527838', '#cfc9bb', 14);
+  const stepMesh = new THREE.Mesh(geoMerge(steps), decoMat); stepMesh.receiveShadow = true; scene.add(stepMesh);
+  [base, shell, stepMesh].forEach(m => { m.userData.info = info; pickables.push(m); });
   addCircle(x, z, 15.5); addFp({t:1, x, z, r:15});
   addLabel('音乐岛', x, 14, z, true);
 })();
 
 /* ---------- 一主四从: A1–A5 ---------- */
 const sideDesc = '"一主四从"里的"从"楼之一：讲堂、课室、电脑室和实验室都在这几栋。';
-building({arcade:true, bay:true, name:'A1', tag:'教学', desc:sideDesc + '它在最西端，紧挨礼堂。', floors:6, px:900, py:640, wp:95, dp:85, rot:18, variant:1, plaque:{text:'A1'}});
+building({arcade:true, bay:true, gable:true, eaveLight:true, name:'A1', tag:'教学', desc:sideDesc + '它在最西端，紧挨礼堂。', floors:6, px:900, py:640, wp:95, dp:85, rot:18, variant:1, plaque:{text:'A1'}});
 const A_ST = [structures[structures.length - 1]];
-building({arcade:true, bay:true, name:'A2', tag:'教学', desc:sideDesc, floors:6, px:1015, py:602, wp:100, dp:85, rot:8, plaque:{text:'A2'}});
+building({arcade:true, bay:true, gable:true, eaveLight:true, name:'A2', tag:'教学', desc:sideDesc, floors:6, px:1015, py:602, wp:100, dp:85, rot:8, plaque:{text:'A2'}});
 A_ST.push(structures[structures.length - 1]);
 const a3Info = {name:'A3 百姓大楼', tag:'主楼', floors:9,
   desc:'九层的百姓大楼，是"一主四从"主楼群正中间的主楼，正对正门。图书馆就在这里，2023 年 5 月试开放，可藏书 100 多万册，座位 2000 多个。上面几层是招生、财务等办公室。'};
 const a3s = newStruct(a3Info);
-building({arcade:true, portico:{w:36, h:13}, struct:a3s, px:1155, py:575, wp:140, dp:115, floors:5, info:a3Info, label:false, variant:1, roofH:9, plaque:{text:'百姓大楼', w:4.6}});
+/* A3 as it stands: a two-storey arcaded base with a terrace, the nine-storey block rising flush with its front, a skirt of eaves under the top floor
+   and a deep hipped roof round a flat skylit top (重檐), and in front six tall round columns on a curved porch above the wide steps. Same footprint and colliders as before. */
+building({arcade:true, portico:{w:36, h:13.4, curve:3.4, r:2.1}, flat:true, struct:a3s, px:1155, py:575, wp:140, dp:115, floors:2, info:a3Info, label:false, variant:1, plaque:{text:'百姓大楼', w:5.6, y:15.15, z:40.2}});
 A_ST.push(a3s);
-const a3t = building({struct:a3s, px:1155, py:575, wp:72, dp:58, floors:9, info:a3Info, label:false, variant:1, roofH:4, over:2.8, noCollide:true, waist:[7]});
-const a3c = building({struct:a3s, px:1155, py:575, wp:34, dp:26, floors:1.6, y0:a3t - 3.4, info:a3Info, label:'A3 百姓大楼', roofH:7, over:2.4, noCollide:true, finial:true});
-building({arcade:true, bay:true, name:'A4', tag:'教学', desc:sideDesc, floors:6, px:1295, py:580, wp:110, dp:85, plaque:{text:'A4'}});
+const a3t = building({struct:a3s, px:1155, py:585.5, wp:124, dp:92, floors:9, info:a3Info, label:'A3 百姓大楼', variant:0, roofH:8.5, over:3.8, roofCut:.6, noCollide:true, waist:[8], waistOver:3, eaveLight:true});
+building({arcade:true, bay:true, gable:true, eaveLight:true, name:'A4', tag:'教学', desc:sideDesc, floors:6, px:1295, py:580, wp:110, dp:85, plaque:{text:'A4'}});
 A_ST.push(structures[structures.length - 1]);
-building({arcade:true, bay:true, name:'A5', tag:'教学', desc:sideDesc + '再往东走就是 B1 和运动场。', floors:6, px:1425, py:585, wp:110, dp:85, rot:-3, variant:1, plaque:{text:'A5'}});
+building({arcade:true, bay:true, gable:true, eaveLight:true, name:'A5', tag:'教学', desc:sideDesc + '再往东走就是 B1 和运动场。', floors:6, px:1425, py:585, wp:110, dp:85, rot:-3, variant:1, plaque:{text:'A5'}});
 A_ST.push(structures[structures.length - 1]);
 building({name:'礼堂', tag:'教学', desc:'A1 旁边的礼堂（Auditorium）。', floors:2, px:815, py:680, wp:75, dp:42, rot:18, roof:'#b9b2a6', roofH:4, minor:true, canopy:'front', plaque:{text:'礼堂', w:4, y:5.2, z:12.65}});
 const iaec = {name:'国际学术交流中心', tag:'交流', desc:'International Academic Exchange Centre。教学区西边一排两层的小楼。'};
@@ -173,18 +231,24 @@ const p2 = {name:'研究生研究中心（二期）', tag:'二期', desc:'平面
 /* LY dorm towers + LY3 dining */
 const lyDesc = '校内宿舍楼。十字形平面的高层塔楼，房间带独立卫浴。';
 [['LY6',820,95],['LY7',945,95],['LY8',1200,90],['LY9',1340,90],['LY2',975,190],['LY4',1200,175],['LY5',1320,178]].forEach(([n, px, py]) =>
-  crossB({name:n, tag:'宿舍', desc:lyDesc, px, py, ap:64, tp:22, bp:64, floors:16, variant:2, roof:'#c24d2a', minor:true}));
-crossB({name:'LY1', tag:'LY 区', desc:'LY 区的一栋。官网的住宿页没有列出它的用途。', px:870, py:205, ap:64, tp:22, bp:64, floors:16, variant:2, roof:'#c24d2a', minor:true});
+  crossB({name:n, tag:'宿舍', desc:lyDesc, px, py, ap:64, tp:22, bp:64, floors:16, variant:2, roof:'#c24d2a', minor:true, brick:4, crown:true, digit:+n.slice(2)}));
+crossB({name:'LY1', tag:'LY 区', desc:'LY 区的一栋。官网的住宿页没有列出它的用途。', px:870, py:205, ap:64, tp:22, bp:64, floors:16, variant:2, roof:'#c24d2a', minor:true, brick:4, crown:true, digit:1});
 building({arcade:true, name:'LY3 食堂', tag:'食堂', desc:'LY 宿舍区的食堂（一楼）。南面的半圆形草坪上立着 XMUM 字样。', px:1075, py:115, wp:105, dp:115, floors:3, roofH:10, plaque:{text:'LY3 食堂', w:6, y:7.6}});
 (function(){
   const [x, z] = P(1075, 215);
-  const semi = new THREE.Mesh(new THREE.CircleGeometry(22, 32, 0, Math.PI), flatMat('#8cc461', 8));
+  const semi = new THREE.Mesh(new THREE.CircleGeometry(22, 32, 0, Math.PI), flatMat('#4f7436', 8));
   semi.rotation.x = -Math.PI / 2; semi.position.set(x, .06, z - 14); scene.add(semi);
-  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 128; const g = cv.getContext('2d');
-  g.fillStyle = '#c0392b'; g.font = '900 120px Arial Black, Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('XMUM', 256, 70);
-  const t = new THREE.CanvasTexture(cv); t.anisotropy = ANISO;
-  const word = new THREE.Mesh(new THREE.PlaneGeometry(16, 4), new THREE.MeshStandardMaterial({map:t, alphaTest:.5, side:THREE.DoubleSide}));
-  word.position.set(x, 2.3, z - 4); word.castShadow = true; scene.add(word);
+  /* XMUM spelled in clipped shrubs on a paved bed, readable from the lake side (south) */
+  const bed = new THREE.Mesh(new THREE.PlaneGeometry(40, 11), flatMat('#d8b99c', 9)); bed.rotation.x = -Math.PI / 2; bed.position.set(x, .07, z - 7); bed.receiveShadow = true; scene.add(bed);
+  const hedge = [], hr = mkRng(888), GREENS = ['#3f7d36', '#4a8a3c', '#37702f'];
+  /* a stroke from (u0, v0) to (u1, v1) in letter space: u to the east, v to the north */
+  const stroke = (cu, u0, v0, u1, v1) => {
+    const ax = x + cu + u0, az = z - 7 - v0, bx = x + cu + u1, bz = z - 7 - v1, len = Math.hypot(bx - ax, bz - az);
+    hedge.push(geoTint(geoAt(roundBox(len + 1, .95, 1.15, .28, 1), (ax + bx) / 2, .5, (az + bz) / 2, 0, Math.atan2(-(bz - az), bx - ax), 0), GREENS[(hr() * 3) | 0]));
+  };
+  const LET = {X:[[-2.4, -3.4, 2.4, 3.4], [-2.4, 3.4, 2.4, -3.4]], M:[[-2.6, -3.4, -2.6, 3.4], [2.6, -3.4, 2.6, 3.4], [-2.6, 3.4, 0, -.6], [2.6, 3.4, 0, -.6]], U:[[-2.4, 3.4, -2.4, -3.4], [2.4, 3.4, 2.4, -3.4], [-2.4, -3.4, 2.4, -3.4]]};
+  'XMUM'.split('').forEach((ch, i) => LET[ch].forEach(s => stroke(-13.5 + i * 9, ...s)));
+  const word = new THREE.Mesh(geoMerge(hedge), decoMat); word.castShadow = word.receiveShadow = true; scene.add(word);
 })();
 
 /* D dorms around D6 dining */
@@ -197,6 +261,7 @@ structBlock(function d6(){
   const base = new THREE.Mesh(new THREE.CylinderGeometry(r + 1.2, r + 1.2, 1, 48), granite); base.position.set(x, .5, z);
   const geo = new THREE.CylinderGeometry(r, r, H, 56, 1, true); const uv = geo.attributes.uv, bays = Math.round(2 * Math.PI * r / 4.5);
   for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * bays / 4, uv.getY(i) * floors / 4);
+  geoTint(geo, '#ffffff');   /* the wall materials use vertex colours */
   const body = new THREE.Mesh(geo, wallMats[1]); body.position.set(x, 1 + H / 2, z);
   const prof = []; for (let i = 0; i <= 8; i++){ const s = i / 8; prof.push(new THREE.Vector2((r + 3) * (1 - s) + r * .45 * s, 3.2 * Math.pow(s, 1.5))); }
   const roof = new THREE.Mesh(new THREE.LatheGeometry(prof, 56), M('#eceae4', {side:THREE.DoubleSide, roughness:.5})); roof.position.set(x, 1 + H, z);
@@ -313,6 +378,30 @@ structBlock(function(){
   const beam = box(2, 1.6, 20.4, white, x, 7.6, z); beam.userData.info = info; pickables.push(beam);
   const r = makeRoof(2.6, 20.6, 1.8, 1.4, roofMat('#c4502a')); r.position.set(x, 8.4, z); scene.add(r);
   addLabel('东门', x, 14, z, true);
+})();
+
+/* ---------- the stepped lawns in front of the A row: bands of lighter and darker turf following the curve of the promenade, each edged with a low stone kerb ---------- */
+(function(){
+  const line = pxPts([[760,725],[900,702],[1050,675],[1180,665],[1320,668],[1500,675],[1580,700]]), pts = [];
+  for (let i = 0; i < line.length - 1; i++){ const [x0, z0] = line[i], [x1, z1] = line[i + 1], n = Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 5); for (let k = 0; k < n; k++) pts.push([x0 + (x1 - x0) * k / n, z0 + (z1 - z0) * k / n]); }
+  pts.push(line[line.length - 1]);
+  /* smooth the polyline a little, then offset it toward the gate (south = +z) */
+  for (let it = 0; it < 6; it++) for (let i = 1; i < pts.length - 1; i++) pts[i] = [(pts[i - 1][0] + pts[i][0] * 2 + pts[i + 1][0]) / 4, (pts[i - 1][1] + pts[i][1] * 2 + pts[i + 1][1]) / 4];
+  const nor = pts.map((p, i) => { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1; return dz * 0 + 1 && [-dz / l, dx / l]; });
+  const off = (i, D) => [pts[i][0] + nor[i][0] * D, pts[i][1] + nor[i][1] * D];
+  const ok = (x, z) => x > P(905, 0)[0] && x < P(1495, 0)[0] && Math.abs(x - GX) > 11.5;
+  const turf = [], kerb = [], D0 = 8.5, BW = 6.2;
+  for (let b = 0; b < 4; b++) for (let i = 0; i < pts.length - 1; i++){
+    const a0 = off(i, D0 + b * BW), a1 = off(i + 1, D0 + b * BW), c0 = off(i, D0 + (b + 1) * BW), c1 = off(i + 1, D0 + (b + 1) * BW);
+    if (!ok(a0[0], a0[1]) || !ok(a1[0], a1[1])) continue;
+    if (b % 2 === 0) turf.push(quadGeo([a0[0], 0, a0[1]], [c0[0], 0, c0[1]], [c1[0], 0, c1[1]], [a1[0], 0, a1[1]], '#ffffff'));
+    /* kerb along the upper edge of the band: top and the face toward the gate */
+    const k0 = off(i, D0 + b * BW + .55), k1 = off(i + 1, D0 + b * BW + .55), h = .3;
+    kerb.push(quadGeo([a0[0], h, a0[1]], [k0[0], h, k0[1]], [k1[0], h, k1[1]], [a1[0], h, a1[1]], '#ded8ca'), quadGeo([k0[0], h, k0[1]], [k0[0], 0, k0[1]], [k1[0], 0, k1[1]], [k1[0], h, k1[1]], '#bfb8a8'),
+      quadGeo([a0[0], 0, a0[1]], [a0[0], h, a0[1]], [a1[0], h, a1[1]], [a1[0], 0, a1[1]], '#bfb8a8'));
+  }
+  const tm = new THREE.Mesh(geoMerge(turf), regWet(flatMat('#42622e', 4), .55)); tm.position.y = .04; tm.receiveShadow = true; scene.add(tm);
+  const km = new THREE.Mesh(geoMerge(kerb), decoMat); km.receiveShadow = true; scene.add(km);
 })();
 
 /* ---------- campus boundary hedge (visible, so the edge never feels like an invisible wall) ---------- */
@@ -433,6 +522,16 @@ const knockSets = [
   {kind:'tree', spots:blooms, ims:[instanced(stumpGeo, bark, blooms, LOD_TREE(stumpFarGeo)), instanced(canopyGeo, M('#e2662c', {flatShading:true, vertexColors:true}), blooms, LOD_TREE(canopyFarGeo))]}
 ];
 
+/* no two trees quite the same green: a private random stream tints each one (lighter, darker, yellower, bluer) */
+(function(){
+  const rr = mkRng(31337), c = new THREE.Color();
+  const tint = (set, sat, spread) => set.spots.forEach((o, i) => {
+    const v = .86 - spread / 2 + rr() * spread, h = rr() - .5;
+    c.setRGB(v * (1 + h * sat), v * (1 + Math.abs(h) * .05), v * (1 - h * sat * .8)); set.ims[1].setColorAt(i, c);
+  });
+  tint(knockSets[0], .16, .22); tint(knockSets[1], .34, .34); tint(knockSets[2], .2, .26);
+})();
+
 /* lamps */
 const lampSpots = [];
 for (let z = 140; z <= 206; z += 16) for (const sx of [-1, 1]) lampSpots.push({x:GX + sx * 8.5, z, r:0, s:1});
@@ -523,7 +622,7 @@ let collected = 0, walkStart = 0, finished = false;
 /* ---------- time of day ---------- */
 const P3 = {
   /* bg = horizon and fog colour, top = zenith colour, glow = strength of the halo round the sun or moon */
-  day:  {bg:'#a8d8f0', top:'#3f8fe0', glow:.9,  hs:'#e2f0ff', hg:'#5a7040', hi:.66, sc:'#fff3dc', si:1.16, d:[.35,.9,.28],  win:0,   lamp:0,   stars:0,  moon:0, cloud:.95, cc:'#ffffff', water:'#3f8fb0', fn:900, ff:2600},
+  day:  {bg:'#a8d8f0', top:'#3f8fe0', glow:.9,  hs:'#e2f0ff', hg:'#5a7040', hi:.68, sc:'#fff3dc', si:1.08, d:[.35,.9,.28],  win:0,   lamp:0,   stars:0,  moon:0, cloud:.95, cc:'#ffffff', water:'#4f877a', fn:900, ff:2600},
   dusk: {bg:'#f2a878', top:'#4f5f9e', glow:1.5, hs:'#ffcfa6', hg:'#4a3d38', hi:.5,  sc:'#ffa860', si:1.02, d:[-.9,.26,.25], win:.8,  lamp:.9,  stars:.1, moon:0, cloud:.8,  cc:'#ffcdb6', water:'#7b6f90', fn:700, ff:2200},
   night:{bg:'#142548', top:'#050b1d', glow:.35, hs:'#3a5385', hg:'#0e1218', hi:.42, sc:'#a9bdf5', si:.34, d:[-.35,.85,-.4],win:1.2, lamp:1.5, stars:1,  moon:1, cloud:.14, cc:'#3a4560', water:'#16263f', fn:550, ff:1900}
 };
@@ -542,6 +641,7 @@ function applyTime(k){
   hemi.color.copy(cur.hs); hemi.groundColor.copy(cur.hg); hemi.intensity = cur.hi;
   sun.color.copy(cur.sc); sun.intensity = cur.si; sun.position.copy(cur.d).multiplyScalar(1000).add(sun.target.position);
   for (const m of wallMats) m.emissiveIntensity = cur.win;
+  eaveMat.emissiveIntensity = Math.min(1.6, cur.lamp * 1.3);
   bulbMat.emissiveIntensity = cur.lamp;
   starMat.opacity = cur.stars; stars.visible = cur.stars > .01;
   moonMat.opacity = cur.moon; moon.visible = cur.moon > .01; moon.position.copy(cur.d).multiplyScalar(3600);

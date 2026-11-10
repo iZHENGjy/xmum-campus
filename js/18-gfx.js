@@ -102,7 +102,7 @@ waterMat.onBeforeCompile = sh => {
     .replace('#include <tonemapping_fragment>', `
       #ifdef XQ_WATER
         float wf = pow(1.0 - clamp(dot(normalize(vViewPosition), normal), 0.0, 1.0), 3.0);
-        gl_FragColor.rgb = mix(gl_FragColor.rgb, uSky, wf * .7);
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, uSky, wf * .55);
       #endif
       #include <tonemapping_fragment>`);
 };
@@ -133,12 +133,113 @@ const gfxWindMats = [];
   for (let k = 0; k < 3; k++) patch(knockSets[k].ims[1].all.material);
 })();
 
+/* ---------- ground detail: grass blades, asphalt grain, paving joints, and big soft patches of lighter and darker ground ----------
+   Mapped by world position in the shader, so it works on every ground mesh whether or not it has texture coordinates.
+   The textures are multipliers around mid-grey (128 = unchanged). 流畅 leaves it off. */
+const gfxTex = (() => {
+  const mk = (N, paint) => { const c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d'); g.fillStyle = 'rgb(128,128,128)'; g.fillRect(0, 0, N, N); paint(g, N);
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = ANISO; return t; };
+  const rr = mkRng(60606);
+  /* draw something at every wrap-around position so the tile has no seams */
+  const wrap = (N, x, y, r, fn) => { for (const ox of [-N, 0, N]) for (const oy of [-N, 0, N]) if (x + ox > -r && x + ox < N + r && y + oy > -r && y + oy < N + r) fn(x + ox, y + oy); };
+  const blot = mk(256, (g, N) => {
+    for (let k = 0; k < 70; k++){
+      const x = rr() * N, y = rr() * N, r = 18 + rr() * 52, t = rr(), col = t < .45 ? '78,90,66' : t < .8 ? '176,172,138' : t < .9 ? '150,160,150' : '100,116,88', al = .14 + rr() * .2;
+      wrap(N, x, y, r, (px, py) => { const gr = g.createRadialGradient(px, py, 0, px, py, r); gr.addColorStop(0, `rgba(${col},${al})`); gr.addColorStop(1, `rgba(${col},0)`); g.fillStyle = gr; g.fillRect(px - r, py - r, r * 2, r * 2); });
+    }
+  });
+  const grass = mk(128, (g, N) => {
+    for (let k = 0; k < 1500; k++){ const t = rr(), v = t < .5 ? 80 + rr() * 34 : 142 + rr() * 50; g.fillStyle = `rgba(${v | 0},${(v * 1.04) | 0},${(v * .9) | 0},.5)`; g.fillRect(rr() * N, rr() * N, 1 + rr() * 1.4, 2 + rr() * 4); }
+    for (let k = 0; k < 40; k++){ g.fillStyle = rr() < .5 ? 'rgba(206,196,110,.5)' : 'rgba(70,90,50,.45)'; g.fillRect(rr() * N, rr() * N, 2, 2); }
+  });
+  const asphalt = mk(128, (g, N) => {
+    for (let k = 0; k < 2600; k++){ const v = rr() < .55 ? 84 + rr() * 30 : 140 + rr() * 60; g.fillStyle = `rgba(${v | 0},${v | 0},${v | 0},.55)`; g.fillRect(rr() * N, rr() * N, 1 + rr(), 1 + rr()); }
+    g.strokeStyle = 'rgba(60,60,60,.35)'; g.lineWidth = .8;
+    for (let k = 0; k < 5; k++){ let x = rr() * N, y = rr() * N; g.beginPath(); g.moveTo(x, y); for (let j = 0; j < 6; j++){ x += (rr() - .5) * 26; y += (rr() - .5) * 26; g.lineTo(x, y); } g.stroke(); }
+    for (let k = 0; k < 4; k++){ const x = rr() * N, y = rr() * N, r = 10 + rr() * 16; wrap(N, x, y, r, (px, py) => { const gr = g.createRadialGradient(px, py, 0, px, py, r); gr.addColorStop(0, 'rgba(84,84,84,.3)'); gr.addColorStop(1, 'rgba(84,84,84,0)'); g.fillStyle = gr; g.fillRect(px - r, py - r, r * 2, r * 2); }); }
+  });
+  const pave = mk(128, (g, N) => {
+    const n = 4, s = N / n;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n * 2; j++){
+      const v = 112 + rr() * 34, x = i * s + (j % 2) * s / 2, y = j * s / 2;
+      for (const ox of [0, -N]){ g.fillStyle = `rgb(${v | 0},${(v * .99) | 0},${(v * .96) | 0})`; g.fillRect(x + ox + .8, y + .8, s - 1.6, s / 2 - 1.6); }
+    }
+    g.fillStyle = 'rgba(70,64,56,.5)'; for (let j = 0; j < n * 2; j++) g.fillRect(0, j * s / 2 - .6, N, 1.4);
+    for (let i = 0; i < n; i++) for (let j = 0; j < n * 2; j++) g.fillRect(i * s + (j % 2) * s / 2 - .6, j * s / 2, 1.4, s / 2);
+    for (let k = 0; k < 500; k++){ const v = rr() < .5 ? 90 : 160; g.fillStyle = `rgba(${v},${v},${v},.25)`; g.fillRect(rr() * N, rr() * N, 1, 1); }
+  });
+  return {blot, grass, asphalt, pave};
+})();
+const gfxDetailMats = [];
+function gfxDetail(m, fine, s1, s2, gain){
+  if (!m || m.map || gfxDetailMats.indexOf(m) >= 0) return;
+  m.defines = m.defines || {}; gfxDetailMats.push(m);
+  const us = {uFine:{value:fine}, uBlot:{value:gfxTex.blot}, uDS:{value:new THREE.Vector3(s1, s2, 8 * (gain || 1))}};
+  m.onBeforeCompile = sh => {
+    Object.assign(sh.uniforms, us);
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vDPos;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\nvDPos = (modelMatrix * vec4(transformed, 1.0)).xz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vDPos; uniform sampler2D uFine, uBlot; uniform vec3 uDS;')
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        #ifdef XQ_DETAIL
+          diffuseColor.rgb *= texture2D(uFine, vDPos * uDS.x).rgb * texture2D(uBlot, vDPos * uDS.y).rgb * texture2D(uBlot, vDPos.yx * uDS.y * .21 + .37).rgb * uDS.z;
+        #endif`);
+  };
+}
+(function(){
+  gfxDetail(asphalt, gfxTex.asphalt, 1 / 2.6, 1 / 31); gfxDetail(kerbMat, gfxTex.pave, 1 / 1.2, 1 / 23);
+  gfxDetail(paving, gfxTex.pave, 1 / 2.4, 1 / 23, .95); gfxDetail(pathMat, gfxTex.pave, 1 / 2.4, 1 / 23, .95); gfxDetail(rimMat, gfxTex.pave, 1 / 2.4, 1 / 23, .95);
+  if (typeof outGroundMat !== 'undefined') gfxDetail(outGroundMat, gfxTex.asphalt, 1 / 2.6, 1 / 31);
+  if (typeof terrMat !== 'undefined') gfxDetail(terrMat, gfxTex.grass, 1 / 3.2, 1 / 47, 1);
+  /* everything else registered as ground that is green is grass */
+  for (const [m] of wetMats) if (m.color.g > m.color.r * 1.08 && m.color.g > m.color.b) gfxDetail(m, gfxTex.grass, 1 / 3.2, 1 / 47, 1);
+})();
+
+/* ---------- the far distance: two ranges of hazy hills round the horizon, and clusters of apartment towers beyond the estate ----------
+   The hills are plain silhouettes tinted toward the sky colour every frame (no fog on them: they sit past the fog). 3 draw calls in all. */
+const farHills = [];
+(function(){
+  const rr = mkRng(7007);
+  const ring = (R, base, amp, seed, col, haze) => {
+    const N = 120, pos = [], hs = [];
+    for (let i = 0; i <= N; i++){ const a = i / N * Math.PI * 2; hs.push(base + amp * (.5 + .5 * Math.sin(a * 3 + seed)) * (.55 + .45 * Math.sin(a * 7.3 + seed * 2.1)) + amp * .22 * Math.sin(a * 19 + seed * 5) + amp * .1 * Math.sin(a * 41 + seed)); }
+    hs[N] = hs[0];
+    for (let i = 0; i < N; i++){
+      const a0 = i / N * Math.PI * 2, a1 = (i + 1) / N * Math.PI * 2, x0 = Math.cos(a0) * R, z0 = Math.sin(a0) * R, x1 = Math.cos(a1) * R, z1 = Math.sin(a1) * R;
+      pos.push(x0, -30, z0, x1, -30, z1, x1, hs[i + 1], z1, x0, -30, z0, x1, hs[i + 1], z1, x0, hs[i], z0);
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({color:col, fog:false, side:THREE.DoubleSide})); m.frustumCulled = false; scene.add(m);
+    farHills.push({m, col:new THREE.Color(col), haze});
+  };
+  ring(4300, 150, 330, 1.7, '#6d8f8a', .78); ring(3300, 70, 260, 4.2, '#466b52', .56);
+  /* apartment towers: slabs with rows of windows (a few lit at night), in clusters well outside the playable map */
+  const cv = document.createElement('canvas'), ev = document.createElement('canvas'); cv.width = cv.height = ev.width = ev.height = 64;
+  const g = cv.getContext('2d'), e = ev.getContext('2d'); g.fillStyle = '#d9d6cf'; g.fillRect(0, 0, 64, 64); e.fillStyle = '#000'; e.fillRect(0, 0, 64, 64);
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++){ g.fillStyle = (r + c) % 5 ? '#6f8494' : '#8496a2'; g.fillRect(c * 8 + 1.5, r * 8 + 2, 5, 4); if (rr() < .42){ e.fillStyle = rr() < .7 ? '#ffd08a' : '#e6f0ff'; e.fillRect(c * 8 + 1.5, r * 8 + 2, 5, 4); } }
+  g.fillStyle = 'rgba(60,50,40,.18)'; for (let r = 0; r < 8; r++) g.fillRect(0, r * 8, 64, 1);
+  const mk = c => { const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; };
+  const mat = new THREE.MeshStandardMaterial({map:mk(cv), emissiveMap:mk(ev), emissive:0xffffff, emissiveIntensity:0, roughness:.85, vertexColors:true});
+  const parts = [], TINT = ['#ffffff', '#f1e6d6', '#e3e8ee', '#f3ead2', '#e9dccf'];
+  const tower = (x, z, w, d, h, tint) => {
+    const y = typeof terrainY === 'function' ? terrainY(x, z) : 0, b = new THREE.BoxGeometry(w, h, d), uv = b.attributes.uv;
+    for (let i = 0; i < uv.count; i++){ const top = i >= 8 && i < 16; uv.setXY(i, top ? .01 : uv.getX(i) * Math.round((i < 8 ? d : w) / 14), top ? .01 : uv.getY(i) * Math.round(h / 26)); }
+    parts.push(geoTint(b.translate(x, y + h / 2 - 2, z), tint));
+    parts.push(geoTint(new THREE.BoxGeometry(w * .5, 5, d * .5).translate(x, y + h, z), '#b9b3a8'));
+  };
+  for (const [cx, cz, n, sp] of [[1050, -1750, 7, 300], [1950, -900, 6, 260], [2150, 250, 5, 240], [-1900, -1100, 6, 280], [-300, -1950, 6, 300], [-2100, 300, 4, 220]])
+    for (let k = 0; k < n; k++){ const x = cx + (rr() - .5) * sp * 2, z = cz + (rr() - .5) * sp * 1.4, tall = rr(); tower(x, z, 34 + rr() * 26, 22 + rr() * 10, 80 + tall * 95, TINT[(rr() * TINT.length) | 0]); }
+  const m = new THREE.Mesh(geoMergeUV(parts), mat); m.frustumCulled = false; scene.add(m);
+  farHills.towers = mat;
+})();
+
 /* ---------- quality tier -> which of the effects above are on ---------- */
 function gfxDefine(m, name, on){ if (!!m.defines[name] === on) return; if (on) m.defines[name] = 1; else delete m.defines[name]; m.needsUpdate = true; }
 XQ.onChange(() => {
   const c = XQ.cfg;
   gfxDefine(waterMat, 'XQ_WATER', c.water);
   for (const m of gfxWindMats) gfxDefine(m, 'XQ_WIND', c.wind && !REDUCED);
+  for (const m of gfxDetailMats) gfxDefine(m, 'XQ_DETAIL', c.detail);
   if (typeof rainGeo !== 'undefined') rainGeo.setDrawRange(0, Math.floor(RAIN_N * Math.min(1, c.particles + .15)) * 2);
   /* trees outside the gate: shadows only on 高清 (they are the bulk of the shadow pass from above) */
   if (typeof OUT_SETS !== 'undefined') for (const s of OUT_SETS) if (s.kind === 'tree') for (const im of s.ims) if (im.isInstancedMesh) im.castShadow = c.shadow > 1 && !TOUCH;
@@ -212,6 +313,8 @@ function gfxRender(dt, T){
   const glow = XQ.cfg.glow && lamp > .04;
   glowMat.opacity = Math.min(1, lamp) * .5; beamMat.opacity = Math.min(1, lamp) * .42;
   for (const g of glowSets) g.im.visible = glow;
+  for (const h of farHills) h.m.material.color.copy(h.col).multiplyScalar(.25 + .75 * Math.min(1, hemi.intensity * 1.4 - .35 + sun.intensity * .2)).lerp(skyU.hor.value, h.haze + rain * (1 - h.haze) * .8);
+  farHills.towers.emissiveIntensity = cur.win * .9;
   renderer.render(scene, camera);
   if (XQ.cfg.bloom && lamp > .05) gfxPost.bloom(Math.min(1, lamp) * .6);
 }
