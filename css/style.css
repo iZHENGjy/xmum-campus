@@ -688,6 +688,7 @@ body.wd-open .topbar,body.wd-open #acts,body.wd-open #joy,body.wd-open #prompt,b
 @media (max-width:560px){
   .t-gfx{flex-basis:100%;flex-wrap:wrap;margin-left:0}
   .t-gfx-hint{display:block;flex-basis:100%}
+}
 /* ---------- 宿舍搜刮 (js/89-dorm.js, js/89-dorm-ui.js) ---------- */
 .mission.dm-urgent{color:var(--tile);font-weight:700}
 body.dm-in #prompt{display:none!important}   /* indoors the hint sits in the stack above the backpack */
@@ -799,3 +800,5 @@ body.wd-open #dmBag,body.wd-open #dmLoot,body.wd-open #dmPad{display:none!import
   .dm-keys button{min-height:40px}
   #dmEnd{padding:16px 16px 14px}
 }
+/* 喷漆车间 respray (js/88-wardrobe-ui.js): a 4-second cut scene, the HUD steps aside */
+body.sp-run .topbar,body.sp-run #acts,body.sp-run #joy,body.sp-run #prompt,body.sp-run #compass,body.sp-run #combo,body.sp-run #labels{display:none!important}

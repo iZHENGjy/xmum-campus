@@ -1,7 +1,6 @@
 /* XMUM 校园漫游 · 奶娃衣橱和喷漆店的界面、存档、成就（目录和穿戴在 js/32-wardrobe.js）
    打开时游戏暂停，镜头转到奶娃（或你的车）正面慢慢绕，点一件就试穿，买下才算数，关掉就换回原来的。
-   喷漆车间（GTA 的 Pay 'n' Spray）：地图上的车间由 window.XSPRAY = {x, z, h, r} 给出（Bell 商业区那边摆），
-   开着自己的车停进去、附近没有巡逻车，就打开喷漆店；换一种漆或贴花就清空保安警戒，收加急费每星 RM 50。
+   喷漆车间（GTA 的 Pay 'n' Spray）：开着自己的车冲进去，卷帘门落下，自动换漆，警戒清零，每星 RM 50（详见下面「喷漆车间」一节）。
    存档：localStorage 'xmum-wardrobe-v1'（Google 登录的人由 js/net.js 跟其他 xmum-* 键一起云同步）。
    对外：window.XWard = {open(kind), close(), on, lookStr()} */
 'use strict';
@@ -227,12 +226,69 @@ function wardFrame(now){
   fitShadow(Math.round(t.x / 20) * 20, Math.round(t.z / 20) * 20, 60);
   if (myCar) showCar.root.rotation.y += dt * .4;
 }
-/* ---------- 喷漆车间: drive your own car in unseen, change the paint, the alert is gone ---------- */
-const spray = {inT:0, latched:false, msg:''};
-const sprayFee = () => Math.min(money, 50 * ward.spray);
+/* ---------- 喷漆车间, GTA style: drive in and the shutter comes down ----------
+   开着自己的车冲进门就行：卷帘门落下（追兵丢了视线），车自动刹停，2~3 秒自动换一种漆，开门时警戒清零，按星收费（每星 RM 50）。
+   不用停稳、不用管附近有没有巡逻车、不用开面板，手机上一个按钮都不用点。钱不够门就不关，提示还差多少。
+   同一个车间喷完要冷却 2 分钟。没被通缉时停在车间里按 F（手机：停稳一会儿）打开完整的喷漆店挑颜色。
+   车间：window.XSPRAY.door（Bell 那间，js/13-outskirts.js），另外在车行旁边盖了一间。
+   door = {x, z 门口中点, h 朝里的朝向, w 内宽, d 进深, top 门洞高}。对外：window.XSprays */
+const SPRAY_FEE = 50, SPRAY_CD = 120;
+const SPRAYS = [];
+const sprayShutterTex = (() => {
+  const c = document.createElement('canvas'); c.width = 64; c.height = 128; const g = c.getContext('2d');
+  g.fillStyle = '#aab2ba'; g.fillRect(0, 0, 64, 128);
+  for (let y = 0; y < 116; y += 8){ g.fillStyle = '#c8cfd5'; g.fillRect(0, y, 64, 4); g.fillStyle = '#7f878f'; g.fillRect(0, y + 6, 64, 2); }
+  for (let x = 0; x < 64; x += 16){ g.fillStyle = '#f2c230'; g.fillRect(x, 116, 8, 12); g.fillStyle = '#1f2125'; g.fillRect(x + 8, 116, 8, 12); }
+  const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; t.anisotropy = ANISO; return t;
+})();
+function sprayAdd(D, name){
+  const tex = sprayShutterTex.clone(); tex.needsUpdate = true; tex.repeat.set(Math.max(1, Math.round(D.w / 2)), 1);
+  const geo = new THREE.BoxGeometry(D.w, D.top, .12).translate(0, -D.top / 2, 0);
+  const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({map:tex, roughness:.6, metalness:.3}));
+  m.position.set(D.x + Math.sin(D.h) * .2, D.top, D.z + Math.cos(D.h) * .2); m.rotation.y = D.h; m.scale.y = .02; m.visible = false; m.castShadow = true; scene.add(m);
+  const G = {D, name, door:m, k:0, cd:0, done:false, still:0, panel:false};
+  SPRAYS.push(G); return G;
+}
+function sprayDoor(G, k){ G.k = k; G.door.scale.y = Math.max(.02, k); G.door.visible = k > .03; }
+/* where p is relative to a garage: v = metres in from the door, u = metres to the side */
+function sprayAt(G, p){ const D = G.D, dx = p.x - D.x, dz = p.z - D.z, fx = Math.sin(D.h), fz = Math.cos(D.h); return {v:dx * fx + dz * fz, u:dx * fz - dz * fx}; }
+/* the Bell one (js/13-outskirts.js); without a door spec, a box in front of XSPRAY */
+if (window.XSPRAY){ const S = XSPRAY; sprayAdd(S.door || {x:S.x, z:S.z - 10, h:S.h || 0, w:12, d:16, top:3.8}, 'Bell 喷漆'); }
+/* a second one on campus, beside the XMUM 车行 turntable: back to the south fence, door facing into campus (north) */
+(function sprayCampus(){
+  const D = {x:15, z:197.4, h:0, w:11.6, d:15.6, top:3.9}, t = .4, H = 5.2, X0 = D.x - D.w / 2 - t, X1 = D.x + D.w / 2 + t, Z0 = D.z, Z1 = D.z + D.d + t;
+  if (typeof clearArea === 'function') clearArea(D.x, (Z0 + Z1) / 2 - 1.5, (X1 - X0) / 2 + 2, (Z1 - Z0) / 2 + 3);
+  const y0 = typeof groundAt === 'function' ? groundAt(D.x, D.z + D.d / 2) : 0, g = new THREE.Group(); g.position.y = y0; scene.add(g);
+  const mat = {}, mk = c => mat[c] || (mat[c] = M(c, {roughness:.75}));
+  const box = (c, x0, yA, z0, x1, yB, z1) => { const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, yB - yA, z1 - z0), mk(c)); m.position.set((x0 + x1) / 2, (yA + yB) / 2, (z0 + z1) / 2); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
+  box('#9aa3ab', X0, 0, Z0, X0 + t, H, Z1); box('#9aa3ab', X1 - t, 0, Z0, X1, H, Z1); box('#9aa3ab', X0, 0, Z1 - t, X1, H, Z1);
+  box('#dfe3e6', X0 + t, 0, Z0, X0 + t + .02, H, Z1 - t); box('#dfe3e6', X1 - t - .02, 0, Z0, X1 - t, H, Z1 - t); box('#dfe3e6', X0 + t, 0, Z1 - t - .02, X1 - t, H, Z1 - t);
+  box('#6f767d', X0 - .3, H, Z0 - .5, X1 + .3, H + .45, Z1 + .3);
+  box('#2a2d33', X0, D.top, Z0 - .05, X1, H, Z0 + .35);
+  box('#8e8a83', X0 + .02, .02, Z0 - 3, X1 - .02, .11, Z1 - .02);
+  for (let k = 0; k < 6; k++) for (const x of [X0, X1 - t]) box(k % 2 ? '#1f2125' : '#f2c230', x - .03, k * .65, Z0 - .06, x + t + .03, k * .65 + .65, Z0 + .32);
+  const sc = document.createElement('canvas'); sc.width = 512; sc.height = 96; const sg = sc.getContext('2d');
+  sg.fillStyle = '#e84d8a'; sg.fillRect(0, 0, 512, 96); sg.fillStyle = '#fff'; sg.font = '900 54px "Noto Sans SC","Microsoft YaHei",sans-serif'; sg.textAlign = 'center'; sg.textBaseline = 'middle'; sg.fillText('车行喷漆  SPRAY', 256, 50);
+  const st = new THREE.CanvasTexture(sc); st.anisotropy = ANISO;
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(D.w * .8, D.w * .8 * 96 / 512), new THREE.MeshBasicMaterial({map:st})); sign.position.set(D.x, (D.top + H) / 2, Z0 - .07); sign.rotation.y = Math.PI; g.add(sign);
+  addBox(X0 + t / 2, (Z0 + Z1) / 2, t / 2 + .05, (Z1 - Z0) / 2, 0); addBox(X1 - t / 2, (Z0 + Z1) / 2, t / 2 + .05, (Z1 - Z0) / 2, 0); addBox(D.x, Z1 - t / 2, (X1 - X0) / 2, t / 2 + .05, 0);
+  if (typeof addFp === 'function') addFp({t:0, x:D.x, z:(Z0 + Z1) / 2, w:X1 - X0, d:Z1 - Z0, rot:0, color:'#7d858d'});
+  D.top += y0; sprayAdd(D, '车行喷漆');
+})();
+
+/* a new colour for the respray: one you already own if there is one, otherwise a plain one (yours from now on) */
+function sprayPick(kind){
+  const cur = (wardSave.cars[kind] || {}).p || 'stock';
+  const own = WD_PAINTS.filter(p => wardSave.pOwn.has(p.id) && p.id !== cur);
+  const pool = own.length ? own : WD_PAINTS.filter(p => p.id !== 'stock' && p.id !== cur && p.tier === 'n' && p.price <= 80);
+  return pool[Math.floor(rnd() * pool.length)].id;
+}
+const spray = {msg:'', run:null, here:null};
+const sprayFee = () => Math.min(money, SPRAY_FEE * ward.spray);
+/* the full paint shop opened in a garage while wanted: changing the paint there clears the alert too */
 function sprayClear(){
   const st = ward.spray; ward.spray = 0; if (st < 1 || heat < 1) return null;
-  const fee = Math.min(money, 50 * st);
+  const fee = Math.min(money, SPRAY_FEE * st);
   money -= fee; moneyChanged();
   const peak = Math.max(chasePeak, st);
   heat = 0; calmT = 0; chasePeak = 0; despawnChasers();
@@ -241,24 +297,106 @@ function sprayClear(){
   return fee;
 }
 function sprayUpdate(dt){
-  spray.msg = ''; const S = window.XSPRAY;
-  if (!S || ward.on) return;
-  const p = driving || nw, d = Math.hypot(p.x - S.x, p.z - S.z), r = S.r || 4.5;
-  if (d > r){ spray.inT = 0; spray.latched = false; if (d < r + 14 && driving === myCar) spray.msg = heat >= 1 ? '开进喷漆车间换身漆，保安就认不出你' : '开进喷漆车间给车换漆'; return; }
-  if (spray.latched) return;
-  if (!driving){ spray.msg = '喷漆车间：开着自己的车进来'; return; }
-  if (driving !== myCar){ spray.msg = '喷漆车间只给你自己的车喷漆'; return; }
-  if (heat >= 1 && patrols.some(c => c.active && Math.hypot(c.x - p.x, c.z - p.z) < 60)){ spray.msg = '保安看着呢，先甩开他们再进来'; spray.inT = 0; return; }
-  if (Math.hypot(driving.vx, driving.vz) > 2.5){ spray.msg = '停稳车，开始喷漆'; spray.inT = 0; return; }
-  spray.inT += dt; spray.msg = '喷漆车间';
-  if (spray.inT > .6){ spray.latched = true; wardOpen('car', true); }
+  spray.msg = ''; spray.here = null;
+  if (ward.on || spray.run || !SPRAYS.length) return;
+  const p = driving || nw, now = Date.now(), wanted = heat >= 1;
+  for (const G of SPRAYS){
+    const a = sprayAt(G, p), inside = a.v > 1.2 && a.v < G.D.d && Math.abs(a.u) < G.D.w / 2;
+    if (!inside){
+      if (a.v < .5 || Math.abs(a.u) > G.D.w){ G.done = false; G.panel = false; G.still = 0; }
+      if (driving === myCar && a.v > -16 && a.v <= 1.2 && Math.abs(a.u) < G.D.w * .8)
+        spray.msg = wanted ? (G.cd > now ? `这间车间刚喷过，还要等 ${Math.ceil((G.cd - now) / 1000)} 秒，去另一间` : `直接开进去：卷帘门一关就换漆甩掉保安（每星 RM ${SPRAY_FEE}）`) : '喷漆车间：开进去给车换漆';
+      continue;
+    }
+    if (!driving){ spray.msg = '喷漆车间：开着自己的车进来'; return; }
+    if (driving !== myCar){ spray.msg = '喷漆车间只给你自己的车喷漆'; return; }
+    if (wanted && !G.done){
+      const left = Math.ceil((G.cd - now) / 1000), stars = Math.min(5, Math.floor(heat)), fee = SPRAY_FEE * stars;
+      if (left > 0){ spray.msg = `这间车间刚喷过，还要等 ${left} 秒，去另一间`; return; }
+      if (money < fee){ spray.msg = `喷漆要 ${fmtRM(fee)}，还差 ${fmtRM(Math.ceil(fee - money))}，门不关`; return; }
+      sprayRun(G, stars, fee); return;
+    }
+    /* not wanted (or just resprayed): pick a colour yourself */
+    spray.here = G;
+    G.still = Math.hypot(driving.vx, driving.vz) < 1 ? G.still + dt : 0;
+    spray.msg = G.done ? '喷好了，开出去吧' : TOUCH ? '停稳一会儿就打开喷漆店' : '按 F 打开喷漆店挑颜色';
+    if (TOUCH && !G.done && !G.panel && G.still > 1.2) sprayPanel(G);
+    return;
+  }
 }
+function sprayPanel(G){ G.panel = true; wardOpen('car', true); if (G.cd > Date.now() && ward.spray){ ward.spray = 0; wardRender(); } }
+/* the respray: the car rolls in and stops, shutter down, a mist of the new colour, shutter up, stars gone */
+function sprayRun(G, stars, fee){
+  const D = G.D, c = myCar, fx = Math.sin(D.h), fz = Math.cos(D.h), park = Math.min(D.d - c.T.L / 2 - .8, Math.max(c.T.L / 2 + 1.6, D.d * .55));
+  const cam = camera.position.clone();
+  if (sprayAt(G, cam).v > -2) cam.set(D.x - fx * 8, D.top + 1.4, D.z - fz * 8);   /* watch the door from outside */
+  spray.run = {G, stars, fee, t:0, c, x0:c.x, z0:c.z, h0:c.h, x1:D.x + fx * park, z1:D.z + fz * park, h1:D.h, cam, paint:sprayPick(c.kind), painted:false, cleared:false, was:gx.paused, last:0};
+  gx.paused = true; keys.Space = false; engineUpdate(0, 0, false); c.vx = c.vz = 0;
+  document.body.classList.add('sp-run');
+  tone('square', 140, 90, .5, .06); noise(.6, .12, 400);
+  requestAnimationFrame(sprayFrame);
+}
+const _spL = new THREE.Vector3(), spWrap = a => Math.atan2(Math.sin(a), Math.cos(a));
+function sprayFrame(now){
+  const R = spray.run; if (!R) return;
+  requestAnimationFrame(sprayFrame);
+  const dt = Math.min(.05, (now - (R.last || now)) / 1000); R.last = now; R.t += dt;
+  const t = R.t, G = R.G, D = G.D, c = R.c, fx = Math.sin(D.h), fz = Math.cos(D.h);
+  /* 0 – .8 s: roll in to the middle and stop while the shutter drops */
+  const k = 1 - Math.pow(1 - Math.min(1, t / .8), 3);
+  c.x = R.x0 + (R.x1 - R.x0) * k; c.z = R.z0 + (R.z1 - R.z0) * k; c.h = R.h0 + spWrap(R.h1 - R.h0) * k; c.vx = c.vz = 0; c.steer = 0;
+  c.y = groundAt(c.x, c.z); c.root.position.set(c.x, c.y, c.z); c.root.rotation.set(0, c.h, 0);
+  sprayDoor(G, t < 3.1 ? Math.min(1, t / .75) : Math.max(0, 1 - (t - 3.1) / .7));
+  _spL.set(c.x, c.y + c.T.H * .45, c.z);
+  if (t < .9 || t > 3.1){ camera.position.copy(R.cam); camera.lookAt(t < .9 ? _spL : _spL.set(D.x, D.top * .5, D.z)); }
+  else {
+    /* inside: from a back corner, looking at the nose */
+    const rx = fz, rz = -fx, b = D.d - 1.1; camera.position.set(D.x + fx * b + rx * (D.w / 2 - 1.1), c.y + 2.7, D.z + fz * b + rz * (D.w / 2 - 1.1)); camera.lookAt(_spL);
+    if (rnd() < .7){
+      const s = rnd() < .5 ? -1 : 1, al = (rnd() - .5) * c.T.L, cf = Math.sin(c.h), cz = Math.cos(c.h);
+      spawnPart('dust', c.x + cf * al + cz * s * c.T.W * .7, c.y + .3 + rnd() * c.T.H, c.z + cz * al - cf * s * c.T.W * .7, .7 + rnd() * .6,
+        {grow:1.5, vx:cz * s * 1.2, vy:.5 + rnd() * .6, vz:-cf * s * 1.2, life:.9 + rnd() * .5, op:.7, color:WD_PAINT[R.paint].color || '#ffffff'});
+    }
+    if (t > 1.0 && t - dt <= 1.0){ tone('sawtooth', 5200, 3800, 1.1, .03); tone('square', 6400, 5600, .9, .018, .1); }
+    if (!R.painted && t > 1.7){
+      R.painted = true; const w = wardSave.cars[c.kind] || (wardSave.cars[c.kind] = {p:'stock', d:'none'});
+      wardSave.pOwn.add(R.paint); w.p = R.paint; wardWrite(); wardPaintMine(); sfx.sparkle(); unlock('repaint');
+    }
+  }
+  updateParts(dt);
+  fitShadow(Math.round(c.x / 20) * 20, Math.round(c.z / 20) * 20, 60);
+  /* shutter going up: the alert is gone */
+  if (!R.cleared && t > 3.1){
+    R.cleared = true; const fee = Math.min(money, R.fee), peak = Math.max(chasePeak, R.stars);
+    money -= fee; moneyChanged(); heat = 0; calmT = 0; chasePeak = 0; despawnChasers(); G.cd = Date.now() + SPRAY_CD * 1000; G.done = true;
+    sfx.ding(); if (peak >= 4) unlock('escape4');
+    R.msg = [`换成了${WD_PAINT[R.paint].name}，保安认不出你了`, `警戒解除 · 喷漆费 ${fmtRM(fee)}（每星 RM ${SPRAY_FEE}）`];
+  }
+  if (t > 3.85){
+    spray.run = null; sprayDoor(G, 0); document.body.classList.remove('sp-run');
+    gx.paused = R.was; camYaw = c.h + Math.PI;
+    gx.callout('甩掉了！', WD_PAINT[R.paint].name, '#e84d8a'); toast(R.msg[0], R.msg[1], 3000);
+  }
+}
+/* F in the garage (not wanted) opens the full paint shop instead of getting out; nothing works during the respray */
+window.addEventListener('keydown', e => {
+  if (spray.run){ e.preventDefault(); e.stopImmediatePropagation(); return; }
+  if ((e.code !== 'KeyF' && e.code !== 'Enter') || e.repeat || ward.on || !spray.here || mode !== 'naiwa' || gx.paused) return;
+  if (driving !== myCar || Math.hypot(driving.vx, driving.vz) > 4) return;
+  e.preventDefault(); e.stopImmediatePropagation(); sprayPanel(spray.here);
+}, true);
 {
   const up = gx.update, pr = gx.prompt, mi = gx.mini;
   gx.update = function(dt, px, pz){ up.call(this, dt, px, pz); sprayUpdate(dt); };
   gx.prompt = function(){ return spray.msg || pr.call(this); };
-  gx.mini = function(dot){ mi.call(this, dot); if (window.XSPRAY) dot(XSPRAY.x, XSPRAY.z, '#e84d8a', 7); };
+  /* on the minimap; while you are wanted the ones you can use pulse */
+  gx.mini = function(dot){
+    mi.call(this, dot);
+    const hot = heat >= 1, pulse = .5 + .5 * Math.sin(performance.now() / 160), now = Date.now();
+    for (const G of SPRAYS){ const on = hot && G.cd <= now; dot(G.D.x + Math.sin(G.D.h) * G.D.d / 2, G.D.z + Math.cos(G.D.h) * G.D.d / 2, on && pulse > .5 ? '#ffffff' : '#e84d8a', on ? 9 + pulse * 4 : 7); }
+  };
 }
+window.XSprays = SPRAYS;
 
 /* drag on the 3D view to turn the model */
 canvas.addEventListener('pointerdown', e => { if (ward.on) ward.drag = {id:e.pointerId, x:e.clientX}; });
