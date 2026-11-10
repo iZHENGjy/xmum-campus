@@ -19,7 +19,7 @@ const dmG = new THREE.Group(); dmG.visible = false; scene.add(dmG);
 /* ---------- save: records and achievements live in the main save (js/80-gta.js) ---------- */
 const DM_LIFE = ['dormRuns', 'dormOut', 'dormPz', 'dormThief', 'dormTok'];
 for (const k of DM_LIFE) prog.life[k] = 0;
-const DM_ACH = [['dorm1', '门禁前回来了', '第一次从宿舍带着东西撤离', 20], ['dorm200', '满载而归', '一次从宿舍带出价值 RM 200 以上的东西', 60],
+const DM_ACH = [['dorm1', '门禁前回来了', '第一次从宿舍带着东西撤离', 20], ['dormrich', '满载而归', '一次从宿舍带出价值 RM 300 以上的东西', 60],
   ['dormpz', '寝室神探', '在宿舍累计解开 5 个谜题', 50], ['dormthief', '外卖守护者', '在宿舍抓住偷外卖的小偷', 40], ['dormghost', '查寝隐身', '全程没被宿管发现，带着东西撤离', 50]];
 if (typeof achAdd === 'function') achAdd(DM_ACH); else ACH.push(...DM_ACH);
 /* the loader in js/80-gta.js ran before this file: it only kept the ids and counters it knew, so read ours again */
@@ -123,8 +123,8 @@ function dmGen(seed){
 
   /* ways out: the main door at the bottom of the lobby, fire stairs at one end of the north corridor, maybe a back door at another end */
   const lob = L.cols[ent], r5 = L.rows[5];
-  L.spawn = [lob.cx, r5.z1 - 2.7]; L.home = [lob.cx - .2, r5.z0 + 1.2];
-  L.exits.push({kind:'main', name:'大门', x:lob.cx, z:r5.z1 - 1.2, wx:lob.cx, wz:L.z1, lock:null});
+  L.spawn = [lob.cx, r5.z1 - 3.9]; L.home = [lob.cx, r5.z0 - 2];   /* the 宿管 starts in the corridor in front of the lobby, her back to you */
+  L.exits.push({kind:'main', name:'大门', x:lob.cx, z:r5.z1 - 2, wx:lob.cx, wz:L.z1, lock:null});
   const ends = dmShuffle(R, [[1, -1], [1, 1], [4, -1], [4, 1]].map(([r, s]) => ({r, x:s < 0 ? L.x0 + 1.3 : L.x1 - 1.3, z:L.rows[r].cz, wx:s < 0 ? L.x0 : L.x1})));
   const fire = ends.splice(ends.findIndex(e => e.r === 1), 1)[0];
   L.exits.push({kind:'fire', name:'消防梯', x:fire.x, z:fire.z, wx:fire.wx, wz:fire.z, lock:null});
@@ -133,7 +133,7 @@ function dmGen(seed){
   /* furniture. ry turns it; things against the back wall face the door, things against a side wall face the middle */
   const addFur = (type, fx, fz, ry, room) => {
     const F = DM_FUR[type], f = {type, x:fx, z:fz, ry:ry || 0, room}; L.fur.push(f);
-    if (F.name){ const b = {type, x:fx, z:fz, room, items:[], open:false, lock:null, rich:false, r:Math.max(F.w, F.d) / 2 + 1.75, h:F.h, f}; L.boxes.push(b); if (room) room.boxes.push(b); return b; }
+    if (F.name){ const b = {type, x:fx, z:fz, room, items:[], open:false, lock:null, rich:false, r:Math.max(F.w, F.d) / 2 + 1.9, h:F.h, f}; L.boxes.push(b); if (room) room.boxes.push(b); return b; }
     return f;
   };
   for (const room of L.rooms){
@@ -158,7 +158,9 @@ function dmGen(seed){
     }
   }
   const lm = R() < .5 ? 1 : -1;
-  addFur('kdesk', lob.cx + 1.4 * lm, r5.z0 + 3.4, 0, null); addFur('parcel', lob.cx - 1.4 * lm, r5.z0 + 1.6, 0, null); if (R() < .6) addFur('parcel', lob.cx - 1.4 * lm, r5.z0 + 5.2, 0, null);
+  addFur('kdesk', lob.cx + 1.4 * lm, r5.z0 + 1.5, 0, null);
+  /* always something to search within sight of the door: parcels left by the lobby entrance, against the corridor wall */
+  addFur('parcel', lob.x0 - .8, r5.z0 - .5, 0, null); if (R() < .6) addFur('parcel', lob.x1 + .8, r5.z0 - .5, 0, null);
   /* spots along the corridor walls, between two doors: light switches first, parcels on what is left */
   const spots = [];
   for (const r of [1, 4]) for (let c = 0; c + 1 < nc; c++) if (!L.cols[c].cross && !L.cols[c + 1].cross)
@@ -176,7 +178,8 @@ function dmGen(seed){
     for (const b of lr.boxes) b.rich = true; L.slab = {x:d.x, z:d.z, lx:d.w, lz:.24};
     if (k.kind === 'lights'){ k.seq = dmShuffle(R, [0, 1, 2, 3]); spots.splice(0, 4).forEach((s, i) => L.sw.push({i, x:s.x, z:s.z, on:false})); }
   }
-  for (const s of spots) if (R() < .4) addFur('parcel', s.x, s.z, 0, null);
+  /* never a parcel on both sides at the same place: the corridor has to stay easy to walk */
+  { const taken = {}; for (const s of spots){ const key = s.r + ':' + s.x; if (R() < .45 && !taken[key]){ taken[key] = 1; addFur('parcel', s.x, s.z, 0, null); } } }
   for (const b of L.boxes) b.items = dmLoot(R, b.type, b.rich);
   const keyLock = L.locks.find(k => k.kind === 'key');
   if (keyLock){
@@ -221,10 +224,11 @@ function dmGen(seed){
 }
 
 /* ---------- models, built once; every run only moves instances around ---------- */
-const dmIM = (geo, mat, n, shadow) => { const im = new THREE.InstancedMesh(geo, mat, n); im.count = 0; im.frustumCulled = false; im.castShadow = !!shadow; im.receiveShadow = true; dmG.add(im); return im; };
-{ const g = box(150, .2, 130, M('#2f3238'), DM_OX, -.11, DM_OZ, dmG); g.castShadow = false; }
-const dmFloorIM = dmIM(new THREE.BoxGeometry(1, .1, 1), M('#ffffff', {roughness:.85}), 64);
-const dmWallIM = dmIM(new THREE.BoxGeometry(1, 1, 1), M('#ffffff', {roughness:.9}), 260, true);
+/* tint = per-instance colours: the colour buffer has to be made while count is still the full capacity */
+const dmIM = (geo, mat, n, shadow, tint) => { const im = new THREE.InstancedMesh(geo, mat, n); if (tint) im.setColorAt(0, new THREE.Color('#ffffff')); im.count = 0; im.frustumCulled = false; im.castShadow = !!shadow; im.receiveShadow = true; dmG.add(im); return im; };
+{ const g = box(150, .2, 130, M('#2f3238'), DM_OX, -.09, DM_OZ, dmG); g.castShadow = false; }   /* dark ground round the building, just above the grass */
+const dmFloorIM = dmIM(new THREE.BoxGeometry(1, .1, 1), M('#ffffff', {roughness:.85}), 64, false, true);
+const dmWallIM = dmIM(new THREE.BoxGeometry(1, 1, 1), M('#ffffff', {roughness:.9}), 260, true, true);
 const dmFurIM = {};
 {
   const mk = fn => { const l = []; fn((w, h, d, x, y, z, c) => tbox(l, w, h, d, x, y, z, c)); return geoMerge(l); };
@@ -243,7 +247,7 @@ const dmFurIM = {};
   for (const k in G) dmFurIM[k] = dmIM(G[k], mat, DM_FUR[k].cap, true);
 }
 /* floating diamonds over things worth walking to: gold = not searched, red = locked, blue = a clue, grey = something left inside */
-const dmMarkIM = dmIM(new THREE.OctahedronGeometry(.17), new THREE.MeshBasicMaterial({color:'#ffffff'}), 180);
+const dmMarkIM = dmIM(new THREE.OctahedronGeometry(.17), new THREE.MeshBasicMaterial({color:'#ffffff'}), 180, false, true);
 const _dmM = new THREE.Matrix4(), _dmQ = new THREE.Quaternion(), _dmP = new THREE.Vector3(), _dmS = new THREE.Vector3(), _dmC = new THREE.Color();
 function dmSet(im, i, x, y, z, ry, sx, sy, sz, col){
   _dmM.compose(_dmP.set(x, y, z), _dmQ.setFromAxisAngle(UP, ry || 0), _dmS.set(sx, sy, sz)); im.setMatrixAt(i, _dmM);
@@ -321,20 +325,25 @@ function dmRay(arr, x0, z0, x1, z1){
   return true;
 }
 const dmSee = (x0, z0, x1, z1) => dmRay(DMN.sight, x0, z0, x1, z1);
-function dmNearFree(k){
+/* the free cell nearest to cell k. With (tx, tz) it must also be in the same room as that point, so nobody ends up
+   standing on the far side of a wall from the cupboard they walked to */
+function dmNearFree(k, tx, tz){
   if (k >= 0 && !DMN.blk[k]) return k;
-  const i0 = k % DMN.nx, j0 = (k / DMN.nx) | 0;
-  for (let r = 1; r < 14; r++) for (let j = j0 - r; j <= j0 + r; j++) for (let i = i0 - r; i <= i0 + r; i++){
+  const i0 = k % DMN.nx, j0 = (k / DMN.nx) | 0, sp = tx != null && DORM.L ? dmSpace(tx, tz) : null;
+  let best = -1, bd = 1e9, stop = 99;
+  for (let r = 1; r < 14 && r <= stop; r++) for (let j = j0 - r; j <= j0 + r; j++) for (let i = i0 - r; i <= i0 + r; i++){
     if (Math.max(Math.abs(i - i0), Math.abs(j - j0)) !== r || i < 0 || j < 0 || i >= DMN.nx || j >= DMN.nz) continue;
-    if (!DMN.blk[j * DMN.nx + i]) return j * DMN.nx + i;
+    const m = j * DMN.nx + i; if (DMN.blk[m]) continue;
+    if (sp && sp !== 'V' && dmSpace(dmCx(m), dmCz(m)) !== sp) continue;
+    const d = Math.hypot(i - i0, j - j0); if (d < bd){ bd = d; best = m; if (stop === 99) stop = r + 1; }
   }
-  return -1;
+  return best;
 }
 /* breadth-first from the goal back to the start, then pull the path straight wherever the way is clear */
 function dmPath(sx, sz, tx, tz){
   const nx = DMN.nx, blk = DMN.blk, prev = DMN.prev, q = DMN.q;
   let s = dmCi(sx, sz), t = dmCi(tx, tz); if (s < 0 || t < 0) return null;
-  const exact = !blk[t]; s = dmNearFree(s); t = dmNearFree(t); if (s < 0 || t < 0) return null;
+  const exact = !blk[t]; s = dmNearFree(s, sx, sz); t = dmNearFree(t, tx, tz); if (s < 0 || t < 0) return null;
   if (s === t) return [[exact ? tx : dmCx(t), exact ? tz : dmCz(t)]];
   prev.fill(-1); prev[t] = t; q[0] = t; let h = 0, n = 1, found = false;
   while (h < n && !found){
@@ -369,7 +378,7 @@ function dmGo(e, tx, tz, speed, dt){
 const dmStop = e => { e.path = null; };
 
 /* ---------- putting a generated floor on screen ---------- */
-const DM_FLOOR = {C:'#cfc9bd', std:'#c2a073', study:'#a9c0a6', laundry:'#aac6d8', office:'#cfa7a2', closet:'#a8a092', V:'#3a3d44'};
+const DM_FLOOR = {C:'#8f8a80', std:'#a07a4e', study:'#7f9a80', laundry:'#7d9db3', office:'#a87f7a', closet:'#7d766a', V:'#3a3d44'};
 function dmBuild(L){
   let n = 0;
   for (let r = 0; r < 6; r++) for (let c = 0; c < L.cols.length; c++){
@@ -378,8 +387,8 @@ function dmBuild(L){
   }
   dmFloorIM.count = n; dmFloorIM.instanceMatrix.needsUpdate = true; dmFloorIM.instanceColor.needsUpdate = true;
   for (const c of dmCols) c.dead = true; dmColN = 0; n = 0;
-  for (const w of L.walls){ dmSet(dmWallIM, n++, w.x, DM_H / 2, w.z, 0, w.lx, DM_H, w.lz, '#efe7d6'); dmCol(w.x, w.z, w.lx / 2, w.lz / 2); }
-  for (const b of L.blocks){ dmSet(dmWallIM, n++, b.x, DM_H / 2, b.z, 0, b.lx - .01, DM_H - .02, b.lz - .01, '#9b9486'); dmCol(b.x, b.z, b.lx / 2, b.lz / 2); }
+  for (const w of L.walls){ dmSet(dmWallIM, n++, w.x, DM_H / 2, w.z, 0, w.lx, DM_H, w.lz, '#cfc6b2'); dmCol(w.x, w.z, w.lx / 2, w.lz / 2); }
+  for (const b of L.blocks){ dmSet(dmWallIM, n++, b.x, DM_H / 2, b.z, 0, b.lx - .01, DM_H - .02, b.lz - .01, '#7f796d'); dmCol(b.x, b.z, b.lx / 2, b.lz / 2); }
   dmWallIM.count = n; dmWallIM.instanceMatrix.needsUpdate = true; dmWallIM.instanceColor.needsUpdate = true;
   const cnt = {}; for (const k in dmFurIM) cnt[k] = 0;
   for (const f of L.fur){
@@ -436,7 +445,9 @@ function dmEnter(door, seed){
   if (DORM.in) return;
   if (seed == null) seed = window.DORM_SEED != null ? +window.DORM_SEED : (Math.random() * 2147483647) | 0;
   const L = DORM.L = dmGen(seed);
-  DORM.run = {t:0, limit:DM_LIMIT, bag:new Array(DM_SLOTS).fill(null), seen:false, solved:0, caught:0, told:{}, noiseT:0, alarm:0, bell:false, lockup:false, lastCd:0, lblT:0};
+  /* until you have got something out once, a run comes with four short tips and half a minute more */
+  const coach = prog.life.dormOut < 1 && prog.life.dormRuns < 4;
+  DORM.run = {t:0, limit:DM_LIMIT + (coach ? 30 : 0), bag:new Array(DM_SLOTS).fill(null), seen:false, solved:0, caught:0, told:{}, noiseT:0, alarm:0, bell:false, lockup:false, lastCd:0, lblT:0, dg:0, hb:0, opened:0, coach:coach ? 0 : -1, coachT:0, tip:''};
   dmBuild(L);
   DORM.in = true; DORM.door = door; DORM.keep = {dist:camDist, pitch:camPitch}; DORM.near = null; DORM.hold = 0; DORM.lootBox = null;
   window.XINDOOR = 'dorm'; window.XINDOOR_AT = door;
@@ -445,7 +456,8 @@ function dmEnter(door, seed){
   dmG.visible = true; document.body.classList.add('dm-in');
   for (const d of DM_DOORS){ d.mark.visible = false; d.lbl.dead = true; }
   prog.life.dormRuns++; saveGame(); sfx.ding();
-  toast(`${door.name} 宿舍 · ${L.floor} 楼`, `22:30 了，23:00 宿管锁门。${TOUCH ? '按住「搜」' : '按住 F '}翻柜子、抽屉、床底，带着东西走到绿圈撤离`, 4600);
+  gxCallout('22:30', `${door.name} 宿舍 · ${L.floor} 楼`, '#c9a0ff');
+  toast(`${door.name} 宿舍 · ${L.floor} 楼`, '23:00 宿管锁门。搜到的东西要带到撤离点才算你的', 3600);
   dmUiReset();
 }
 function dmLeaveWorld(){
@@ -462,17 +474,19 @@ const dmBagItems = () => DORM.run.bag.filter(Boolean);
 const dmBagValue = () => dmBagItems().reduce((s, it) => s + it.v, 0);
 function dmFinish(how){
   const run = DORM.run, items = dmBagItems().filter(it => !it.key), value = items.reduce((s, it) => s + it.v, 0), tok = items.reduce((s, it) => s + it.tok, 0), bonus = [];
-  let mult = 1;
+  let mult = 1; const left = run.limit - run.t;
   if (how === 'back'){ mult += .1; bonus.push('走后门没人看见 +10%'); }
+  if (left < 15 && items.length){ mult += .15; bonus.push(`压哨撤离，只剩 ${Math.ceil(left)} 秒 +15%`); }
   if (!run.seen && items.length){ mult += .2; bonus.push('全程没被宿管发现 +20%'); }
   const pay = Math.round(value * mult), prev = prog.best.dorm, rec = pay > 0 && (prev == null || pay > prev);
   if (rec) prog.best.dorm = pay;
   if (items.length) prog.life.dormOut++; prog.life.dormTok += tok; sess.acts++;
   dmLeaveWorld();
   if (pay > 0) earn(pay); else saveGame();
-  if (items.length) unlock('dorm1'); if (pay >= 200) unlock('dorm200'); if (!run.seen && items.length) unlock('dormghost');
-  if (items.length){ sfx.sparkle(); gxCallout('撤离成功', `带出 RM ${pay}`, '#4fd18b'); } else sfx.ding();
-  dmUiEnd({ok:true, how, items, value, pay, tok, bonus, rec, prev, solved:run.solved, caught:run.caught, left:Math.max(0, run.limit - run.t)});
+  if (items.length) unlock('dorm1'); if (pay >= 300) unlock('dormrich'); if (!run.seen && items.length) unlock('dormghost');
+  const behind = DORM.L.boxes.reduce((s, b) => s + b.items.reduce((q, it) => q + it.v, 0), 0);
+  if (items.length){ gxCallout(left < 15 ? '压哨撤离！' : '撤离成功', `带出 RM ${pay}`, '#4fd18b'); for (let i = 0; i < 6; i++) tone('triangle', 523 * Math.pow(1.19, i), 523 * Math.pow(1.19, i), .18, .13, i * .08); } else sfx.ding();
+  dmUiEnd({ok:true, how, items, value, pay, tok, bonus, rec, prev, solved:run.solved, caught:run.caught, behind});
 }
 function dmFail(why, quiet){
   const run = DORM.run, kept = run.bag[0] && !run.bag[0].key ? run.bag[0] : null, lost = run.bag.slice(1).filter(it => it && !it.key);
@@ -481,34 +495,44 @@ function dmFail(why, quiet){
   if (kept && kept.v > 0) earn(kept.v); else saveGame();
   if (quiet){ if (lost.length || kept) toast('离开了宿舍', lost.length ? `没走撤离点，背包里的 ${lost.length} 件东西没带出来` : '贴身口袋里的东西带出来了', 2600); return; }
   sfx.fail();
+  if (why === 'late'){ tone('square', 196, 98, .9, .16); noise(.5, .3, 300); }
   dmUiEnd({ok:false, why, lost, kept, lostValue:lost.reduce((s, it) => s + it.v, 0), solved:run.solved, caught:run.caught});
 }
 
 /* ---------- backpack ---------- */
 function dmFreeSlot(it){
   const bag = DORM.run.bag;
-  if (it.key && !bag[0]) return 0;
   for (let i = 1; i < DM_SLOTS; i++) if (!bag[i]) return i;
   return it.small && !bag[0] ? 0 : -1;
 }
+/* the pocket (slot 0) looks after itself: it always holds the most valuable small thing you carry, and survives being caught */
+function dmAutoPocket(){
+  const bag = DORM.run.bag, val = it => it.key ? -1 : it.v; let b = -1;
+  for (let i = 0; i < DM_SLOTS; i++) if (bag[i] && bag[i].small && (b < 0 || val(bag[i]) > val(bag[b]))) b = i;
+  if (b > 0){ const t = bag[0]; bag[0] = bag[b]; bag[b] = t; }
+}
 function dmTake(box, i){
   const it = box.items[i]; if (!it) return false;
-  const s = dmFreeSlot(it);
-  if (s < 0){ tone('square', 220, 160, .08, .05); toast('背包满了', '点背包里的东西，可以丢掉腾位置', 1600); return false; }
-  DORM.run.bag[s] = it; box.items.splice(i, 1); tone('triangle', it.tier === 'n' ? 700 : it.tier === 'r' ? 900 : 1200, it.tier === 'n' ? 900 : 1400, .1, .1);
-  if (it.tier === 'l') gxCallout('传说！', it.name, '#e3b95a'); else if (it.tier === 'r' && !DORM.run.told.rare){ DORM.run.told.rare = 1; toast('稀有：' + it.name, it.tok ? '限量周边，带出去能换「周边券」' : '这个值钱', 1800); }
+  if (!it.seen) return false;
+  const bag = DORM.run.bag; let s = dmFreeSlot(it);
+  if (s < 0){
+    /* full: swap with the cheapest thing you carry, if this one is worth more. The cheap one goes back where this came from */
+    let c = -1; for (let j = 1; j < DM_SLOTS; j++) if (bag[j] && !bag[j].key && (c < 0 || bag[j].v < bag[c].v)) c = j;
+    if (c < 0 || (!it.key && bag[c].v >= it.v)){ tone('square', 220, 160, .08, .05); toast('背包满了', c >= 0 ? `${it.name}不比包里最便宜的${bag[c].name}值钱` : '点背包里的东西，可以丢掉腾位置', 1700); return false; }
+    const old = bag[c]; box.items.push(old); s = c; toast(`换掉了${old.name}`, `RM ${old.v} → RM ${it.v}`, 1300);
+  }
+  bag[s] = it; box.items.splice(box.items.indexOf(it), 1); tone('triangle', it.tier === 'n' ? 700 : it.tier === 'r' ? 900 : 1200, it.tier === 'n' ? 900 : 1400, .1, .1);
+  if (it.tier === 'r' && !DORM.run.told.rare){ DORM.run.told.rare = 1; toast('稀有：' + it.name, it.tok ? '限量周边，带出去能换「周边券」' : '这个值钱，被抓就没了', 1800); }
+  dmAutoPocket();
+  if (dmBagItems().length === DM_SLOTS && !DORM.run.told.full){ DORM.run.told.full = 1; toast('背包满了', '再拿更值钱的会自动换掉最便宜的 · 该撤了？', 2200); }
   dmMarks(); dmUiBag(); dmUiLoot(box.items.length ? box : null); return true;
 }
+const dmTakeNext = box => { const i = box.items.findIndex(it => it.seen); if (i >= 0) dmTake(box, i); };
 function dmDrop(i){
   const run = DORM.run, it = run.bag[i]; if (!it) return;
   run.bag[i] = null; const b = DORM.lootBox;
-  if (b){ b.items.push(it); dmUiLoot(b); } else toast('丢掉了：' + it.name, '', 1200);
-  tone('sine', 300, 200, .1, .08); dmMarks(); dmUiBag();
-}
-function dmPocket(i){
-  const bag = DORM.run.bag, it = bag[i]; if (!it || !i) return;
-  if (!it.small){ toast('口袋放不下', '贴身口袋只能放小件', 1400); return; }
-  bag[i] = bag[0]; bag[0] = it; tone('triangle', 800, 1000, .08, .08); dmUiBag();
+  if (b){ it.seen = true; b.items.push(it); dmUiLoot(b); } else toast('丢掉了：' + it.name, '', 1200);
+  tone('sine', 300, 200, .1, .08); dmAutoPocket(); dmMarks(); dmUiBag();
 }
 
 /* ---------- locks ---------- */
@@ -539,11 +563,13 @@ function dmPressSwitch(w){
 
 /* ---------- 宿管阿姨 and the thief ---------- */
 function dmSpawnNpcs(L){
-  const a = DORM.aunt = {x:L.home[0], z:L.home[1], h:Math.PI, state:'patrol', path:null, pi:0, rep:0, gx:0, gz:0, walkT:0, seeT:0, lostT:0, wait:1.5, stun:0, catchT:0, tx:0, tz:0, wp:null, look:0, range:9};
+  /* she starts at the far end of the building, so the first half minute is yours */
+  const byFar = (p, q) => Math.hypot(q[0] - L.spawn[0], q[1] - L.spawn[1]) - Math.hypot(p[0] - L.spawn[0], p[1] - L.spawn[1]), start = L.way.slice().sort(byFar)[0];
+  const a = DORM.aunt = {x:start[0], z:start[1], h:0, state:'patrol', path:null, pi:0, rep:0, gx:0, gz:0, walkT:0, seeT:0, lostT:0, wait:2.5, stun:0, catchT:0, tx:0, tz:0, wp:null, look:0, range:9, step:0};
   dmAuntFig.g.visible = true; dmFan.visible = true; dmFan.material.color.set('#ffe9a8');
   /* the thief starts in a room far from the lobby */
-  const far = L.peek.slice().sort((p, q) => Math.hypot(q[0] - L.spawn[0], q[1] - L.spawn[1]) - Math.hypot(p[0] - L.spawn[0], p[1] - L.spawn[1]))[(Math.random() * 3) | 0] || L.way[0];
-  DORM.thief = {x:far[0], z:far[1], h:0, state:'roam', path:null, pi:0, rep:0, gx:0, gz:0, walkT:0, bag:[], cd:14, tgt:null, t:0, down:0, on:true, stole:false, fleeTo:null};
+  const far = L.peek.slice().sort(byFar)[1 + ((Math.random() * 3) | 0)] || L.way[0];
+  DORM.thief = {x:far[0], z:far[1], h:0, state:'roam', path:null, pi:0, rep:0, gx:0, gz:0, walkT:0, bag:[], cd:14, tgt:null, t:0, down:0, on:true, stole:false, fleeTo:null, pick:0, picking:false};
   dmThiefFig.g.visible = true;
   dmPlace(a, dmAuntFig); dmPlace(DORM.thief, dmThiefFig);
 }
@@ -570,7 +596,8 @@ function dmAunt(dt){
     if (Math.random() < dt * 8) spawnPart('dust', a.x + (Math.random() - .5) * .6, 2.2, a.z + (Math.random() - .5) * .6, .3, {vy:-1.5, life:.5, op:.9, color:'#9fd8ff'});
     if (a.stun <= 0){ a.state = 'search'; a.tx = nw.x; a.tz = nw.z; a.look = 0; a.seeT = .4; dmStop(a); }
   } else {
-    a.seeT = sees ? a.seeT + dt * (d < 4.5 ? 4 : 1.7) : Math.max(0, a.seeT - dt * .8);
+    /* she needs a moment to be sure it is you: about 0.2 s up close, 0.8 s at the far end of her torch */
+    a.seeT = sees ? a.seeT + dt * (d < 3 ? 4 : 4 - (d - 3) / (a.range - 3) * 3.1) : Math.max(0, a.seeT - dt * .8);
     if (a.state !== 'chase' && a.seeT > .7){
       a.state = 'chase'; a.lostT = 0; run.seen = true; dmStop(a); tone('square', 880, 660, .15, .08);
       if (!run.told.seen){ run.told.seen = 1; toast('宿管阿姨：哪个寝室的！站住！', TOUCH ? '跑！或者用「水枪」淋她，她要擦 3 秒眼镜' : '跑！或者按 E 用水枪淋她，她要擦 3 秒眼镜', 2600); }
@@ -580,7 +607,7 @@ function dmAunt(dt){
       if (sees){ a.lostT = 0; a.tx = nw.x; a.tz = nw.z; } else a.lostT += dt;
       a.moving = !dmGo(a, a.tx, a.tz, 6.1 + .3 * (typeof pveLevel === 'function' ? pveLevel() : 0), dt);
       if (d < 1.4 && sees){ a.catchT += dt; if (a.catchT > .35){ dmFail('caught'); return; } } else a.catchT = 0;
-      if (a.lostT > 3.2){ a.state = 'search'; a.look = 0; dmStop(a); gxCallout('甩掉了', '宿管在找你', '#ffd27a'); }
+      if (a.lostT > 3.2){ a.state = 'search'; a.look = 0; dmStop(a); gxCallout('甩掉了', '宿管在找你', '#ffd27a'); tone('triangle', 520, 780, .2, .1); }
     } else if (a.state === 'search'){
       if (a.look > 0){ a.look -= dt; a.h += dt * 2.4; if (a.look <= 0){ a.state = 'patrol'; a.wp = null; a.wait = 0; } }
       else if (dmGo(a, a.tx, a.tz, 3.9, dt)){ a.look = 2.6; dmStop(a); } else a.moving = true;
@@ -588,7 +615,7 @@ function dmAunt(dt){
       /* patrol; in the last half minute she goes to the main door and stands there to lock it */
       if (run.lockup){
         const m = L.exits[0];
-        if (dmGo(a, m.x, m.z - 2.2, 3.6, dt)){ a.h += Math.atan2(Math.sin(Math.PI - a.h), Math.cos(Math.PI - a.h)) * Math.min(1, dt * 6); } else a.moving = true;
+        if (dmGo(a, m.x, m.z - 1.6, 3.6, dt)){ a.h += Math.atan2(Math.sin(Math.PI - a.h), Math.cos(Math.PI - a.h)) * Math.min(1, dt * 6); } else a.moving = true;
       } else if (a.wait > 0){ a.wait -= dt; a.h += Math.sin(a.wait * 2.2) * dt * .9; }
       else {
         if (!a.wp){ const pool = Math.random() < .3 && L.peek.length ? L.peek : L.way.filter(p => Math.hypot(p[0] - a.x, p[1] - a.z) > 9); a.wp = pool[(Math.random() * pool.length) | 0] || L.way[0]; dmStop(a); }
@@ -597,6 +624,8 @@ function dmAunt(dt){
     }
   }
   dmPlace(a, dmAuntFig, wob);
+  /* her footsteps: louder as she gets closer, quicker when she runs */
+  if (a.moving && d < 20){ const s = Math.floor(a.walkT / Math.PI); if (s !== a.step){ a.step = s; const v = Math.pow(1 - d / 20, 1.6) * (a.state === 'chase' ? .34 : .22); tone('sine', a.state === 'chase' ? 130 : 96, 55, .07, v); noise(.03, v * .35, 1200); } }
   /* the fan on the floor: as long as she can see along her nose, red while she is after you */
   let reach = a.range; for (let r = 1; r <= a.range; r += .5) if (!dmSee(a.x, a.z, a.x + Math.sin(a.h) * r, a.z + Math.cos(a.h) * r)){ reach = Math.max(1.5, r - .5); break; }
   dmFan.visible = a.state !== 'stun'; dmFan.position.set(a.x, .07, a.z); dmFan.rotation.y = a.h; dmFan.scale.setScalar(reach);
@@ -628,11 +657,14 @@ function dmThiefUp(dt){
   } else if (t.state === 'stalk'){
     const s = stealable();
     if (s < 0 || d > 13){ t.state = 'roam'; t.tgt = null; dmStop(t); }
-    else if (d < 1.5){
-      const it = bag[s]; bag[s] = null; it.mine = true; t.bag.push(it); t.stole = true; t.state = 'flee'; t.fleeTo = null; t.cd = 25; dmStop(t);
-      sfx.fail(); camShake = .5; dmUiBag(); gxCallout('被偷了！', it.name, '#ff6f61');
+    else if (d < 1.7 && (t.pick += dt) < .9){
+      /* his hand is in your bag for a moment: step away or squirt him and he gets nothing */
+      if (!t.picking){ t.picking = true; gxCallout('有人掏你的包！', TOUCH ? '走开，或者用水枪' : '走开，或者按 E', '#ff9f43'); tone('square', 520, 520, .06, .09); tone('square', 520, 520, .06, .09, .12); }
+    } else if (d < 1.7){
+      const it = bag[s]; bag[s] = null; it.mine = true; t.bag.push(it); t.stole = true; t.state = 'flee'; t.fleeTo = null; t.cd = 25; t.pick = 0; t.picking = false; dmStop(t);
+      sfx.fail(); camShake = .5; dmAutoPocket(); dmUiBag(); gxCallout('被偷了！', it.name, '#ff6f61');
       toast(`外卖小偷顺走了你的${it.name}`, TOUCH ? '追上去用「水枪」淋他，再点「抓住」' : '追上去按 E 用水枪淋他，再按 F 抓住。让他跑到消防梯就没了', 3200);
-    } else { dmGo(t, nw.x, nw.z, 5, dt); t.moving = true; }
+    } else { t.pick = Math.max(0, t.pick - dt * 2); if (t.pick <= 0) t.picking = false; dmGo(t, nw.x, nw.z, 5, dt); t.moving = true; }
   } else if (t.state === 'loot'){
     t.t -= dt; wob = Math.sin(t.t * 9) * .25;
     if (t.t <= 0){
@@ -653,7 +685,7 @@ function dmThiefUp(dt){
 }
 function dmSoakThief(power){
   const t = DORM.thief; if (!DORM.in || !t || !t.on || t.state === 'down') return;
-  t.state = 'down'; t.down = Math.min(7, 3.4 * (power || 1)); dmStop(t); splashAt(t.x, 1.4, t.z); sfx.splash();
+  t.state = 'down'; t.down = Math.min(7, 3.4 * (power || 1)); t.pick = 0; t.picking = false; dmStop(t); splashAt(t.x, 1.4, t.z); sfx.splash();
   gxCallout('滑倒了', TOUCH ? '点「抓住」' : '按 F 抓住他', '#4aa3ff');
 }
 function dmGrab(){
@@ -663,7 +695,7 @@ function dmGrab(){
   earn(40); unlock('dormthief'); sfx.sparkle(); gxCallout('抓住了！', '悬赏 +RM 40', '#4fd18b');
   for (let i = 0; i < 8; i++) spawnPart('heart', t.x + (Math.random() - .5) * 2, 1.5 + Math.random(), t.z + (Math.random() - .5) * 2, .7, {vy:2.2, life:1.2, op:1, color:'#ffd24a'});
   if (t.bag.length){
-    const sack = {type:'sack', x:sx, z:sz, room:null, items:t.bag.slice(), open:true, lock:null, r:2.6, h:.3}; t.bag.length = 0; L.boxes.push(sack); dmMarks();
+    const sp = dmSpace(sx, sz), sack = {type:'sack', x:sx, z:sz, room:typeof sp === 'object' ? sp : null, items:t.bag.slice(), open:true, lock:null, r:2.6, h:.3}; for (const it of sack.items) it.seen = true; t.bag.length = 0; L.boxes.push(sack); dmMarks();
     toast('抓住了偷外卖的小偷', `悬赏 RM 40 · 他的赃物袋里有 ${sack.items.length} 件东西，挑着拿`, 3000); dmUiLoot(sack);
   } else toast('抓住了偷外卖的小偷', '悬赏 RM 40 · 他还没来得及偷到东西', 2600);
 }
@@ -678,15 +710,22 @@ const DM_WG_API = typeof wgAddTarget === 'function';
 if (DM_WG_API) wgAddTarget(dmWaterTargets);
 
 /* ---------- F: what is in reach, and what pressing or holding does ---------- */
+/* which space a point is in: a room object, 'C' for corridor and lobby, 'V' for a solid block */
+function dmSpace(x, z){
+  const L = DORM.L, r = L.rows.findIndex(q => z < q.z1), c = L.cols.findIndex(q => x < q.x1);
+  return r < 0 || c < 0 || z < L.z0 || x < L.x0 ? 'V' : L.cell[r][c];
+}
 function dmFindNear(){
-  const L = DORM.L, run = DORM.run, x = nw.x, z = nw.z, t = DORM.thief; let best = null, bd = 1e9;
-  const tryIt = (kind, o, ox, oz, reach, bias) => { const d = Math.hypot(x - ox, z - oz); if (d < reach && d - bias < bd){ bd = d - bias; best = {kind, o}; } };
+  const L = DORM.L, run = DORM.run, x = nw.x, z = nw.z, t = DORM.thief, here = dmSpace(x, z); let best = null, bd = 1e9;
+  /* nearest wins, and what you are facing counts for up to half a metre */
+  const tryIt = (kind, o, ox, oz, reach, bias) => { const d = Math.hypot(x - ox, z - oz); if (d >= reach) return; const s = d - bias - (d > .1 ? .5 * Math.cos(Math.atan2(ox - x, oz - z) - nw.h) : 0); if (s < bd){ bd = s; best = {kind, o}; } };
   if (t && t.on && t.state === 'down') tryIt('grab', t, t.x, t.z, 2.6, 9);
-  for (const e of L.exits) tryIt('exit', e, e.x, e.z, 2.3, 1);
-  for (const c of L.clues) tryIt('clue', c, c.x, c.z, 2.1, c.read ? -.8 : .8);
-  for (const k of L.locks) if (!k.open && k.what === 'door') tryIt('lock', k, k.x, k.z, 2.5, .5);
+  for (const e of L.exits) tryIt('exit', e, e.x, e.z, 1.5, 0);
+  /* only what is in the room you are standing in: no reaching through walls */
+  for (const c of L.clues) if (c.room === here) tryIt('clue', c, c.x, c.z, 2.1, c.read ? -.8 : .8);
+  for (const k of L.locks) if (!k.open && k.what === 'door') tryIt('lock', k, k.x, k.z, 2.2, 0);
   if (L.locks.some(k => k.kind === 'lights' && !k.open)) for (const w of L.sw) if (!w.on) tryIt('sw', w, w.x, w.z, 2, .4);
-  for (const b of L.boxes) if (!b.open || b.items.length) tryIt('box', b, b.x, b.z, b.r, 0);
+  for (const b of L.boxes) if ((!b.open || b.items.length) && (b.room || 'C') === here) tryIt('box', b, b.x, b.z, b.r, b.open ? 0 : .6);   /* one not searched yet wins over leftovers next to it */
   return best;
 }
 const dmLocked = b => b.lock && !b.lock.open;
@@ -698,14 +737,15 @@ function dmTryF(){
     const why = dmBusyWhy(); if (why){ toast('现在进不去', why, 1800); return true; }
     dmEnter(d); return true;
   }
-  if (DORM.lootBox && DORM.lootBox.items.length && !DORM.near){ dmTake(DORM.lootBox, 0); return true; }
+  /* while a container is open F takes the next thing out of it, whatever else is in reach */
+  if (DORM.lootBox && DORM.lootBox.items.length){ dmTakeNext(DORM.lootBox); return true; }
   const n = DORM.near; if (!n) return true;
   const o = n.o, run = DORM.run;
   if (n.kind === 'grab') dmGrab();
   else if (n.kind === 'clue'){ if (!o.read){ o.read = true; dmMarks(); tone('triangle', 880, 1100, .1, .1); } dmUiClue(o); }
   else if (n.kind === 'sw') dmPressSwitch(o);
   else if (n.kind === 'lock'){
-    if (o.kind === 'key'){ const i = run.bag.findIndex(it => it && it.key === o.id); if (i >= 0){ run.bag[i] = null; dmUiBag(); dmUnlock(o); } else { tone('square', 220, 160, .08, .05); toast(o.name + '锁着', `要找到「${o.ref.num} 的钥匙」，在别的柜子里`, 2200); } }
+    if (o.kind === 'key'){ const i = run.bag.findIndex(it => it && it.key === o.id); if (i >= 0){ run.bag[i] = null; dmAutoPocket(); dmUiBag(); dmUnlock(o); } else { tone('square', 220, 160, .08, .05); toast(o.name + '锁着', `要找到「${o.ref.num} 的钥匙」，在别的柜子里`, 2200); } }
     else { tone('square', 220, 160, .08, .05); toast(o.name + '是电控锁', '楼道里有四个彩色开关，按线索上的顺序按', 2400); }
   }
   else if (n.kind === 'exit'){
@@ -714,7 +754,7 @@ function dmTryF(){
   }
   else if (n.kind === 'box'){
     if (dmLocked(o)) dmUiPad(o.lock);
-    else if (DORM.lootBox === o && o.items.length) dmTake(o, 0);
+    else if (DORM.lootBox === o && o.items.length) dmTakeNext(o);
     else if (o.open) dmUiLoot(o);
   }
   return true;
@@ -729,7 +769,21 @@ function dmF(t){
 
 /* ---------- per-frame ---------- */
 let dmPrompt = '';
-const dmClock = t => { const s = 22 * 3600 + 30 * 60 + Math.floor(t / DM_LIMIT * 1800); return String(Math.floor(s / 3600)).padStart(2, '0') + ':' + String(Math.floor(s % 3600 / 60)).padStart(2, '0'); };
+/* first runs: one line at a time above the backpack, each moving on when you have done what it says */
+function dmCoach(dt){
+  const run = DORM.run; if (run.coach < 0) return;
+  const F = TOUCH ? '按住「搜」' : '按住 F';
+  const steps = [
+    [`① 金色菱形 = 还没搜过的柜子。走过去，${F}`, () => run.opened > 0, 60],
+    ['② 点东西放进背包。只有 6 格，便宜的别拿；第一格是贴身口袋，自动装最值钱的小件', () => dmBagItems().length > 0, 14],
+    [`③ 地上的光扇是宿管的视野，绕开走。${TOUCH ? '摇杆推到底是跑，' : '按 Shift 是跑，'}她听得见`, () => false, 9],
+    ['④ 23:00 前回到绿圈撤离，东西才算你的。小地图上的绿点是大门', () => false, 9]
+  ];
+  const s = steps[run.coach]; run.coachT += dt;
+  if (!s || s[1]() || run.coachT > s[2]){ run.coach = s && run.coach + 1 < steps.length ? run.coach + 1 : -1; run.coachT = 0; if (run.coach >= 0) tone('triangle', 880, 1100, .1, .08); }
+  run.tip = run.coach >= 0 ? steps[run.coach][0] : '';
+}
+const dmClock = t => { const s = 22 * 3600 + 30 * 60 + Math.min(1799, Math.floor(t / DORM.run.limit * 1800)); return String(Math.floor(s / 3600)).padStart(2, '0') + ':' + String(Math.floor(s % 3600 / 60)).padStart(2, '0'); };
 function dmUpdate(dt, px, pz){
   dmPrompt = '';
   if (!DORM.in){
@@ -744,9 +798,16 @@ function dmUpdate(dt, px, pz){
   run.t += dt; run.noiseT -= dt;
   const left = run.limit - run.t;
   if (left <= 0){ dmFail('late'); return; }
-  if (left < 70 && !run.bell){ run.bell = true; toast('广播：还有十分钟锁门', '还没回寝室的同学抓紧了。宿管一会儿去大门口守着', 2800); for (let i = 0; i < 3; i++) tone('triangle', 660, 660, .2, .08, i * .3); }
-  if (left < 28 && !run.lockup){ run.lockup = true; const a = DORM.aunt; if (a.state === 'patrol'){ a.wp = null; a.wait = 0; dmStop(a); } gxCallout('快锁门了', '宿管去大门口了', '#ff6f61'); }
-  if (left < 10 && Math.floor(left) !== Math.floor(left + dt)) tone('square', 880, 880, .08, .07);
+  if (left < 70 && !run.bell){ run.bell = true; gxCallout('22:50', '广播：还有十分钟锁门', '#ffb347'); toast('广播：还有十分钟锁门', '还没回寝室的同学抓紧了。宿管一会儿去大门口守着', 2800); for (let i = 0; i < 3; i++) tone('triangle', 660, 660, .2, .08, i * .3); }
+  if (left < 28 && !run.lockup){ run.lockup = true; const a = DORM.aunt; if (a.state === 'patrol'){ a.wp = null; a.wait = 0; dmStop(a); } gxCallout('快锁门了', '宿管去大门口守着', '#ff6f61'); toast('宿管去大门口守着了', (TOUCH ? '用「水枪」淋她再冲出去' : '按 E 淋她再冲出去') + '，或者走消防梯（橙圈）', 3000); }
+  if (Math.floor(left) !== Math.floor(left + dt)){ if (left < 10){ tone('square', 880, 880, .08, .08); if (Math.floor(left) === 9) gxCallout('最后 10 秒', '快撤！', '#ff6f61'); } else if (left < 30) tone('square', 660, 660, .03, .035); }
+  /* how scared you should be, 0..1: drives the heartbeat and the red edge of the screen */
+  { const a = DORM.aunt, d = Math.hypot(nw.x - a.x, nw.z - a.z); let dg = 0;
+    if (a.state === 'chase') dg = 1; else if (a.state !== 'stun') dg = Math.max(a.seeT / .7 * .8, d < 9 ? (9 - d) / 9 * .5 : 0, a.state === 'search' && d < 12 ? .4 : 0);
+    if (left < 30) dg = Math.max(dg, .3 + (30 - left) / 30 * .5);
+    run.dg += (dg - run.dg) * Math.min(1, dt * 4); run.hb -= dt * (1 + run.dg * 1.5);
+    if (run.dg > .22 && run.hb <= 0){ run.hb = .95; tone('sine', 64, 40, .1, .1 + run.dg * .16); tone('sine', 56, 38, .12, .06 + run.dg * .12, .17); } }
+  dmCoach(dt);
   for (const k of L.locks) if (k.cool > 0) k.cool -= dt;
   /* rooms you have stepped into show up on the floor plan */
   for (const r of L.rooms) if (!r.seen && nw.x > r.x0 && nw.x < r.x1 && nw.z > r.z0 && nw.z < r.z1) r.seen = true;
@@ -787,16 +848,18 @@ function dmUpdate(dt, px, pz){
     if (need){
       if (DORM.holdOn !== o){ DORM.holdOn = o; DORM.hold = 0; }
       if (hold){
-        DORM.hold += dt; if (Math.floor(DORM.hold * 5) !== Math.floor((DORM.hold - dt) * 5)) tone('square', 260 + DORM.hold / need * 240, 260 + DORM.hold / need * 240, .04, .04);
+        DORM.hold += dt;
+        if (Math.floor(DORM.hold * 6) !== Math.floor((DORM.hold - dt) * 6)){ tone('square', 260 + DORM.hold / need * 240, 260 + DORM.hold / need * 240, .04, .04); spawnPart('dust', o.x + (Math.random() - .5) * .6, (o.h || 1) + .2, o.z + (Math.random() - .5) * .6, .45, {vy:1.4, life:.5, op:.7, color:'#e9dcc3'}); }
         if (DORM.hold >= need){
           DORM.hold = 0;
           if (n.kind === 'exit'){ dmFinish('fire'); return; }
-          o.open = true; dmMarks(); if (o.room) o.room.seen = true;
-          if (o.items.length){ tone('triangle', 660, 990, .12, .1); dmUiLoot(o); } else { tone('sine', 300, 220, .12, .07); toast(name + '是空的', o.type === 'bed' ? '只有灰' : '什么都没有', 1100); }
+          o.open = true; dmMarks(); if (o.room) o.room.seen = true; run.opened++;
+          if (o.items.length){ tone('triangle', 660, 990, .12, .1); dmUiLoot(o); } else { tone('sine', 300, 220, .12, .07); gxCallout('空的', o.type === 'bed' ? '只有灰' : name + '里什么都没有', '#9aa7b1'); }
         }
       } else DORM.hold = Math.max(0, DORM.hold - dt * 2);
     } else { DORM.holdOn = null; DORM.hold = 0; }
   } else { DORM.holdOn = null; DORM.hold = 0; }
+  DORM.need = need;
   /* pushing the fire door: the alarm starts as soon as you lean on it */
   if (n && n.kind === 'exit' && n.o.kind === 'fire' && DORM.hold > .5 && run.alarm <= 0){ run.alarm = 6; dmNoise(n.o.x, n.o.z, 60, '消防门的警报响了'); }
   dmF(label);

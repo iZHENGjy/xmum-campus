@@ -2,11 +2,12 @@
    玩法和世界在 js/89-dorm.js。面板都放在屏幕中间偏上，手机上不挡左下摇杆和右下按钮；开着面板时游戏不暂停。 */
 'use strict';
 const dmEl = (tag, id, cls, html) => { const e = document.createElement(tag); if (id) e.id = id; e.className = cls || ''; if (html) e.innerHTML = html; e.hidden = true; document.body.appendChild(e); return e; };
-const dmBagEl = dmEl('div', 'dmBag', '', '<div class="panel dm-sel" hidden><b></b><span></span><button type="button" class="btn" data-act="pocket">放口袋</button><button type="button" class="btn" data-act="drop">丢掉</button></div><div class="panel dm-slots"></div>');
+const dmVigEl = dmEl('div', 'dmVig', ''); dmVigEl.setAttribute('aria-hidden', 'true');
+const dmBagEl = dmEl('div', 'dmBag', '', '<div class="panel dm-tip" role="status" hidden></div><div class="dm-hold" hidden><i></i></div><div class="panel dm-sel" hidden><b></b><span></span><button type="button" class="btn" data-act="drop">丢掉</button></div><div class="panel dm-slots"></div>');
 const dmLootEl = dmEl('div', 'dmLoot', 'panel', '<button type="button" class="x" aria-label="关闭">×</button><div class="dm-h"><b></b><span></span></div><div class="dm-items"></div>');
 const dmPadEl = dmEl('div', 'dmPad', 'panel'); dmPadEl.setAttribute('role', 'dialog');
 const dmEndEl = dmEl('div', 'dmEnd', 'panel'); dmEndEl.setAttribute('role', 'dialog');
-const dmUi = {sel:-1, mode:'', lock:null, clue:null, input:'', back:'', msg:''};
+const dmUi = {sel:-1, mode:'', lock:null, clue:null, input:'', back:'', msg:'', tip:'', vig:0, hold:-1};
 const dmEsc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;'}[c]));
 const dmIc = it => DM_IC[it.id] || '📦';
 const DM_TIERN = {n:'', r:'稀有', l:'传说'};
@@ -21,15 +22,14 @@ function dmUiBag(){
   const sel = dmBagEl.querySelector('.dm-sel'), it = dmUi.sel >= 0 ? run.bag[dmUi.sel] : null;
   if (!it){ dmUi.sel = -1; sel.hidden = true; return; }
   sel.hidden = false; sel.querySelector('b').textContent = it.name;
-  sel.querySelector('span').textContent = it.key ? '开门用，用完就没了' : `RM ${it.v}${it.tok ? ` · 周边券 ×${it.tok}` : ''}${it.id === 'pot' ? ' · 带着它宿管看得更远' : ''}`;
-  const pk = sel.querySelector('[data-act="pocket"]'); pk.hidden = dmUi.sel === 0 || !it.small; pk.textContent = '放口袋';
+  sel.querySelector('span').textContent = (it.key ? '开门用，用完就没了' : `RM ${it.v}${it.tok ? ` · 周边券 ×${it.tok}` : ''}${it.id === 'pot' ? ' · 带着它宿管看得更远' : ''}`) + (dmUi.sel === 0 ? ' · 在贴身口袋里，被抓也不丢' : '');
   sel.querySelector('[data-act="drop"]').textContent = DORM.lootBox ? '放回去' : '丢掉';
 }
 dmBagEl.addEventListener('click', e => {
   const s = e.target.closest('.dm-slot'), a = e.target.closest('[data-act]');
   if (e.target.closest('[data-notes]')){ ac(); dmUiNotes(); return; }
   if (s){ ac(); const i = +s.dataset.i; dmUi.sel = dmUi.sel === i ? -1 : i; dmUiBag(); return; }
-  if (a && dmUi.sel >= 0){ ac(); const i = dmUi.sel; dmUi.sel = -1; if (a.dataset.act === 'drop') dmDrop(i); else dmPocket(i); dmUiBag(); }
+  if (a && dmUi.sel >= 0){ ac(); const i = dmUi.sel; dmUi.sel = -1; dmDrop(i); dmUiBag(); }
 });
 
 /* ---------- what a container holds ---------- */
@@ -39,7 +39,7 @@ function dmUiLoot(box){
   dmLootEl.hidden = false;
   dmLootEl.querySelector('.dm-h b').textContent = box.type === 'sack' ? DM_FUR.sack.name : (box.room ? box.room.num + ' ' : '') + DM_FUR[box.type].name;
   dmLootEl.querySelector('.dm-h span').textContent = TOUCH ? '点一下拿走' : '点一下拿走 · F 拿下一件';
-  dmLootEl.querySelector('.dm-items').innerHTML = box.items.map((it, i) =>
+  dmLootEl.querySelector('.dm-items').innerHTML = box.items.map((it, i) => !it.seen ? '<div class="dm-item q"><i>❔</i><b>翻找中…</b></div>' :
     `<button type="button" class="dm-item t-${it.tier}" data-i="${i}"><i>${dmIc(it)}</i><b>${dmEsc(it.name)}</b><em>${it.key ? '钥匙' : 'RM ' + it.v}</em>${it.tier !== 'n' ? `<u>${DM_TIERN[it.tier]}${it.tok ? ' · 券 ×' + it.tok : ''}</u>` : it.small ? '<u class="s">小件</u>' : ''}</button>`).join('');
   dmUiBag();
 }
@@ -102,7 +102,22 @@ window.addEventListener('keydown', e => {
   if (d){ e.preventDefault(); e.stopImmediatePropagation(); dmUiKey(d[1]); }
   else if (e.code === 'Backspace'){ e.preventDefault(); e.stopImmediatePropagation(); dmUiKey('del'); }
 }, true);
-function dmUiTick(){
+/* things come out of a container one at a time: the good ones get a fanfare */
+function dmReveal(it, box){
+  if (it.tier === 'n'){ tone('triangle', 520, 620, .06, .07); return; }
+  const leg = it.tier === 'l', col = leg ? '#e3b95a' : '#4a86d8';
+  gxCallout(leg ? '传说！！' : '稀有！', it.name, col);
+  for (let i = 0; i < (leg ? 5 : 3); i++) tone('triangle', (leg ? 784 : 660) * Math.pow(1.26, i), (leg ? 784 : 660) * Math.pow(1.26, i), .14, .12, i * .07);
+  for (let i = 0; i < (leg ? 16 : 7); i++) spawnPart('heart', box.x + (Math.random() - .5) * 1.6, (box.h || .5) + .4 + Math.random(), box.z + (Math.random() - .5) * 1.6, leg ? .8 : .55, {vy:2 + Math.random() * 2, vx:(Math.random() - .5) * 2, vz:(Math.random() - .5) * 2, life:1.1, op:1, color:leg ? '#ffd24a' : '#7cc7ff'});
+  if (leg) camShake = Math.max(camShake, .35);
+}
+function dmUiTick(dt){
+  const run = DORM.run, lb = DORM.lootBox;
+  if (lb){ const k = lb.items.findIndex(it => !it.seen); if (k >= 0){ lb.revT = (lb.revT || 0) + dt; if (lb.revT > .38){ lb.revT = 0; lb.items[k].seen = true; dmReveal(lb.items[k], lb); dmUiLoot(lb); } } }
+  const p = DORM.need ? Math.min(1, DORM.hold / DORM.need) : 0, hp = Math.round(p * 50);
+  if (hp !== dmUi.hold){ dmUi.hold = hp; const hb = dmBagEl.querySelector('.dm-hold'); hb.hidden = hp < 1; hb.firstChild.style.width = hp * 2 + '%'; }
+  if (run.tip !== dmUi.tip){ dmUi.tip = run.tip; const el = dmBagEl.querySelector('.dm-tip'); el.textContent = run.tip; el.hidden = !run.tip; }
+  const vg = Math.round(run.dg * 20) / 20; if (vg !== dmUi.vig){ dmUi.vig = vg; dmVigEl.hidden = vg < .1; dmVigEl.style.opacity = vg; dmVigEl.classList.toggle('hot', vg > .6); }
   if (dmUi.mode === 'pad'){
     const k = dmUi.lock;
     if (k.open || Math.hypot(nw.x - k.x, nw.z - k.z) > 4.2) dmUiPadClose();
@@ -119,12 +134,12 @@ function dmUiEnd(r){
     const how = {main:'从大门走出来', fire:'从消防梯溜下来', back:'从后门溜走'}[r.how];
     h = `<div class="eyebrow">撤离成功 · ${how}</div><h2>${r.items.length ? `带出 ${r.items.length} 件 · 卖了 RM ${r.pay}` : '空手出来了'}</h2>
       ${r.items.length ? `<ul class="dm-res">${r.items.map(li).join('')}</ul>` : '<p>什么都没带。下次按住 F 搜柜子、抽屉和床底。</p>'}
-      <p>${[...r.bonus, r.tok ? `周边券 +${r.tok}（现在 ${prog.life.dormTok} 张，去衣橱换宿舍独家配件）` : '', extra, r.rec ? (r.prev != null ? `新纪录！上次最多 RM ${r.prev}` : '第一次带东西出来') : r.prev != null && r.items.length ? `纪录 RM ${r.prev}` : ''].filter(Boolean).join('<br>')}</p>`;
+      <p>${[...r.bonus, r.behind > 0 ? `这层楼还有值 RM ${r.behind} 的东西没带走` : '', r.tok ? `周边券 +${r.tok}（现在 ${prog.life.dormTok} 张，去衣橱换宿舍独家配件）` : '', extra, r.rec ? (r.prev != null ? `新纪录！上次最多 RM ${r.prev}` : '第一次带东西出来') : r.prev != null && r.items.length ? `纪录 RM ${r.prev}` : ''].filter(Boolean).join('<br>')}</p>`;
   } else {
     const head = {caught:['被宿管请出宿舍', '「这么晚了在别人寝室翻什么！」'], late:['23:00 · 锁门了', '门禁到了还没出来，被宿管登记晚归']}[r.why] || ['离开了宿舍', ''];
     h = `<div class="eyebrow">${head[0]}</div><h2>${r.lost.length ? `${r.lost.length} 件东西被没收` : '还好背包是空的'}</h2>
       ${r.lost.length ? `<ul class="dm-res lost">${r.lost.map(li).join('')}</ul>` : ''}
-      <p>${[head[1], r.lost.length ? `一共值 RM ${r.lostValue}，没带出来` : '', r.kept ? `贴身口袋里的${r.kept.name}没被搜走${r.kept.v ? `，卖了 RM ${r.kept.v}` : ''}${r.kept.tok ? `，周边券 +${r.kept.tok}` : ''}` : '下次把最值钱的小件放进贴身口袋（背包第一格）', extra].filter(Boolean).join('<br>')}</p>`;
+      <p>${[head[1], r.lost.length ? `一共值 RM ${r.lostValue}，没带出来` : '', r.kept ? `贴身口袋里的${r.kept.name}没被搜走${r.kept.v ? `，卖了 RM ${r.kept.v}` : ''}${r.kept.tok ? `，周边券 +${r.kept.tok}` : ''}` : '贴身口袋（背包第一格）会自动装最值钱的小件，这次包里没有小件', extra].filter(Boolean).join('<br>')}</p>`;
   }
   h += `<div class="hrow"><button type="button" class="btn primary" data-again>再进去一次</button>${r.ok && prog.life.dormTok > 0 ? '<button type="button" class="btn" data-ward>去衣橱</button>' : ''}<button type="button" class="btn" data-x>知道了</button></div>`;
   dmEndEl.innerHTML = h; dmEndEl.hidden = false; dmEndEl.classList.toggle('fail', !r.ok);
@@ -137,8 +152,8 @@ dmEndEl.addEventListener('click', e => {
   else if (t.closest('[data-ward]') && window.XWard) XWard.open('naiwa');
 });
 
-function dmUiReset(){ dmUi.sel = -1; dmUiPadClose(); dmLootEl.hidden = true; dmEndEl.hidden = true; dmBagEl.hidden = false; dmUiBag(); }
-function dmUiHide(all){ dmUiPadClose(); DORM.lootBox = null; dmLootEl.hidden = true; dmBagEl.hidden = true; if (all) dmEndEl.hidden = true; }
+function dmUiReset(){ dmUi.sel = -1; dmUi.tip = ''; dmUi.vig = 0; dmUi.hold = -1; dmVigEl.hidden = true; dmBagEl.querySelector('.dm-tip').hidden = true; dmUiPadClose(); dmLootEl.hidden = true; dmEndEl.hidden = true; dmBagEl.hidden = false; dmUiBag(); }
+function dmUiHide(all){ dmVigEl.hidden = true; dmUiPadClose(); DORM.lootBox = null; dmLootEl.hidden = true; dmBagEl.hidden = true; if (all) dmEndEl.hidden = true; }
 
 /* ---------- 衣橱独家配件: bought with 周边券 from the dorm, not with RM ---------- */
 const DM_WEAR = [

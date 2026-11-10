@@ -686,6 +686,13 @@ body.wd-open .topbar,body.wd-open #acts,body.wd-open #joy,body.wd-open #prompt,b
 .dm-notes em{font-style:normal;font-weight:700;font-size:11px}
 .dm-sel{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:var(--r-md);font-size:12.5px;max-width:min(92vw,440px);flex-wrap:wrap;justify-content:center}
 .dm-sel span{color:var(--muted)}
+.dm-tip{padding:7px 14px;border-radius:var(--r-md);font-size:13px;line-height:1.5;max-width:min(92vw,460px);text-align:center;border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),0 6px 20px var(--shadow)}
+.dm-hold{width:min(220px,60vw);height:8px;border-radius:999px;background:var(--panel-solid);border:1px solid var(--line);overflow:hidden}
+.dm-hold i{display:block;height:100%;width:0;background:var(--gold);border-radius:999px}
+#dmVig{position:fixed;inset:0;z-index:5;pointer-events:none;background:radial-gradient(ellipse at center,transparent 52%,rgba(214,40,24,.5) 100%);transition:opacity .25s}
+#dmVig.hot{animation:dmPulse .7s ease-in-out infinite alternate}
+@keyframes dmPulse{from{filter:brightness(.8)}to{filter:brightness(1.35)}}
+@media (prefers-reduced-motion: reduce){ #dmVig.hot{animation:none} }
 .dm-sel .btn{min-height:30px;padding:3px 10px}
 #dmLoot{position:fixed;z-index:7;left:50%;bottom:calc(var(--safe-b) + 176px);transform:translateX(-50%);width:min(360px,calc(100% - 24px));padding:10px 12px 12px;border-radius:var(--r-lg);box-sizing:border-box}
 .dm-h{display:flex;align-items:baseline;gap:10px;padding-right:30px;margin-bottom:8px}
@@ -694,6 +701,8 @@ body.wd-open .topbar,body.wd-open #acts,body.wd-open #joy,body.wd-open #prompt,b
 .dm-items{display:grid;gap:6px}
 .dm-item{display:grid;grid-template-columns:28px 1fr auto auto;align-items:center;gap:8px;min-height:42px;padding:4px 10px;border-radius:var(--r-md);border:1px solid var(--line);background:var(--card-bg);color:var(--ink);cursor:pointer;text-align:left;font-size:13.5px}
 .dm-item:hover{border-color:var(--tile)}
+.dm-item.q{cursor:default;color:var(--muted);border-style:dashed}
+.dm-item.q:hover{border-color:var(--line)}
 .dm-item i{font-style:normal;font-size:20px}
 .dm-item b{font-weight:500}
 .dm-item em{font-style:normal;font-weight:700;color:var(--gold);font-variant-numeric:tabular-nums}
