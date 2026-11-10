@@ -7,7 +7,7 @@
  *   叠盘挑战 canteen_stack    在窗口多站一会儿盘子越叠越高（最多 5 盘），叠得越多走得越慢、越容易被撞，送到的分数涨得更快；空手回窗口不计分。
  *   午高峰   canteen_rush     75 秒，不限盘数，洒一盘扣 3 秒；同学每 4 秒多一个，越走越快，冲刺的同学从第二趟就来。
  *   指定桌号 canteen_table    上边隔成四个卡座，每趟指定一个桌号，走错卡座要退出来重进。
- *   无尽     canteen_endless  没有总时间，每趟有保温时间（越来越短），饭凉了或者撞了都丢一盘，每 6 趟补一盘，看能送多少。
+ *   无尽     canteen_endless  没有总时间，每趟有保温时间（9 秒起，每趟少 0.2 秒，最短 4.2 秒），饭凉了或者撞了都丢一盘，每 6 趟补一盘，看能送多少。
  * 只用摇杆（键盘 WASD，Shift 跑），示范：register 的 modes、ctx.player 走路、ctx.camera.fit 固定俯视、InstancedMesh 人群、HUD、结算。
  */
 'use strict';
@@ -108,7 +108,7 @@ XMini.register((() => {
     mB.makeRotationX(sw); mB.setPosition(.09, .87, 0); m4.multiplyMatrices(mA, mB); S.legL.setMatrixAt(n, m4);
     mB.makeRotationX(-sw); mB.setPosition(-.09, .87, 0); m4.multiplyMatrices(mA, mB); S.legR.setMatrixAt(n, m4);
   }
-  const keep = () => Math.max(5, 9 - S.level * .2);                      /* 无尽: seconds before the food goes cold */
+  const keep = () => Math.max(4.2, 9 - S.level * .2);                      /* 无尽: seconds before the food goes cold */
   function hud(ctx){
     const C = S.cfg, up = S.dir < 0, hearts = C.lives ? '♥'.repeat(Math.max(0, S.lives)) + '♡'.repeat(Math.max(0, 3 - S.lives)) : `洒了 ${S.hits} 盘`;
     ctx.hud.score(S.score);
@@ -142,16 +142,16 @@ XMini.register((() => {
       board:{max:5000}, medals:[240, 150, 80], reward:s => Math.min(40, 3 + s * .12)},
     {id:'stack', name:'叠盘挑战', desc:'一次端好几盘：叠得越高分越多，也越难走',
       intro:'在窗口站着，盘子每半秒多叠一盘，最多 5 盘。送到的分数是 10 / 24 / 42 / 64 / 90，但叠得越多走得越慢、越容易被撞，三盘以上不能跑。被撞整摞都洒，丢一条命。空手回窗口不计分，被撞只是晕一下。',
-      board:{max:5000}, medals:[330, 230, 130], reward:s => Math.min(40, 3 + s * .09)},
+      board:{max:5000}, medals:[210, 135, 70], reward:s => Math.min(40, 3 + s * .16)},
     {id:'rush', name:'午高峰', desc:'75 秒，同学越来越多，洒了扣 3 秒',
       intro:'限时 75 秒，不限盘数：撞到同学洒一盘，扣 3 秒重新来。同学每 4 秒多一个，越走越快，赶着上课冲刺的同学从第二趟就出现。看你能在最挤的时候送多少。',
-      board:{max:5000}, medals:[250, 170, 90], reward:s => Math.min(40, 3 + s * .12)},
+      board:{max:5000}, medals:[280, 175, 95], reward:s => Math.min(40, 3 + s * .12)},
     {id:'table', name:'指定桌号', desc:'每趟指定一个桌号，走错卡座要退出来',
       intro:'餐桌隔成了 1 到 4 号卡座，每趟饭指定一个桌号（看上面的数字牌和地上的绿色）。端进对的卡座才算送到；空盘子还是送回窗口任何地方。三盘洒完就结束。',
-      board:{max:5000}, medals:[250, 160, 85], reward:s => Math.min(40, 3 + s * .12)},
+      board:{max:5000}, medals:[215, 135, 75], reward:s => Math.min(40, 3 + s * .16)},
     {id:'endless', name:'无尽', desc:'没有总时间，每趟有保温时间，看能送多少',
-      intro:'没有总时间，只有三盘。每趟饭有保温时间（从 9 秒慢慢缩到 5 秒），超时饭凉了也算洒一盘。同学越来越快越来越多，每送到 6 趟补回一盘。',
-      board:{max:20000}, medals:[420, 280, 150], reward:s => Math.min(40, 3 + s * .08)}
+      intro:'没有总时间，只有三盘。每趟饭有保温时间（从 9 秒慢慢缩到 4 秒多），超时饭凉了也算洒一盘。同学越来越快越来越多，每送到 6 趟补回一盘。',
+      board:{max:20000}, medals:[500, 300, 150], reward:s => Math.min(40, 3 + s * .07)}
   ];
   return {
     id:'canteen', name:'食堂端盘子', icon:'🍛', color:'#ff8a3d',
@@ -226,7 +226,7 @@ XMini.register((() => {
         hud(ctx);
         const sub = C.stack ? `送到 ${S.carried} 盘，最多一次 ${S.maxN} 盘` : `送到 ${S.trips} 趟，擦肩 ${S.nearAll} 次`;
         if (S.mode === 'classic' && S.hits === 0 && S.score >= 150 && S.t <= 0) ctx.unlock('mg_canteen_clean');
-        ctx.finish(S.score, {kicker:why, sub:sub + (C.endless ? (S.cold ? `，饭凉了 ${S.cold} 次` : '') : S.hits ? `，洒了 ${S.hits} 盘` : '，一滴没洒')});
+        ctx.finish(S.score, {kicker:why, sub:sub + (C.endless ? (S.hits - S.cold ? `，撞了 ${S.hits - S.cold} 次` : '') + (S.cold ? `，饭凉了 ${S.cold} 次` : '') : S.hits ? `，洒了 ${S.hits} 盘` : '，一滴没洒')});
       };
       const back = () => { P.z = S.dir < 0 ? EDGE : -EDGE; if (C.table && S.dir > 0) P.x = TX[S.table]; trip(ctx, S.dir); };
       if (hit && S.inv <= 0){
