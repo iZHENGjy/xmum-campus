@@ -8,14 +8,19 @@ function uiSet(k, v){ try { localStorage.setItem(k, v); } catch(e){} }
 const UI_NAMES = ['LY 早八人', 'D6 干饭王', 'A3 迷路人', '湖边喂鱼人', '期末周幸存者', '图书馆占座侠', '田径场夜跑人',
   '南门等车人', '奶茶续命人', 'DDL 战士', 'B1 社团人', '宿舍断网人', '雪邦晒黑人', '小组作业背锅侠', '食堂排队王'];
 const uiNameIn = $('#tName');
-function uiRandomName(not){ let n; do { n = UI_NAMES[(Math.random() * UI_NAMES.length) | 0]; } while (n === not && UI_NAMES.length > 1); return n; }
-function uiClean(v){ return String(v || '').replace(/[\u0000-\u001f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 12); }
+/* 随机昵称带两位编号：昵称是先到先得的（js/net.js），不带编号大家会抢同一个名字 */
+function uiRandomName(not){ let n; do { n = UI_NAMES[(Math.random() * UI_NAMES.length) | 0] + ' ' + (10 + ((Math.random() * 90) | 0)); if (n.length > 12) n = n.replace(' ', ''); } while (n === not); return n; }
+/* 只留中文、字母、数字、空格和 _ - · ~ ! ?：和 database.rules.json 里 /names 的校验一致，也防止用全角字母、零宽字符冒充别人 */
+function uiClean(v){ return String(v || '').replace(/[^0-9A-Za-z一-龥 _·~!?-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 12).trim(); }
 let uiName = uiClean(uiGet('xmum-name'));
 if (!uiName){ uiName = uiRandomName(); uiSet('xmum-name', uiName); }
 uiNameIn.value = uiName;
+const uiHint = $('#tNameHint');
+function uiSetHint(t, tone){ if (!uiHint) return; uiHint.textContent = t || ''; uiHint.dataset.tone = tone || ''; uiHint.hidden = !t; }
 function uiSaveName(){
-  const v = uiClean(uiNameIn.value);
-  if (v){ const changed = v !== uiName; uiName = v; uiSet('xmum-name', v); if (changed) try { window.dispatchEvent(new Event('xmum-name')); } catch(e){} }
+  const raw = uiNameIn.value, v = uiClean(raw);
+  if (v && v !== raw.replace(/\s+/g, ' ').trim().slice(0, 12)) uiSetHint('名字只能用中文、字母、数字、空格和 _ - · ~ ! ?，其他字符去掉了', 'warn');
+  if (v){ const changed = v !== uiName; uiName = v; uiNameIn.value = v; uiSet('xmum-name', v); if (changed) try { window.dispatchEvent(new Event('xmum-name')); } catch(e){} }
   else uiNameIn.value = uiName;
 }
 uiNameIn.addEventListener('change', uiSaveName);
@@ -190,6 +195,7 @@ if (acctBtn) acctBtn.addEventListener('click', async () => {
 window.XUI = {
   playerName: () => uiName,
   setName: n => { const v = uiClean(n); if (v && v !== uiName){ uiName = v; uiNameIn.value = v; uiSet('xmum-name', v); } },
+  setNameHint: uiSetHint,
   openLeaderboard,
   openTitle,
   closeTitle

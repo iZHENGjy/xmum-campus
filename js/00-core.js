@@ -241,10 +241,13 @@ function hitsBuilding(x, z, R){
   }
   return false;
 }
+/* walkable / drivable area; js/12-terrain.js widens it past the hedge and adds the hedge as a wall */
+const MAP = {x0:-600, x1:600, z0:-275, z1:262, wall:null};
+function outOfMap(x, z, r){ r = r || 0; return x - r < MAP.x0 || x + r > MAP.x1 || z - r < MAP.z0 || z + r > MAP.z1 || (MAP.wall ? MAP.wall(x, z, r) : false); }
 function blocked(x, z){
   if (hitsBuilding(x, z, .5)) return true;
   for (const L of lakes) if (inPoly(x, z, L)) return true;
-  return x < -600 || x > 600 || z < -275 || z > 262;
+  return outOfMap(x, z, 0);
 }
 function box(w, h, d, mat, x, y, z, parent){
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);

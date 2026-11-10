@@ -262,7 +262,7 @@ function buildEats(){
     if (r > 150) continue;
     eats.push({k:'st', st, x:cx, z:cz, r:r * .72, a:a * 1.3, name:st.info && st.info.name});
   }
-  cars.forEach(c => eats.push({k:'car', c, x:c.x, z:c.z, r:c.R * 1.15, a:c.T.L * c.T.W * 1.8, name:c.T.name}));
+  cars.forEach(c => c.out || eats.push({k:'car', c, x:c.x, z:c.z, r:c.R * 1.15, a:c.T.L * c.T.W * 1.8, name:c.T.name}));   /* cars parked outside the gate are out of the hole's reach */
   npcs.forEach((n, i) => eats.push({k:'npc', n, i, x:n.x, z:n.z, r:.45, a:3}));
   eats.forEach(e => { e.fall = null; e.gone = false; });
 }

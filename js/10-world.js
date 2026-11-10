@@ -318,7 +318,7 @@ structBlock(function(){
 /* ---------- campus boundary hedge (visible, so the edge never feels like an invisible wall) ---------- */
 (function(){
   const hedge = M('#3f6f34', {roughness:.95});
-  for (const [x, z, w, d] of [[0, -276.5, 1206, 3], [0, 263.5, 1206, 3], [-601.5, -6.5, 3, 540], [601.5, -6.5, 3, 540]]){ const m = box(w, 1.8, d, hedge, x, .9, z); m.castShadow = false; }
+  for (const [x, z, w, d] of [[0, -276.5, 1206, 3], [(GX - 619) / 2, 263.5, GX + 587, 3], [(GX + 619) / 2, 263.5, 587 - GX, 3], [-601.5, -6.5, 3, 540], [601.5, -6.5, 3, 540]]){ const m = box(w, 1.8, d, hedge, x, .9, z); m.castShadow = false; }
 })();
 
 /* ---------- vegetation ---------- */

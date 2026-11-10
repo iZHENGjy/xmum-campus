@@ -56,7 +56,7 @@
           ".write": "auth != null && auth.uid === $uid && ($board === 'hole2' || $board === 'hole' || $board === 'stunt' || $board === 'rich')",
           ".validate": "newData.hasChildren(['name', 'value', 'ts']) && (!data.exists() || newData.child('value').val() >= data.child('value').val())",
           "name": {
-            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16"
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16 && newData.val() === root.child('users').child(auth.uid).child('name').val()"
           },
           "value": {
             ".validate": "newData.isNumber() && newData.val() >= 0 && ((($board === 'hole' || $board === 'hole2') && newData.val() <= 100) || ($board !== 'hole' && $board !== 'hole2' && newData.val() <= 10000000))"
@@ -83,6 +83,41 @@
         },
         "ts": {
           ".validate": "newData.isNumber() && newData.val() === now"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "names": {
+      ".read": "auth != null",
+      "$key": {
+        ".write": "auth != null && (!data.exists() || data.child('uid').val() === auth.uid)",
+        ".validate": "newData.hasChildren(['uid', 'name', 'ts']) && newData.child('uid').val() === auth.uid && $key === newData.child('name').val().toLowerCase()",
+        "uid": {
+          ".validate": "newData.isString()"
+        },
+        "name": {
+          ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 12 && newData.val().matches(/^[0-9A-Za-z一-龥 _·~!?-]+$/) && !newData.val().beginsWith(' ') && !newData.val().endsWith(' ') && !newData.val().contains('  ')"
+        },
+        "ts": {
+          ".validate": "newData.val() === now"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['name', 'key']) && newData.child('key').val() === newData.child('name').val().toLowerCase() && newData.parent().parent().child('names').child(newData.child('key').val()).child('uid').val() === $uid",
+        "name": {
+          ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 12 && newData.val().matches(/^[0-9A-Za-z一-龥 _·~!?-]+$/) && !newData.val().beginsWith(' ') && !newData.val().endsWith(' ') && !newData.val().contains('  ')"
+        },
+        "key": {
+          ".validate": "newData.isString()"
         },
         "$other": {
           ".validate": false
