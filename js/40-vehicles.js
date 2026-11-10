@@ -430,8 +430,13 @@ function eject(impact){
 }
 
 /* ---------- on foot ---------- */
+/* indoors = inside a room built far outside the map: the classroom (js/87-classroom.js), or anything that sets window.XINDOOR
+   to its own name while you are inside ('dorm' from js/89-dorm.js). window.XINDOOR_AT = {x, z} is the door on the campus you
+   went in through: patrol cars wait there (js/80-gta.js). */
+function indoorNow(){ return (typeof ROOM !== 'undefined' && ROOM.in) || !!window.XINDOOR; }
+function indoorDoor(){ return typeof ROOM !== 'undefined' && ROOM.in ? ROOM.from : window.XINDOOR ? window.XINDOOR_AT || null : null; }
 function footBlocked(x, z){
-  if (!(typeof ROOM !== 'undefined' && ROOM.in) && outOfMap(x, z, 0)) return true;   /* the classroom (js/87-classroom.js) sits outside the map */
+  if (!indoorNow() && outOfMap(x, z, 0)) return true;   /* indoor rooms sit outside the map */
   if (hitsBuilding(x, z, .9)) return true;
   for (const L of lakes) if (inPoly(x, z, L)) return true;
   for (const c of cars) if (Math.hypot(c.x - x, c.z - z) < c.R * .9) return true;

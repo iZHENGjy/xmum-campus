@@ -11,6 +11,8 @@
  *   XNet.submit(board, value) → Promise<boolean>，成绩比自己记录好才写入，写入成功为 true
  *   XNet.ready           Promise，联机初始化结束（成功或失败）后 resolve
  *   board: 'hole2'（黑洞 2.0 单局吞掉的 %）| 'hole'（旧版黑洞，只读保留）| 'stunt'（特技总分）| 'rich'（RM）
+ *   XNet.miniTop(gameId, n=10)    → 同 top，读 B1 游戏厅某个小游戏的榜（js/91-arcade.js）
+ *   XNet.miniSubmit(gameId, value) → 同 submit；gameId 要匹配 ^[a-z][a-z0-9_]{1,15}$，value 取整，0 到 1,000,000，越大越好
  *   XNet.account         {google:boolean, email, name}：是否已用 Google 登录
  *   XNet.signInGoogle()  → Promise<'linked'|'switched'>；游客身份直接升级成 Google 账号（uid 不变）；
  *                          这个 Google 账号以前在别的设备用过，就切换过去并拉取它的云存档（会刷新页面）
@@ -20,6 +22,7 @@
  * 数据库路径：
  *   /presence/{uid} = {name, mode, x, z, y, h, car?, color, t}
  *   /boards/{board}/{uid} = {name, value, ts}
+ *   /mini/{gameId}/{uid} = {name, value, ts}   小游戏榜，每个小游戏一张，规则和 /boards 一样（名字必须是注册昵称，成绩只能变高）
  *   /saves/{uid} = {data, score, ts}   只有 Google 登录的人才有：本机所有 xmum-* 存档的 JSON，双向同步，进度多的一边为准
  *   /looks/{uid} = "pink,santa,melon,mblue,d_flames"   奶娃穿戴和自己车的喷漆（js/88-wardrobe-ui.js 的 XWard.lookStr()），
  *                  只在变化时写一次；单独一个节点，规则还没发布时写入失败也不影响 presence
@@ -32,7 +35,7 @@
   const BOARDS = {hole2:{max:100, dp:1}, hole:{max:100, dp:1}, stunt:{max:1e7, dp:0}, rich:{max:1e7, dp:2}};
   const XNet = window.XNet = {
     online:false, uid:null, playersOnline:0, account:{google:false, email:null, name:null},
-    top:async () => [], submit:async () => false,
+    top:async () => [], submit:async () => false, miniTop:async () => [], miniSubmit:async () => false,
     signInGoogle:async () => { throw new Error('联机未开启'); }, signOut:async () => {},
     ready:Promise.resolve(false)
   };
@@ -133,9 +136,10 @@
   /* 排行榜上自己的旧成绩换成现在注册的名字（成绩本身不动） */
   async function fixBoardNames(){
     if (!claimed) return;
-    await Promise.all(Object.keys(BOARDS).map(async b => {
+    const mini = g(() => XMini.games.map(x => 'mini/' + x.id), []);          // 小游戏榜上的名字也一起换
+    await Promise.all(Object.keys(BOARDS).map(b => 'boards/' + b).concat(mini).map(async path => {
       try {
-        const ref = db.ref('boards/' + b + '/' + XNet.uid), v = (await timeout(ref.once('value'), 10000, '读取成绩')).val();
+        const ref = db.ref(path + '/' + XNet.uid), v = (await timeout(ref.once('value'), 10000, '读取成绩')).val();
         if (v && v.name !== claimed) await ref.update({name:claimed});
       } catch(e){}
     }));
@@ -225,6 +229,35 @@
       if (now && typeof now.value === 'number') best[board] = Math.max(best[board], now.value);
       return !!(res && res.committed);
     } catch(e){ console.warn('[XNet] 成绩提交失败', board, e); return false; }
+  };
+
+  /* ---------- 小游戏榜：/mini/{gameId}/{uid}，小游戏结算时由 js/91-arcade.js 调用 ---------- */
+  const MINI_ID = /^[a-z][a-z0-9_]{1,15}$/, MINI_MAX = 1e6, miniBest = {};
+  XNet.miniTop = async (game, n = 10) => {
+    if (!MINI_ID.test(String(game))) return [];
+    await XNet.ready; if (!XNet.online) return [];
+    n = Math.max(1, Math.min(100, n | 0 || 10));
+    try {
+      const snap = await timeout(db.ref('mini/' + game).orderByChild('value').limitToLast(n).once('value'), 10000, '读取排行榜');
+      const out = [];
+      snap.forEach(c => { const v = c.val() || {}; out.push({name:String(v.name || '?'), value:+v.value || 0, ts:+v.ts || 0, uid:c.key}); });
+      return out.sort((a, b) => b.value - a.value || a.ts - b.ts);
+    } catch(e){ console.warn('[XNet] 小游戏排行榜读取失败', game, e); return []; }
+  };
+  XNet.miniSubmit = async (game, value) => {
+    const v = Math.max(0, Math.min(MINI_MAX, Math.floor(+value)));
+    if (!MINI_ID.test(String(game)) || !(v > 0)) return false;
+    await XNet.ready; if (!XNet.online || miniBest[game] >= v) return false;
+    const name = playerName(), uid = XNet.uid;
+    try {
+      const res = await timeout(db.ref('mini/' + game + '/' + uid).transaction(cur => {
+        if (cur && typeof cur.value === 'number' && cur.value >= v) return;   // 已有更好的，放弃
+        return {name, value:v, ts:Date.now()};
+      }, undefined, false), 15000, '提交成绩');
+      const now = res && res.snapshot && res.snapshot.val();
+      if (now && typeof now.value === 'number') miniBest[game] = Math.max(miniBest[game] || 0, now.value);
+      return !!(res && res.committed);
+    } catch(e){ console.warn('[XNet] 小游戏成绩提交失败', game, e); return false; }
   };
 
   /* ---------- 自动提交 ---------- */
