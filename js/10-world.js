@@ -125,17 +125,17 @@ function arcStep(list, cx, cz, r0, r1, a0, a1, y0, y1, top, riser, seg){
 (function(){
   const [bx, z0] = P(1290, 341), z1 = P(1290, 484)[1], L = z1 - z0, N = 9, span = L / N, W = 3.8, STONE = '#cdc6b7', DARK = '#a79f90', CAP = '#e2dccf', parts = [];
   const info = {name:'芙蓉湖石拱桥', tag:'景观', desc:'横跨湖面的多孔石拱桥，是湖边最上镜的地方。游戏里只能在岸上看：桥下的水面还是不能走。', spawn:[bx - 16, z0 - 8, -2.2]};
-  const deckY = t => 1.1 + 2.3 * (1 - Math.pow(2 * t - 1, 2));   /* gentle camber: higher in the middle */
-  const M2 = 8;
+  const deckY = t => 4.5 + 1.5 * (1 - Math.pow(2 * t - 1, 2));   /* gentle camber: higher in the middle */
+  const M2 = 10;
   for (let k = 0; k < N; k++){
     const za = z0 + k * span, r = span / 2 - .55, zc = za + span / 2;
     for (let i = 0; i < M2; i++){
       const u0 = i / M2, u1 = (i + 1) / M2, p0 = za + u0 * span, p1 = za + u1 * span, t0 = (p0 - z0) / L, t1 = (p1 - z0) / L;
-      const arc = p => { const dz = Math.abs(p - zc); return dz >= r ? -.6 : -.6 + Math.sqrt(r * r - dz * dz) * .62; };   /* flattened arch springing below the water line */
+      const arc = p => { const dz = Math.abs(p - zc); return dz >= r ? -.4 : -.4 + Math.sqrt(r * r - dz * dz) * .92; };   /* round arch springing just below the water line */
       const a0 = arc(p0), a1 = arc(p1), d0 = deckY(t0) - .25, d1 = deckY(t1) - .25;
       for (const s of [-1, 1]){
         const x = bx + s * W / 2;
-        parts.push(s > 0 ? quadGeo([x, a0, p0], [x, d0, p0], [x, d1, p1], [x, a1, p1], STONE) : quadGeo([x, a0, p1], [x, d1, p1], [x, d0, p0], [x, a0, p0], STONE));
+        parts.push(s > 0 ? quadGeo([x, a0, p0], [x, d0, p0], [x, d1, p1], [x, a1, p1], STONE) : quadGeo([x, a1, p1], [x, d1, p1], [x, d0, p0], [x, a0, p0], STONE));
         /* parapet */
         const xo = bx + s * (W / 2 + .12), xi = bx + s * (W / 2 - .2), yt0 = deckY(t0) + .85, yt1 = deckY(t1) + .85;
         parts.push(s > 0 ? quadGeo([xo, d0, p0], [xo, yt0, p0], [xo, yt1, p1], [xo, d1, p1], CAP) : quadGeo([xo, d0, p1], [xo, yt1, p1], [xo, yt0, p0], [xo, d0, p0], CAP),
@@ -147,12 +147,12 @@ function arcStep(list, cx, cz, r0, r1, a0, a1, y0, y1, top, riser, seg){
         quadGeo([bx - W / 2, a0, p0], [bx + W / 2, a0, p0], [bx + W / 2, a1, p1], [bx - W / 2, a1, p1], DARK));
     }
     /* cutwater pier between two arches */
-    if (k) parts.push(geoTint(new THREE.CylinderGeometry(.75, .95, 2.4, 6).translate(bx - W / 2 - .35, .2, za), DARK), geoTint(new THREE.CylinderGeometry(.75, .95, 2.4, 6).translate(bx + W / 2 + .35, .2, za), DARK));
+    if (k) parts.push(geoTint(new THREE.CylinderGeometry(.6, .95, 3, 6).translate(bx - W / 2 - .3, .5, za), DARK), geoTint(new THREE.CylinderGeometry(.6, .95, 3, 6).translate(bx + W / 2 + .3, .5, za), DARK));
   }
   /* abutments and a few steps down to each bank */
-  for (const [zz, dir] of [[z0, -1], [z1, 1]]) for (let i = 0; i < 4; i++) parts.push(geoTint(new THREE.BoxGeometry(W + .5, 1.1 - i * .27, 1).translate(bx, (1.1 - i * .27) / 2, zz + dir * (.5 + i)), STONE));
+  for (const [zz, dir] of [[z0, -1], [z1, 1]]) for (let i = 0; i < 12; i++) parts.push(geoTint(new THREE.BoxGeometry(W + .5, 4.5 - i * .37, .62).translate(bx, (4.5 - i * .37) / 2, zz + dir * (.3 + i * .6)), i % 2 ? STONE : CAP));
   const m = new THREE.Mesh(geoMerge(parts), decoMat); m.castShadow = m.receiveShadow = true; m.userData.info = info; pickables.push(m); scene.add(m);
-  addLabel('石拱桥', bx, 9, (z0 + z1) / 2, true);
+  addLabel('石拱桥', bx, 11, (z0 + z1) / 2, true);
 })();
 
 /* Musical Island: a ribbed red-and-white shell, with a fan of grass steps beside it */
@@ -233,13 +233,13 @@ const lyDesc = '校内宿舍楼。十字形平面的高层塔楼，房间带独�
 [['LY6',820,95],['LY7',945,95],['LY8',1200,90],['LY9',1340,90],['LY2',975,190],['LY4',1200,175],['LY5',1320,178]].forEach(([n, px, py]) =>
   crossB({name:n, tag:'宿舍', desc:lyDesc, px, py, ap:64, tp:22, bp:64, floors:16, variant:2, roof:'#c24d2a', minor:true, brick:4, crown:true, digit:+n.slice(2)}));
 crossB({name:'LY1', tag:'LY 区', desc:'LY 区的一栋。官网的住宿页没有列出它的用途。', px:870, py:205, ap:64, tp:22, bp:64, floors:16, variant:2, roof:'#c24d2a', minor:true, brick:4, crown:true, digit:1});
-building({arcade:true, name:'LY3 食堂', tag:'食堂', desc:'LY 宿舍区的食堂（一楼）。南面的半圆形草坪上立着 XMUM 字样。', px:1075, py:115, wp:105, dp:115, floors:3, roofH:10, plaque:{text:'LY3 食堂', w:6, y:7.6}});
+building({arcade:true, name:'LY3 食堂', tag:'食堂', desc:'LY 宿舍区的食堂（一楼）。南面的半圆形草坪上立着 XMUM 字样。', px:1075, py:115, wp:105, dp:115, floors:3, roofH:11, over:3.6, terraces:2, plaque:{text:'LY3 食堂', w:6, y:7.6}});
 (function(){
   const [x, z] = P(1075, 215);
   const semi = new THREE.Mesh(new THREE.CircleGeometry(22, 32, 0, Math.PI), flatMat('#4f7436', 8));
   semi.rotation.x = -Math.PI / 2; semi.position.set(x, .06, z - 14); scene.add(semi);
   /* XMUM spelled in clipped shrubs on a paved bed, readable from the lake side (south) */
-  const bed = new THREE.Mesh(new THREE.PlaneGeometry(40, 11), flatMat('#d8b99c', 9)); bed.rotation.x = -Math.PI / 2; bed.position.set(x, .07, z - 7); bed.receiveShadow = true; scene.add(bed);
+  const bed = new THREE.Mesh(new THREE.PlaneGeometry(40, 11), flatMat('#a98b72', 9)); bed.rotation.x = -Math.PI / 2; bed.position.set(x, .07, z - 7); bed.receiveShadow = true; scene.add(bed);
   const hedge = [], hr = mkRng(888), GREENS = ['#3f7d36', '#4a8a3c', '#37702f'];
   /* a stroke from (u0, v0) to (u1, v1) in letter space: u to the east, v to the north */
   const stroke = (cu, u0, v0, u1, v1) => {
@@ -363,11 +363,14 @@ structBlock(function(){
   const [x, z] = P(1180, 738);
   const info = {name:'陈嘉庚像', tag:'雕像', desc:'厦门大学创办人陈嘉庚的塑像。从正门进来先经过他，再往北就是"一主四从"的主楼群。', spawn:[x, z + 14, 0]};
   const bronze = M('#6d5638', {metalness:.55, roughness:.45});
-  const ped = box(4.2, 3, 4.2, granite, x, 1.5, z);
-  const body = new THREE.Mesh(new THREE.CylinderGeometry(.62, .95, 2.6, 16), bronze); body.position.set(x, 4.3, z);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(.42, 16, 12), bronze); head.position.set(x, 5.95, z);
-  [body, head].forEach(m => { m.castShadow = true; scene.add(m); });
-  [ped, body, head].forEach(m => { m.userData.info = info; pickables.push(m); });
+  /* square plinth in two steps with a darker inscription stone; on it a standing figure in a long coat, one hand on a cane (facing the gate) */
+  const ped = box(4.2, 3, 4.2, granite, x, 1.5, z); box(5.4, .5, 5.4, granite, x, .25, z); box(3.2, 1.5, .12, darkStone, x, 1.7, z + 2.12);
+  const fig = geoMerge([new THREE.CylinderGeometry(.5, .72, 2.5, 12).translate(0, 4.25, 0), geoAt(roundBox(1.25, .75, .62, .22, 2), 0, 5.55, 0), new THREE.SphereGeometry(.34, 14, 10).translate(0, 6.28, .02),
+    new THREE.CylinderGeometry(.13, .13, .22, 8).translate(0, 5.98, 0), rodGeo(.17, .14, [-.62, 5.7, 0], [-.7, 4.5, .12], 8), rodGeo(.17, .14, [.62, 5.7, 0], [.74, 4.75, .34], 8),
+    rodGeo(.04, .04, [.78, 4.8, .4], [.82, 3.02, .5], 6), new THREE.BoxGeometry(1.5, .12, 1.1).translate(0, 3.04, 0)]);
+  const body = new THREE.Mesh(fig, bronze); body.position.set(x, 0, z);
+  body.castShadow = true; scene.add(body);
+  [ped, body].forEach(m => { m.userData.info = info; pickables.push(m); });
   addCircle(x, z, 3.2); addLabel('陈嘉庚像', x, 9, z, true);
 })();
 /* East gate */

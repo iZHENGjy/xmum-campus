@@ -578,13 +578,20 @@ function building(o){
   }
   /* gold light under the eaves at night */
   if (o.eaveLight && !o.flat){
-    const ey = y0 + H + .42, e2 = over * .55, gx = !o.gable || w >= d, gz = !o.gable || w < d;   /* a gable roof has eaves on two sides only */
-    for (const s of [-1, 1]){ if (gx) glow.push(new THREE.BoxGeometry(w + e2 * 2, .16, .22).translate(0, ey, s * (d / 2 + e2))); if (gz) glow.push(new THREE.BoxGeometry(.22, .16, d + e2 * 2).translate(s * (w / 2 + e2), ey, 0)); }
+    /* a painted beam right under the eaves, on the sides that have them (a gable roof: two) */
+    const ey = y0 + H + .28, gx = !o.gable || w >= d, gz = !o.gable || w < d;
+    for (const s of [-1, 1]){ if (gx) glow.push(new THREE.BoxGeometry(w + 1, .62, .14).translate(0, ey, s * (d / 2 + .48))); if (gz) glow.push(new THREE.BoxGeometry(.14, .62, d + 1).translate(s * (w / 2 + .48), ey, 0)); }
   }
   /* 腰檐: tiled skirt roofs at given floor lines, with a trim band above */
   if (o.waist) for (const f of o.waist){
     const yw = y0 + f * 3.6, ov = o.waistOver || 1.7; roofs.tile.push(eaveRing(w + .2, d + .2, ov, ov * .56).translate(0, yw, 0)); tbox(deco, w + .5, .4, d + .5, 0, yw + .2, 0, TRIM);
-    if (o.eaveLight) for (const s of [-1, 1]){ glow.push(new THREE.BoxGeometry(w + ov, .14, .2).translate(0, yw - ov * .56 + .25, s * (d / 2 + ov * .55)), new THREE.BoxGeometry(.2, .14, d + ov).translate(s * (w / 2 + ov * .55), yw - ov * .56 + .25, 0)); }
+    if (o.eaveLight) for (const s of [-1, 1]){ glow.push(new THREE.BoxGeometry(w + .5, .5, .14).translate(0, yw - .45, s * (d / 2 + .2)), new THREE.BoxGeometry(.14, .5, d + .5).translate(s * (w / 2 + .2), yw - .45, 0)); }
+  }
+  /* open terraces stepping out below the roof (LY3 食堂): a slab and a railing at each of the first floor lines, the lower one deeper */
+  if (o.terraces) for (let k = 1; k <= o.terraces; k++){
+    const t = (o.terraces - k + 1) * 1.6 + .6, yt = y0 + k * 3.6;
+    tbox(deco, w + t * 2, .34, d + t * 2, 0, yt - .1, 0, BALC);
+    for (const s of [-1, 1]){ tbox(deco, w + t * 2, .9, .14, 0, yt + .5, s * (d / 2 + t - .07), BALC2); tbox(deco, .14, .9, d + t * 2, s * (w / 2 + t - .07), yt + .5, 0, BALC2); }
   }
   /* big storey number on the two end faces of a tower arm (LY 宿舍), built from seven-segment bars */
   if (o.digit != null){

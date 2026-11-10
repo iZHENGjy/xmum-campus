@@ -48,6 +48,7 @@ document.querySelectorAll('[data-gfx]').forEach(b => b.addEventListener('click',
 XQ.onChange(() => {
   document.querySelectorAll('[data-gfx]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.gfx === XQ.level)));
   uiGfxHint.textContent = UI_GFX_TIP[XQ.level] + (XQ.manual ? '' : ' · 自动选的');
+  document.querySelectorAll('[data-gfx]').forEach(b => { b.title = UI_GFX_TIP[b.dataset.gfx]; });
 });
 
 /* ---------- title screen ---------- */
