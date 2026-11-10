@@ -23,7 +23,7 @@
  *   车速 60 以上不弹（只是路过就不打扰）；卡片弹出来的头 0.25 秒不收按键，免得上一下 F 误接。
  *   「接单中」开关：按 J，或者点指南针旁边的小按钮。关掉以后路过任何光圈都不弹，适合只想闲逛的时候。
  *
- * 这个文件要排在 js/87-classroom.js 后面加载（要包 gx 的钩子）；offerJob 是运行时才调的，所以前面的文件也能用。
+ * 这个文件要排在 js/87-classroom.js 后面加载（要包 gx 的钩子），具体在哪一个 89 文件前后都行；offerJob 是运行时才调的，所以前面的文件也能用。
  */
 'use strict';
 const OFFER = {cur:null, frame:0, skip:{}, on:true, note:'', noteF:-9, VMAX:16.7, GRACE:.25, COOL:6};
