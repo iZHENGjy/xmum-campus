@@ -6,11 +6,10 @@ const TOUCH = matchMedia('(pointer: coarse)').matches;
 const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 let renderer;
-try { renderer = new THREE.WebGLRenderer({canvas, antialias:true}); }
+/* 画质档位在 js/quality.js（window.XQ）；像素比和阴影在下面的 applyQuality 里按档位设 */
+try { renderer = new THREE.WebGLRenderer({canvas, antialias:XQ.aa}); }
 catch(e){ $('#err').hidden = false; throw e; }
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, XQ.cfg.pr));
 const ANISO = Math.min(4, renderer.capabilities.getMaxAnisotropy());
 
 /* map-pixel -> metres. Pixels refer to the campus plan (Sept 2025), enlarged 3x. North is up. */
@@ -39,7 +38,7 @@ function mkRng(s){ return () => { s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ 
 /* ---------- lights ---------- */
 const hemi = new THREE.HemisphereLight('#dff0ff', '#5d7340', 0.72); scene.add(hemi);
 const sun = new THREE.DirectionalLight('#fff4e2', 1.05);
-sun.castShadow = true; const SM = TOUCH ? 2048 : 4096; sun.shadow.mapSize.set(SM, SM);
+sun.castShadow = true; sun.shadow.mapSize.set(XQ.cfg.smap || 1024, XQ.cfg.smap || 1024);
 sun.shadow.camera.near = 10; sun.shadow.camera.far = 2400;
 sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.6;
 scene.add(sun); scene.add(sun.target);
@@ -50,6 +49,18 @@ function fitShadow(cx, cz, half){
   sun.target.position.set(cx, 0, cz);
 }
 fitShadow(0, 0, 640);
+/* quality tier -> resolution and shadows (called now and again whenever the tier changes) */
+function applyQuality(){
+  const c = XQ.cfg, on = c.shadow > 0, type = c.shadow > 1 ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, c.pr) * XQ.scale);
+  const recompile = renderer.shadowMap.enabled !== on || renderer.shadowMap.type !== type;
+  renderer.shadowMap.enabled = on; renderer.shadowMap.type = type; sun.castShadow = on;
+  if (on && sun.shadow.mapSize.x !== c.smap){ sun.shadow.mapSize.set(c.smap, c.smap); if (sun.shadow.map){ sun.shadow.map.dispose(); sun.shadow.map = null; } }
+  if (recompile) scene.traverse(o => { if (o.material) [].concat(o.material).forEach(m => m.needsUpdate = true); });
+  renderer.shadowMap.needsUpdate = true;
+  if (typeof resize === 'function') resize();
+}
+XQ.onChange(applyQuality);
 
 /* ---------- materials ---------- */
 const M = (c, o) => new THREE.MeshStandardMaterial(Object.assign({color:c, roughness:0.9, metalness:0}, o || {}));
@@ -137,6 +148,80 @@ const _gm = new THREE.Matrix4(), _ge = new THREE.Euler();
 function geoAt(geo, x, y, z, rx, ry, rz, sx, sy, sz){
   _gm.compose(_cp.set(x || 0, y || 0, z || 0), _cq.setFromEuler(_ge.set(rx || 0, ry || 0, rz || 0)), _cs.set(sx || 1, sy || sx || 1, sz || sx || 1));
   return geo.applyMatrix4(_gm);
+}
+
+/* ---------- chunked instancing ----------
+   Looks like one InstancedMesh to the game code (setMatrixAt / setColorAt / castShadow / visible), but is split by map cell so that
+   off-screen cells are culled and only cells near the camera use the full model:
+   - `all`: one mesh holding every instance. With a far model it draws the distant ones (near cells are zeroed out in it);
+            without one it is only shown from high above, where everything is on screen anyway.
+   - one mesh per cell with the full model, shown while the camera is within range. Only these cast shadows at street level. */
+const lodSets = [], _zeroM = new THREE.Matrix4().makeScale(0, 0, 0), _lm = new THREE.Matrix4();
+function shareGeo(geo, sphere){ const g = new THREE.BufferGeometry(); g.attributes = geo.attributes; g.index = geo.index; g.groups = geo.groups; g.boundingSphere = sphere; return g; }
+class ChunkIM {
+  /* o: {far: low-poly geometry, dist: metres within which the full model is used (times XQ.cfg.lod), cell, size: reach of one instance,
+         shadow: casts, shadowFar: the far model casts too when seen from above, fill: fn(o, i) -> matrix in _cm (default: x, y, z, r, s)} */
+  constructor(geo, mat, spots, o){
+    o = o || {};
+    const n = spots.length, cell = o.cell || 150, size = o.size || 12;
+    this.count = n; this.size = size; this.far = o.far || null; this.dist = o.dist || 220; this.cast = o.shadow !== false; this.castFar = !!o.shadowFar; this._vis = true;
+    this.m = new Float32Array(n * 16); this.ci = new Uint16Array(n); this.li = new Uint16Array(n); this.chunks = [];
+    this.instanceMatrix = {needsUpdate:false}; this.instanceColor = {needsUpdate:false};
+    const cells = new Map();
+    spots.forEach((s, i) => { const k = Math.floor(s.x / cell) + ',' + Math.floor(s.z / cell); let a = cells.get(k); if (!a) cells.set(k, a = []); a.push(i); });
+    cells.forEach(idx => {
+      let x0 = 1e9, y0 = 1e9, z0 = 1e9, x1 = -1e9, y1 = -1e9, z1 = -1e9;
+      for (const i of idx){ const s = spots[i], y = s.y || 0; x0 = Math.min(x0, s.x); x1 = Math.max(x1, s.x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); z0 = Math.min(z0, s.z); z1 = Math.max(z1, s.z); }
+      const c = new THREE.Vector3((x0 + x1) / 2, (y0 + y1) / 2 + size / 2, (z0 + z1) / 2), rad = Math.hypot(x1 - x0, y1 - y0, z1 - z0) / 2 + size * 1.6;
+      const im = new THREE.InstancedMesh(shareGeo(geo, new THREE.Sphere(c, rad)), mat, idx.length);
+      im.castShadow = this.cast; im.receiveShadow = true; im.visible = false; im.frustumCulled = true;   /* r128 turns culling off for InstancedMesh by default */
+      scene.add(im);
+      idx.forEach((i, l) => { this.ci[i] = this.chunks.length; this.li[i] = l; });
+      this.chunks.push({im, idx, c, rad, near:false});
+    });
+    const all = this.all = new THREE.InstancedMesh(this.far || geo, o.farMat || mat, n);
+    all.frustumCulled = false; all.castShadow = false; all.receiveShadow = true; scene.add(all);
+    spots.forEach((s, i) => { if (o.fill) o.fill(s, i); else _cm.compose(_cp.set(s.x, s.y || 0, s.z), _cq.setFromAxisAngle(UP, s.r || 0), _cs.setScalar(s.s == null ? 1 : s.s)); this.setMatrixAt(i, _cm); });
+    lodSets.push(this);
+  }
+  setMatrixAt(i, m){
+    m.toArray(this.m, i * 16);
+    const ch = this.chunks[this.ci[i]], e = m.elements; ch.im.setMatrixAt(this.li[i], m); ch.im.instanceMatrix.needsUpdate = true;
+    /* an instance moved outside its cell's bounds (lifted onto a hill, knocked away): grow the bounds so it is not culled */
+    const reach = Math.hypot(e[12] - ch.c.x, e[13] - ch.c.y, e[14] - ch.c.z) + this.size;
+    if (reach > ch.rad && e[0] * e[0] + e[1] * e[1] + e[2] * e[2] > 1e-6){ ch.rad = reach; ch.im.geometry.boundingSphere.radius = reach; }
+    if (!(this.far && ch.near)){ this.all.setMatrixAt(i, m); this.all.instanceMatrix.needsUpdate = true; }
+  }
+  getMatrixAt(i, m){ return m.fromArray(this.m, i * 16); }
+  setColorAt(i, c){
+    const im = this.chunks[this.ci[i]].im; im.setColorAt(this.li[i], c); im.instanceColor.needsUpdate = true;
+    this.all.setColorAt(i, c); this.all.instanceColor.needsUpdate = true;
+  }
+  get castShadow(){ return this.cast; }
+  set castShadow(v){ this.cast = !!v; for (const ch of this.chunks) ch.im.castShadow = this.cast; }
+  set receiveShadow(v){ this.all.receiveShadow = v; for (const ch of this.chunks) ch.im.receiveShadow = v; }
+  get visible(){ return this._vis; }
+  set visible(v){ this._vis = !!v; if (!v){ this.all.visible = false; for (const ch of this.chunks){ ch.im.visible = false; } } }
+  set frustumCulled(v){}
+  /* cam: camera position; overview: the camera is high above the map */
+  update(cam, overview){
+    const far = this.far, all = this.all, D = far ? this.dist * XQ.cfg.lod : XQ.cfg.props;
+    let dirty = false;
+    for (const ch of this.chunks){
+      const near = this._vis && !overview && cam.distanceTo(ch.c) - ch.rad < D;
+      if (near === ch.near){ if (ch.im.visible !== near) ch.im.visible = near; continue; }
+      ch.near = near; ch.im.visible = near;
+      if (far){ dirty = true; for (const i of ch.idx) all.setMatrixAt(i, near ? _zeroM : _lm.fromArray(this.m, i * 16)); }
+    }
+    if (dirty) all.instanceMatrix.needsUpdate = true;
+    all.visible = this._vis && (far ? true : overview);
+    all.castShadow = this.cast && overview && (far ? this.castFar : XQ.tier > 1);
+  }
+}
+let lodOverview = false;
+function updateLod(){
+  const y = camera.position.y; if (lodOverview ? y < 130 : y > 160) lodOverview = !lodOverview;
+  for (const s of lodSets) s.update(camera.position, lodOverview);
 }
 
 /* ---------- facade textures: 0 teaching (rect), 1 teaching (arched), 2 dorm; tone 0-2 = slightly different plaster ---------- */

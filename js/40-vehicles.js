@@ -253,7 +253,9 @@ function makeCar(kind, color, x, z, h){
   let lights = null;
   const mats = Object.assign({paint, accent:CAR_ACCENT[kind] ? (CAR_MAT['acc_' + kind] || (CAR_MAT['acc_' + kind] = M(CAR_ACCENT[kind], {roughness:.4, metalness:kind === 'rr' ? .5 : .1}))) : paint}, CAR_MAT);
   const geos = carParts(kind, T);
-  for (const k in geos){ const m = new THREE.Mesh(geos[k], mats[k]); m.castShadow = k !== 'glass'; m.receiveShadow = k === 'paint'; body.add(m); }
+  /* only the body shell casts a shadow; trim, chrome and wheels (c.fine) are hidden when the car is far away (js/18-gfx.js) */
+  const fine = [];
+  for (const k in geos){ const m = new THREE.Mesh(geos[k], mats[k]); m.castShadow = k === 'paint' || k === 'accent'; m.receiveShadow = k === 'paint'; body.add(m); if (k === 'trim' || k === 'chrome') fine.push(m); }
   if (kind === 'bus'){
     const tm = new THREE.MeshBasicMaterial({map:carTextTex('bus', 256, 48, g => { g.fillStyle = '#c4502a'; g.font = '700 30px "Noto Sans SC",sans-serif'; g.textBaseline = 'middle'; g.fillText('XMUM 校巴', 8, 26); }), transparent:true});
     for (const s of [-1, 1]){ const p = new THREE.Mesh(new THREE.PlaneGeometry(4, .75), tm); p.position.set(s * (T.W / 2 + .03), 1.5, 0); p.rotation.y = s * Math.PI / 2; body.add(p); }
@@ -271,11 +273,11 @@ function makeCar(kind, color, x, z, h){
   const wg = carWheelGeo(T.r);
   for (const sz of [1, -1]) for (const sx of [-1, 1]){
     const piv = new THREE.Group(); piv.position.set(sx * (T.W / 2 - .08), T.r, sz * T.wb / 2); body.add(piv);
-    const w = new THREE.Mesh(wg, wheelMat); w.scale.x = sx; w.castShadow = true; piv.add(w); wheels.push(w); if (sz > 0) fronts.push(piv);
+    const w = new THREE.Mesh(wg, wheelMat); w.scale.x = sx; piv.add(w); wheels.push(w); fine.push(w); if (sz > 0) fronts.push(piv);
   }
   root.position.set(x, 0, z); root.rotation.y = h; scene.add(root);
   const c = {kind, T, root, body, wheels, fronts, x, z, h, vx:0, vz:0, y:0, vy:0, lastVy:0, air:false, airT:0, steer:0, slip:0, pitch:0, wet:false,
-    R:(T.L + T.W) / 4, mass:T.mass, home:[x, z, h], lights, paint, color0:color, hp:100, wrecked:false, crashCd:0, smokeAcc:0};
+    R:(T.L + T.W) / 4, mass:T.mass, home:[x, z, h], lights, paint, color0:color, hp:100, wrecked:false, crashCd:0, smokeAcc:0, fine, fineOn:true};
   cars.push(c); return c;
 }
 makeCar('sedan', '#c0392b', 104, 197, Math.PI);

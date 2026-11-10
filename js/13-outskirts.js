@@ -385,7 +385,8 @@ function outSet(kind, spots, parts, shadow){
     const g = geo.clone(); g.boundingSphere = new THREE.Sphere(c, R);
     const im = new THREE.InstancedMesh(g, mat, spots.length);
     spots.forEach((o, i) => { _cm.compose(_cp.set(o.x, o.y, o.z), _cq.setFromAxisAngle(UP, o.r), _cs.setScalar(o.s)); im.setMatrixAt(i, _cm); if (o.col) im.setColorAt(i, o.col); });
-    im.castShadow = shadow; im.receiveShadow = true; scene.add(im); return im;
+    im.castShadow = shadow; im.receiveShadow = true; im.frustumCulled = true;   /* InstancedMesh is not culled by default in r128; the sphere above covers every instance */
+    scene.add(im); return im;
   });
   const set = {kind, spots, ims, bb:[x0, z0, x1, z1], c, R, vis:true}; OUT_SETS.push(set); return set;
 }
@@ -572,7 +573,7 @@ function updateOutskirts(dt, T){
   }
   townMat.emissiveIntensity = Math.max(cur.win, wx.rain * .6);
   /* far hill trees are a few pixels tall and mostly fogged: skip them (shorter on phones) */
-  const far = TOUCH ? 900 : 1250, cp = camera.position;
+  const far = Math.min(TOUCH ? 900 : 1250, XQ.pick(600, 900, 1250)), cp = camera.position;
   for (const s of OUT_SETS){ if (s.kind !== 'tree') continue; const v = cp.distanceTo(s.c) - s.R < far; if (v !== s.vis){ s.vis = v; for (const im of s.ims) im.visible = v; } }
   if (mode === 'naiwa' && driving && !gx.paused){
     const c = driving, sp = Math.hypot(c.vx, c.vz);

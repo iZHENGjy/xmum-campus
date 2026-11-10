@@ -38,6 +38,18 @@ uiSoundBtn.addEventListener('click', () => {
   if (soundOn){ ac(); sfx.ding(); }
 });
 
+/* ---------- quality picker (tiers live in js/quality.js) ---------- */
+const uiGfxHint = $('#tGfxHint');
+const UI_GFX_TIP = {low:'最省电最顺，关掉阴影和特效，手机卡的话选这个', mid:'有阴影和水面波纹，适合大多数手机', high:'柔和阴影、泛光、树叶摆动，适合电脑和新手机'};
+document.querySelectorAll('[data-gfx]').forEach(b => b.addEventListener('click', () => {
+  const aaWas = XQ.aa; XQ.set(b.dataset.gfx);
+  if (XQ.cfg.aa !== aaWas) uiGfxHint.textContent = UI_GFX_TIP[XQ.level] + '（边缘平滑下次打开生效）';
+}));
+XQ.onChange(() => {
+  document.querySelectorAll('[data-gfx]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.gfx === XQ.level)));
+  uiGfxHint.textContent = UI_GFX_TIP[XQ.level] + (XQ.manual ? '' : ' · 自动选的');
+});
+
 /* ---------- title screen ---------- */
 const titleEl = $('#title');
 let titleOpen = true, titleTimer = 0;

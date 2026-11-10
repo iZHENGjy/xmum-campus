@@ -323,24 +323,26 @@ structBlock(function(){
 
 /* ---------- vegetation ---------- */
 /* coconut palm: ringed, gently curving trunk; two layers of drooping, leafleted fronds; a coconut cluster (vertex colours) */
-const trunkGeo = (() => {
-  const pts = [], cols = [], N = 24;
+const palmTrunk = (N, seg) => {
+  const pts = [], cols = [];
   for (let i = 0; i <= N; i++){
     const y = 8.4 * i / N, t = y / 8.4, r = (.4 + (.22 - .4) * t) * (1 + .35 * Math.max(0, 1 - y / .7) ** 2) * (i % 2 ? .93 : 1.04);
     pts.push(new THREE.Vector2(i === N ? 0 : r, y));
   }
-  const g = new THREE.LatheGeometry(pts, 6), p = g.attributes.position, c = new Float32Array(p.count * 3), A = new THREE.Color('#8f7559'), B = new THREE.Color('#6b5643'), C = new THREE.Color();
+  const g = new THREE.LatheGeometry(pts, seg), p = g.attributes.position, c = new Float32Array(p.count * 3), A = new THREE.Color('#8f7559'), B = new THREE.Color('#6b5643'), C = new THREE.Color();
   for (let i = 0; i < p.count; i++){
     const j = i % pts.length, y = p.getY(i); p.setX(i, p.getX(i) + .018 * y * y);
     C.copy(j % 2 ? B : A).lerp(new THREE.Color('#7d7a5a'), Math.max(0, (y - 7) / 1.4) * .6); c[i * 3] = C.r; c[i * 3 + 1] = C.g; c[i * 3 + 2] = C.b;
   }
   g.setAttribute('color', new THREE.BufferAttribute(c, 3)); g.computeVertexNormals(); return g;
-})();
-function crownGeometry(){
-  for (let i = 0; i < 20; i++) rnd(); /* keep the shared random sequence (tree/lamp placement) exactly as before */
+};
+const trunkGeo = palmTrunk(12, 6), trunkFarGeo = palmTrunk(4, 4);
+/* n = segments along a frond: 6 for the full model, 2 for the far one (same fronds, no coconuts) */
+function crownGeometry(n, lite){
+  if (!lite) for (let i = 0; i < 20; i++) rnd(); /* keep the shared random sequence (tree/lamp placement) exactly as before */
   const rr = mkRng(7331), pos = [], col = [], C = new THREE.Color(), base = new THREE.Color('#2d6a2c'), tip = new THREE.Color('#62a043'), old = new THREE.Color('#8a9a40');
   const frond = (a, L, rise, droop, wid, age) => {
-    const ca = Math.cos(a), sa = Math.sin(a), pts = [], n = 6;
+    const ca = Math.cos(a), sa = Math.sin(a), pts = [];
     for (let i = 0; i <= n; i++){
       const s = i / n, r = L * s, y = rise * s - droop * s * s, w = (wid * Math.sin(Math.PI * Math.min(1, s * 1.08)) + .04) * (i % 2 ? .72 : 1), fold = .22 * w, ey = y - .12 * w;
       pts.push([ca * r - sa * w, ey, sa * r + ca * w], [ca * r, y + fold, sa * r], [ca * r + sa * w, ey, sa * r - ca * w]);
@@ -354,12 +356,13 @@ function crownGeometry(){
   for (let k = 0; k < 8; k++) frond(k / 8 * Math.PI * 2 + rr() * .3, 4.2 + rr() * 1.1, 1.0, 2.4 + rr() * .5, .9, .15 + rr() * .35);
   for (let k = 0; k < 4; k++) frond(k / 4 * Math.PI * 2 + .35 + rr() * .3, 3.2 + rr() * .6, 2.0, 1.6, .7, 0);
   const g0 = new THREE.BufferGeometry(); g0.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g0.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g0.computeVertexNormals();
+  if (lite){ g0.translate(.018 * 64, 8.2, 0); return g0; }
   const nuts = [];
   for (let k = 0; k < 4; k++){ const a = k / 4 * Math.PI * 2 + .4; nuts.push(geoTint(new THREE.IcosahedronGeometry(.18, 0).translate(Math.cos(a) * .27, -.3 - (k % 2) * .12, Math.sin(a) * .27), k % 3 ? '#5f7a2a' : '#7a5a2a')); }
   nuts.push(geoTint(new THREE.CylinderGeometry(.17, .23, .55, 6, 1, true).translate(0, -.15, 0), '#56703a'));
   const g = geoMerge([g0, ...nuts]); g.translate(.018 * 64, 8.2, 0); return g;
 }
-const crownGeo = crownGeometry();
+const crownGeo = crownGeometry(6), crownFarGeo = crownGeometry(2, true);
 /* rain tree: wide umbrella canopy built from jittered faceted lumps (lighter on top), a trunk that forks into limbs */
 const canopyGeo = (() => {
   const lumps = [geoAt(new THREE.IcosahedronGeometry(3.1, 1), 0, 5.6, 0, 0, 0, 0, 1.3, .62, 1.3), geoAt(new THREE.IcosahedronGeometry(1.9, 0), .2, 6.5, -.3, 0, 0, 0, 1, .75, 1)];
@@ -372,6 +375,14 @@ const canopyGeo = (() => {
   }
   g.setAttribute('color', new THREE.BufferAttribute(c, 3)); g.computeVertexNormals(); return g;
 })();
+/* far model of the rain tree: two lumps with the same shading, and a bare four-sided trunk */
+const canopyFarGeo = (() => {
+  const g = geoMerge([geoAt(new THREE.IcosahedronGeometry(3.35, 0), 0, 5.6, 0, 0, 0, 0, 1.3, .62, 1.3), geoAt(new THREE.IcosahedronGeometry(2.05, 0), .2, 6.5, -.3, 0, 0, 0, 1, .75, 1)]);
+  const p = g.attributes.position, c = new Float32Array(p.count * 3);
+  for (let t = 0; t < p.count; t += 3){ const y = (p.getY(t) + p.getY(t + 1) + p.getY(t + 2)) / 3, v = Math.min(1.08, .62 + .2 * (y - 4.4)); for (let k = 0; k < 9; k++) c[t * 3 + k] = v; }
+  g.setAttribute('color', new THREE.BufferAttribute(c, 3)); g.computeVertexNormals(); return g;
+})();
+const stumpFarGeo = new THREE.CylinderGeometry(.24, .48, 4.6, 4, 1, true).translate(0, 2.3, 0).toNonIndexed();
 const stumpGeo = geoMerge([new THREE.CylinderGeometry(.3, .48, 3.4, 7, 1, true).translate(0, 1.7, 0), rodGeo(.26, .16, [0, 3.0, 0], [1.5, 4.9, .5], 5), rodGeo(.26, .16, [0, 3.0, 0], [-1.2, 5.0, .9], 5),
   rodGeo(.24, .14, [0, 3.1, 0], [-.3, 5.1, -1.5], 5)]);
 function free(x, z, pad){
@@ -412,17 +423,14 @@ for (let n = 0, tries = 0; n < 330 && tries < 9000; tries++){
   if (inPoly(x, z, FOREST) || !free(x, z, 5)) continue;
   (rnd() < .18 ? blooms : trees).push(sp(x, z)); n++;
 }
-function instanced(geo, mat, spots){
-  const im = new THREE.InstancedMesh(geo, mat, spots.length);
-  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3();
-  spots.forEach((o, i) => { p.set(o.x, 0, o.z); q.setFromAxisAngle(UP, o.r); s.setScalar(o.s); m4.compose(p, q, s); im.setMatrixAt(i, m4); });
-  im.castShadow = true; im.receiveShadow = true; im.frustumCulled = false; scene.add(im); return im;
-}
+/* one instanced model per spot, split by map cell (ChunkIM in js/00-core.js): off-screen cells are culled, and with o.far the distant ones use a low-poly model */
+function instanced(geo, mat, spots, o){ return new ChunkIM(geo, mat, spots, o); }
 const bark = M('#8a6f55');
+const LOD_PALM = far => ({far, dist:130, size:14, shadowFar:true}), LOD_TREE = far => ({far, dist:150, size:12, shadowFar:true});
 const knockSets = [
-  {kind:'tree', spots:palms,  ims:[instanced(trunkGeo, M('#ffffff', {vertexColors:true, roughness:.95}), palms), instanced(crownGeo, M('#ffffff', {side:THREE.DoubleSide, roughness:.8, vertexColors:true}), palms)]},
-  {kind:'tree', spots:trees,  ims:[instanced(stumpGeo, bark, trees), instanced(canopyGeo, M('#4f8f3c', {flatShading:true, vertexColors:true}), trees)]},
-  {kind:'tree', spots:blooms, ims:[instanced(stumpGeo, bark, blooms), instanced(canopyGeo, M('#e2662c', {flatShading:true, vertexColors:true}), blooms)]}
+  {kind:'tree', spots:palms,  ims:[instanced(trunkGeo, M('#ffffff', {vertexColors:true, roughness:.95}), palms, LOD_PALM(trunkFarGeo)), instanced(crownGeo, M('#ffffff', {side:THREE.DoubleSide, roughness:.8, vertexColors:true}), palms, LOD_PALM(crownFarGeo))]},
+  {kind:'tree', spots:trees,  ims:[instanced(stumpGeo, bark, trees, LOD_TREE(stumpFarGeo)), instanced(canopyGeo, M('#4f8f3c', {flatShading:true, vertexColors:true}), trees, LOD_TREE(canopyFarGeo))]},
+  {kind:'tree', spots:blooms, ims:[instanced(stumpGeo, bark, blooms, LOD_TREE(stumpFarGeo)), instanced(canopyGeo, M('#e2662c', {flatShading:true, vertexColors:true}), blooms, LOD_TREE(canopyFarGeo))]}
 ];
 
 /* lamps */
@@ -439,10 +447,26 @@ const postGeo = geoMerge([new THREE.CylinderGeometry(.2, .24, .35, 6).translate(
   new THREE.CylinderGeometry(.12, .08, .18, 6).translate(0, 4.22, 0), new THREE.CylinderGeometry(.05, .3, .2, 6).translate(0, 4.92, 0), new THREE.ConeGeometry(.06, .22, 6).translate(0, 5.12, 0),
   ...[0, 1, 2, 3, 4, 5].map(k => new THREE.BoxGeometry(.025, .5, .025).translate(Math.cos(k * Math.PI / 3 + Math.PI / 6) * .24, 4.56, Math.sin(k * Math.PI / 3 + Math.PI / 6) * .24))]);
 const bulbGeo = new THREE.CylinderGeometry(.26, .2, .48, 6); bulbGeo.translate(0, 4.56, 0);
+const postFarGeo = geoMerge([new THREE.CylinderGeometry(.075, .17, 4.3, 3, 1, true).translate(0, 2.15, 0), new THREE.ConeGeometry(.3, .42, 4).translate(0, 5.0, 0)]), bulbFarGeo = new THREE.CylinderGeometry(.26, .2, .48, 4).translate(0, 4.56, 0);
+const LOD_LAMP = far => ({far, dist:110, size:6});
 const bulbMat = new THREE.MeshStandardMaterial({color:'#fff8ea', emissive:'#ffd59a', emissiveIntensity:0});
-knockSets.push({kind:'lamp', spots:lampSpots, ims:[instanced(postGeo, M('#3b3f44', {metalness:.4, roughness:.5}), lampSpots), instanced(bulbGeo, bulbMat, lampSpots)]});
+knockSets.push({kind:'lamp', spots:lampSpots, ims:[instanced(postGeo, M('#3b3f44', {metalness:.4, roughness:.5}), lampSpots, LOD_LAMP(postFarGeo)), instanced(bulbGeo, bulbMat, lampSpots, LOD_LAMP(bulbFarGeo))]});
 
 /* ---------- sky dressing ---------- */
+/* gradient dome: horizon colour (same as the fog) rising to the zenith colour, with a glow and a disc where the sun or moon is.
+   Drawn after the opaque scene with depth test on, so only the pixels of open sky are shaded. */
+const skyU = {top:{value:new THREE.Color('#4a97e0')}, hor:{value:new THREE.Color('#9fd2ef')}, sunCol:{value:new THREE.Color('#fff4e2')}, sunDir:{value:new THREE.Vector3(0, 1, 0)}, glow:{value:1}};
+const sky = new THREE.Mesh(new THREE.SphereGeometry(5200, 24, 12), new THREE.ShaderMaterial({uniforms:skyU, side:THREE.BackSide, depthWrite:false, fog:false,
+  vertexShader:'varying vec3 vDir; void main(){ vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader:`uniform vec3 top, hor, sunCol, sunDir; uniform float glow; varying vec3 vDir;
+    void main(){
+      vec3 d = normalize(vDir); float h = max(d.y, 0.0), k = 1.0 - pow(1.0 - h, 2.6);
+      vec3 c = mix(hor, top, k);
+      float s = max(dot(d, sunDir), 0.0);
+      c += sunCol * glow * (pow(s, 900.0) * 1.6 + pow(s, 40.0) * 0.22 + pow(s, 5.0) * 0.10) * smoothstep(-0.06, 0.04, d.y);
+      gl_FragColor = vec4(c, 1.0);
+    }`}));
+sky.renderOrder = 100; sky.frustumCulled = false; scene.add(sky);
 const starGeo = new THREE.BufferGeometry(); const sv = [];
 for (let i = 0; i < 1400; i++){ const a = rnd() * 6.283, e = Math.asin(.08 + rnd() * .92), R = 4000; sv.push(Math.cos(a) * Math.cos(e) * R, Math.sin(e) * R, Math.sin(a) * Math.cos(e) * R); }
 starGeo.setAttribute('position', new THREE.Float32BufferAttribute(sv, 3));
@@ -498,19 +522,23 @@ let collected = 0, walkStart = 0, finished = false;
 
 /* ---------- time of day ---------- */
 const P3 = {
-  day:  {bg:'#9fd2ef', hs:'#dff0ff', hg:'#5d7340', hi:.72, sc:'#fff4e2', si:1.05, d:[.35,.9,.28],  win:0,   lamp:0,   stars:0,  moon:0, cloud:.95, cc:'#ffffff', water:'#3f8fb0', fn:900, ff:2600},
-  dusk: {bg:'#eea47c', hs:'#ffd2a8', hg:'#4d4038', hi:.55, sc:'#ffae66', si:.95, d:[-.9,.26,.25], win:.8,  lamp:.9,  stars:.1, moon:0, cloud:.8,  cc:'#ffd2bd', water:'#7b6f90', fn:700, ff:2200},
-  night:{bg:'#0a1630', hs:'#3a5385', hg:'#0e1218', hi:.42, sc:'#a9bdf5', si:.34, d:[-.35,.85,-.4],win:1.2, lamp:1.5, stars:1,  moon:1, cloud:.14, cc:'#3a4560', water:'#16263f', fn:550, ff:1900}
+  /* bg = horizon and fog colour, top = zenith colour, glow = strength of the halo round the sun or moon */
+  day:  {bg:'#a8d8f0', top:'#3f8fe0', glow:.9,  hs:'#e2f0ff', hg:'#5a7040', hi:.66, sc:'#fff3dc', si:1.16, d:[.35,.9,.28],  win:0,   lamp:0,   stars:0,  moon:0, cloud:.95, cc:'#ffffff', water:'#3f8fb0', fn:900, ff:2600},
+  dusk: {bg:'#f2a878', top:'#4f5f9e', glow:1.5, hs:'#ffcfa6', hg:'#4a3d38', hi:.5,  sc:'#ffa860', si:1.02, d:[-.9,.26,.25], win:.8,  lamp:.9,  stars:.1, moon:0, cloud:.8,  cc:'#ffcdb6', water:'#7b6f90', fn:700, ff:2200},
+  night:{bg:'#142548', top:'#050b1d', glow:.35, hs:'#3a5385', hg:'#0e1218', hi:.42, sc:'#a9bdf5', si:.34, d:[-.35,.85,-.4],win:1.2, lamp:1.5, stars:1,  moon:1, cloud:.14, cc:'#3a4560', water:'#16263f', fn:550, ff:1900}
 };
-for (const k in P3){ const p = P3[k]; ['bg','hs','hg','sc','cc','water'].forEach(f => p[f] = new THREE.Color(p[f])); p.d = new THREE.Vector3(...p.d).normalize(); }
-const cur = {bg:P3.day.bg.clone(), hs:P3.day.hs.clone(), hg:P3.day.hg.clone(), sc:P3.day.sc.clone(), cc:P3.day.cc.clone(), water:P3.day.water.clone(), d:P3.day.d.clone(),
-  hi:.72, si:1.05, win:0, lamp:0, stars:0, moon:0, cloud:.95, fn:900, ff:2600};
+const P3_COL = ['bg','top','hs','hg','sc','cc','water'], P3_NUM = ['hi','si','win','lamp','stars','moon','cloud','fn','ff','glow'];
+for (const k in P3){ const p = P3[k]; P3_COL.forEach(f => p[f] = new THREE.Color(p[f])); p.d = new THREE.Vector3(...p.d).normalize(); }
+const cur = {d:P3.day.d.clone()};
+P3_COL.forEach(f => cur[f] = P3.day[f].clone()); P3_NUM.forEach(f => cur[f] = P3.day[f]);
 let tgt = P3.day;
 function applyTime(k){
-  ['bg','hs','hg','sc','cc','water'].forEach(f => cur[f].lerp(tgt[f], k));
+  for (const f of P3_COL) cur[f].lerp(tgt[f], k);
   cur.d.lerp(tgt.d, k).normalize();
-  ['hi','si','win','lamp','stars','moon','cloud','fn','ff'].forEach(f => cur[f] += (tgt[f] - cur[f]) * k);
+  for (const f of P3_NUM) cur[f] += (tgt[f] - cur[f]) * k;
   scene.background.copy(cur.bg); scene.fog.color.copy(cur.bg); scene.fog.near = cur.fn; scene.fog.far = cur.ff;
+  skyU.hor.value.copy(cur.bg); skyU.top.value.copy(cur.top); skyU.sunCol.value.copy(cur.sc); skyU.sunDir.value.copy(cur.d); skyU.glow.value = cur.glow;
+  sky.position.copy(camera.position);
   hemi.color.copy(cur.hs); hemi.groundColor.copy(cur.hg); hemi.intensity = cur.hi;
   sun.color.copy(cur.sc); sun.intensity = cur.si; sun.position.copy(cur.d).multiplyScalar(1000).add(sun.target.position);
   for (const m of wallMats) m.emissiveIntensity = cur.win;
@@ -524,6 +552,7 @@ function applyTime(k){
   if (r > .001){
     const l = (cur.bg.r * .3 + cur.bg.g * .59 + cur.bg.b * .11) * .82;
     _rainC.setRGB(l * .93, l * .98, l * 1.06); scene.background.lerp(_rainC, r * .85); scene.fog.color.copy(scene.background);
+    skyU.hor.value.copy(scene.background); skyU.top.value.lerp(_rainC.multiplyScalar(.8), r * .9); skyU.glow.value = cur.glow * (1 - r);
     scene.fog.near = cur.fn * (1 - .6 * r); scene.fog.far = cur.ff * (1 - .45 * r);
     hemi.intensity = cur.hi * (1 - .12 * r); sun.intensity = cur.si * (1 - .7 * r);
     cloudMat.opacity = cur.cloud + (1 - cur.cloud) * r; _rainC.copy(cur.cc).multiplyScalar(.62); cloudMat.color.lerp(_rainC, r);
