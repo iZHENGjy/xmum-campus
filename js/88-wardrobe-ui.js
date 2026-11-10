@@ -62,7 +62,7 @@ function wardWorn(slot){
 const wardSw = it => {
   if (!it) return 'transparent';
   if (it.slot === 'skin') return it.tex === 'rainbow' ? 'linear-gradient(135deg,#f44,#fb3,#4c4,#39f,#a4f)' : it.tex === 'galaxy' ? 'radial-gradient(circle at 30% 30%,#7a46c8,#151a4d 70%)' : it.tex === 'crestBody' ? 'radial-gradient(circle,#fff 0 32%,#3c80e0 34%)' : it.skin;
-  if (it.slot === 'paint') return it.color || (myCar ? myCar.color0 : '#ccc');
+  if (it.slot === 'paint') return it.color || (myCar && wardStock(myCar.kind)) || '#ccc';
   return it.sw || null;
 };
 const WD_SW = {shirt:'#f4f3ef', police:'#a9c8ea', redvest:'#c8302a', santa:'#c4262b', detective:'#24252a', hero:'#2c55c2', emperor:'#2a2216', melon:'#2d6a29', pineapple:'#d9ab3c',
