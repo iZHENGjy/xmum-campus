@@ -22,7 +22,7 @@ function groundAt(x, z){
     if (Math.abs(v) < r.W / 2 && u > -r.L / 2 && u < r.L / 2) return r.H * (u + r.L / 2) / r.L;
   }
   for (const L of lakes) if (inPoly(x, z, L)) return -.9;
-  return 0;
+  return typeof terrainY === 'function' ? terrainY(x, z) : 0;   /* hills: js/12-terrain.js */
 }
 
 /* ---------- vehicles ---------- */
@@ -293,7 +293,7 @@ function carCircles(c, x, z, h){
 }
 function carBlocked(c, x, z, h){
   const r = c.T.W / 2 + .1;
-  return carCircles(c, x, z, h).some(([px, pz]) => px - r < -600 || px + r > 600 || pz - r < -275 || pz + r > 262 || hitsBuilding(px, pz, r));
+  return carCircles(c, x, z, h).some(([px, pz]) => outOfMap(px, pz, r) || hitsBuilding(px, pz, r));
 }
 let driving = null, camShake = 0;
 function updateCar(c, dt, inp){
@@ -429,7 +429,7 @@ function eject(impact){
 
 /* ---------- on foot ---------- */
 function footBlocked(x, z){
-  if (x < -600 || x > 600 || z < -275 || z > 262) return true;
+  if (outOfMap(x, z, 0)) return true;
   if (hitsBuilding(x, z, .9)) return true;
   for (const L of lakes) if (inPoly(x, z, L)) return true;
   for (const c of cars) if (Math.hypot(c.x - x, c.z - z) < c.R * .9) return true;
@@ -440,7 +440,7 @@ function updateFoot(dt){
   if (nw.state === 'fly'){
     nw.vy -= 24 * dt; nw.spin -= dt * 9;
     const nx = nw.x + nw.vx * dt, nz = nw.z + nw.vz * dt;
-    if (!hitsBuilding(nx, nz, .9) && Math.abs(nx) < 600 && nz > -275 && nz < 262){ nw.x = nx; nw.z = nz; } else { nw.vx *= -.3; nw.vz *= -.3; }
+    if (!hitsBuilding(nx, nz, .9) && !outOfMap(nx, nz, 0)){ nw.x = nx; nw.z = nz; } else { nw.vx *= -.3; nw.vz *= -.3; }
     nw.y += nw.vy * dt;
     const g = groundAt(nw.x, nw.z);
     if (nw.y <= g && nw.vy < 0){

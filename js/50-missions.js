@@ -29,12 +29,13 @@ function frontPoint(i){
   }
   return null;
 }
-const DESTS = infos.filter(i => ['宿舍', '教学', '主楼', '二期', '交流', '活动'].includes(i.tag)).map(i => { const p = frontPoint(i); return p && {name:i.name, x:p[0], z:p[1]}; }).filter(Boolean);
+const DESTS = infos.filter(i => ['宿舍', '教学', '主楼', '二期', '交流', '活动'].includes(i.tag)).map(i => { const p = frontPoint(i); return p && {name:i.name, x:p[0], z:p[1]}; }).filter(Boolean)
+  .concat(typeof OUT_DESTS !== 'undefined' ? OUT_DESTS : []);   /* outside the gate: js/13-outskirts.js */
 let money = 0, deliveries = 0;
 const mission = {on:false, from:null, to:null, t:0, limit:0};
 const missionEl = $('#mission'), moneyEl = $('#money');
 function startMission(pk){
-  const opts = DESTS.filter(d => { const dd = Math.hypot(d.x - pk.x, d.z - pk.z); return dd > 120 && dd < 650; });
+  const opts = DESTS.filter(d => { const dd = Math.hypot(d.x - pk.x, d.z - pk.z); return dd > 120 && (dd < 650 || d.far); });
   const to = opts[(rnd() * opts.length) | 0]; if (!to) return;
   const dist = Math.hypot(to.x - pk.x, to.z - pk.z);
   const hot = pk === hotPk && prog.daily !== dayKey();

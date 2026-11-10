@@ -206,10 +206,12 @@ function updateNaiwaMode(dt, T){
     const dd = dist * k / 10, x = tx + Math.sin(camYaw) * dd * cp, z = tz + Math.cos(camYaw) * dd * cp;
     if (hitsBuilding(x, z, .6)){ d = Math.max(2.5, dd - dist / 10); break; }
   }
-  camPos.set(tx + Math.sin(camYaw) * d * cp, Math.max(.6, ty + d * spch), tz + Math.cos(camYaw) * d * cp);
+  const cx = tx + Math.sin(camYaw) * d * cp, cz = tz + Math.cos(camYaw) * d * cp;
+  camPos.set(cx, Math.max(.6, groundAt(cx, cz) + 1, ty + d * spch), cz);
   if (camShake > .01){ camPos.x += (rnd() - .5) * camShake; camPos.y += (rnd() - .5) * camShake; camPos.z += (rnd() - .5) * camShake; camShake *= Math.exp(-dt * 6); }
   const k = driving ? 1 - Math.exp(-dt * 10) : 1;
   camera.position.lerp(camPos, k);
+  { const gy = groundAt(camera.position.x, camera.position.z) + .6; if (camera.position.y < gy) camera.position.y = gy; }
   camLook.set(tx, ty, tz); camera.lookAt(camLook);
   fitShadow(Math.round(px / 20) * 20, Math.round(pz / 20) * 20, 150);
   /* prompts */
@@ -236,6 +238,7 @@ const mg = mini.getContext('2d');
 function drawMini(cx, cz, yaw){
   const Sz = mini.width, k = Sz / 520, X = x => Sz / 2 + (x - cx) * k, Z = z => Sz / 2 + (z - cz) * k;
   mg.fillStyle = '#74a955'; mg.fillRect(0, 0, Sz, Sz);
+  if (typeof drawOutMini === 'function') drawOutMini(mg, X, Z, k);   /* hills, roads and shops outside the gate */
   mg.fillStyle = '#4d8a3e'; mg.beginPath(); FOREST.forEach(([x, z], i) => i ? mg.lineTo(X(x), Z(z)) : mg.moveTo(X(x), Z(z))); mg.fill();
   mg.lineCap = 'round'; mg.lineJoin = 'round';
   for (const r of ROADS_W){ mg.strokeStyle = r.m === asphalt ? '#cfcac0' : '#e6dcc8'; mg.lineWidth = Math.max(1.5, r.w * k); mg.beginPath(); r.p.forEach(([x, z], i) => i ? mg.lineTo(X(x), Z(z)) : mg.moveTo(X(x), Z(z))); mg.stroke(); }
@@ -304,6 +307,7 @@ function frame(now){
   if (mode !== 'naiwa'){ for (const pk of PICKUPS) pk.m.visible = false; destMark.visible = false; }
   animNaiwa(dt, T);
   updateNPCs(dt, T); updateFountain(dt);
+  if (typeof updateOutskirts === 'function') updateOutskirts(dt, T);   /* js/13-outskirts.js */
   updateParts(dt);
   applyTime(1 - Math.exp(-dt * 2.5));
   headMat.emissiveIntensity = .1 + cur.lamp * 1.4; tailMat.emissiveIntensity = .1 + cur.lamp;
