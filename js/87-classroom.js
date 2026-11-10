@@ -170,7 +170,7 @@ function roomEnter(door){
   ROOM.in = true; ROOM.from = door; ROOM.keep = {dist:camDist, pitch:camPitch};
   roomBoard(door.name + ' 教室'); lvDoor('PO', true); lvDoor('CO', true);
   nw.x = ROOM_SPAWN[0]; nw.z = ROOM_SPAWN[1]; nw.y = 0; nw.h = Math.PI / 2; nw.air = false; camYaw = 0;
-  camDist = 13; camPitch = 1.1;   /* look down over the 4.2 m walls; js/90-main.js skips wall collision indoors */ roomG.visible = true;
+  camDist = innerHeight > innerWidth ? 22 : 13; camPitch = 1.1;      /* a phone held upright sees a narrow strip: pull the camera back */   /* look down over the 4.2 m walls; js/90-main.js skips wall collision indoors */ roomG.visible = true;
   sfx.ding(); toast(`进了 ${door.name} 教学楼`, '走廊通教室和打印室，打印室里面是教师办公室。回到走廊西头的绿圈按 F 出去');
 }
 function roomLeave(quiet){

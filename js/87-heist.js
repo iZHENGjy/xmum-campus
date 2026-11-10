@@ -565,13 +565,13 @@ function exInside(dt){
   /* holding F: search, pry, unbolt, open */
   const h = exHoldTarget(), holding = h && h.need && (keys.KeyF || keys.Enter || actF.classList.contains('on'));
   if (holding){
-    if (EX.holdKey !== h.key){ EX.holdKey = h.key; EX.hold = 0; if (h.noise) exNoise(nw.x, nw.z, h.noise, h.spot ? '翻东西的声音' : '门窗的声音'); }
+    if (EX.holdKey !== h.key){ EX.holdKey = h.key; EX.hold = 0; if (h.noise) exNoise(nw.x, nw.z, h.noise * (EX.crouch ? .5 : 1), h.spot ? '翻东西的声音' : '门窗的声音'); }      /* crouched hands are quieter */
     EX.hold += dt; if (Math.floor(EX.hold * 5) !== Math.floor((EX.hold - dt) * 5)) tone('square', 300 + EX.hold / h.need * 400, 300 + EX.hold / h.need * 400, .05, .05);
     if (EX.hold >= h.need){ EX.hold = 0; EX.holdKey = ''; exDo(h); }
   } else { EX.hold = Math.max(0, EX.hold - dt * 2); if (!EX.hold) EX.holdKey = ''; }
   const e = exNearExit(), key = TOUCH ? '' : 'F ', out = k === 'exam' ? EX.got : EX.done;
   if (h && h.locked) roomPrompt = h.locked;
-  else if (h){ roomPrompt = `按住 ${TOUCH ? '「' + h.btn + '」' : 'F '}${h.label} · ${Math.min(100, Math.round(EX.hold / h.need * 100))}%`; fl = h.btn; }
+  else if (h){ roomPrompt = `按住 ${TOUCH ? '「' + h.btn + '」' : 'F '}${h.label} · ${Math.min(100, Math.round(EX.hold / h.need * 100))}%` + (h.noise && !EX.crouch ? ' · 蹲着翻声音小一半' : ''); fl = h.btn; }
   else if (exNearPal()){ roomPrompt = EX.pal ? '同学：只能帮一回' : `按 ${key}找同学帮忙 · ${money >= 15 ? 'RM 15，他缠住保安 12 秒' : '没钱也帮，缠住 6 秒'}`; fl = '帮忙'; }
   else if (e === 'side'){ roomPrompt = `按 ${key}从侧门出去`; fl = '侧门'; }
   else if (e === 'win'){ roomPrompt = `按 ${key}跳窗 · 会摔一跤，但没人看见`; fl = '跳窗'; }
@@ -581,8 +581,8 @@ function exInside(dt){
   else if (hot > .2) roomPrompt = '被注意到了！离开扇形，或者蹲到家具旁边';
   else if (EX.crouch) roomPrompt = '蹲着走没有声音 · 停在家具旁边就是躲起来';
   else if (out) roomPrompt = k === 'exam' ? '带着卷子出去：走廊西头的正门，或者教室的侧门、窗户' : '得手了 · 回走廊西头的绿圈出去';
-  else if ((EX.tip += dt) < 16) roomPrompt = `${TOUCH ? '「蹲下」' : 'Q '}蹲下 · 别跑，会被听见 · 扇形是别人的视野`;
-  else roomPrompt = '';
+  else if ((EX.tip += dt) < 16) roomPrompt = `${TOUCH ? '点「蹲下」' : '按 Q '}蹲着走 · 别跑，会被听见 · 扇形是别人的视野`;
+  else roomPrompt = ({exam:'翻带圈的地方找卷子', hw:'作业筐在办公室老师桌前', phone:EX.key ? '没收箱在办公室东北角' : '钥匙：淋保安，或者翻老师的抽屉', night:'捡齐三件东西'})[k] + ` · ${TOUCH ? '点「蹲下」' : '按 Q '}蹲着走没声音`;
   return fl;
 }
 function exUpdate(dt, px, pz){
@@ -591,13 +591,13 @@ function exUpdate(dt, px, pz){
   if (left <= 0){ if (ROOM.in) roomLeave(true); exFail(K.name + '失败', '时间到。A3 门口的光圈可以再来'); return; }
   let line;
   if (!here) line = k === 'exam' && EX.got ? '把卷子送回 A3' : exWant() ? `去 ${n} 教学楼` : '';
-  else if (k === 'hw') line = EX.done ? '交了 · 溜出去' : '作业筐在办公室老师桌前';
-  else if (k === 'phone') line = EX.done ? '手机到手 · 溜出去' : EX.key ? '钥匙有了 · 开没收箱（办公室）' : '先弄钥匙：淋保安 / 翻老师抽屉';
+  else if (k === 'hw') line = EX.done ? '交了 · 溜出去' : '作业筐在老师桌前';
+  else if (k === 'phone') line = EX.done ? '手机到手 · 溜出去' : EX.key ? '开办公室的没收箱' : '钥匙：淋保安 / 老师抽屉';
   else if (k === 'night') line = EX.done ? '三件齐了 · 溜出去' : `捡东西 ${EX.items}/3`;
   else if (EX.got) line = '卷子到手 · 找出口';
   else if (EX.paper && EX.paper.lock) line = '撬开教室的讲台抽屉';
-  else line = EX.hint ? `卷子在${LV.rooms[EX.hint].name}${EX.hint === 'O' && !EX.key && !EX.poOpen ? ' · 先找钥匙' : ''} · 还有 ${exOpenSpots().length} 处` : `找期末卷 · 还有 ${exOpenSpots().length} 处没翻`;
-  missionEl.textContent = `${T} 秒 · ${line} · ${K.name}`;
+  else line = EX.hint ? `卷子在${LV.rooms[EX.hint].name}${EX.hint === 'O' && !EX.key && !EX.poOpen ? ' · 先找钥匙' : ''}` : `找卷子 ${exOpenSpots().length} 处`;
+  missionEl.textContent = TOUCH ? `${T} 秒 · ${line}` : `${T} 秒 · ${line} · ${K.name}`;      /* the phone HUD cuts long lines: time and the next step come first */
   missionEl.classList.toggle('urgent', left < 15);
   if (k === 'exam' && EX.got && !ROOM.in && Math.hypot(px - EX_START.x, pz - EX_START.z) < 8) exFinish();
 }
