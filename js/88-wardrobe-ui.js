@@ -1,5 +1,7 @@
 /* XMUM 校园漫游 · 奶娃衣橱和喷漆店的界面、存档、成就（目录和穿戴在 js/32-wardrobe.js）
    打开时游戏暂停，镜头转到奶娃（或你的车）正面慢慢绕，点一件就试穿，买下才算数，关掉就换回原来的。
+   喷漆车间（GTA 的 Pay 'n' Spray）：地图上的车间由 window.XSPRAY = {x, z, h, r} 给出（Bell 商业区那边摆），
+   开着自己的车停进去、附近没有巡逻车，就打开喷漆店；换一种漆或贴花就清空保安警戒，收加急费每星 RM 50。
    存档：localStorage 'xmum-wardrobe-v1'（Google 登录的人由 js/net.js 跟其他 xmum-* 键一起云同步）。
    对外：window.XWard = {open(kind), close(), on, lookStr()} */
 'use strict';
@@ -43,7 +45,7 @@ wardEl.innerHTML = `<button class="x" id="wardx" aria-label="关闭">×</button>
   <div class="wd-grid" id="wardList" role="listbox"></div>
   <div class="wd-foot"><div class="wd-sel"><b id="wardName"></b><span id="wardDesc"></span></div><div class="wd-btns"><button class="btn" id="wardOff" hidden>脱下</button><button class="btn buy" id="wardBuy"></button></div></div>`;
 document.body.appendChild(wardEl);
-const ward = {on:false, kind:'naiwa', tab:'skin', sel:null, try:null, yaw:0, drag:null, wasPaused:false, pose:0, view:''};
+const ward = {on:false, spray:0, kind:'naiwa', tab:'skin', sel:null, try:null, yaw:0, drag:null, wasPaused:false, pose:0, view:''};
 const wTabs = {naiwa:WD_SLOTS, car:[['paint', '车漆'], ['decal', '贴花']]};
 const wdOptional = s => !['skin', 'shape', 'paint', 'decal'].includes(s);
 function wardItems(slot){
@@ -73,7 +75,7 @@ const fmtP = v => 'RM ' + Math.round(v).toLocaleString();
 
 function wardRender(){
   $('#wardMoney').textContent = fmtRM(money);
-  $('#wardT').textContent = ward.kind === 'car' ? '喷漆店 · ' + (myCar ? myCar.T.name : '') : '奶娃衣橱';
+  $('#wardT').textContent = ward.kind === 'car' ? (ward.spray ? '喷漆车间 · ' : '喷漆店 · ') + (myCar ? myCar.T.name : '') : '奶娃衣橱';
   const tabs = wTabs[ward.kind];
   $('#wardTabs').innerHTML = tabs.map(([s, n]) => `<button type="button" role="tab" data-tab="${s}" aria-selected="${s === ward.tab}">${n}</button>`).join('');
   const items = wardItems(ward.tab), worn = wardWorn(ward.tab), cur = ward.try[ward.tab];
@@ -93,11 +95,11 @@ function wardFoot(){
   off.hidden = !(wdOptional(ward.tab) && worn);
   if (!it){
     $('#wardName').textContent = ward.kind === 'car' ? '选一种漆或贴花' : '点一件试穿';
-    $('#wardDesc').textContent = ward.kind === 'car' ? '先预览再买，买过的随时换' : '买过的随时换着穿，存档会记住';
+    $('#wardDesc').textContent = ward.spray ? `换一种漆或贴花，保安就认不出你了 · 加急费 ${fmtRM(sprayFee())}` : ward.kind === 'car' ? '先预览再买，买过的随时换' : '买过的随时换着穿，存档会记住';
     buy.hidden = true; return;
   }
   $('#wardName').textContent = it.name + (it.tier !== 'n' ? ' · ' + WD_TIER[it.tier] : '');
-  $('#wardDesc').textContent = it.desc || (it.fin ? WD_FIN[it.fin].n : '');
+  $('#wardDesc').textContent = (it.desc || (it.fin ? WD_FIN[it.fin].n : '')) + (ward.spray ? ` · 换上就甩掉警戒，加急费 ${fmtRM(sprayFee())}` : '');
   buy.hidden = false; buy.disabled = false; buy.className = 'btn buy';
   if (wardOwned(id)){ if (id === worn){ buy.textContent = ward.kind === 'car' ? '正在用' : '已穿上'; buy.disabled = true; buy.className = 'btn'; } else buy.textContent = ward.kind === 'car' ? '换上' : '穿上'; }
   else if (money >= it.price) buy.textContent = '买下 ' + fmtP(it.price);
@@ -117,6 +119,7 @@ function wardEquip(slot, id){
   if (ward.kind === 'car'){
     const c = wardSave.cars[myCar.kind] || (wardSave.cars[myCar.kind] = {p:'stock', d:'none'});
     if (slot === 'paint') c.p = id; else c.d = id.slice(2);
+    if (ward.spray) sprayClear();
   } else wardSave.look[slot] = id;
   wardWrite();
 }
@@ -142,7 +145,7 @@ $('#wardOff').addEventListener('click', () => { ac(); ward.try[ward.tab] = null;
 $('#wardx').addEventListener('click', () => wardClose());
 
 /* ---------- open / close, fitting-room camera ---------- */
-function wardOpen(kind){
+function wardOpen(kind, atSpray){
   kind = kind === 'car' ? 'car' : 'naiwa';
   if (ward.on) wardClose();
   if (mode !== 'naiwa'){ if (typeof titleOpen !== 'undefined' && titleOpen) XUI.closeTitle('naiwa'); else setMode('naiwa'); }
@@ -151,6 +154,7 @@ function wardOpen(kind){
   ward.kind = kind; ward.tab = kind === 'car' ? 'paint' : 'skin';
   ward.try = kind === 'car' ? {paint:wardWorn('paint'), decal:wardWorn('decal')} : Object.assign({}, wardSave.look);
   ward.sel = ward.try[ward.tab] || null;
+  ward.spray = kind === 'car' && atSpray && heat >= 1 ? Math.min(5, Math.floor(heat)) : 0;
   ward.wasPaused = gx.paused; gx.paused = true; ward.on = true; keys.Space = false; engineUpdate(0, 0, false);
   const t = wardTarget(); ward.yaw = kind === 'car' ? t.h + .8 : t.h;
   document.body.classList.add('wd-open'); wardEl.hidden = false; wardRender();
@@ -192,6 +196,38 @@ function wardFrame(now){
   fitShadow(Math.round(t.x / 20) * 20, Math.round(t.z / 20) * 20, 60);
   if (myCar) showCar.root.rotation.y += dt * .4;
 }
+/* ---------- 喷漆车间: drive your own car in unseen, change the paint, the alert is gone ---------- */
+const spray = {inT:0, latched:false, msg:''};
+const sprayFee = () => Math.min(money, 50 * ward.spray);
+function sprayClear(){
+  const st = ward.spray; ward.spray = 0; if (st < 1 || heat < 1) return;
+  const fee = Math.min(money, 50 * st);
+  money -= fee; moneyChanged();
+  const peak = Math.max(chasePeak, st);
+  heat = 0; calmT = 0; chasePeak = 0; despawnChasers();
+  sfx.ding(); toast('换了一身漆，保安认不出你了', `警戒解除 · 加急喷漆费 ${fmtRM(fee)}`, 2800);
+  if (peak >= 4) unlock('escape4');
+}
+function sprayUpdate(dt){
+  spray.msg = ''; const S = window.XSPRAY;
+  if (!S || ward.on) return;
+  const p = driving || nw, d = Math.hypot(p.x - S.x, p.z - S.z), r = S.r || 4.5;
+  if (d > r){ spray.inT = 0; spray.latched = false; if (d < r + 14 && driving === myCar) spray.msg = heat >= 1 ? '开进喷漆车间换身漆，保安就认不出你' : '开进喷漆车间给车换漆'; return; }
+  if (spray.latched) return;
+  if (!driving){ spray.msg = '喷漆车间：开着自己的车进来'; return; }
+  if (driving !== myCar){ spray.msg = '喷漆车间只给你自己的车喷漆'; return; }
+  if (heat >= 1 && patrols.some(c => c.active && Math.hypot(c.x - p.x, c.z - p.z) < 60)){ spray.msg = '保安看着呢，先甩开他们再进来'; spray.inT = 0; return; }
+  if (Math.hypot(driving.vx, driving.vz) > 2.5){ spray.msg = '停稳车，开始喷漆'; spray.inT = 0; return; }
+  spray.inT += dt; spray.msg = '喷漆车间';
+  if (spray.inT > .6){ spray.latched = true; wardOpen('car', true); }
+}
+{
+  const up = gx.update, pr = gx.prompt, mi = gx.mini;
+  gx.update = function(dt, px, pz){ up.call(this, dt, px, pz); sprayUpdate(dt); };
+  gx.prompt = function(){ return spray.msg || pr.call(this); };
+  gx.mini = function(dot){ mi.call(this, dot); if (window.XSPRAY) dot(XSPRAY.x, XSPRAY.z, '#e84d8a', 7); };
+}
+
 /* drag on the 3D view to turn the model */
 canvas.addEventListener('pointerdown', e => { if (ward.on) ward.drag = {id:e.pointerId, x:e.clientX}; });
 window.addEventListener('pointermove', e => { if (ward.drag && e.pointerId === ward.drag.id){ ward.yaw -= (e.clientX - ward.drag.x) * .008; ward.drag.x = e.clientX; } });
