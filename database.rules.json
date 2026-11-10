@@ -94,6 +94,39 @@
         }
       }
     },
+    "ghosts": {
+      "$track": {
+        ".read": "$track.matches(/^[a-z][a-z0-9_]{1,15}$/)",
+        ".indexOn": [
+          "time"
+        ],
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid && $track.matches(/^[a-z][a-z0-9_]{1,15}$/)",
+          ".validate": "newData.hasChildren(['name', 'time', 'car', 'color', 'd', 'ts']) && (!data.exists() || newData.child('time').val() <= data.child('time').val())",
+          "name": {
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16 && newData.val() === root.child('users').child(auth.uid).child('name').val()"
+          },
+          "time": {
+            ".validate": "newData.isNumber() && newData.val() >= 5000 && newData.val() <= 1800000"
+          },
+          "car": {
+            ".validate": "newData.isString() && newData.val().matches(/^[a-z0-9]{1,12}$/)"
+          },
+          "color": {
+            ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F]{6}$/)"
+          },
+          "d": {
+            ".validate": "newData.isString() && newData.val().length >= 8 && newData.val().length <= 40000 && newData.val().matches(/^[A-Za-z0-9_-]+$/)"
+          },
+          "ts": {
+            ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 600000"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
     "saves": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",

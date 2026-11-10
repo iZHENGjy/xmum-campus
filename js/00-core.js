@@ -307,8 +307,11 @@ function facadePair(kind, tone, R){
       if (arch){ g.fillStyle = '#d4c7af'; g.beginPath(); g.moveTo(x + 29, y + 7); g.lineTo(x + 35, y + 7); g.lineTo(x + 34, y + 13); g.lineTo(x + 30, y + 13); g.fill(); }
       if (R() < .64){
         e.fillStyle = R() < .78 ? '#ffcf86' : '#eaf4ff';
-        if (arch){ archPath(e, x + 17, y + 12, 30, 39); e.fill(); } else e.fillRect(x + 17, y + 12, 30, 39);
-        e.fillStyle = '#000'; e.fillRect(x + 31, y + 12, 2, 39); e.fillRect(x + 17, y + 31, 30, 2);
+        /* teaching blocks are mostly dark after hours: only about one window in five stays lit (the facade lighting does the rest) */
+        if (D() < .3){
+          if (arch){ archPath(e, x + 17, y + 12, 30, 39); e.fill(); } else e.fillRect(x + 17, y + 12, 30, 39);
+          e.fillStyle = '#000'; e.fillRect(x + 31, y + 12, 2, 39); e.fillRect(x + 17, y + 31, 30, 2);
+        }
       }
     }
   }
@@ -338,6 +341,31 @@ function wallBox(w, h, d, floors, o){
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   return g;
+}
+
+/* ---------- night facade lighting ----------
+   No real lights: thin additive quads laid on the walls, each fading from its bright end to nothing (the fade is the texture, the colour is per vertex).
+   Uplights wash the pilasters from the ground, an orange glow hangs under the eaves, a few blue strips and bands pick out the upper floors, and the arcade glows from inside.
+   One extra mesh per lit building, hidden by day and on 流畅; js/18-gfx.js fades washMat in with the street lamps. */
+const washTex = (() => {
+  const c = document.createElement('canvas'); c.width = 4; c.height = 64; const g = c.getContext('2d'), gr = g.createLinearGradient(0, 64, 0, 0);
+  gr.addColorStop(0, '#ffffff'); gr.addColorStop(.12, '#d8d8d8'); gr.addColorStop(.45, '#5a5a5a'); gr.addColorStop(.8, '#161616'); gr.addColorStop(1, '#000000');
+  g.fillStyle = gr; g.fillRect(0, 0, 4, 64); return new THREE.CanvasTexture(c);
+})();
+const washMat = new THREE.MeshBasicMaterial({map:washTex, vertexColors:true, blending:THREE.AdditiveBlending, transparent:true, depthWrite:false, side:THREE.DoubleSide, fog:false});
+washMat.color.setScalar(0);
+const washMeshes = [], WASH_WARM = [1, .84, .6], WASH_ORANGE = [1, .5, .14], WASH_BLUE = [.16, .4, 1], WASH_VIOLET = [.5, .28, 1];
+/* aviation obstruction lights on the dorm towers (the airport is close by): filled in by crossB, drawn by js/18-gfx.js */
+const AVI_LIGHTS = [];
+/* a quad on a wall of a block centred on the origin: alongX faces +-z, otherwise +-x. t0..t1 along the wall, ya = bright end, yb = dark end, out = distance of the wall from the centre (signed) */
+function washQuad(q, alongX, t0, t1, ya, yb, out, col, va, vb){
+  const P4 = alongX ? [[t0, ya, out], [t1, ya, out], [t1, yb, out], [t0, yb, out]] : [[out, ya, t0], [out, ya, t1], [out, yb, t1], [out, yb, t0]], V = [va == null ? 0 : va, va == null ? 0 : va, vb == null ? 1 : vb, vb == null ? 1 : vb];
+  for (const i of [0, 1, 2, 0, 2, 3]){ q.p.push(P4[i][0], P4[i][1], P4[i][2]); q.u.push(.5, V[i]); q.c.push(col[0], col[1], col[2]); }
+}
+function washMesh(q, parent){
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(q.p, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(q.u, 2)); g.setAttribute('color', new THREE.Float32BufferAttribute(q.c, 3));
+  const m = new THREE.Mesh(g, washMat); m.renderOrder = 2; m.visible = false; parent.add(m); washMeshes.push(m); return m;
 }
 
 /* ---------- registries ---------- */
@@ -532,6 +560,28 @@ function plaqueMat(text){
   return plaqueCache[text] = new THREE.MeshStandardMaterial({map:t, roughness:.5});
 }
 
+/* ---------- colliders that change after the scenery is placed ----------
+   Trees, lamps and props are scattered around the colliders that exist while js/10-world.js and js/15-props.js run. A building that has since been
+   turned or opened up (o.placeRot, o.grand) registers its old box as a stand-in for that phase and keeps its real one switched off;
+   lateColsSwap() (called from js/42-gate.js, after the scattering) drops the stand-ins and switches the real ones on. Nothing else in the world moves. */
+const LATE_COLS = [], LATE_REAL = [], GRAND_FRONTS = [], ROW_LINKS = [];   /* GRAND_FRONTS: arcades to keep clear; ROW_LINKS: centre lines of the walks between the blocks */
+function lateColsSwap(){
+  for (const [c, gh, st] of LATE_COLS){
+    if (c){ c.dead = false; LATE_REAL.push(c); }
+    let i = colliders.indexOf(gh); if (i >= 0) colliders.splice(i, 1);
+    i = st.cols.indexOf(gh); if (i >= 0) st.cols.splice(i, 1);
+  }
+  LATE_COLS.length = 0;
+}
+/* an arch between two piers, as a flat plate in the plane z = 0 seen from both sides: solid from the curve up to yTop */
+function archGeo(xa, xb, yTop){
+  const c = (xa + xb) / 2, R = Math.max(.6, (xb - xa) / 2 - .5), ys = yTop - .3 - R, N = 8, p = [];
+  const quad = (x0, ya, x1, yb) => p.push(x0, ya, 0, x1, yb, 0, x1, yTop, 0, x0, ya, 0, x1, yTop, 0, x0, yTop, 0, x1, yb, 0, x0, ya, 0, x0, yTop, 0, x1, yb, 0, x0, yTop, 0, x1, yTop, 0);
+  quad(xa, ys, c - R, ys); quad(c + R, ys, xb, ys);
+  for (let j = 0; j < N; j++){ const a0 = Math.PI - Math.PI * j / N, a1 = Math.PI - Math.PI * (j + 1) / N; quad(c + R * Math.cos(a0), ys + R * Math.sin(a0), c + R * Math.cos(a1), ys + R * Math.sin(a1)); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); g.computeVertexNormals(); return g;
+}
+
 /* ---------- buildings ---------- */
 const colGeo = new THREE.CylinderGeometry(.34, .4, 1, 12); colGeo.translate(0, .5, 0);
 const colMat = M('#f5f0e6', {roughness:.7});
@@ -539,6 +589,7 @@ function building(o){
   const xz = o.xz || P(o.px, o.py), x = xz[0], z = xz[1];
   const w = o.w != null ? o.w : S(o.wp), d = o.d != null ? o.d : S(o.dp);
   const rot = -(o.rot || 0) * D2R;
+  const rotP = o.placeRot != null ? -o.placeRot * D2R : null;   /* the way it faced when the scenery was placed */
   const info = o.info || o;
   const st = o.struct || newStruct(info), prev = curStruct; curStruct = st;
   st.roofColor = o.roof || '#c4502a';
@@ -564,6 +615,26 @@ function building(o){
       const nb = Math.max(1, Math.round(span / 4.5)), half = (alongX ? d : w) / 2 + .07;
       for (let k = 2; k < nb - 1; k += 2){ const t = -span / 2 + span * k / nb; for (const s of [-1, 1]) alongX ? tbox(deco, .52, H - .6, .2, t, y0 + (H - .6) / 2, s * half, PIL) : tbox(deco, .2, H - .6, .52, s * half, y0 + (H - .6) / 2, t, PIL); }
     }
+  }
+  /* night lighting (o.wash): see washMat above. o.wash can be {top:'blue'} for a blue band round the top floor instead of the orange glow, {accent:colour} for the strips */
+  let wq = null;
+  if (o.wash){
+    wq = {p:[], u:[], c:[]};
+    const acc = o.wash.accent || WASH_BLUE, up = Math.min(H - .8, 17);
+    for (const [span, alongX] of [[w, true], [d, false]]){
+      const nb = Math.max(1, Math.round(span / 4.5)), out = (alongX ? d : w) / 2 + .3;
+      for (const s of [-1, 1]){
+        /* uplight on every pilaster (corners included), a slim accent strip on the upper floors in every fourth bay */
+        for (let k = 0; k <= nb; k += 2){ const t = Math.max(-span / 2 + .45, Math.min(span / 2 - .45, -span / 2 + span * k / nb)); washQuad(wq, alongX, t - .55, t + .55, y0 + .15, y0 + .15 + up, s * out, WASH_WARM); }
+        if (H > 12) for (let k = 3; k < nb - 1; k += 4){ const t = -span / 2 + span * k / nb; washQuad(wq, alongX, t - .16, t + .16, y0 + H - 1.2, y0 + H * .42, s * (out - .2), acc, 0, .7); }
+        /* under the eaves: orange, or a blue band round the top floor */
+        if (o.wash.top === 'blue') washQuad(wq, alongX, -span / 2, span / 2, y0 + H - .3, y0 + H - 3.5, s * (out - .2), WASH_BLUE, .05, .55);
+        else if (!o.flat) washQuad(wq, alongX, -span / 2, span / 2, y0 + H - .1, y0 + H - 3.4, s * (out - .2), WASH_ORANGE, 0, .8);
+        if (o.waist) for (const fw of o.waist) washQuad(wq, alongX, -span / 2, span / 2, y0 + fw * 3.6 - .5, y0 + fw * 3.6 - 3, s * (out - .2), WASH_ORANGE, 0, .85);
+      }
+    }
+    /* the arcade glows from inside */
+    if (o.arcade) washQuad(wq, true, -w / 2, w / 2, y0 + 4.5, y0, d / 2 + .12, WASH_WARM, .3, .62);
   }
   const rh = o.flat ? 0 : o.roofH != null ? o.roofH : Math.min(Math.min(w, d) * 0.3, 13), over = o.over != null ? o.over : 2.4;
   if (o.flat){
@@ -614,7 +685,42 @@ function building(o){
   }
   const cols = [];
   const bw = Math.max(10, w * .26);
-  if (o.bay){
+  /* off = distance of the box's centre in front of the building's centre. real === false: only the stand-in (see LATE_COLS) */
+  const colBox = (off, hx, hz, real) => {
+    let c = null;
+    if (real !== false) c = addBox(x + Math.sin(rot) * off, z + Math.cos(rot) * off, hx, hz, rot);
+    if (rotP != null || real === false){ const rg = rotP != null ? rotP : rot; if (c) c.dead = true; LATE_COLS.push([c, addBox(x + Math.sin(rg) * off, z + Math.cos(rg) * off, hx, hz, rg), st]); }
+    return c;
+  };
+  const deep = o.grand || o.arcade === 'deep', AD = 4.4, zc = d / 2 + AD, yP = y0 + 4.6;   /* deep arcade: columns AD in front of the wall, standing on the ground; yP = its ceiling */
+  if (o.bay && o.grand){
+    /* the entrance tower of a grand block: an open porch at ground level that the arcade runs straight through (four piers, two columns, arches),
+       the tower above it, an open lookout storey under the gable */
+    const bf = o.floors + 1.3, bH = bf * 3.6, zb0 = d / 2 - 1.5, zb1 = zc + .6, bd = zb1 - zb0, bz = (zb0 + zb1) / 2, yL = y0 + bH + .6, LH = 3.3, px2 = bw / 2 - .6;
+    walls.push(wallBox(bw, bH - 4.6, bd, bf - 4.6 / 3.6, {foot:false}).translate(0, yP + (bH - 4.6) / 2, bz));
+    tbox(deco, bw + .8, .6, bd + .8, 0, y0 + bH + .3, bz, TRIM); tbox(deco, bw + .36, .55, bd + .36, 0, y0 + bH - .27, bz, TRIM2);
+    tbox(deco, bw + .6, .55, bd + .6, 0, yP + .1, bz, TRIM);
+    for (const sx of [-1, 1]){
+      tbox(deco, .9, bH - 5.2, .9, sx * (bw / 2 - .25), yP + .4 + (bH - 5.2) / 2, zb1 - .25, PIL);
+      for (const zz of [d / 2 + 1.1, zb1 - .6]){ tbox(deco, 1.2, yP, 1.2, sx * px2, yP / 2, zz, PIL); tbox(gran, 1.5, .5, 1.5, sx * px2, .25, zz, '#b7b0a4'); }
+      deco.push(geoTint(archGeo(d / 2 + 1.7, zb1 - 1.2, yP).rotateY(-Math.PI / 2).translate(sx * px2, 0, 0), TRIM));
+      cols.push([sx * px2 / 3, zb1 - .6, yP, 1.5, 0]);
+    }
+    { const xs = [-px2 + .6, -px2 / 3, px2 / 3, px2 - .6]; for (let k = 0; k < 3; k++) deco.push(geoTint(archGeo(xs[k], xs[k + 1], yP).translate(0, 0, zb1 - .6), TRIM)); }
+    /* lookout: corner piers, a railing, a dark stair core, its own cornice */
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) tbox(deco, .85, LH, .85, sx * (bw / 2 - .42), yL + LH / 2, bz + sz * (bd / 2 - .42), PIL);
+    for (const s of [-1, 1]){ tbox(deco, bw - .8, .95, .14, 0, yL + .47, bz + s * (bd / 2 - .42), BALC2); tbox(deco, .14, .95, bd - .8, s * (bw / 2 - .42), yL + .47, bz, BALC2); }
+    tbox(deco, bw - 3.4, LH, bd - 3, 0, yL + LH / 2, bz, '#5a5f66'); tbox(deco, bw + .9, .5, bd + .9, 0, yL + LH + .25, bz, TRIM);
+    if (o.gable) gableParts(10, bw + .8, Math.min(8, bw * .46), 1.3, 0, yL + LH + .5, zb1 - 5, roofs, 'z');
+    else roofParts(bw + .8, bd + .8, Math.min(7, bw * .34), 2.2, 0, yL + LH + .5, bz, roofs);
+    if (wq){
+      for (const sx of [-1, 1]) washQuad(wq, true, sx * (bw / 2 - .25) - .5, sx * (bw / 2 - .25) + .5, yP + .5, y0 + bH - .6, zb1 + .28, WASH_WARM);
+      washQuad(wq, true, -bw / 2, bw / 2, y0 + bH - .1, y0 + bH - 3.2, zb1 + .08, WASH_ORANGE, 0, .8);
+      washQuad(wq, true, -bw / 2 + 1.7, bw / 2 - 1.7, yL + LH, yL, bz + bd / 2 - 1.45, WASH_ORANGE, .1, .6);   /* the lookout glows from inside */
+      washQuad(wq, true, -px2, px2, yP, y0 - 1, d / 2 + .14, WASH_WARM, .2, .55);                                /* and so does the porch */
+    }
+    colBox(d / 2 + 1, bw / 2 + .5, 3, false);   /* the porch is open: the old solid tower only stands in while the scenery is placed */
+  } else if (o.bay){
     const bf = o.floors + 1.3, bH = bf * 3.6;
     walls.push(wallBox(bw, bH, 5, bf).translate(0, y0 + bH / 2, d / 2 + 1));
     tbox(deco, bw + .8, .6, 5.8, 0, y0 + bH + .3, d / 2 + 1, TRIM);
@@ -624,9 +730,25 @@ function building(o){
     else roofParts(bw + .8, 9, Math.min(7, bw * .34), 2.2, 0, y0 + bH + .6, d / 2 - 1, roofs);
     for (let k = 0; k < 3; k++) gran.push(new THREE.BoxGeometry(bw + 6 - k * 1.6, .35 * (k + 1), 1.3).translate(0, .175 * (k + 1), d / 2 + 3.6 + (2 - k) * 1.3));
     for (const sx of [-1, 1]) cols.push([sx * (bw / 2 - .7), d / 2 + 3.2, 4.6]);
-    addBox(x + Math.sin(rot) * (d / 2 + 1), z + Math.cos(rot) * (d / 2 + 1), bw / 2 + .5, 3, rot);
+    if (wq){ for (const sx of [-1, 1]) washQuad(wq, true, sx * (bw / 2 - .25) - .5, sx * (bw / 2 - .25) + .5, y0 + 4.9, y0 + bH - .6, d / 2 + 3.78, WASH_WARM); washQuad(wq, true, -bw / 2, bw / 2, y0 + bH - .1, y0 + bH - 3.2, d / 2 + 3.56, WASH_ORANGE, 0, .8); }
+    colBox(d / 2 + 1, bw / 2 + .5, 3);
   }
-  if (o.arcade){
+  if (o.arcade && deep){
+    GRAND_FRONTS.push({x, z, rot, w, d, depth:AD + 1.4});
+    /* a tall arcade you can walk along: fat columns on the ground 4.4 m out from the wall, round arches between them, a flat roof over the walk */
+    const skip = o.bay ? bw / 2 - .1 : (o.portico ? o.portico.w / 2 + 1.5 : -1), n = Math.max(2, Math.round((w - 2.4) / 4.5)), xs = [];
+    for (let k = 0; k <= n; k++) xs.push(-w / 2 + 1.2 + (w - 2.4) * k / n);
+    for (const cx2 of xs) if (Math.abs(cx2) > skip) cols.push([cx2, zc, yP, 1.5, 0]);
+    for (let k = 0; k < n; k++){
+      let xa = xs[k], xb = xs[k + 1]; if (Math.abs(xa) <= skip && Math.abs(xb) <= skip) continue;
+      if (Math.abs(xa) <= skip) xa = skip; if (Math.abs(xb) <= skip) xb = -skip;
+      if (xb - xa > 1.6) deco.push(geoTint(archGeo(xa, xb, yP).translate(0, 0, zc), TRIM));
+    }
+    tbox(deco, w + 1.4, .12, AD + 1.5, 0, .06, d / 2 + (AD + 1.5) / 2, '#8a8377');   /* paved floor of the walk */
+    for (const [xa, xb] of skip > 0 ? [[-w / 2 - .5, -skip], [skip, w / 2 + .5]] : [[-w / 2 - .5, w / 2 + .5]]){
+      tbox(deco, xb - xa, .5, AD + .9, (xa + xb) / 2, yP + .25, d / 2 + (AD + .9) / 2 - .1, TRIM); tbox(deco, xb - xa + .3, .18, AD + 1.2, (xa + xb) / 2, yP + .59, d / 2 + (AD + .9) / 2 - .1, TRIM2);
+    }
+  } else if (o.arcade){
     const skip = o.bay ? bw / 2 + 1 : (o.portico ? o.portico.w / 2 + 1 : -1);
     for (let cx2 = -w / 2 + 1.6; cx2 <= w / 2 - 1.6 + .01; cx2 += 4.5){ if (Math.abs(cx2) < skip) continue; cols.push([cx2, d / 2 + 1.8, 4.6]); }
     tbox(deco, w + .6, .45, 2.8, 0, y0 + 4.6 + .22, d / 2 + 1.2, TRIM);
@@ -634,10 +756,11 @@ function building(o){
   }
   if (o.portico && o.portico.curve){
     /* A3: six tall round columns on a shallow arc, carrying a curved entablature with a balustrade; flat deck behind it */
-    const pw = o.portico.w, ph = o.portico.h, n = 6, sag = o.portico.curve, cr = o.portico.r || 2, zc = k => d / 2 + 1.3 + sag * (1 - Math.pow(2 * k / (n - 1) - 1, 2)), xc = k => -pw / 2 + 1.5 + (pw - 3) * k / (n - 1);
+    const pw = o.portico.w, ph = o.portico.h, n = 6, sag = o.portico.curve, cr = o.portico.r || 2, zc = k => d / 2 + (deep ? AD : 1.3) + sag * (1 - Math.pow(2 * k / (n - 1) - 1, 2)), xc = k => -pw / 2 + 1.5 + (pw - 3) * k / (n - 1);
     for (let k = 0; k < n; k++){
-      cols.push([xc(k), zc(k), ph, cr]);
-      gran.push(new THREE.CylinderGeometry(cr * .56, cr * .6, .7, 14).translate(xc(k), y0 + .35, zc(k)));
+      /* with a deep arcade the columns stand out on the line of its own columns, on the ground, and the walk passes behind them */
+      if (deep) cols.push([xc(k), zc(k), ph + y0, cr, 0]); else cols.push([xc(k), zc(k), ph, cr]);
+      gran.push(new THREE.CylinderGeometry(cr * .56, cr * .6, deep ? 1.4 : .7, 14).translate(xc(k), deep ? .7 : y0 + .35, zc(k)));
       deco.push(geoTint(new THREE.CylinderGeometry(cr * .52, cr * .4, .7, 14).translate(xc(k), y0 + ph - .35, zc(k)), TRIM));
     }
     for (let k = -1; k < n; k++){
@@ -647,8 +770,12 @@ function building(o){
         geoTint(geoAt(new THREE.BoxGeometry(len + .3, .9, .22), mx, y0 + ph + 2.3, mz + .95, 0, ang, 0), BALC));
       if (!ext) tbox(deco, bx - ax + .1, .5, mz - d / 2 + .6, mx, y0 + ph + 1.5, (d / 2 + mz + .6) / 2, TRIM2);
     }
-    for (let k = 0; k < 4; k++) gran.push(new THREE.BoxGeometry(pw + 10 - k * 1.8, .32 * (k + 1), 1.4).translate(0, .16 * (k + 1), d / 2 + 5.6 + (3 - k) * 1.4));
-    addBox(x + Math.sin(rot) * (d / 2 + 2.6), z + Math.cos(rot) * (d / 2 + 2.6), pw / 2 + 1, 3.2, rot);
+    if (o.portico.steps !== false) for (let k = 0; k < 4; k++) gran.push(new THREE.BoxGeometry(pw + 10 - k * 1.8, .32 * (k + 1), 1.4).translate(0, .16 * (k + 1), d / 2 + 5.6 + (3 - k) * 1.4));
+    if (deep){
+      /* the porch is open like the arcade either side of it: only the six columns are solid (the old box stands in while the scenery is placed) */
+      colBox(d / 2 + 2.6, pw / 2 + 1, 3.2, false);
+      for (let k = 0; k < n; k++){ const lx = xc(k), lz = zc(k); addCircle(x + lx * Math.cos(rot) + lz * Math.sin(rot), z - lx * Math.sin(rot) + lz * Math.cos(rot), cr * .42 + .25); }
+    } else addBox(x + Math.sin(rot) * (d / 2 + 2.6), z + Math.cos(rot) * (d / 2 + 2.6), pw / 2 + 1, 3.2, rot);
   } else if (o.portico){
     const pw = o.portico.w, ph = o.portico.h, n = Math.max(4, Math.round(pw / 5));
     for (let k = 0; k < n; k++) cols.push([-pw / 2 + pw * k / (n - 1), d / 2 + 3.2, ph]);
@@ -670,6 +797,7 @@ function building(o){
   if (gran.length) mk(geoMerge(gran), granite);
   mk(geoMergeUV(walls), wmat); if (wallsB.length) mk(geoMergeUV(wallsB), brickMat); mk(geoMerge(deco), decoMat);
   if (glow.length) mk(geoMerge(glow), eaveMat, false);
+  if (wq && wq.p.length) washMesh(wq, g);
   parts.push(...roofMeshes(roofs, rmat, g));
   const roofTop = y0 + H + .6 + rh;
   /* gilded pearl on the ridge of a crowning roof */
@@ -688,19 +816,19 @@ function building(o){
   if (o.plaque){
     /* defaults: over the porch of the bay tower, or on the portico lintel */
     const pw = o.plaque.w || 5, py = o.plaque.y != null ? o.plaque.y : o.portico ? y0 + o.portico.h + .55 : y0 + 6.3;
-    const pz = o.plaque.z != null ? o.plaque.z : o.portico ? d / 2 + 5.03 : o.bay ? d / 2 + 3.53 : d / 2 + .05;
+    const pz = o.plaque.z != null ? o.plaque.z : o.portico ? d / 2 + 5.03 : o.bay && o.grand ? d / 2 + 5.04 : o.bay ? d / 2 + 3.53 : d / 2 + .05;
     const pq = new THREE.Mesh(new THREE.PlaneGeometry(pw, pw / 4), plaqueMat(o.plaque.text));
     pq.position.set(0, py, pz); g.add(pq); parts.push(pq);
   }
   if (cols.length){
     const im = new THREE.InstancedMesh(colGeo, colMat, cols.length);
-    cols.forEach(([cx2, cz2, h, r], i) => { _cm.compose(_cp.set(cx2, y0, cz2), _cq.identity(), _cs.set(r || 1, h, r || 1)); im.setMatrixAt(i, _cm); });
+    cols.forEach(([cx2, cz2, h, r, yb], i) => { _cm.compose(_cp.set(cx2, yb != null ? yb : y0, cz2), _cq.identity(), _cs.set(r || 1, h, r || 1)); im.setMatrixAt(i, _cm); });
     im.castShadow = true; im.receiveShadow = true; im.frustumCulled = false; g.add(im); parts.push(im);
   }
   parts.forEach(m => { m.userData.info = info; pickables.push(m); });
   if (!info._reg){ info._reg = true; infos.push(info); }
   if (info.wx == null){ info.wx = x; info.wz = z; info.wd = d; info.wrot = rot; }
-  if (!o.noCollide){ addBox(x, z, w / 2 + .7, d / 2 + .7, rot); addFp({t:0, x, z, w, d, rot}); }
+  if (!o.noCollide){ colBox(0, w / 2 + .7, d / 2 + .7); addFp({t:0, x, z, w, d, rot}); }
   const top = (o.y0 || 0) + y0 + H + .6 + rh;
   if (o.label !== false) addLabel(o.label || o.name, x, top + 5, z, o.minor);
   curStruct = prev;
@@ -714,5 +842,10 @@ function crossB(o){
   if (!o.crown) return t1;
   /* a little pavilion where the arms cross: two more storeys under their own hipped roof */
   const cw = S(o.tp) + 3.2;
-  return building({struct:st, info, px:o.px, py:o.py, rot:o.rot, w:cw, d:cw, floors:2.2, y0:o.floors * 3.6 - 1.2, variant:o.variant, roof:o.roof, roofH:5, over:2.3, noCollide:true, relief:false, label:o.label || o.name, minor:o.minor, finial:true});
+  const top = building({struct:st, info, px:o.px, py:o.py, rot:o.rot, w:cw, d:cw, floors:2.2, y0:o.floors * 3.6 - 1.2, variant:o.variant, roof:o.roof, roofH:5, over:2.3, noCollide:true, relief:false, label:o.label || o.name, minor:o.minor, finial:true});
+  /* red beacon (slow flash) on the crown, steady blue lights at the four arm ends */
+  { const c = o.xz || P(o.px, o.py), r = -(o.rot || 0) * D2R, a1 = S(o.ap) / 2 - 1, a2 = S(o.bp) / 2 - 1, ya = 1 + o.floors * 3.6 + .6 + Math.min(S(o.tp) * .3, 13) + .9;
+    const put = (lx, lz, y, red) => AVI_LIGHTS.push({st, x:c[0] + lx * Math.cos(r) + lz * Math.sin(r), y, z:c[1] - lx * Math.sin(r) + lz * Math.cos(r), red});
+    put(0, 0, top + 3.6, true); put(a1, 0, ya, false); put(-a1, 0, ya, false); put(0, a2, ya, false); put(0, -a2, ya, false); }
+  return top;
 }

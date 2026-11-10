@@ -701,8 +701,19 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && ARC
 arcMark.visible = false;
 { const b = $('#tArc'); if (b) b.addEventListener('click', () => { ac(); XMini.open(); }); }
 
+/* boards that are not a cabinet in the hall (宿舍搜刮, js/89-dorm.js): same /mini/{id}/{uid} path and the same 小游戏 tab of the leaderboard dialog.
+   def = {id, name, icon, fmt(value), what, local() -> this device's best, empty}; values are whole numbers, higher is better */
+const MG_XBOARD = {};
+function mgAddBoard(def){
+  if (!def || !MG_ID.test(String(def.id || '')) || MG.byId[def.id] || MG_XBOARD[def.id]){ console.error('[XMini] addBoard：id 不对或者重复', def && def.id); return false; }
+  MG_XBOARD[def.id] = Object.assign({name:def.id, icon:'🏆', what:'', empty:'还没有成绩', fmt:v => Math.round(+v || 0) + ' 分', local:() => 0}, def,
+    {top:n => (window.XNet && XNet.miniTop ? XNet.miniTop(def.id, n) : Promise.resolve([]))});
+  return true;
+}
 window.XMini = {
-  register:mgRegister,
+  register:mgRegister, addBoard:mgAddBoard,
+  /* ids of everything that has a leaderboard: the mini-games with a board, then the boards added with addBoard */
+  get boards(){ return MG.list.filter(g => g.board).map(g => g.id).concat(Object.keys(MG_XBOARD)); },
   get games(){ return MG.list.slice(); },
   get active(){ return MG.cur ? MG.cur.id : null; },
   get inside(){ return ARC.in; },
@@ -729,6 +740,7 @@ window.XMini = {
   },
   /* for the leaderboard dialog (js/ui-title.js): values on the board are "higher is better", fmt turns them back */
   board(id){
+    if (MG_XBOARD[id]) return MG_XBOARD[id];
     const g = MG.byId[id]; if (!g || !g.board) return null;
     return {name:g.name, icon:g.icon, fmt:v => mgFmt(g, mgFromBoard(g, +v || 0)), what:`${g.icon} ${g.name}：${g.desc}`, local:() => (mgBest(id) != null ? mgToBoard(g, mgBest(id)) : 0), empty:`还没玩过「${g.name}」，去 B1 游戏厅试试`,
       top:n => (window.XNet && XNet.miniTop ? XNet.miniTop(id, n) : Promise.resolve([]))};

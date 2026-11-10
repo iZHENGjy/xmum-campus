@@ -150,6 +150,8 @@ XMini.register((() => {
 | `XMini.quit()` | 结束当前这一局，回游戏厅 |
 | `XMini.inside` / `XMini.active` / `XMini.state` | 在不在游戏厅里 / 正在玩的游戏 id / `'out' 'hall' 'count' 'play' 'pause' 'result'` |
 | `XMini.best(id)` | 本机最好成绩 |
+| `XMini.addBoard({id, name, icon, fmt, what, local, empty})` | 给不是街机的玩法加一张榜（宿舍搜刮用的 `dorm`）：同样存在 `/mini/{id}/{uid}`，出现在排行榜「小游戏」页的选项里。成绩用 `XNet.miniSubmit(id, value)` 自己提交 |
+| `XMini.boards` | 所有带排行榜的 id：有榜的小游戏，加上 `addBoard` 加的 |
 | `XMini.sim` | 测试用，见第 7 节 |
 
 ## 5. 排行榜
@@ -159,6 +161,8 @@ XMini.register((() => {
 - 榜上只存「越大越好」的整数。`board.lower:true` 的游戏，平台存的是 `1000000 - 成绩`，读出来再换回去，你不用管。
 - 分数不要超过 1,000,000，小数会被舍掉。用时类的游戏用毫秒或者 0.1 秒做单位。
 - 离线（没有配置 Firebase，或者预览版）时成绩只存在本机，结算面板和排行榜会写明「联机未开启」。
+- 竞速赛道（`js/92-racing.js`）也借用这套榜：`/mini/race_{赛道}`，存 `1000000 - 百分之一秒`，在排行榜的小游戏标签里和游戏厅的游戏并列。
+  它的影线另存在 `/ghosts/{赛道}/{uid} = {name, time(毫秒), car, color, d, ts}`，这条规则是新加的，**合并后要在 Firebase 控制台重新发布一次 `database.rules.json`**；没发布前影线上传会被拒，比赛和本机影线照常能用。
 
 ## 6. 怎么让它好玩
 
