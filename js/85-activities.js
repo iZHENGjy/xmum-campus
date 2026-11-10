@@ -165,7 +165,8 @@ function gxFinish(score){
   sess.acts++; if (medal < 3) sess.medals++;
   earn(pay); saveGame();
   const head = medal < 3 ? `${GX_MEDAL[medal]} · ${a.name}` : `${a.name} · 完成`;
-  const sub = `${gxScoreTxt(a, score)}${rec ? (prev != null ? ' · 新纪录！' : ' · 首次完成') : ` · 纪录 ${gxScoreTxt(a, prev)}`} · +RM ${pay}`;
+  const loot = window.XParts ? XParts.reward('activity', medal, a.name + (GX_MEDAL[medal] || '')) : [];   /* 改装零件, js/93-tuning-ui.js */
+  const sub = `${gxScoreTxt(a, score)}${rec ? (prev != null ? ' · 新纪录！' : ' · 首次完成') : ` · 纪录 ${gxScoreTxt(a, prev)}`} · +RM ${pay}${loot.length ? ' · 改装：' + XParts.text(loot) : ''}`;
   toast(head, sub, 3600);
   if (medal < 3){ gxCallout(GX_MEDAL[medal], gxScoreTxt(a, score), ['#e3b95a', '#b8c2cc', '#c98a55'][medal]); for (let i = 0; i < 5; i++) tone('triangle', 523 * Math.pow(1.19, i), 523 * Math.pow(1.19, i), .18, .13, i * .09); }
   else sfx.ding();

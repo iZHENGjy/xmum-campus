@@ -322,7 +322,8 @@ function rcFinish(){
   /* records, ghost, boards (not for item races) */
   const rec = rcSave.best[T.id] || (rcSave.best[T.id] = {}); let newRec = false;
   const mainT = T.closed ? lap : runT;
-  if (mode !== 'items' && mainT){
+  /* RC.nos: nitro or a driving skill was used (js/94-tuning-drive.js), so the run stays off the board and is not kept as a ghost */
+  if (mode !== 'items' && mainT && !RC.nos){
     if (!(rec[T.closed ? 'lap' : 'run'] <= mainT)){ rec[T.closed ? 'lap' : 'run'] = Math.round(mainT * 100) / 100; newRec = true; }
     if (runT && !(rec.run <= runT)) rec.run = Math.round(runT * 100) / 100;
     const g = rcSave.ghost[T.id];
@@ -346,12 +347,22 @@ function rcFinish(){
     head = done ? `第 ${place} 名` : '没跑完'; sub = runT ? '完赛 ' + rcFmt(runT) + (lap && T.closed ? ' · 最快圈 ' + rcFmt(lap) : '') : '';
     if (done && place === 1){ unlock('racewin'); rcSave.wins[T.id] = (rcSave.wins[T.id] || 0) + 1; }
   }
+  const allNew = done && !prog.ach.raceall;
   if (done){ unlock('race1'); rec.done = 1; if (RC_TRACKS.every(t => rcSave.best[t.id] && rcSave.best[t.id].done)) unlock('raceall'); }
   rcWrite(); if (pay) earn(pay);
+  /* 改装零件 (js/93-tuning-ui.js): by place, or for beating the ghost; the first win on a track brings the 氮气 recipe, all five tracks the engine one */
+  let loot = [];
+  if (window.XParts && done){
+    const P = window.XParts, ghostWin = mode === 'ghost' && head.startsWith('跑赢');
+    loot = mode === 'ghost' ? P.reward('ghost', ghostWin ? 0 : 3, ghostWin ? '跑赢影线' : '影线 1v1') : P.reward('race', place - 1, `竞速第 ${place} 名`);
+    const bp = (id, why) => { const had = P.has(id); if (P.grant(id, 1, why)) loot.push({id:had ? 'plan' : id, n:1}); };
+    if (mode !== 'ghost' && place === 1 && rcSave.wins[T.id] === 1) bp('bp_nitro', '第一次在「' + T.name + '」夺冠');
+    if (allNew && prog.ach.raceall) bp('bp_race', '五条赛道都跑完');
+  }
   if (done && (place === 1 && mode !== 'ghost' || head.startsWith('跑赢'))) for (let i = 0; i < 5; i++) tone('triangle', 523 * Math.pow(1.19, i), 523 * Math.pow(1.19, i), .18, .13, i * .09); else sfx.ding();
   gx.callout(head, sub, T.color);
   const lines = mode === 'ghost' ? [] : rs.map((r, i) => `${i + 1}. ${r.ai ? r.name : '你'} · ${r.fin != null ? (r.est ? '约 ' : '') + rcFmt(r.fin) : '未完赛'}`);
-  RC.result = {T, mode, head, sub, pay, newRec, lines};
+  RC.result = {T, mode, head, sub, pay, newRec, lines, loot, nos:!!RC.nos};
   rcCleanup();
   rcCardResult(RC.result);
 }
@@ -698,7 +709,7 @@ function rcCardResult(R){
   rcCard.innerHTML = `<button class="x" type="button" id="rcX" aria-label="关闭">×</button>
     <div class="eyebrow">${R.T.icon} ${R.T.name} · ${{ai:'人机赛', items:'道具赛', ghost:'影线 1v1'}[R.mode]}</div><h2 id="rcCardT">${R.head}</h2><p>${R.sub || ''}${R.newRec ? ' · 新纪录！' : ''}</p>
     ${R.lines.length ? `<ul class="rc-list">${R.lines.map(l => `<li>${l}</li>`).join('')}</ul>` : ''}
-    <p class="rc-meta">${R.pay ? '奖金 +RM ' + R.pay : '没跑完，没有奖金'}${R.mode === 'items' ? ' · 道具赛不上榜' : ''}</p>
+    <p class="rc-meta">${R.pay ? '奖金 +RM ' + R.pay : '没跑完，没有奖金'}${R.mode === 'items' ? ' · 道具赛不上榜' : R.nos ? ' · 用了氮气或技能，这场不上榜' : ''}</p>${window.XParts ? XParts.chips(R.loot) : ''}
     <div class="hrow"><button class="btn primary" type="button" id="rcAgain">再来一场</button><button class="btn" type="button" id="rcOk">好</button></div>`;
   rcCard.hidden = false;
   const close = () => { rcCard.hidden = true; rcCardFor = null; gx.paused = false; canvas.focus({preventScroll:true}); };

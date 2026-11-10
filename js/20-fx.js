@@ -137,7 +137,7 @@ function engineStart(kind){
   o.connect(f); o2.connect(f); f.connect(g).connect(a.destination); o.start(); o2.start();
   const sk = a.createBufferSource(); sk.buffer = noiseBuf; sk.loop = true; const sf = a.createBiquadFilter(); sf.type = 'bandpass'; sf.frequency.value = 1800; sf.Q.value = 3;
   const sg = a.createGain(); sg.gain.value = 0; sk.connect(sf).connect(sg).connect(a.destination); sk.start();
-  engine = {o, o2, g, sk, sg, base:({bus:38, cart:90, patrol:85, rr:40, mase:58, p911:66, lambo:72, myvi:62})[kind] || 55};
+  engine = {o, o2, g, sk, sg, base:({bus:38, cart:90, patrol:85, rr:40, mase:58, p911:66, lambo:72, myvi:62, gwag:44, moto:96})[kind] || 55};
 }
 function engineStop(){ if (!engine) return; try { engine.o.stop(); engine.o2.stop(); engine.sk.stop(); } catch(e){} engine = null; }
 function engineUpdate(speed, slip, on){

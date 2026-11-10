@@ -40,7 +40,11 @@ const CAR_T = {
   mase:  {L:5.0, W:1.95, H:1.4, wb:3.0, r:.37, maxV:66, acc:22, grip:7.6, steer:.5,  mass:1.8, seat:[0, .3, -.35], name:'玛莎拉弟 GT'},
   lambo: {L:4.6, W:2.05, H:1.1, wb:2.7, r:.36, maxV:80, acc:30, grip:8.6, steer:.52, mass:1.5, seat:[0, .18, -.25], name:'兰博鸡尼'},
   rr:    {L:5.6, W:2.05, H:1.75, wb:3.4, r:.42, maxV:60, acc:17, grip:6.6, steer:.46, mass:2.6, seat:[0, .45, -.45], name:'劳斯来斯', armor:.6},
-  patrol:{L:3.2, W:1.6, H:1.95, wb:2.1, r:.3, maxV:31, acc:15, grip:7.5, steer:.62, mass:1.2, seat:[.24, .5, -.3], name:'保安巡逻车'}
+  patrol:{L:3.2, W:1.6, H:1.95, wb:2.1, r:.3, maxV:31, acc:15, grip:7.5, steer:.62, mass:1.2, seat:[.24, .5, -.3], name:'保安巡逻车'},
+  /* 方盒子豪华越野（只借造型风格）：又高又重又抗撞，极速一般 */
+  gwag:  {L:4.7, W:1.98, H:1.98, wb:2.85, r:.42, maxV:54, acc:18, grip:6.6, steer:.5, mass:2.5, seat:[0, .55, -.35], name:'铁方越野', armor:.7},
+  /* 运动摩托：两个轮子，过弯会压车（lean = 最大倾角，弧度），轻、快、不抗撞 */
+  moto:  {L:2.1, W:.78, H:1.2, wb:1.42, r:.31, maxV:76, acc:31, grip:7.4, steer:.78, mass:.5, seat:[0, .62, -.3], name:'疾风 R 运动摩托', armor:1.45, lean:.62, bike:true}
 };
 const glassMat = new THREE.MeshStandardMaterial({color:'#1a242b', roughness:.05, metalness:.6, transparent:true, opacity:.84});
 const tyreMat = M('#1c1c1e', {roughness:.7}), headMat = new THREE.MeshStandardMaterial({color:'#fff6d8', emissive:'#fff1c0', emissiveIntensity:.1});
@@ -228,6 +232,49 @@ function carParts(kind, T){
     sym(s => { rb('head', .42, .2, .06, .04, s * .95, .92, 5.5); rb('tail', .22, .45, .06, .04, s * 1.15, 1.0, -5.5);
       rod('trim', .025, [s * W2, 2.7, 5.2], [s * (W2 + .35), 2.75, 5.65]); rb('trim', .08, .38, .16, .03, s * (W2 + .35), 2.5, 5.68); });
     plates(.82, .82, 5.53, -5.53);
+  } else if (kind === 'gwag'){
+    /* square-box luxury off-roader: upright slab sides, flat bonnet with lamp pods on the wings, round headlamps,
+       exposed door hinges, spare wheel on the tailgate. Style only, no maker's name or badge */
+    shell('paint', .36, [[2.25, .36], [2.36, .52, 2.36, .37], [2.36, 1.1], [2.3, 1.17, 2.36, 1.17], [1.0, 1.2], [-2.22, 1.22], [-2.34, 1.14, -2.34, 1.22],
+      [-2.35, .52], [-2.25, .36, -2.35, .37]], W, {ends:[.2, .03], tuck:[.5, .03], ra:.11, bev:.05});
+    const tp = [1.2, 1.98, .05];
+    cabin(1.18, [[1.02, 1.18], [.84, 1.9], [-2.16, 1.93], [-2.24, 1.18]], W * .94, tp, 1.84);
+    pillar(-.42, 1.22, 1.88, W * .94 + .02, tp); pillar(-1.38, 1.22, 1.9, W * .94 + .02, tp);
+    rb('trim', W * .52, .36, .05, .03, 0, .88, 2.37); for (const y of [.76, .88, 1.0]) bx('chrome', W * .5, .025, .02, 0, y, 2.4);
+    sym(s => {
+      cyl('head', .11, .05, s * .7, .92, 2.37, Math.PI / 2); put('chrome', geoAt(new THREE.TorusGeometry(.12, .02, 6, 18), s * .7, .92, 2.39));
+      rb('head', .13, .06, .1, .02, s * .8, 1.22, 2.0);                            /* the lamp pods on the wings */
+      rb('tail', .12, .32, .05, .02, s * .87, .95, -2.36);
+      rb('trim', .1, .12, 1.15, .04, s * (W2 + .03), .82, T.wb / 2); rb('trim', .1, .12, 1.15, .04, s * (W2 + .03), .82, -T.wb / 2);   /* arch flares */
+      rb('trim', .16, .05, 1.5, .02, s * (W2 + .05), .42, -.06);                    /* side step */
+      for (const z of [.9, -.1]) for (const y of [.72, 1.06]) bx('chrome', .03, .09, .06, s * (W2 + .01), y, z);
+      bx('trim', .012, .6, .012, s * (W2 + .002), .9, -.42);
+    });
+    rb('trim', W + .06, .22, .22, .06, 0, .5, 2.36); rb('trim', W + .06, .22, .22, .06, 0, .52, -2.36);
+    cyl('trim', .4, .26, 0, 1.02, -2.52, Math.PI / 2, 0, 0, 20); cyl('paint', .3, .04, 0, 1.02, -2.66, Math.PI / 2, 0, 0, 20);
+    rb('trim', W * .9, .04, 2.4, .02, 0, 1.95, -.7);
+    plates(.5, .62, 2.48, -2.48); mirrors(1.36, .9); handles([.4, -.6], 1.02);
+  } else if (kind === 'moto'){
+    /* sport bike: twin-spar frame, fuel tank, sharp nose cowl ('fair', can come off in the workshop), clip-on bars,
+       upside-down forks, swingarm, belly exhaust. Style only, no maker's name or badge */
+    put('fair', geoAt(roundBox(.42, .36, .52, .1, 2), 0, .86, .64, -.35));
+    sym(s => put('fair', geoAt(roundBox(.06, .34, .62, .03, 2), s * .17, .64, .34, 0, s * .06, 0)));
+    put('fair', geoAt(roundBox(.28, .14, .5, .05, 2), 0, .36, .2));
+    put('fairg', geoAt(roundBox(.3, .2, .025, .01, 2), 0, 1.1, .78, -1.0));
+    el('paint', .2, .14, .32, 0, .99, .16);
+    rb('paint', .22, .14, .5, .06, 0, .98, -.56, .2); rb('paint', .14, .04, .34, .02, 0, .67, .74, .1);
+    rb('seat', .24, .07, .44, .03, 0, .93, -.24, .05);
+    sym(s => {
+      rod('trim', .035, [s * .12, .97, .44], [s * .12, .6, -.14]);
+      rod('chrome', .028, [s * .09, 1.0, .56], [s * .09, .31, .71]);
+      rod('trim', .025, [s * .1, .5, -.12], [s * .1, .31, -.71]);
+      rod('trim', .016, [s * .09, .99, .5], [s * .3, .98, .45]);
+      bx('trim', .1, .02, .04, s * .16, .46, -.2);
+    });
+    rb('grey', .3, .3, .42, .06, 0, .52, .08);
+    rod('chrome', .03, [.08, .34, .16], [.14, .37, -.2]); cyl('chrome', .06, .32, .15, .38, -.33, Math.PI / 2);
+    rb('head', .16, .08, .05, .02, 0, .84, .9, -.3); rb('tail', .12, .04, .03, .01, 0, .98, -.83);
+    rb('trim', .2, .12, .02, .01, 0, .8, -.86, .3);
   } else {
     /* golf cart / patrol cart: open tub with footwell, bench seat, canopy roof on four posts */
     const pat = kind === 'patrol', f = T.L / 2, yb = .2, top = pat ? .96 : .76, sz = pat ? -.05 : 0;
@@ -256,11 +303,11 @@ function makeCar(kind, color, x, z, h){
   const T = CAR_T[kind], root = new THREE.Group(), body = new THREE.Group(); root.add(body); root.rotation.order = 'YXZ';
   const paint = M(color, {roughness:.32, metalness:.3});
   let lights = null;
-  const mats = Object.assign({paint, accent:CAR_ACCENT[kind] ? (CAR_MAT['acc_' + kind] || (CAR_MAT['acc_' + kind] = M(CAR_ACCENT[kind], {roughness:.4, metalness:kind === 'rr' ? .5 : .1}))) : paint}, CAR_MAT);
+  const mats = Object.assign({paint, fair:paint, fairg:glassMat, accent:CAR_ACCENT[kind] ? (CAR_MAT['acc_' + kind] || (CAR_MAT['acc_' + kind] = M(CAR_ACCENT[kind], {roughness:.4, metalness:kind === 'rr' ? .5 : .1}))) : paint}, CAR_MAT);
   const geos = carParts(kind, T);
   /* only the body shell casts a shadow; trim, chrome and wheels (c.fine) are hidden when the car is far away (js/18-gfx.js) */
   const fine = [];
-  for (const k in geos){ const m = new THREE.Mesh(geos[k], mats[k]); m.castShadow = k === 'paint' || k === 'accent'; m.receiveShadow = k === 'paint'; body.add(m); if (k === 'trim' || k === 'chrome') fine.push(m); }
+  for (const k in geos){ const m = new THREE.Mesh(geos[k], mats[k]); m.castShadow = k === 'paint' || k === 'accent' || k === 'fair'; m.receiveShadow = k === 'paint'; body.add(m); if (k === 'trim' || k === 'chrome') fine.push(m); if (k === 'fair' || k === 'fairg') m.userData.fair = true; }
   if (kind === 'bus'){
     const tm = new THREE.MeshBasicMaterial({map:carTextTex('bus', 256, 48, g => { g.fillStyle = '#c4502a'; g.font = '700 30px "Noto Sans SC",sans-serif'; g.textBaseline = 'middle'; g.fillText('XMUM 校巴', 8, 26); }), transparent:true});
     for (const s of [-1, 1]){ const p = new THREE.Mesh(new THREE.PlaneGeometry(4, .75), tm); p.position.set(s * (T.W / 2 + .03), 1.5, 0); p.rotation.y = s * Math.PI / 2; body.add(p); }
@@ -276,9 +323,10 @@ function makeCar(kind, color, x, z, h){
   }
   const wheels = [], fronts = [];
   const wg = carWheelGeo(T.r);
-  for (const sz of [1, -1]) for (const sx of [-1, 1]){
+  /* a motorbike has one wheel on the centre line at each end */
+  for (const sz of [1, -1]) for (const sx of T.bike ? [0] : [-1, 1]){
     const piv = new THREE.Group(); piv.position.set(sx * (T.W / 2 - .08), T.r, sz * T.wb / 2); body.add(piv);
-    const w = new THREE.Mesh(wg, wheelMat); w.scale.x = sx; piv.add(w); wheels.push(w); fine.push(w); if (sz > 0) fronts.push(piv);
+    const w = new THREE.Mesh(wg, wheelMat); w.scale.x = sx || 1; piv.add(w); wheels.push(w); fine.push(w); if (sz > 0) fronts.push(piv);
   }
   root.position.set(x, 0, z); root.rotation.y = h; scene.add(root);
   const c = {kind, T, root, body, wheels, fronts, x, z, h, vx:0, vz:0, y:0, vy:0, lastVy:0, air:false, airT:0, steer:0, slip:0, pitch:0, wet:false,
@@ -378,7 +426,9 @@ function updateCar(c, dt, inp){
   }
   const targetPitch = -Math.atan2(c.air ? c.vy : c.lastVy, Math.max(5, Math.abs(vf))) * .85;
   c.pitch += (targetPitch - c.pitch) * Math.min(1, dt * 8);
-  c.root.position.set(c.x, c.y, c.z); c.root.rotation.set(c.pitch, c.h, -c.steer * Math.min(1, Math.abs(vf) / 30) * .12);
+  /* body roll; a motorbike leans into the turn instead (T.lean), more the faster it goes */
+  const roll = T.lean ? c.steer / T.steer * Math.min(1, Math.abs(vf) / 16) * T.lean * Math.sign(vf || 1) : -c.steer * Math.min(1, Math.abs(vf) / 30) * .12;
+  c.root.position.set(c.x, c.y, c.z); c.root.rotation.set(c.pitch, c.h, roll);
   for (const w of c.wheels) w.rotation.x += vf / T.r * dt;
   for (const p of c.fronts) p.rotation.y = c.steer;
 }

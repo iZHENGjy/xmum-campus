@@ -178,7 +178,7 @@ function dmUiEnd(r){
   if (r.bounty) sum.push(row(`抓住偷外卖的小偷 ×${r.caught}，悬赏`, '+RM ' + r.bounty));
   if (sum.length) sum.push(row('本局收入', 'RM ' + r.income, 'tot'));
   if (r.solved) notes.push(`解开 ${r.solved} 个谜题`);
-  h += `${sum.length ? `<ul class="dm-sum">${sum.join('')}</ul>` : ''}${notes.length ? `<p>${notes.join('<br>')}</p>` : ''}<p class="dm-net" role="status"></p>
+  h += `${sum.length ? `<ul class="dm-sum">${sum.join('')}</ul>` : ''}${r.loot && window.XParts ? XParts.chips(r.loot) : ''}${notes.length ? `<p>${notes.join('<br>')}</p>` : ''}<p class="dm-net" role="status"></p>
     <div class="hrow"><button type="button" class="btn primary" data-again>再进去一次</button>${dmHasBoard() ? '<button type="button" class="btn" data-lb>排行榜</button>' : ''}${r.ok && prog.life.dormTok > 0 ? '<button type="button" class="btn" data-ward>去衣橱</button>' : ''}<button type="button" class="btn" data-x>知道了</button></div>`;
   dmEndEl.innerHTML = h; dmEndEl.hidden = false; dmEndEl.classList.toggle('fail', !r.ok); dmEndEl.scrollTop = 0;
   dmUiBoard(dmEndEl.querySelector('.dm-net'));

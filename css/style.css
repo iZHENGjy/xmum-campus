@@ -988,3 +988,63 @@ body.wd-open #tnGain{top:auto;bottom:calc(var(--safe-b) + 24px);left:calc((100% 
   body.wd-open #tnGain{top:calc(var(--safe-t) + 12px);bottom:auto;left:50%}
 }
 @media (prefers-reduced-motion: reduce){ .tn-gain{animation:none} .tn-bay::before{transition:none} }
+/* ---------- 改装第二轮：稀有度、配方、改前改后数值、尾焰开关、结算面板的零件、氮气按钮（js/93-tuning-ui.js、js/94-tuning-drive.js） ---------- */
+.tn-inv{display:flex;overflow-x:auto;scrollbar-width:none;gap:4px;padding-bottom:2px}
+.tn-inv::-webkit-scrollbar{display:none}
+.tn-inv .tn-p{flex:none;min-width:48px}
+.tn-p.r-r{border-color:color-mix(in srgb,#3f8ee6 55%,var(--line))}
+.tn-p.r-l{border-color:var(--gold);box-shadow:0 0 0 1px color-mix(in srgb,var(--gold) 40%,transparent),0 0 10px color-mix(in srgb,var(--gold) 35%,transparent)}
+.tn-p.zero{opacity:.55}
+.tn-p.sel{opacity:1}
+.tn-bpb{border-color:color-mix(in srgb,#b45ee6 60%,var(--line))}
+.tn-bpb i{background:#b45ee6}
+.tn-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;flex:none;margin-bottom:8px}
+.tn-stats div{display:grid;gap:1px;min-width:0}
+.tn-stats span{font-size:11px;color:var(--muted)}
+.tn-stats b{font-family:var(--display);font-size:13.5px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tn-stats b i{font-style:normal;margin-left:3px}
+.tn-stats .up b i{color:var(--ok)}
+.tn-stats .dn b i{color:#d8483a}
+.tn-stats em{position:relative;height:4px;border-radius:2px;background:var(--chip);overflow:hidden;margin-top:2px}
+.tn-stats em::before,.tn-stats em::after{content:"";position:absolute;left:0;top:0;bottom:0;border-radius:2px;transform-origin:left}
+.tn-stats em::after{width:100%;transform:scaleX(var(--a));background:var(--muted)}
+.tn-stats em::before{width:100%;transform:scaleX(var(--b));background:transparent}
+.tn-stats .up em::before{background:var(--ok)}
+.tn-stats .dn em::after{background:#d8483a}
+.tn-stats .dn em::before{background:var(--muted);z-index:1}
+.wd-it.tier-x{border-color:#d0436b;box-shadow:inset 0 0 0 1px color-mix(in srgb,#d0436b 40%,transparent)}
+.wd-it i.t-x{background:linear-gradient(90deg,#d0436b,#9b4ae0);color:#fff}
+.wd-it em.lk{color:#9b5ad0;font-weight:700}
+.tn-cost .pt.bp{color:#9b5ad0}
+.tn-cost .pt.bp.no{color:#d8483a}
+.tn-tog{display:flex;width:100%;align-items:baseline;gap:8px;margin:6px 0 2px;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-md);background:var(--card-bg);color:var(--ink);font:inherit;font-size:13px;font-weight:700;cursor:pointer;text-align:left}
+.tn-tog small{font-weight:400;color:var(--muted);font-size:11.5px}
+.tn-tog[aria-pressed="false"]{color:var(--muted)}
+.tn-bps{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}
+.tn-bp{display:grid;grid-template-columns:24px 1fr;column-gap:7px;row-gap:1px;padding:7px 8px;border:1px dashed var(--line);border-radius:var(--r-md);opacity:.72}
+.tn-bp.got{border:1px solid color-mix(in srgb,#b45ee6 60%,var(--line));opacity:1;background:color-mix(in srgb,#b45ee6 7%,transparent)}
+.tn-bp i{grid-row:span 3;display:grid;place-items:center;width:24px;height:24px;border-radius:6px;background:#b45ee6;color:#fff;font-style:normal;font-size:12px;font-weight:700}
+.tn-bp:not(.got) i{background:var(--muted)}
+.tn-bp b{font-size:12.5px}
+.tn-bp span,.tn-bp small{font-size:11px;color:var(--muted);line-height:1.35}
+.tn-loot{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin:8px 0}
+.tn-loot>span{font-size:12px;color:var(--muted);margin-right:2px}
+.tn-loot b{display:inline-flex;align-items:center;gap:4px;padding:2px 9px 2px 3px;border-radius:999px;border:1px solid var(--line);background:var(--card-bg);font-size:12.5px;font-weight:600;white-space:nowrap}
+.tn-loot b i{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:999px;background:var(--c);color:#fff;font-style:normal;font-size:10.5px;font-weight:700}
+.tn-loot b.r-r{border-color:color-mix(in srgb,#3f8ee6 60%,var(--line))}
+.tn-loot b.r-l{border-color:var(--gold);box-shadow:0 0 10px color-mix(in srgb,var(--gold) 45%,transparent)}
+.tn-loot b.r-b{border-color:#b45ee6;box-shadow:0 0 10px color-mix(in srgb,#b45ee6 40%,transparent)}
+.tn-gain.r-l{box-shadow:0 0 0 1.5px var(--gold),0 4px 16px color-mix(in srgb,var(--gold) 45%,transparent)}
+.tn-gain.r-b{box-shadow:0 0 0 1.5px #b45ee6,0 4px 16px color-mix(in srgb,#b45ee6 45%,transparent)}
+#acts #act-n{position:relative;overflow:hidden;border-color:color-mix(in srgb,#2aa9de 60%,var(--line));touch-action:none;user-select:none;-webkit-user-select:none}
+#act-n .nd-bar{position:absolute;left:8px;right:8px;bottom:5px;height:4px;border-radius:2px;background:color-mix(in srgb,#2aa9de 22%,transparent);overflow:hidden}
+#act-n .nd-bar::after{content:"";position:absolute;inset:0;transform-origin:left;transform:scaleX(var(--e,1));background:linear-gradient(90deg,#2aa9de,#7fe0ff)}
+#act-n.full{box-shadow:0 0 12px color-mix(in srgb,#2aa9de 55%,transparent)}
+#acts #act-n.on{background:#2aa9de;border-color:#2aa9de;color:#fff}
+#act-n.on .nd-bar{background:rgba(255,255,255,.3)}
+#act-n.on .nd-bar::after{background:#fff}
+@media (max-width:760px){
+  .tn-stats{gap:4px;margin-bottom:6px}
+  .tn-stats b{font-size:12.5px}
+  .tn-inv .tn-p{min-width:42px}
+}

@@ -410,6 +410,7 @@ XMini.register((() => {
   ];
   return {
     id:'hoops', name:'奶娃投篮', icon:'🏀', color:'#ff5fa2',
+    parts:'hoops',                 // 改装零件掉落表：js/42-tuning.js 的 TN_DROPS.hoops，按奖牌发，结算面板显示（js/93-tuning-ui.js）
     desc:'半场跑位投篮，有防守、篮板和 1 对 1 斗牛',
     modes:MODES,
     controls:{move:true, a:'投篮', b:'变向', swipe:true, help:{

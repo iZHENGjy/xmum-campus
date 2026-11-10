@@ -590,7 +590,8 @@ function mkWarEnd(win, title, sub){
   const pay = Math.round(40 + left * .8) + [40, 20, 8][medal] + 25 * w.lv;
   const next = medal ? ` · 再快 ${Math.ceil(w.limit * MK_MEDAL[medal - 1] - left)} 秒就是${GX_MEDAL[medal - 1]}` : '';      /* what the next medal takes */
   sess.acts++; sess.medals++; earn(pay); saveGame(); unlock('monkeywar'); if (medal === 0) unlock('gold');
-  toast(`${GX_MEDAL[medal]} · 猴子大战`, `还剩 ${Math.round(left)} 秒${rec && prev != null ? ' · 新纪录！' : ''} · +RM ${pay}${next}`, 4200);
+  const loot = window.XParts ? XParts.reward('monkey', medal, '猴子大战' + GX_MEDAL[medal]) : [];   /* 改装零件, js/93-tuning-ui.js */
+  toast(`${GX_MEDAL[medal]} · 猴子大战`, `还剩 ${Math.round(left)} 秒${rec && prev != null ? ' · 新纪录！' : ''} · +RM ${pay}${next}${loot.length ? ' · 改装：' + XParts.text(loot) : ''}`, 4200);
   gxCallout(GX_MEDAL[medal], '猴山大王', ['#e3b95a', '#b8c2cc', '#c98a55'][medal]);
   for (let i = 0; i < 5; i++) tone('triangle', 523 * Math.pow(1.19, i), 523 * Math.pow(1.19, i), .18, .13, i * .09);
 }

@@ -1,21 +1,24 @@
-/* XMUM 校园漫游 · 改装车间：界面、施工队列、改装道具背包、道具发放、存档、成就（零件目录和装车在 js/42-tuning.js）
+/* XMUM 校园漫游 · 改装车间：界面、施工队列、改装道具和配方背包、道具发放、存档、成就（零件目录和装车在 js/42-tuning.js）
    买车不用等，改装要等：下单时扣金币和道具，进施工位按真实时间计时（存的是时间戳，关掉游戏也照样走），
    完工后提示「回车行提车」，提车时自动装上。施工中的车照样能开，只是新零件还没装。
-   默认 1 个施工位，第二个用 RM 800 解锁；可以花金币或改装图纸加急。新玩家第一单 30 秒完工，先尝到甜头。
-   道具只能玩出来：XParts.grant(id, n, reason)，接口和各玩法的掉落见 docs/tuning.md。
+   施工时间按档：轻改几分钟、中改几十分钟、高级几小时、顶级跨天；新玩家第一单 30 秒完工，先尝到甜头。
+   默认 1 个施工位，第二个用 RM 800 解锁；可以花金币或改装图纸加急（越久的单每分钟越便宜）。
+   道具和配方只能玩出来：XParts.reward(game, grade) 按 js/42-tuning.js 的 TN_DROPS 发，XParts.grant(id, n, reason) 发单件，
+   接口和各玩法的掉落见 docs/tuning.md。
    存档：localStorage 'xmum-tune-v1'（Google 登录的人跟其他 xmum-* 键一起云同步）。
    对外：window.XParts、window.XTune = {open, close, on}；预览版和本地测试页另有 window.XTuneDebug（正式版没有）。 */
 'use strict';
 const TN_KEY = 'xmum-tune-v1', TN_BAY2 = 800, TN_FIRST_SEC = 30;
 const TN_STARTER = {rim:3, lacq:2, cf:1, neon:1};
 const TN_SHOWCASE = {rim:'forged', rimc:'gold', size:'s2', wide:'wide', lip:'canard', skirt:'skirt', diff:'diff', hood:'vents', aero:'carbon', wing:'swan', neon:'kit', neonc:'purple', drl:'fang', exh:'quad', low:'l2', camber:'c3'};
-const tune = {inv:{}, cars:{}, jobs:[], bays:1, first:false, kit:false, spent:0};
+const tune = {inv:{}, bp:{}, cars:{}, jobs:[], bays:1, first:false, kit:false, spent:0, trailOff:false};
 for (const p of TN_PARTS) tune.inv[p.id] = 0;
 function tuneWrite(){ try { localStorage.setItem(TN_KEY, JSON.stringify(tune)); } catch(e){} }
 (function tuneLoad(){
   try {
     const d = JSON.parse(localStorage.getItem(TN_KEY) || 'null'); if (!d) return;
     if (d.inv) for (const p of TN_PARTS) tune.inv[p.id] = Math.max(0, Math.min(9999, d.inv[p.id] | 0));
+    if (d.bp && typeof d.bp === 'object') for (const b of TN_BPS) if (d.bp[b.id]) tune.bp[b.id] = 1;
     if (d.cars && typeof d.cars === 'object') for (const k of TN_KINDS){
       const c = d.cars[k]; if (!c) continue;
       const own = (Array.isArray(c.own) ? c.own : []).filter(x => TN.byKey[x]), fit = tnFit(c.fit);
@@ -24,7 +27,7 @@ function tuneWrite(){ try { localStorage.setItem(TN_KEY, JSON.stringify(tune)); 
     }
     if (Array.isArray(d.jobs)) tune.jobs = d.jobs.filter(j => j && TN.byKey[j.k] && TN_KINDS.includes(j.kind) && isFinite(j.t1)).slice(0, 2)
       .map(j => ({k:j.k, kind:j.kind, t0:+j.t0 || 0, t1:+j.t1, told:!!j.told}));
-    tune.bays = d.bays === 2 ? 2 : 1; tune.first = !!d.first; tune.kit = !!d.kit; tune.spent = Math.max(0, +d.spent || 0);
+    tune.bays = d.bays === 2 ? 2 : 1; tune.first = !!d.first; tune.kit = !!d.kit; tune.spent = Math.max(0, +d.spent || 0); tune.trailOff = !!d.trailOff;
   } catch(e){}
 })();
 const tnCar = kind => tune.cars[kind] || (tune.cars[kind] = {own:[], fit:tnFit(null)});
@@ -34,21 +37,51 @@ const tnJobOf = (kind, key) => tune.jobs.find(j => j.kind === kind && j.k === ke
 const tnLeft = j => Math.max(0, j.t1 - Date.now());
 const tnReady = j => tnLeft(j) <= 0;
 const tnMods = fit => TN_SLOTS.filter(s => fit[s.id] !== TN.stock[s.id]).length;
+const tnThing = id => TN_PART[id] || TN_BP[id];
 
-/* ---------- 改装道具: XParts.grant is the one way in ---------- */
+/* ---------- 改装道具和配方：XParts.grant / XParts.reward are the only ways in ---------- */
+const TN_GRADE = ['金牌', '银牌', '铜牌', ''];
 const XParts = window.XParts = {
-  list:TN_PARTS,
-  count:id => tune.inv[id] || 0,
-  /* give n of part id; reason is shown to the player ('送外卖', '猴子大战金牌'). Returns the new count, 0 if the id is unknown */
+  list:TN_PARTS, bps:TN_BPS, drops:TN_DROPS,
+  count:id => TN_BP[id] ? (tune.bp[id] ? 1 : 0) : tune.inv[id] || 0,
+  /* give n of part id (or a 配方 'bp_…'); reason is shown to the player ('送外卖', '猴子大战金牌').
+     Returns the new count, 0 if the id is unknown. A 配方 you already have turns into one 改装图纸 */
   grant(id, n, reason){
     n = Math.round(n == null ? 1 : +n);
-    if (!TN_PART[id] || !(n > 0)) return 0;
+    if (!tnThing(id) || !(n > 0)) return 0;
+    if (TN_BP[id]){
+      if (tune.bp[id]) return XParts.grant('plan', 1, (reason ? reason + ' · ' : '') + '配方重复，换成图纸');
+      tune.bp[id] = 1; tuneWrite(); tnGainShow(id, 1, reason); if (tn.on) tnRender(); return 1;
+    }
     tune.inv[id] = Math.min(9999, (tune.inv[id] || 0) + n); tuneWrite();
     tnGainShow(id, n, reason); if (tn.on) tnRender();
     return tune.inv[id];
   },
+  /* the drop of one game at one grade (0 best … 3 nothing), from TN_DROPS in js/42-tuning.js.
+     Returns what was given, as [{id, n}], for the result screen: XParts.chips(list) / XParts.text(list) */
+  reward(game, grade, reason){
+    const D = TN_DROPS[game], g = D && D.g[Math.max(0, Math.min(3, grade | 0))]; if (!g) return [];
+    const why = reason || D.name + TN_GRADE[Math.max(0, Math.min(3, grade | 0))], out = [];
+    for (const [id0, n, p] of g){
+      if (p != null && Math.random() >= p) continue;
+      let id = id0;
+      if (id === 'bp_*'){ const pool = (TN_BP_POOL[game] || []).filter(b => !tune.bp[b]); id = pool.length ? pool[(Math.random() * pool.length) | 0] : 'plan'; }
+      const dup = TN_BP[id] && tune.bp[id];
+      if (!XParts.grant(id, n, why)) continue;
+      out.push(dup ? {id:'plan', n:1} : {id, n});
+    }
+    return out;
+  },
   /* the usual drop for a medal (0 金 / 1 银 / 2 铜): 涡轮 / 碳纤维板 / 赛车漆料; no medal (3 or more) gives nothing */
-  medal(medal, reason){ const id = ['turbo', 'cf', 'lacq'][medal]; return id ? XParts.grant(id, 1, reason) : 0; }
+  medal(medal, reason){ return XParts.reward('arcade', medal, reason).length; },
+  text:list => (list || []).map(x => `${tnThing(x.id).name}${TN_BP[x.id] ? '' : ' ×' + x.n}`).join('、'),
+  /* a row of chips for a result card (HTML string; empty when nothing dropped) */
+  chips(list){
+    if (!list || !list.length) return '';
+    return '<div class="tn-loot"><span>改装零件</span>' + list.map(x => { const t = tnThing(x.id);
+      return `<b class="r-${t.rar}" style="--c:${t.color}"><i>${t.ch}</i>${t.name}${TN_BP[x.id] ? '' : ' ×' + x.n}</b>`; }).join('') + '</div>';
+  },
+  has:id => !!tune.bp[id]
 };
 const tnHas = need => Object.keys(need).every(p => (tune.inv[p] || 0) >= need[p]);
 const tnShort = need => Object.keys(need).filter(p => (tune.inv[p] || 0) < need[p]);
@@ -56,73 +89,36 @@ const tnShort = need => Object.keys(need).filter(p => (tune.inv[p] || 0) < need[
 /* small chips under the HUD: "+1 轮毂坯件 · 送外卖" */
 const tnGainEl = document.createElement('div'); tnGainEl.id = 'tnGain'; tnGainEl.setAttribute('aria-live', 'polite'); document.body.appendChild(tnGainEl);
 function tnGainShow(id, n, reason){
-  const p = TN_PART[id], el = document.createElement('div'); el.className = 'tn-gain'; el.style.setProperty('--c', p.color);
-  el.innerHTML = '<i></i><b></b><span></span>'; el.querySelector('i').textContent = p.ch; el.querySelector('b').textContent = `+${n} ${p.name}`;
+  const p = tnThing(id), el = document.createElement('div'); el.className = 'tn-gain r-' + p.rar; el.style.setProperty('--c', p.color);
+  el.innerHTML = '<i></i><b></b><span></span>'; el.querySelector('i').textContent = p.ch; el.querySelector('b').textContent = TN_BP[id] ? '新配方：' + p.name : `+${n} ${p.name}`;
   el.querySelector('span').textContent = reason ? '· ' + reason : '';
   tnGainEl.appendChild(el); while (tnGainEl.children.length > 3) tnGainEl.firstChild.remove();
   setTimeout(() => el.classList.add('out'), 2600); setTimeout(() => el.remove(), 3100);
-  tone('triangle', 1046, 1046, .08, .07); tone('triangle', 1568, 1568, .12, .06, .07);
+  if (p.rar === 'l' || p.rar === 'b'){ for (let i = 0; i < 4; i++) tone('triangle', 784 * Math.pow(1.26, i), 784 * Math.pow(1.26, i), .14, .08, i * .07); }
+  else { tone('triangle', 1046, 1046, .08, .07); tone('triangle', 1568, 1568, .12, .06, .07); }
 }
 
-/* ---------- where the parts come from (dev: 外卖, 得来速, 小偷, 通缉榜, 猴子大战, 宿舍撤离, B1 奖牌, 挑战赛, 成就) ----------
-   each game's own end-of-round function is wrapped and called through, so nothing in those files changes */
+/* ---------- where the parts come from ----------
+   Each game calls XParts.reward(…) in its own end-of-round code (js/92-racing.js, js/89-dorm.js, js/87-heist.js, js/89-swing-monkeys.js,
+   js/89-outskirts-play.js, js/85-activities.js) and shows the chips on its result screen. Here: plain deliveries, the B1 arcade, achievements. */
 const tnW = {deliv:prog.life.deliv || 0, dt:+prog.best.o_dt || 0};
 function tnWatchDeliv(){
   const d = prog.life.deliv || 0, dt = +prog.best.o_dt || 0;
-  if (d > tnW.deliv){
-    const n = d - tnW.deliv, drive = dt > tnW.dt;
-    XParts.grant('rim', n, drive ? '得来速' : '送外卖');
-    if (drive){ XParts.grant('lacq', dt - tnW.dt, '得来速'); if (typeof opNight === 'function' && opNight()) XParts.grant('neon', 1, '送夜宵'); }
-  }
+  /* a 得来速 order pays its own parts (js/89-outskirts-play.js); every other delivery: one 轮毂坯件 */
+  if (d > tnW.deliv){ const n = d - tnW.deliv - Math.max(0, dt - tnW.dt); if (n > 0) XParts.grant('rim', n, '送外卖'); }
   tnW.deliv = d; tnW.dt = dt;
 }
-if (typeof thCatch === 'function'){
-  const base = thCatch;
-  thCatch = function(){
-    const n0 = +prog.best.o_thief || 0, r = base.apply(this, arguments), n = +prog.best.o_thief || 0;
-    XParts.grant('turbo', 1, '抓住小偷');
-    if (typeof TH_LIST !== 'undefined' && n > n0 && n % TH_LIST.length === 0) XParts.grant('plan', 1, '清空 Bell 通缉榜');
-    return r;
-  };
-}
-if (typeof mkWarEnd === 'function'){
-  const base = mkWarEnd;
-  mkWarEnd = function(win){
-    let md = -1;
-    try { const w = MK.war; if (win && w){ const f = Math.max(0, w.limit - w.t) / w.limit; md = f >= MK_MEDAL[0] ? 0 : f >= MK_MEDAL[1] ? 1 : 2; } } catch(e){}
-    const r = base.apply(this, arguments);
-    if (md >= 0) XParts.grant('cf', 3 - md, '猴子大战' + GX_MEDAL[md]);
-    return r;
-  };
-}
-if (typeof dmFinish === 'function'){
-  const base = dmFinish;
-  dmFinish = function(){
-    let n = 0, v = 0;
-    try { const items = dmBagItems().filter(it => !it.key); n = items.length; v = items.reduce((s, it) => s + it.v, 0); } catch(e){}
-    const r = base.apply(this, arguments);
-    if (n){ XParts.grant('neon', 1, '宿舍撤离'); if (v >= 150) XParts.grant('cf', 1, '宿舍撤离 RM ' + Math.round(v)); }
-    return r;
-  };
-}
+/* B1 小游戏: a game picks its drop table with `parts:'hoops'` in XMini.register (js/minigames/*); the others get the 'arcade' one */
 if (typeof mgFinish === 'function'){
   const base = mgFinish;
   mgFinish = function(score){
-    let md = 3;
-    try { const g = MG.cur; if (g && arcPlaying() && score != null && isFinite(score)) md = mgMedal(g, Math.round(score * 100) / 100); } catch(e){}
+    let md = 3, g = null;
+    try { g = MG.cur; if (g && arcPlaying() && score != null && isFinite(score)) md = mgMedal(g, Math.round(score * 100) / 100); } catch(e){}
     const r = base.apply(this, arguments);
-    if (md < 3) XParts.medal(md, 'B1 小游戏' + GX_MEDAL[md]);
-    return r;
-  };
-}
-if (typeof gxFinish === 'function'){
-  const base = gxFinish;
-  gxFinish = function(score){
-    let md = 3;
-    try { const a = gxA.act, low = a.type === 'race'; for (let i = 0; i < 3; i++) if (low ? score <= a.medal[i] : score >= a.medal[i]){ md = i; break; } } catch(e){}
-    const r = base.apply(this, arguments);
-    if (md === 0) XParts.grant('cf', 1, '挑战赛金牌');
-    if (md < 3) XParts.grant('lacq', 1, '挑战赛' + GX_MEDAL[md]);
+    if (g && md < 3){
+      const loot = XParts.reward(TN_DROPS[g.parts] ? g.parts : 'arcade', md, (g.name || 'B1 小游戏') + GX_MEDAL[md]);
+      try { const h = XParts.chips(loot); if (h && typeof mgCard !== 'undefined'){ const el = document.createElement('div'); el.innerHTML = h; mgCard.insertBefore(el.firstChild, mgCard.querySelector('.hrow')); } } catch(e){}
+    }
     return r;
   };
 }
@@ -134,32 +130,36 @@ if (typeof gxFinish === 'function'){
     return r;
   };
 }
-achAdd([['tune1', '改装入门', '第一次提到改装好的车', 20], ['tunewide', '宽体怪兽', '一辆车同时装上宽体和尾翼', 60], ['tunefull', '全副武装', '一辆车有 10 项以上改装', 120]]);
+achAdd([['tune1', '改装入门', '第一次提到改装好的车', 20], ['tunewide', '宽体怪兽', '一辆车同时装上宽体和尾翼', 60], ['tunefull', '全副武装', '一辆车有 10 项以上改装', 120],
+  ['tunebp', '配方收藏家', '集齐 5 张改装配方', 80], ['tunetop', '顶级改装', '提到一件顶级改装', 150]]);
 
 /* ---------- on the cars ---------- */
-function tnApplyMine(fit){ if (myCar) tnApply(myCar, fit || tnCar(myCar.kind).fit); }
+function tnApplyMine(fit){
+  if (!myCar) return;
+  tnApply(myCar, fit || tnCar(myCar.kind).fit);
+  /* the stats follow what is really fitted, not a preview (and not in the middle of a race: js/92-racing.js holds its own copy) */
+  if (!fit && (typeof RC === 'undefined' || RC.st === 'idle')) myCar.T = tunedT(myCar.kind);
+}
 { const base = spawnMine; spawnMine = function(kind, x, z, h){ const it = base(kind, x, z, h); tnApplyMine(); return it; }; }
 tnApplyMine();
 tnApply(showCar, TN_SHOWCASE);   /* the 车行 turntable shows what the workshop can do */
-/* 性能改装 (off while TN_PERF = 0 in js/42-tuning.js): the perf fields of the fitted parts, as fractions */
-function tnPerf(kind){
-  const o = {acc:0, maxV:0, grip:0}, f = tnCar(kind).fit;
-  for (const s of TN_SLOTS){ const it = TN.byKey[s.id + '.' + f[s.id]]; for (const k in o) o[k] += it.perf[k]; }
-  return o;
+/* 性能改装 (TN_PERF in js/42-tuning.js): the perf fields of the fitted parts, as fractions, on top of the 改装店 levels */
+const tnPerf = kind => tnPerfOf(kind, tnCar(kind).fit);
+function tnTuned(kind, fit){
+  const t = tunedBase(kind); if (!TN_PERF || !TN_KINDS.includes(kind)) return t;
+  const p = tnPerfOf(kind, fit || tnCar(kind).fit);
+  t.acc *= 1 + p.acc * TN_PERF; t.maxV *= 1 + p.maxV * TN_PERF; t.grip *= 1 + p.grip * TN_PERF; t.steer *= 1 + p.steer * TN_PERF; return t;
 }
-{
-  const base = tunedT;
-  tunedT = function(kind){
-    const t = base(kind); if (!TN_PERF || !TN_KINDS.includes(kind)) return t;
-    const p = tnPerf(kind); t.acc *= 1 + p.acc * TN_PERF; t.maxV *= 1 + p.maxV * TN_PERF; t.grip *= 1 + p.grip * TN_PERF; return t;
-  };
-}
-/* 总资产: built parts and the ones in the bays at coins + parts used, unspent parts at their value, the second bay at its price */
+const tunedBase = tunedT;
+tunedT = kind => tnTuned(kind);
+if (myCar) myCar.T = tunedT(myCar.kind);
+/* 总资产: built parts and the ones in the bays at coins + parts used, unspent parts at their value, 配方 RM 200 each, the second bay at its price */
 assetSource('carmods', () => {
   let s = (tune.bays - 1) * TN_BAY2;
   for (const p of TN_PARTS) s += (tune.inv[p.id] || 0) * p.rm;
-  for (const k in tune.cars) for (const key of tune.cars[k].own) if (TN.byKey[key]) s += tnWorth(TN.byKey[key]);
-  for (const j of tune.jobs) s += tnWorth(TN.byKey[j.k]);
+  for (const b of TN_BPS) if (tune.bp[b.id]) s += b.rm;
+  for (const k in tune.cars) s += tuneCarValue(k);
+  for (const j of tune.jobs) if (!tune.cars[j.kind]) s += tnWorth(TN.byKey[j.k]);
   return s;
 });
 /* online: other players see the fit of your own car while you drive it (js/net.js /looks, at most 120 characters) */
@@ -174,10 +174,12 @@ if (window.XWard){
 
 /* ---------- ordering, the bays, picking up ---------- */
 const tnFmt = ms => { const t = Math.ceil(ms / 1000), h = Math.floor(t / 3600), m = Math.floor(t / 60) % 60, s = t % 60, p = v => String(v).padStart(2, '0'); return h ? `${h}:${p(m)}:${p(s)}` : `${m}:${p(s)}`; };
-const tnMinTxt = it => !tune.first ? `${TN_FIRST_SEC} 秒（新手首单）` : it.min >= 60 ? `${it.min / 60} 小时` : `${it.min} 分钟`;
+const tnMinFmt = m => m < 60 ? `${m} 分钟` : m % 60 ? `${Math.floor(m / 60)} 小时 ${m % 60} 分` : `${m / 60} 小时`;
+const tnMinTxt = it => !tune.first ? `${TN_FIRST_SEC} 秒（新手首单）` : tnMinFmt(it.min) + (it.min >= 1200 ? '，明天再来提车' : '');
+const tnBpOk = it => !it.bp || !!tune.bp[it.bp];
 function tnOrder(key){
-  const it = TN.byKey[key], kind = myCar && myCar.kind; if (!it || !kind) return false;
-  if (tnOwns(kind, key) || tnJobOf(kind, key) || tune.jobs.length >= tune.bays || money < it.rm || !tnHas(it.need)) return false;
+  const it = TN.byKey[key], kind = myCar && myCar.kind; if (!it || !kind || !tnItemOk(kind, it)) return false;
+  if (tnOwns(kind, key) || tnJobOf(kind, key) || tune.jobs.length >= tune.bays || money < it.rm || !tnHas(it.need) || !tnBpOk(it)) return false;
   money -= it.rm; tune.spent += it.rm; for (const p in it.need) tune.inv[p] -= it.need[p];
   const now = Date.now(), sec = tune.first ? it.min * 60 : TN_FIRST_SEC; tune.first = true;
   tune.jobs.push({k:key, kind, t0:now, t1:now + sec * 1000, told:false});
@@ -185,8 +187,10 @@ function tnOrder(key){
   tone('square', 220, 180, .12, .05); tone('square', 330, 300, .1, .04, .12);
   return true;
 }
-const tnRushRM = j => Math.max(10, Math.ceil(tnLeft(j) / 60000) * 12);            /* RM 12 a minute */
-const tnRushPlan = j => Math.max(1, Math.ceil(tnLeft(j) / (20 * 60000)));          /* one 改装图纸 per 20 minutes */
+/* 加急: RM 12 a minute for the first half hour, then cheaper the longer the job (a 22-hour engine is about RM 3,000);
+   or 改装图纸: one for 20 minutes, growing with the square root (22 hours = 9 张) */
+const tnRushRM = j => { const m = Math.ceil(tnLeft(j) / 60000); return Math.max(10, Math.round(12 * Math.min(30, m) + 6 * Math.pow(Math.max(0, m - 30), .85))); };
+const tnRushPlan = j => Math.max(1, Math.ceil(Math.sqrt(tnLeft(j) / (20 * 60000))));
 function tnRush(i, plan){
   const j = tune.jobs[i]; if (!j || tnReady(j)) return;
   if (plan){ const n = tnRushPlan(j); if (tune.inv.plan < n) return; tune.inv.plan -= n; }
@@ -201,10 +205,11 @@ function tnPickup(i){
   if (!c.own.includes(j.k)) c.own.push(j.k);
   c.fit[it.slot] = it.id; tuneWrite();
   const mine = myCar && myCar.kind === j.kind;
-  if (mine){ tn.try[it.slot] = it.id; tnApplyMine(tn.on ? tn.try : null); tnSparkle(); if (TN_PERF) myCar.T = tunedT(myCar.kind); }
+  if (mine){ tn.try[it.slot] = it.id; tnApplyMine(tn.on ? tn.try : null); if (tn.on) myCar.T = tunedT(myCar.kind); tnSparkle(); }
   const name = (SHOP.find(s => s.kind === j.kind) || {}).name || CAR_T[j.kind].name;
   tnDone('提车：' + it.name, mine ? `已经装在你的${name}上了，开出去给大家看看` : `装在你的${name}上了，叫它出来就能看到`);
   unlock('tune1');
+  if (it.tier === 'x') unlock('tunetop');
   if (c.fit.wide !== 'stock' && c.fit.wing !== 'none') unlock('tunewide');
   if (tnMods(c.fit) >= 10) unlock('tunefull');
   tnBadge(); if (tn.on) tnRender();
@@ -222,6 +227,7 @@ function tnTick(){
     tuneWrite(); const it = TN.byKey[fresh.k];
     if (!tn.on){ toast('改装完工：' + it.name, '回车行提车：「XMUM 车行」→「改装车间」', 4200); tone('triangle', 784, 784, .14, .12); tone('triangle', 1175, 1175, .3, .12, .14); }
   }
+  if (Object.keys(tune.bp).length >= 5) unlock('tunebp');
   tnBadge();
   if (tn.on){ tnRenderQ(); if (fresh) tnRender(); else if (tnSel() && tnJobOf(myCar.kind, tn.sel)) tnFoot(); }
 }
@@ -239,40 +245,69 @@ const TN_ICON = {
   wing:'<path d="M3 8.5h18l-1.5 2.5H4.5z"/><path d="M7 11v6M17 11v6M3 8.5v3M21 8.5v3"/>',
   light:'<path d="M9 17h6M10 20h4M12 3a6 6 0 0 0-3.5 10.9V15h7v-1.1A6 6 0 0 0 12 3z"/>',
   exh:'<circle cx="8" cy="12" r="4"/><circle cx="16.5" cy="12" r="4"/><circle cx="8" cy="12" r="1.6"/><circle cx="16.5" cy="12" r="1.6"/>',
-  stance:'<path d="M3 12.5h18v-2l-3-1-3-3H9l-3 3-3 1z"/><circle cx="7.5" cy="13.5" r="2"/><circle cx="16.5" cy="13.5" r="2"/><path d="M12 16.5v4M10 18.8l2 1.8 2-1.8"/>'
+  stance:'<path d="M3 12.5h18v-2l-3-1-3-3H9l-3 3-3 1z"/><circle cx="7.5" cy="13.5" r="2"/><circle cx="16.5" cy="13.5" r="2"/><path d="M12 16.5v4M10 18.8l2 1.8 2-1.8"/>',
+  perf:'<path d="M4 17a8 8 0 1 1 16 0"/><path d="M12 17l4.5-5.5"/><circle cx="12" cy="17" r="1.4"/>',
+  skill:'<path d="M9 3h6v3H9z"/><rect x="7.5" y="6" width="9" height="14" rx="3"/><path d="M12 10v6M9.5 13h5"/>',
+  trail:'<path d="M3 15c4 0 5-6 9-6s4 4 9 4"/><path d="M3 19c4 0 6-4 10-4s5 2 8 2"/><circle cx="19.5" cy="7" r="1.5"/>'
 };
 const tnSvg = tab => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">${TN_ICON[tab]}</svg>`;
 const tnEl = document.createElement('div');
 tnEl.className = 'panel'; tnEl.id = 'tune'; tnEl.hidden = true; tnEl.setAttribute('role', 'dialog'); tnEl.setAttribute('aria-labelledby', 'tuneT');
 tnEl.innerHTML = `<button class="x" id="tunex" aria-label="关闭">×</button>
   <div class="shop-h"><h2 id="tuneT">改装车间</h2><span id="tuneMoney">RM 0.00</span></div>
-  <div class="tn-inv" id="tuneInv" role="group" aria-label="改装道具背包"></div>
+  <div class="tn-inv" id="tuneInv" role="group" aria-label="改装道具和配方"></div>
   <div class="tn-q" id="tuneQ"></div>
+  <div class="tn-stats" id="tuneStats" aria-live="polite"></div>
   <div class="wd-tabs" id="tuneTabs" role="tablist"></div>
   <div class="tn-list" id="tuneList"></div>
   <div class="wd-done" id="tuneDone" role="status" aria-live="polite" hidden></div>
   <div class="wd-foot"><div class="wd-sel"><b id="tuneName"></b><span id="tuneDesc"></span><span class="tn-cost" id="tuneCost"></span></div><div class="wd-btns"><button class="btn buy" id="tuneGo"></button></div></div>`;
 document.body.appendChild(tnEl);
-const tn = {on:false, tab:'wheel', sel:null, try:{}, yaw:0, pitch:.22, zoom:1, drag:null, wasPaused:false, view:''};
+const tn = {on:false, tab:'perf', sel:null, try:{}, yaw:0, pitch:.22, zoom:1, drag:null, wasPaused:false, view:''};
 const tnSel = () => tn.sel && TN.byKey[tn.sel];
+const tnTabsFor = kind => TN_TABS.filter(([t]) => TN_SLOTS.some(s => s.tab === t && tnSlotOk(kind, s) && TN.bySlot[s.id].some(it => !tnIsStock(it) && tnItemOk(kind, it))));
 
+/* 改前 → 改后: the four numbers of the car as fitted, and as previewed */
+const TN_STAT = [['acc', '加速', t => t.acc.toFixed(1), 36], ['maxV', '极速', t => Math.round(t.maxV * 3.6), 100], ['steer', '操控', t => Math.round(t.steer * 100), 1], ['grip', '抓地', t => t.grip.toFixed(1), 11]];
+function tnRenderStats(){
+  if (!myCar) return;
+  const k = myCar.kind, a = tnTuned(k), b = tnTuned(k, tn.try);
+  $('#tuneStats').innerHTML = TN_STAT.map(([f, n, show, top]) => {
+    const d = b[f] / a[f] - 1, max = f === 'steer' ? 1 : top, ch = Math.abs(d) > .0005;
+    return `<div class="${ch ? (d > 0 ? 'up' : 'dn') : ''}"><span>${n}</span><b>${show(a)}${ch ? `<i>→ ${show(b)}</i>` : ''}</b>`
+      + `<em style="--a:${Math.min(1, a[f] / max).toFixed(3)};--b:${Math.min(1, b[f] / max).toFixed(3)}"></em></div>`;
+  }).join('');
+}
 function tnRender(){
   if (!tn.on) return;
   $('#tuneMoney').textContent = fmtRM(money);
   $('#tuneT').textContent = '改装车间 · ' + (myCar ? myCar.T.name : '');
-  $('#tuneInv').innerHTML = TN_PARTS.map(p => `<button type="button" class="tn-p${tn.sel === 'p:' + p.id ? ' sel' : ''}" data-p="${p.id}" style="--c:${p.color}" aria-label="${p.name} ${tune.inv[p.id] || 0} 个"><i>${p.ch}</i><b>${tune.inv[p.id] || 0}</b></button>`).join('');
-  tnRenderQ();
-  $('#tuneTabs').innerHTML = TN_TABS.map(([t, n]) => `<button type="button" role="tab" data-tab="${t}" aria-selected="${t === tn.tab}">${n}</button>`).join('');
-  const kind = myCar.kind, fit = tnCar(kind).fit;
-  $('#tuneList').innerHTML = TN_SLOTS.filter(s => s.tab === tn.tab).map(s => `<h4>${s.name}</h4><div class="wd-grid" role="listbox" aria-label="${s.name}">` + TN.bySlot[s.id].map(it => {
+  const nbp = Object.keys(tune.bp).length;
+  $('#tuneInv').innerHTML = `<button type="button" class="tn-p tn-bpb${tn.sel === 'p:bp' ? ' sel' : ''}" data-p="bp" aria-label="改装配方 ${nbp} / ${TN_BPS.length} 张"><i>配</i><b>${nbp}/${TN_BPS.length}</b></button>`
+    + TN_PARTS.map(p => `<button type="button" class="tn-p r-${p.rar}${tn.sel === 'p:' + p.id ? ' sel' : ''}${tune.inv[p.id] ? '' : ' zero'}" data-p="${p.id}" style="--c:${p.color}" aria-label="${p.name}（${TN_RAR[p.rar].name}）${tune.inv[p.id] || 0} 个"><i>${p.ch}</i><b>${tune.inv[p.id] || 0}</b></button>`).join('');
+  tnRenderQ(); tnRenderStats();
+  const kind = myCar.kind, fit = tnCar(kind).fit, tabs = tnTabsFor(kind);
+  if (!tabs.some(([t]) => t === tn.tab)) tn.tab = tabs[0][0];
+  $('#tuneTabs').innerHTML = tabs.map(([t, n]) => `<button type="button" role="tab" data-tab="${t}" aria-selected="${t === tn.tab}">${n}</button>`).join('');
+  if (tn.sel === 'p:bp'){ tnRenderBps(); tnFoot(); return; }
+  const slots = TN_SLOTS.filter(s => s.tab === tn.tab && tnSlotOk(kind, s));
+  let h = tn.tab === 'trail' ? `<button type="button" class="tn-tog" id="tuneTrailTog" aria-pressed="${!tune.trailOff}">尾焰特效：${tune.trailOff ? '关' : '开'}<small>${typeof XQ !== 'undefined' && XQ.level === 'low' ? '流畅画质下画简化版' : '只是看的，关掉不影响零件'}</small></button>` : '';
+  h += slots.map(s => `<h4>${s.name}</h4><div class="wd-grid" role="listbox" aria-label="${s.name}">` + TN.bySlot[s.id].filter(it => tnItemOk(kind, it) || tnOwns(kind, it.key)).map(it => {
     const own = tnOwns(kind, it.key), on = fit[s.id] === it.id, job = tnJobOf(kind, it.key), sel = tn.sel === it.key, tr = tn.try[s.id] === it.id;
-    const tag = on ? '<em class="on">在用</em>' : own ? '<em>已有</em>' : job ? (tnReady(job) ? '<em class="on">待提车</em>' : '<em class="b">施工中</em>') : `<em class="p">RM ${it.rm.toLocaleString()}</em>`;
-    const tier = it.tier !== 'n' ? `<i class="t-${it.tier}">${WD_TIER[it.tier]}</i>` : '';
-    const col = it.col ? ` style="background:${it.col}${s.id === 'neonc' ? ';box-shadow:0 0 10px ' + it.col : ''}"` : '';
+    const tag = on ? '<em class="on">在用</em>' : own ? '<em>已有</em>' : job ? (tnReady(job) ? '<em class="on">待提车</em>' : '<em class="b">施工中</em>')
+      : !tnBpOk(it) ? '<em class="lk">缺配方</em>' : `<em class="p">RM ${it.rm.toLocaleString()}</em>`;
+    const tier = it.tier !== 'n' ? `<i class="t-${it.tier}">${TN_TIERC[it.tier]}</i>` : '';
+    const col = it.col ? ` style="background:${it.col}${s.id === 'neonc' || s.id === 'trailc' ? ';box-shadow:0 0 10px ' + it.col : ''}"` : '';
     return `<button type="button" role="option" class="wd-it tn-it${sel ? ' sel' : ''}${tr && !sel && !on ? ' tr' : ''} tier-${it.tier}" aria-selected="${sel}" data-k="${it.key}">
       <span class="wd-sw tn-ic"${col}>${it.col ? '' : tnSvg(s.tab)}</span><b>${it.name}</b>${tier}${tag}</button>`;
   }).join('') + '</div>').join('');
+  $('#tuneList').innerHTML = h;
   tnFoot();
+}
+/* the recipe book: which top-tier parts each one unlocks and where it drops */
+function tnRenderBps(){
+  $('#tuneList').innerHTML = '<h4>改装配方 · 拿到一次永久解锁</h4><div class="tn-bps">' + TN_BPS.map(b => `<div class="tn-bp${tune.bp[b.id] ? ' got' : ''}">
+    <i>${b.ch}</i><b>${b.name}</b><span>解锁：${b.for}</span><small>${tune.bp[b.id] ? '已拥有' : '去哪儿拿：' + b.from}</small></div>`).join('') + '</div>';
 }
 function tnRenderQ(){
   const q = $('#tuneQ'); let h = '';
@@ -290,19 +325,24 @@ function tnRenderQ(){
 function tnFoot(){
   const go = $('#tuneGo'), cost = $('#tuneCost'), name = $('#tuneName'), desc = $('#tuneDesc');
   go.hidden = false; go.disabled = false; go.className = 'btn buy'; cost.innerHTML = '';
+  if (tn.sel === 'p:bp'){
+    name.textContent = `改装配方 ${Object.keys(tune.bp).length} / ${TN_BPS.length}`; desc.textContent = '顶级改装要「配方 + 稀有零件」。宿舍撤离、教学楼潜入最容易出配方；重复的配方换成改装图纸。'; go.hidden = true; return;
+  }
   if (tn.sel && tn.sel.startsWith('p:')){
     const p = TN_PART[tn.sel.slice(2)];
-    name.textContent = `${p.name} × ${tune.inv[p.id] || 0}`; desc.textContent = '去哪儿拿：' + p.from + '。不能用钱买。'; go.hidden = true; return;
+    name.textContent = `${p.name} × ${tune.inv[p.id] || 0} · ${TN_RAR[p.rar].name}`; desc.textContent = '去哪儿拿：' + p.from + '。不能用钱买。'; go.hidden = true; return;
   }
   const it = tnSel();
   if (!it){
     name.textContent = '点一个零件预览';
-    desc.textContent = !tune.first ? '预览免费。新手首单 30 秒完工，之后的改装要等真实时间，车照样能开' : '预览免费。下单后要等施工，车照样能开；拖动画面转着看';
+    desc.textContent = !tune.first ? '预览免费，上面的数值会显示改前和改后。新手首单 30 秒完工，之后越高级的改装要等越久，车照样能开'
+      : '预览免费，上面的数值会显示改前和改后。轻改几分钟、中改几十分钟、高级几小时、顶级要等一天';
     go.hidden = true; return;
   }
   const kind = myCar.kind, fit = tnCar(kind).fit, job = tnJobOf(kind, it.key), slot = TN_SLOTS.find(s => s.id === it.slot);
-  name.textContent = it.name + (it.tier !== 'n' ? ' · ' + WD_TIER[it.tier] : '');
-  desc.textContent = (it.desc || slot.name) + ((it.slot === 'neonc' && fit.neon === 'none' && fit.rim !== 'glow') ? '（要先装底盘霓虹或发光轮毂才看得见）' : '');
+  name.textContent = it.name + (it.tier !== 'n' ? ' · ' + TN_TIERC[it.tier] : '');
+  desc.textContent = (it.desc || slot.name) + ((it.slot === 'neonc' && fit.neon === 'none' && fit.rim !== 'glow') ? '（要先装底盘霓虹或发光轮毂才看得见）'
+    : it.slot === 'trailc' && fit.trail === 'none' ? '（要先装尾焰才看得见）' : '');
   if (tnOwns(kind, it.key)){
     if (fit[it.slot] === it.id){ go.textContent = '正在用'; go.disabled = true; go.className = 'btn'; }
     else go.textContent = tnIsStock(it) ? '换回原厂' : '装上';
@@ -313,11 +353,16 @@ function tnFoot(){
     else { go.textContent = '施工中 · ' + tnFmt(tnLeft(job)); go.disabled = true; go.className = 'btn'; }
     return;
   }
-  cost.innerHTML = `<span class="${money >= it.rm ? '' : 'no'}">${fmtRM(it.rm)}</span>` + Object.keys(it.need).map(p => {
-    const P = TN_PART[p], have = tune.inv[p] || 0; return `<span class="pt${have >= it.need[p] ? '' : ' no'}" style="--c:${P.color}"><i>${P.ch}</i>${P.name} ${have}/${it.need[p]}</span>`;
-  }).join('') + `<span class="tm">施工 ${tnMinTxt(it)}</span>`;
+  const bp = it.bp && TN_BP[it.bp];
+  cost.innerHTML = `<span class="${money >= it.rm ? '' : 'no'}">${fmtRM(it.rm)}</span>`
+    + (bp ? `<span class="pt bp${tune.bp[bp.id] ? '' : ' no'}" style="--c:${bp.color}"><i>${bp.ch}</i>${bp.name}${tune.bp[bp.id] ? ' ✓' : ''}</span>` : '')
+    + Object.keys(it.need).map(p => {
+      const P = TN_PART[p], have = tune.inv[p] || 0; return `<span class="pt r-${P.rar}${have >= it.need[p] ? '' : ' no'}" style="--c:${P.color}"><i>${P.ch}</i>${P.name} ${have}/${it.need[p]}</span>`;
+    }).join('') + `<span class="tm">${TN_TIER[it.tier]}施工 ${tnMinTxt(it)}</span>`;
   const short = tnShort(it.need);
-  if (tune.jobs.length >= tune.bays){ go.textContent = '施工位满了'; go.disabled = true; go.className = 'btn'; }
+  if (!tnItemOk(kind, it)){ go.textContent = '这辆车装不了'; go.disabled = true; go.className = 'btn'; }
+  else if (tune.jobs.length >= tune.bays){ go.textContent = '施工位满了'; go.disabled = true; go.className = 'btn'; }
+  else if (!tnBpOk(it)){ go.textContent = '缺配方：' + bp.name; go.disabled = true; go.className = 'btn'; }
   else if (short.length){ go.textContent = '缺 ' + short.map(p => TN_PART[p].name).join('、'); go.disabled = true; go.className = 'btn'; }
   else if (money < it.rm){ go.textContent = '还差 ' + fmtRM(Math.ceil(it.rm - money)); go.disabled = true; go.className = 'btn'; }
   else go.textContent = '下单施工';
@@ -331,12 +376,13 @@ function tnPick(key){
   if (key.startsWith('p:')){ tn.sel = tn.sel === key ? null : key; tnRender(); return; }
   const it = TN.byKey[key]; if (!it) return;
   tn.sel = key; tn.try[it.slot] = it.id; tnApplyMine(tn.try); tnRender(); tone('triangle', 660, 880, .08, .05);
+  if (window.XTuneDrive) XTuneDrive.preview(it);
 }
 function tnGo(){
   const it = tnSel(); if (!it || !myCar) return;
   const kind = myCar.kind, c = tnCar(kind), job = tnJobOf(kind, it.key);
   if (tnOwns(kind, it.key)){
-    c.fit[it.slot] = it.id; tuneWrite(); tnApplyMine(tn.try); sfx.ding(); tnRender(); tnDone((tnIsStock(it) ? '换回了：' : '装上了：') + it.name, '已存档，下次叫车也是这样');
+    c.fit[it.slot] = it.id; tuneWrite(); tnApplyMine(tn.try); myCar.T = tunedT(kind); sfx.ding(); tnRender(); tnDone((tnIsStock(it) ? '换回了：' : '装上了：') + it.name, '已存档，下次叫车也是这样');
     if (c.fit.wide !== 'stock' && c.fit.wing !== 'none') unlock('tunewide');
     if (tnMods(c.fit) >= 10) unlock('tunefull');
     return;
@@ -345,7 +391,7 @@ function tnGo(){
   const quick = !tune.first;
   if (!tnOrder(it.key)) return;
   tnRender();
-  tnDone('下单了：' + it.name, quick ? '新手首单，30 秒就好，先在这儿看着它完工' : `施工 ${tnMinTxt(it)}。车照样能开，完工后会提醒你回车行提车`);
+  tnDone('下单了：' + it.name, quick ? '新手首单，30 秒就好，先在这儿看着它完工' : `${TN_TIER[it.tier]}要 ${tnMinTxt(it)}。车照样能开，完工后会提醒你回车行提车`);
 }
 /* a shower of sparks round the car when a part goes on */
 function tnSparkle(){
@@ -354,7 +400,10 @@ function tnSparkle(){
     spawnPart('dust', myCar.x + Math.cos(a) * r, myCar.y + .2 + rnd() * myCar.T.H, myCar.z + Math.sin(a) * r, .35 + rnd() * .3, {vy:1.5 + rnd() * 2, g:3, life:.8 + rnd() * .5, op:1, color:rnd() < .5 ? '#ffd25a' : '#ffffff'}); }
   sfx.sparkle(); tone('square', 1400, 1900, .06, .04); tone('square', 1700, 2300, .06, .04, .08);
 }
-$('#tuneList').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b){ ac(); tnPick(b.dataset.k); } });
+$('#tuneList').addEventListener('click', e => {
+  if (e.target.closest('#tuneTrailTog')){ ac(); tune.trailOff = !tune.trailOff; tuneWrite(); tnRender(); return; }
+  const b = e.target.closest('[data-k]'); if (b){ ac(); tnPick(b.dataset.k); }
+});
 $('#tuneInv').addEventListener('click', e => { const b = e.target.closest('[data-p]'); if (b){ ac(); tnPick('p:' + b.dataset.p); } });
 $('#tuneQ').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b || b.disabled) return; ac();
@@ -363,10 +412,10 @@ $('#tuneQ').addEventListener('click', e => {
   else if (b.dataset.rushp != null) tnRush(+b.dataset.rushp, true);
   else if (b.dataset.bay != null) tnBay();
 });
-$('#tuneTabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (!b) return; ac(); tn.tab = b.dataset.tab; tnRender(); tnAim(); });
+$('#tuneTabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (!b) return; ac(); tn.tab = b.dataset.tab; if (tn.sel === 'p:bp') tn.sel = null; tnRender(); tnAim(); });
 $('#tuneTabs').addEventListener('keydown', e => {
   const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0; if (!d) return; e.preventDefault();
-  const i = TN_TABS.findIndex(x => x[0] === tn.tab); tn.tab = TN_TABS[(i + d + TN_TABS.length) % TN_TABS.length][0]; tnRender(); tnAim();
+  const tabs = tnTabsFor(myCar.kind), i = tabs.findIndex(x => x[0] === tn.tab); tn.tab = tabs[(i + d + tabs.length) % tabs.length][0]; tnRender(); tnAim();
   const n = $('#tuneTabs [aria-selected="true"]'); if (n) n.focus();
 });
 $('#tuneGo').addEventListener('click', () => { ac(); tnGo(); });
@@ -402,7 +451,7 @@ function tnClose(){
   canvas.focus({preventScroll:true});
 }
 /* turn the car to show the part being looked at */
-function tnAim(){ const a = {wheel:.9, body:.75, wing:2.5, light:.35, exh:2.75, stance:1.55}[tn.tab]; if (a != null && myCar){ tn.yaw = myCar.h + a; tn.pitch = tn.tab === 'light' || tn.tab === 'stance' ? .1 : .22; } }
+function tnAim(){ const a = {wheel:.9, body:.75, wing:2.5, light:.35, exh:2.75, stance:1.55, perf:.9, skill:2.6, trail:2.9}[tn.tab]; if (a != null && myCar){ tn.yaw = myCar.h + a; tn.pitch = tn.tab === 'light' || tn.tab === 'stance' ? .1 : .22; } }
 let tnLast = 0;
 function tnFrame(now){
   if (!tn.on) return;
@@ -424,6 +473,7 @@ function tnFrame(now){
   camera.lookAt(tx, ty, tz);
   fitShadow(Math.round(tx / 20) * 20, Math.round(tz / 20) * 20, 60);
   tnNeonGlow();
+  if (window.XTuneDrive) XTuneDrive.showroom(dt);
 }
 canvas.addEventListener('pointerdown', e => { if (tn.on) tn.drag = {id:e.pointerId, x:e.clientX, y:e.clientY}; });
 window.addEventListener('pointermove', e => {
@@ -487,12 +537,19 @@ tnBadge();
 window.XTune = {open:tnOpen, close:tnClose, get on(){ return tn.on; }};
 
 /* ---------- test switch: preview build and local test pages only, never on the live game ----------
-   XTuneDebug.ff(分钟) 施工快进（不填就全部完工）· give('cf', 5) 发道具 · kit(10) 每样道具都发 · reset() 清空改装存档 */
+   XTuneDebug.ff(分钟) 施工快进（不填就全部完工）· give('cf', 5) 发道具 · kit(10) 每样道具都发 · bp() 配方全给 ·
+   all() 道具 + 配方 + 钱都给够 · car('moto') 送一辆车并叫出来 · drop('race', 0) 按掉落表发一次 · reset() 清空改装存档 */
 const TN_DEV = !/(^|\.)github\.io$/i.test(location.hostname) || /\/preview\//.test(location.pathname);
 if (TN_DEV) window.XTuneDebug = {
   ff(min){ for (const j of tune.jobs){ j.t1 = min == null ? Date.now() : j.t1 - min * 60000; j.t0 = Math.min(j.t0, j.t1 - 1000); } tuneWrite(); tnTick(); if (tn.on) tnRender(); return tune.jobs.map(j => j.k + ' ' + tnFmt(tnLeft(j))); },
   give(id, n){ return XParts.grant(id, n == null ? 5 : n, '调试'); },
   kit(n){ for (const p of TN_PARTS) tune.inv[p.id] += n == null ? 10 : n; tuneWrite(); if (tn.on) tnRender(); return Object.assign({}, tune.inv); },
+  bp(){ for (const b of TN_BPS) tune.bp[b.id] = 1; tuneWrite(); if (tn.on) tnRender(); return Object.keys(tune.bp); },
+  all(){ this.kit(30); this.bp(); money += 50000; tune.first = true; tune.bays = 2; moneyChanged(); tuneWrite(); if (tn.on) tnRender(); return 'ok'; },
+  car(kind){ if (!CAR_T[kind] || !SHOP.some(s => s.kind === kind)) return 'no such car'; owned.add(kind); saveGame(); summon(kind); return kind; },
+  drop(game, grade){ return XParts.reward(game, grade == null ? 0 : grade, '调试'); },
+  /* build and fit everything at once on the current car: XTuneDebug.fit({nos:'n3', trail:'plasma'}) */
+  fit(f){ if (!myCar) return 'no car'; const c = tnCar(myCar.kind); for (const s in f){ const k = s + '.' + f[s]; if (TN.byKey[k]){ if (!c.own.includes(k)) c.own.push(k); c.fit[s] = f[s]; } } tuneWrite(); tnApplyMine(); return c.fit; },
   reset(){ try { localStorage.removeItem(TN_KEY); } catch(e){} location.reload(); },
   get state(){ return tune; }
 };

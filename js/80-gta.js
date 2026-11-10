@@ -17,7 +17,7 @@ const ACH = [
   ['busted', '进局子', '第一次被保安抓住', 10], ['star5', '五星通缉', '保安警戒拉满五颗星', 50], ['escape4', '溜了溜了', '四星以上甩掉保安', 80],
   ['lake', '飞进湖里', '开着车飞进湖里', 30], ['eject', '人车分离', '车祸把奶娃甩飞出去', 20], ['air2', '空中飞人', '一次飞跃超过 2 秒', 40],
   ['combo5k', '连击大师', '一次连击超过 5,000 分', 60], ['early8', '早八不迟到', '跑完早八冲刺', 30], ['gold', '金牌车手', '任意挑战拿到金牌', 80],
-  ['taxi5', '五星好评', '顺风车拿到五星评价', 40], ['allcars', '集齐五辆车', '车行五辆车全部买下', 200], ['tuned', '改装狂人', '任意一项改装到满级', 60],
+  ['taxi5', '五星好评', '顺风车拿到五星评价', 40], ['allcars', '集齐车行', '车行里的车全部买下', 200], ['tuned', '改装狂人', '任意一项改装到满级', 60],
   ['rich', '小富婆', '钱包超过 RM 2,000', 0], ['exam', '期末救星', '成功抢救期末卷', 50], ['soak', '落汤保安', '用水枪淋湿保安', 20]
 ];
 /* later files add their own achievements with achAdd(); achSaved keeps what the save file had, so those are restored too */
@@ -241,7 +241,9 @@ const SHOP = [
   {kind:'myvi',  name:'Perodua Myvi', desc:'大马国民小车，皮实好停', price:60,   color:'#c0392b'},
   {kind:'p911',  name:'保时洁 911',   desc:'后置引擎，过弯很灵',     price:500,  color:'#f0eee8'},
   {kind:'mase',  name:'玛莎拉弟 GT',  desc:'意式长车头，声浪好听',   price:900,  color:'#1f3a6b'},
+  {kind:'moto',  name:'疾风 R 运动摩托', desc:'两个轮子，压着弯过弯，起步最猛，但一撞就飞', price:1100, color:'#e9ecef'},
   {kind:'lambo', name:'兰博鸡尼',     desc:'楔形车身，全校最快',     price:1600, color:'#f2c230'},
+  {kind:'gwag',  name:'铁方越野',     desc:'方盒子硬派越野，高、重、抗撞；能改升高、大轮胎、行李架和绞盘', price:2200, color:'#25282c'},
   {kind:'rr',    name:'劳斯来斯',     desc:'又长又稳又抗撞，奶娃坐进去像老板', price:3000, color:'#2b2b2e'}
 ];
 const owned = new Set(); let myCar = null;
