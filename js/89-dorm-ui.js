@@ -3,11 +3,12 @@
 'use strict';
 const dmEl = (tag, id, cls, html) => { const e = document.createElement(tag); if (id) e.id = id; e.className = cls || ''; if (html) e.innerHTML = html; e.hidden = true; document.body.appendChild(e); return e; };
 const dmVigEl = dmEl('div', 'dmVig', ''); dmVigEl.setAttribute('aria-hidden', 'true');
-const dmBagEl = dmEl('div', 'dmBag', '', '<div class="panel dm-tip" role="status" hidden></div><div class="dm-hold" hidden><i></i></div><div class="panel dm-sel" hidden><b></b><span></span><button type="button" class="btn" data-act="drop">丢掉</button></div><div class="panel dm-slots"></div>');
+const dmBagEl = dmEl('div', 'dmBag', '', '<div class="panel dm-tip" role="status" hidden></div><div class="panel dm-sel" hidden><b></b><span></span><button type="button" class="btn" data-act="drop">丢掉</button></div><div class="dm-hold" hidden><i></i></div><div class="panel dm-prompt" hidden></div><div class="panel dm-slots"></div>');
+const dmClockEl = dmEl('div', 'dmClock', 'panel', '<b></b><span></span>'); dmClockEl.setAttribute('role', 'timer');
 const dmLootEl = dmEl('div', 'dmLoot', 'panel', '<button type="button" class="x" aria-label="关闭">×</button><div class="dm-h"><b></b><span></span></div><div class="dm-items"></div>');
 const dmPadEl = dmEl('div', 'dmPad', 'panel'); dmPadEl.setAttribute('role', 'dialog');
 const dmEndEl = dmEl('div', 'dmEnd', 'panel'); dmEndEl.setAttribute('role', 'dialog');
-const dmUi = {sel:-1, mode:'', lock:null, clue:null, input:'', back:'', msg:'', tip:'', vig:0, hold:-1};
+const dmUi = {sel:-1, mode:'', lock:null, clue:null, input:'', back:'', msg:'', tip:'', vig:0, hold:-1, prompt:'', clock:''};
 const dmEsc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;'}[c]));
 const dmIc = it => DM_IC[it.id] || '📦';
 const DM_TIERN = {n:'', r:'稀有', l:'传说'};
@@ -49,7 +50,7 @@ dmLootEl.addEventListener('click', e => {
 });
 
 /* ---------- keypad, clue reader, notebook: one panel, three faces ---------- */
-function dmUiPadClose(){ dmUi.mode = ''; dmUi.lock = dmUi.clue = null; dmPadEl.hidden = true; }
+function dmUiPadClose(){ dmUi.mode = ''; dmUi.lock = dmUi.clue = null; dmPadEl.hidden = true; document.body.classList.remove('dm-pad'); }
 function dmUiNotesHtml(){
   const read = DORM.L.clues.filter(c => c.read);
   return read.length ? `<ul class="dm-nl">${read.map(c => `<li><button type="button" data-clue="${c.id}"><b>${dmEsc(c.title)}</b><span>再看一眼</span></button></li>`).join('')}</ul>`
@@ -67,7 +68,7 @@ function dmUiPadRender(){
   } else if (m === 'notes'){
     h += `<h2>线索本</h2>${dmUiNotesHtml()}<div class="hrow"><button type="button" class="btn primary" data-x>关掉</button></div>`;
   }
-  dmPadEl.innerHTML = h; dmPadEl.hidden = !m; dmPadEl.dataset.mode = m;
+  dmPadEl.innerHTML = h; dmPadEl.hidden = !m; dmPadEl.dataset.mode = m; document.body.classList.toggle('dm-pad', !!m);
 }
 function dmUiPad(lock){ dmUi.mode = 'pad'; dmUi.lock = lock; dmUi.input = ''; dmUi.msg = ''; dmUi.bad = false; dmUi.back = ''; dmUiLoot(null); dmUiPadRender(); }
 function dmUiClue(c, back){ dmUi.mode = 'clue'; dmUi.clue = c; dmUi.back = back || ''; dmUi.at = [nw.x, nw.z]; dmUiPadRender(); dmUiBag(); }
@@ -117,6 +118,10 @@ function dmUiTick(dt){
   const p = DORM.need ? Math.min(1, DORM.hold / DORM.need) : 0, hp = Math.round(p * 50);
   if (hp !== dmUi.hold){ dmUi.hold = hp; const hb = dmBagEl.querySelector('.dm-hold'); hb.hidden = hp < 1; hb.firstChild.style.width = hp * 2 + '%'; }
   if (run.tip !== dmUi.tip){ dmUi.tip = run.tip; const el = dmBagEl.querySelector('.dm-tip'); el.textContent = run.tip; el.hidden = !run.tip; }
+  if (dmPrompt !== dmUi.prompt){ dmUi.prompt = dmPrompt; const el = dmBagEl.querySelector('.dm-prompt'); el.textContent = dmPrompt; el.hidden = !dmPrompt; }
+  /* the big clock: time left, and what the wall clock says */
+  const left = Math.max(0, run.limit - run.t), ck = Math.floor(left / 60) + ':' + String(Math.floor(left % 60)).padStart(2, '0');
+  if (ck !== dmUi.clock){ dmUi.clock = ck; dmClockEl.firstChild.textContent = ck; dmClockEl.lastChild.textContent = dmClock(run.t) + ' · 23:00 锁门'; dmClockEl.classList.toggle('warn', left < 70 && left >= 30); dmClockEl.classList.toggle('hot', left < 30); }
   const vg = Math.round(run.dg * 20) / 20; if (vg !== dmUi.vig){ dmUi.vig = vg; dmVigEl.hidden = vg < .1; dmVigEl.style.opacity = vg; dmVigEl.classList.toggle('hot', vg > .6); }
   if (dmUi.mode === 'pad'){
     const k = dmUi.lock;
@@ -152,8 +157,8 @@ dmEndEl.addEventListener('click', e => {
   else if (t.closest('[data-ward]') && window.XWard) XWard.open('naiwa');
 });
 
-function dmUiReset(){ dmUi.sel = -1; dmUi.tip = ''; dmUi.vig = 0; dmUi.hold = -1; dmVigEl.hidden = true; dmBagEl.querySelector('.dm-tip').hidden = true; dmUiPadClose(); dmLootEl.hidden = true; dmEndEl.hidden = true; dmBagEl.hidden = false; dmUiBag(); }
-function dmUiHide(all){ dmVigEl.hidden = true; dmUiPadClose(); DORM.lootBox = null; dmLootEl.hidden = true; dmBagEl.hidden = true; if (all) dmEndEl.hidden = true; }
+function dmUiReset(){ dmUi.sel = -1; dmUi.tip = ''; dmUi.vig = 0; dmUi.hold = -1; dmUi.prompt = ''; dmUi.clock = ''; dmClockEl.hidden = false; dmBagEl.querySelector('.dm-prompt').hidden = true; dmVigEl.hidden = true; dmBagEl.querySelector('.dm-tip').hidden = true; dmUiPadClose(); dmLootEl.hidden = true; dmEndEl.hidden = true; dmBagEl.hidden = false; dmUiBag(); }
+function dmUiHide(all){ dmVigEl.hidden = true; dmClockEl.hidden = true; dmUiPadClose(); DORM.lootBox = null; dmLootEl.hidden = true; dmBagEl.hidden = true; if (all) dmEndEl.hidden = true; }
 
 /* ---------- 衣橱独家配件: bought with 周边券 from the dorm, not with RM ---------- */
 const DM_WEAR = [

@@ -2,10 +2,11 @@
  *
  * 入口：7 栋 LY 宿舍楼门口的紫圈，步行按 F 进去。宿舍是搭在地图外（z = -2100）的一层楼，没有屋顶，镜头从上往下看；
  *   每次进去都按随机种子重新生成：两条楼道、1–2 条过道、十几间寝室、自习室、洗衣房、值班室、杂物间。
- * 一局：22:30 进门，23:00 宿管锁门（现实 210 秒）。按住 F 搜柜子、抽屉、床底、快递箱，背包 6 格（第 1 格是贴身口袋，
- *   只放小件，被抓也不丢）。走到撤离点才算带出来：大门（绿圈）、消防梯（橙圈，按住推开，会响警报）、后门（蓝圈，要密码）。
+ * 一局：22:30 进门，23:00 宿管锁门（现实 210 秒，还没成功撤离过的前几局多 30 秒，带四句引导）。按住 F 搜柜子、抽屉、
+ *   床底、快递箱，东西一件件翻出来。背包 6 格：第 1 格是贴身口袋，自动装最值钱的小件，被抓也不丢；满了再拿更贵的会自动换掉最便宜的。
+ *   走到撤离点才算带出来：大门（绿圈）、消防梯（橙圈，按住推开，会响警报）、后门（蓝圈，要密码，多卖 10%）。
  *   带出来的东西自动卖成 RM，限量周边另外给「周边券」，在衣橱里换独家配件（js/89-dorm-ui.js）。
- *   被宿管抓到或超时：请出宿舍，背包里的东西没收。
+ *   被宿管抓到或超时：请出宿舍，背包里的东西没收。最后半分钟她去大门口守着。
  * 谜题：上锁的后门、储物柜、寝室。线索在便利贴、白板课程表、手机上，每局的门牌、课程表、日期、开关顺序都随机。
  * 敌人：宿管阿姨沿楼道巡逻（地上的光扇是她的视野，跑步她听得见）；偷外卖的小偷会搬空柜子、偷你背包里最贵的东西再往消防梯跑。
  *   水枪（js/87-classroom.js）淋中宿管她擦 3 秒眼镜，淋中小偷他滑倒，按 F 抓住。
@@ -123,7 +124,7 @@ function dmGen(seed){
 
   /* ways out: the main door at the bottom of the lobby, fire stairs at one end of the north corridor, maybe a back door at another end */
   const lob = L.cols[ent], r5 = L.rows[5];
-  L.spawn = [lob.cx, r5.z1 - 3.9]; L.home = [lob.cx, r5.z0 - 2];   /* the 宿管 starts in the corridor in front of the lobby, her back to you */
+  L.spawn = [lob.cx, r5.z1 - 3.9];
   L.exits.push({kind:'main', name:'大门', x:lob.cx, z:r5.z1 - 2, wx:lob.cx, wz:L.z1, lock:null});
   const ends = dmShuffle(R, [[1, -1], [1, 1], [4, -1], [4, 1]].map(([r, s]) => ({r, x:s < 0 ? L.x0 + 1.3 : L.x1 - 1.3, z:L.rows[r].cz, wx:s < 0 ? L.x0 : L.x1})));
   const fire = ends.splice(ends.findIndex(e => e.r === 1), 1)[0];
@@ -288,11 +289,12 @@ const dmThiefFig = dmFigure('#2b2f3a', '#1d2026', g => {
   box(.3, .1, .32, M('#16181d'), 0, 1.77, .01, g); box(.28, .03, .14, M('#16181d'), 0, 1.74, .2, g); box(.2, .1, .03, M('#f3f1ea'), 0, 1.58, .135, g);
   box(.3, .3, .2, M('#e8552d'), .26, 1.0, .08, g); box(.32, .04, .22, M('#f6f3ea'), .26, 1.17, .08, g);
 });
-const dmFan = (() => {   /* her field of view on the floor: a 110° fan, 1 m long, scaled to how far she can see */
-  const pos = [0, 0, 0], N = 20, half = .96; for (let i = 0; i <= N; i++){ const a = -half + 2 * half * i / N; pos.push(Math.sin(a), 0, Math.cos(a)); }
+const DM_FAN_N = 22, DM_FAN_HALF = .96;
+const dmFan = (() => {   /* her field of view on the floor: a 110° fan, reshaped every frame so walls cut it off */
+  const pos = [0, 0, 0], N = DM_FAN_N, half = DM_FAN_HALF; for (let i = 0; i <= N; i++){ const a = -half + 2 * half * i / N; pos.push(Math.sin(a), 0, Math.cos(a)); }
   const idx = []; for (let i = 1; i <= N; i++) idx.push(0, i, i + 1);
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
-  const m = new THREE.Mesh(g, gxGlow('#ffe9a8', .2)); m.visible = false; dmG.add(m); return m;
+  const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({color:'#ffd24a', transparent:true, opacity:.34, depthWrite:false, side:THREE.DoubleSide})); m.visible = false; m.renderOrder = 1; m.frustumCulled = false; dmG.add(m); return m;
 })();
 const dmAuntLbl = addLabel('宿管阿姨', 0, 3.4, 0, true), dmThiefLbl = addLabel('外卖小偷', 0, 3.4, 0, true); dmAuntLbl.dead = dmThiefLbl.dead = true;
 
@@ -566,10 +568,10 @@ function dmSpawnNpcs(L){
   /* she starts at the far end of the building, so the first half minute is yours */
   const byFar = (p, q) => Math.hypot(q[0] - L.spawn[0], q[1] - L.spawn[1]) - Math.hypot(p[0] - L.spawn[0], p[1] - L.spawn[1]), start = L.way.slice().sort(byFar)[0];
   const a = DORM.aunt = {x:start[0], z:start[1], h:0, state:'patrol', path:null, pi:0, rep:0, gx:0, gz:0, walkT:0, seeT:0, lostT:0, wait:2.5, stun:0, catchT:0, tx:0, tz:0, wp:null, look:0, range:9, step:0};
-  dmAuntFig.g.visible = true; dmFan.visible = true; dmFan.material.color.set('#ffe9a8');
+  dmAuntFig.g.visible = true; dmFan.visible = true;
   /* the thief starts in a room far from the lobby */
   const far = L.peek.slice().sort(byFar)[1 + ((Math.random() * 3) | 0)] || L.way[0];
-  DORM.thief = {x:far[0], z:far[1], h:0, state:'roam', path:null, pi:0, rep:0, gx:0, gz:0, walkT:0, bag:[], cd:14, tgt:null, t:0, down:0, on:true, stole:false, fleeTo:null, pick:0, picking:false};
+  DORM.thief = {x:far[0], z:far[1], h:0, state:'roam', path:null, pi:0, rep:0, gx:0, gz:0, walkT:0, bag:[], cd:35, tgt:null, t:0, down:0, on:true, stole:false, fleeTo:null, pick:0, picking:false};
   dmThiefFig.g.visible = true;
   dmPlace(a, dmAuntFig); dmPlace(DORM.thief, dmThiefFig);
 }
@@ -627,9 +629,17 @@ function dmAunt(dt){
   /* her footsteps: louder as she gets closer, quicker when she runs */
   if (a.moving && d < 20){ const s = Math.floor(a.walkT / Math.PI); if (s !== a.step){ a.step = s; const v = Math.pow(1 - d / 20, 1.6) * (a.state === 'chase' ? .34 : .22); tone('sine', a.state === 'chase' ? 130 : 96, 55, .07, v); noise(.03, v * .35, 1200); } }
   /* the fan on the floor: as long as she can see along her nose, red while she is after you */
-  let reach = a.range; for (let r = 1; r <= a.range; r += .5) if (!dmSee(a.x, a.z, a.x + Math.sin(a.h) * r, a.z + Math.cos(a.h) * r)){ reach = Math.max(1.5, r - .5); break; }
-  dmFan.visible = a.state !== 'stun'; dmFan.position.set(a.x, .07, a.z); dmFan.rotation.y = a.h; dmFan.scale.setScalar(reach);
-  dmFan.material.color.set(a.state === 'chase' ? '#ff5a4d' : a.seeT > .15 ? '#ffb347' : '#ffe9a8'); dmFan.material.opacity = a.state === 'chase' ? .3 : .2;
+  dmFan.visible = a.state !== 'stun'; dmFan.position.set(a.x, .07, a.z); dmFan.rotation.y = a.h;
+  if (dmFan.visible){
+    const P = dmFan.geometry.attributes.position;
+    for (let i = 0; i <= DM_FAN_N; i++){
+      const rel = -DM_FAN_HALF + 2 * DM_FAN_HALF * i / DM_FAN_N, sx = Math.sin(a.h + rel), sz = Math.cos(a.h + rel); let r = .6;
+      while (r < a.range){ const k = dmCi(a.x + sx * (r + .3), a.z + sz * (r + .3)); if (k < 0 || DMN.sight[k]) break; r += .3; }
+      P.setXYZ(i + 1, Math.sin(rel) * r, 0, Math.cos(rel) * r);
+    }
+    P.needsUpdate = true;
+  }
+  dmFan.material.color.set(a.state === 'chase' ? '#ff3b30' : a.seeT > .15 ? '#ff9a1f' : '#ffd24a'); dmFan.material.opacity = a.state === 'chase' ? .45 : a.seeT > .15 ? .42 : .34;
   dmAuntLbl.dead = d > 18; dmAuntLbl.pos.set(a.x, 3.3, a.z);
   const txt = a.state === 'stun' ? '宿管阿姨 · 擦眼镜' : a.state === 'chase' ? '宿管阿姨 · 在追你！' : a.state === 'search' ? '宿管阿姨 · ？' : '宿管阿姨'; if (dmAuntLbl.el.textContent !== txt) dmAuntLbl.el.textContent = txt;
 }
@@ -871,7 +881,7 @@ function dmUpdate(dt, px, pz){
   if (run.lblT <= 0){ run.lblT = .2; for (const l of dmLbls) l.dead = !l.on || Math.hypot(nw.x - l.pos.x, nw.z - l.pos.z) > 13;
     for (const e of L.exits){ const t = e.name + (e.kind === 'fire' ? ' · 会响警报' : dmLocked(e) ? ' · 锁着' : ' · 撤离'); if (e.fx.lbl.el.textContent !== t) e.fx.lbl.el.textContent = t; e.fx.lbl.dead = Math.hypot(nw.x - e.x, nw.z - e.z) > 22; } }
   const T = performance.now() / 300; for (const e of dmExitFx) if (e.ring.visible) e.ring.scale.setScalar(1 + Math.sin(T) * .08);
-  const m = Math.floor(left / 60), s = Math.floor(left % 60), txt = `${dmClock(run.t)} · 门禁还有 ${m}:${String(s).padStart(2, '0')} · 背包 RM ${dmBagValue()}`;
+  const m = Math.floor(left / 60), s = Math.floor(left % 60), txt = `门禁 ${m}:${String(s).padStart(2, '0')} · 背包 ${dmBagItems().length}/${DM_SLOTS} · RM ${dmBagValue()}`;
   if (missionEl.textContent !== txt) missionEl.textContent = txt;
   missionEl.classList.toggle('dm-urgent', left < 30);
 }

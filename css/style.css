@@ -670,7 +670,8 @@ body.wd-open .topbar,body.wd-open #acts,body.wd-open #joy,body.wd-open #prompt,b
 
 /* ---------- 宿舍搜刮 (js/89-dorm.js, js/89-dorm-ui.js) ---------- */
 .mission.dm-urgent{color:var(--tile);font-weight:700}
-#dmBag{position:fixed;z-index:6;left:50%;bottom:calc(var(--safe-b) + 62px);transform:translateX(-50%);display:grid;gap:6px;justify-items:center;pointer-events:none}
+body.dm-in #prompt{display:none!important}   /* indoors the hint sits in the stack above the backpack */
+#dmBag{position:fixed;z-index:6;left:50%;bottom:calc(var(--safe-b) + 16px);transform:translateX(-50%);display:grid;gap:6px;justify-items:center;pointer-events:none}
 #dmBag>*{pointer-events:auto}
 .dm-slots{display:flex;gap:5px;padding:5px;border-radius:var(--r-lg)}
 .dm-slot{position:relative;width:44px;height:44px;border-radius:var(--r-md);border:1px solid var(--line);background:var(--card-bg);padding:0;cursor:pointer;display:grid;place-items:center;color:var(--ink)}
@@ -687,6 +688,15 @@ body.wd-open .topbar,body.wd-open #acts,body.wd-open #joy,body.wd-open #prompt,b
 .dm-sel{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:var(--r-md);font-size:12.5px;max-width:min(92vw,440px);flex-wrap:wrap;justify-content:center}
 .dm-sel span{color:var(--muted)}
 .dm-tip{padding:7px 14px;border-radius:var(--r-md);font-size:13px;line-height:1.5;max-width:min(92vw,460px);text-align:center;border-color:var(--gold);box-shadow:0 0 0 1px var(--gold),0 6px 20px var(--shadow)}
+.dm-prompt{padding:5px 14px;border-radius:999px;font-size:13px;max-width:min(92vw,460px);text-align:center}
+#dmClock{position:fixed;z-index:6;left:50%;top:calc(var(--safe-t) + 58px);transform:translateX(-50%);display:flex;align-items:baseline;gap:9px;padding:3px 16px 4px;border-radius:999px;white-space:nowrap}
+#dmClock b{font-family:var(--display);font-size:23px;font-variant-numeric:tabular-nums;line-height:1.2}
+#dmClock span{font-size:11.5px;color:var(--muted)}
+#dmClock.warn b{color:var(--gold)}
+#dmClock.hot{border-color:#e5484d;box-shadow:0 0 0 2px rgba(229,72,77,.45),0 6px 20px var(--shadow)}
+#dmClock.hot b{color:#e5484d;animation:dmBeat .5s ease-in-out infinite alternate}
+@keyframes dmBeat{from{transform:scale(1)}to{transform:scale(1.14)}}
+@media (prefers-reduced-motion: reduce){ #dmClock.hot b{animation:none} }
 .dm-hold{width:min(220px,60vw);height:8px;border-radius:999px;background:var(--panel-solid);border:1px solid var(--line);overflow:hidden}
 .dm-hold i{display:block;height:100%;width:0;background:var(--gold);border-radius:999px}
 #dmVig{position:fixed;inset:0;z-index:5;pointer-events:none;background:radial-gradient(ellipse at center,transparent 52%,rgba(214,40,24,.5) 100%);transition:opacity .25s}
@@ -694,7 +704,7 @@ body.wd-open .topbar,body.wd-open #acts,body.wd-open #joy,body.wd-open #prompt,b
 @keyframes dmPulse{from{filter:brightness(.8)}to{filter:brightness(1.35)}}
 @media (prefers-reduced-motion: reduce){ #dmVig.hot{animation:none} }
 .dm-sel .btn{min-height:30px;padding:3px 10px}
-#dmLoot{position:fixed;z-index:7;left:50%;bottom:calc(var(--safe-b) + 176px);transform:translateX(-50%);width:min(360px,calc(100% - 24px));padding:10px 12px 12px;border-radius:var(--r-lg);box-sizing:border-box}
+#dmLoot{position:fixed;z-index:7;left:50%;bottom:calc(var(--safe-b) + 204px);transform:translateX(-50%);width:min(360px,calc(100% - 24px));padding:10px 12px 12px;border-radius:var(--r-lg);box-sizing:border-box}
 .dm-h{display:flex;align-items:baseline;gap:10px;padding-right:30px;margin-bottom:8px}
 .dm-h b{font-family:var(--display);font-size:16px}
 .dm-h span{font-size:11.5px;color:var(--muted)}
@@ -756,11 +766,16 @@ body.wd-open #dmBag,body.wd-open #dmLoot,body.wd-open #dmPad{display:none!import
 @media (max-width:760px){
   /* phones: the backpack sits above the joystick and buttons, the prompt moves above it, the panels take the upper half */
   #dmBag{bottom:calc(var(--safe-b) + 198px)}
-  body.dm-in #prompt{bottom:calc(var(--safe-b) + 252px)}
   body.dm-in #compass{display:none}
+  body.dm-pad #dmBag{display:none}
+  #dmClock{top:calc(var(--safe-t) + 186px)}
+  .dm-tip,.dm-prompt{font-size:12.5px}
   .dm-slot,.dm-notes{width:40px;height:40px;min-width:40px}
-  #dmLoot{bottom:auto;top:calc(var(--safe-t) + 150px)}
-  #dmPad{right:auto;left:50%;top:calc(var(--safe-t) + 96px);transform:translateX(-50%);max-height:calc(100vh - 320px)}
+  #dmLoot{bottom:auto;top:calc(var(--safe-t) + 230px)}
+  #dmPad{right:auto;left:50%;top:calc(var(--safe-t) + 230px);transform:translateX(-50%);max-height:calc(100vh - 230px - var(--safe-t) - var(--safe-b) - 194px);padding:12px 14px}
+  #dmPad h2{font-size:16px}
+  .dm-code{margin-bottom:8px}
+  .dm-code i{height:42px;font-size:21px}
   .dm-keys button{min-height:40px}
   #dmEnd{padding:16px 16px 14px}
 }
