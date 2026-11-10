@@ -100,7 +100,44 @@
     }
   }
   function useName(n){ try { localStorage.setItem('xmum-name', n); } catch(e){} g(() => XUI.setName(n)); }
-  const suffixed = base => (base || '游客').slice(0, 9).trim() + ' ' + (10 + Math.floor(Math.random() * 90));
+  const numbered = (base, n) => (base || '游客').slice(0, 12 - String(n).length - 1).trim() + ' ' + n;
+  const cleanName = n => String(n || '').replace(/[^0-9A-Za-z一-龥 _·~!?-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 12).trim();
+  /* 注册制之前已经有很多人重名（默认昵称只有 15 个）。按排行榜上最早一条成绩的时间排先后：
+     最早的保留原名，后面的依次编为「名字 2」「名字 3」…；没有成绩记录的新玩家排在所有老玩家后面 */
+  let legacy = null;
+  async function legacyBoards(){
+    if (legacy) return legacy;
+    const m = new Map();                                    // uid -> {first, last, name}
+    await Promise.all(Object.keys(BOARDS).map(async b => {
+      try {
+        const v = (await timeout(db.ref('boards/' + b).once('value'), 10000, '读取排行榜')).val() || {};
+        for (const u in v){
+          const r = v[u]; if (!r || typeof r.ts !== 'number') continue;
+          const e = m.get(u) || {first:Infinity, last:-1, name:''};
+          e.first = Math.min(e.first, r.ts); if (r.ts > e.last){ e.last = r.ts; e.name = String(r.name || ''); }
+          m.set(u, e);
+        }
+      } catch(e){}
+    }));
+    return (legacy = m);
+  }
+  async function legacyRank(want){
+    const key = want.toLowerCase(), m = await legacyBoards();
+    const same = [...m.entries()].filter(([, e]) => cleanName(e.name).toLowerCase() === key)
+      .sort((a, b) => a[1].first - b[1].first || (a[0] < b[0] ? -1 : 1));
+    const i = same.findIndex(([u]) => u === XNet.uid);
+    return i < 0 ? same.length : i;
+  }
+  /* 排行榜上自己的旧成绩换成现在注册的名字（成绩本身不动） */
+  async function fixBoardNames(){
+    if (!claimed) return;
+    await Promise.all(Object.keys(BOARDS).map(async b => {
+      try {
+        const ref = db.ref('boards/' + b + '/' + XNet.uid), v = (await timeout(ref.once('value'), 10000, '读取成绩')).val();
+        if (v && v.name !== claimed) await ref.update({name:claimed});
+      } catch(e){}
+    }));
+  }
   /* 启动、改名、换账号后调用：把本机的昵称注册下来；被别人占了就保留自己原来的，或者自动加个编号 */
   async function settleName(fromUser){
     if (!XNet.online) return;
@@ -111,16 +148,29 @@
     if (want && want === claimed){
       db.ref('names/' + claimedKey + '/ts').set(firebase.database.ServerValue.TIMESTAMP).catch(() => {});   // 续期：30 天内回来过
       if (fromUser) hint('名字已注册，只有你能用', 'ok');
+      fixBoardNames();
       return;
     }
+    if (!claimed && nameOk(want)){                          // 第一次注册：先看老玩家里有没有比你早用这个名字的
+      const rank = await legacyRank(want);
+      if (rank > 0){
+        for (let n = rank + 1; n < rank + 40; n++){
+          const cand = numbered(want, n), r2 = await claimName(cand);
+          if (r2 === 'ok'){ useName(cand); hint(`「${want}」有更早的玩家在用，按先后给你编为「${cand}」。成绩和存档都还在，也可以在这里改名`, 'bad'); cloudPush(); fixBoardNames(); return; }
+          if (r2 !== 'taken') return;
+        }
+      }
+    }
     const r = await claimName(want);
-    if (r === 'ok'){ if (fromUser) hint('名字已注册，只有你能用', 'ok'); cloudPush(); return; }
+    if (r === 'ok'){ if (fromUser) hint('名字已注册，只有你能用', 'ok'); cloudPush(); fixBoardNames(); return; }
     if (r === 'offline' || r === 'error'){ if (fromUser) hint('暂时连不上，名字还没注册，稍后会再试', 'warn'); return; }
     const why = r === 'taken' ? `「${want}」已经被别人注册了` : '名字只能用中文、字母、数字、空格和 _ - · ~ ! ?';
     if (claimed){ useName(claimed); hint(`${why}，继续用「${claimed}」`, 'bad'); return; }
-    for (let i = 0; i < 6; i++){                             // 第一次上线就撞名：自动加编号
-      const cand = suffixed(nameOk(want) ? want : '');
-      if (await claimName(cand) === 'ok'){ useName(cand); hint(`${why}，先给你用「${cand}」，可以在这里改`, 'bad'); cloudPush(); return; }
+    const base = nameOk(want) ? want : '游客';
+    for (let n = 2; n < 60; n++){                            // 第一次上线就撞名：依次加编号
+      const cand = numbered(base, n), r2 = await claimName(cand);
+      if (r2 === 'ok'){ useName(cand); hint(`${why}，先给你用「${cand}」，可以在这里改`, 'bad'); cloudPush(); fixBoardNames(); return; }
+      if (r2 !== 'taken') return;
     }
   }
 
