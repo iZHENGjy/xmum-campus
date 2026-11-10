@@ -131,8 +131,9 @@ const GUARD_ROUTES = [
   [P2(-9, 13), P2(23, 13), P2(12.5, 8.45), P2(12.5, -5.4), P2(-12.5, -5.4), P2(-12.5, 8.45)],                           /* corridor, then round the classroom */
   [P2(20, 6), P2(20, -2.9), P2(16, -3.5), P2(16, -8), P2(24, -8), P2(23.6, -3.5), P2(20, -2.9), P2(20, 6), P2(16.5, 6), P2(22, 4.5)]   /* print room and office (night only) */
 ];
-const mkGuard = buddy => Object.assign(exFig(buddy ? '#3b4a2a' : '#24324a', {cap:'#1a2438', badge:true}), {cone:exCone(), torch:exCone('#fff3c4'), bang:exBang(), buddy,
-  x:0, z:0, h:0, state:'patrol', route:GUARD_ROUTES[0], wp:0, stun:0, catchT:0, walkT:0, side:0, alert:0, knows:0, lostT:0, lookT:0, walkMax:0, pause:0, scan:1, lx:0, lz:0, room:'C', leg:null, legStage:0, chat:0, hasKey:false, on:false});
+/* the guards wear the shared uniform (guardFig / guardPose in js/86-guard.js) */
+const mkGuard = buddy => { const G = guardFig({s:1.35}); roomG.add(G.g); return Object.assign(G, {cone:exCone(), torch:exCone('#fff3c4'), bang:exBang(), buddy, downT:0,
+  x:0, z:0, h:0, state:'patrol', route:GUARD_ROUTES[0], wp:0, stun:0, catchT:0, walkT:0, side:0, alert:0, knows:0, lostT:0, lookT:0, walkMax:0, pause:0, scan:1, lx:0, lz:0, room:'C', leg:null, legStage:0, chat:0, hasKey:false, on:false}); };
 const guards = [mkGuard(false), mkGuard(true)];
 function guardShow(g, on){ g.on = on; g.g.visible = on; if (!on){ g.cone.visible = g.torch.visible = false; g.bang.visible = false; } }
 /* both back on their rounds, far from the door you come in by */
@@ -145,8 +146,8 @@ function guardReset(){
 }
 function guardCall(quiet){
   if (EX.buddy) return; EX.buddy = 1; EX.callT = 2.5;
-  tone('square', 740, 740, .12, .09); tone('square', 990, 990, .2, .09, .14);
-  if (!quiet) toast('保安：来人啊！', '他喊了同伴，马上从走廊西头进来', 2400);
+  tone('square', 740, 740, .12, .09); tone('square', 990, 990, .2, .09, .14); guardRadio(guards[0], 1.8);      /* hand on the radio */
+  if (!quiet) toast('保安：来人啊！', '他按着对讲机喊了同伴，马上从走廊西头进来', 2400);
 }
 function guardStep(guard, tx, tz, speed, dt){
   const dx = tx - guard.x, dz = tz - guard.z, L = Math.hypot(dx, dz); if (L < .05) return L;
@@ -204,7 +205,7 @@ function guardSees(g, d, dx, dz){
 }
 function guardSpot(g){
   g.state = 'chase'; g.lx = nw.x; g.lz = nw.z; g.lostT = 0; g.alert = 1; EX.spotted++;
-  tone('square', 880, 660, .15, .08); camShake = Math.max(camShake, .25);
+  tone('square', 880, 660, .15, .08); camShake = Math.max(camShake, .25); guardRadio(g, 1.1);
   if (EX.spotted === 1) toast('保安：站住！', `被看见了。跑开，拐过墙角再蹲到家具旁边；或者用水枪淋他（${TOUCH ? '「水枪」' : 'E'}）`, 3000);
   else gxCallout('被看见了！', g.buddy ? '增援保安在追你' : '保安在追你', '#ff6f61');
   if (!g.buddy && EX.kind === 'exam' && pveLevel() >= 2) guardCall();      /* tougher guards do not wait to get wet before calling */
@@ -225,11 +226,11 @@ function updateGuard(g, dt){
   const lv = pveLevel(), night = EX.kind === 'night', dx = nw.x - g.x, dz = nw.z - g.z, dN = Math.hypot(dx, dz), see = guardSees(g, dN, dx, dz);
   g.knows = see ? 1 : Math.max(0, g.knows - dt);
   if (g.state === 'stun'){
-    g.stun -= dt; g.g.rotation.y = g.h + Math.sin(g.stun * 14) * .4;
+    g.stun -= dt; g.downT -= dt; g.g.rotation.y = g.h + (g.downT > 0 ? 0 : Math.sin(g.stun * 14) * .4);
     if (rnd() < dt * 8) spawnPart('dust', g.x + (rnd() - .5) * .6, 2.2, g.z + (rnd() - .5) * .6, .3, {vy:-1.5, life:.5, op:.9, color:'#9fd8ff'});
     if (g.stun <= 0){ g.state = 'look'; g.lx = g.x; g.lz = g.z; g.lookT = 1.6; g.walkMax = 0; g.alert = Math.max(g.alert, .5); }
   } else if (g.state === 'chat'){      /* a classmate is keeping him busy */
-    const p = PAL; if (Math.hypot(p.x - g.x, p.z - g.z) > 2.2) exGo(g, p.x, p.z, 3.4, dt); else { g.h = Math.atan2(p.x - g.x, p.z - g.z); g.chat -= dt; if (rnd() < dt * 1.5) spawnPart('heart', p.x, 2.6, p.z, .5, {vy:1.2, life:.8, op:1, color:'#ffd24a'}); }
+    const p = PAL; if (Math.hypot(p.x - g.x, p.z - g.z) > 2.2){ exGo(g, p.x, p.z, 3.4, dt); g.chatWalk = true; } else { g.chatWalk = false; g.h = Math.atan2(p.x - g.x, p.z - g.z); g.chat -= dt; if (rnd() < dt * 1.5) spawnPart('heart', p.x, 2.6, p.z, .5, {vy:1.2, life:.8, op:1, color:'#ffd24a'}); }
     if ((g.walkMax -= dt) < -14) g.chat = 0;
     if (g.chat <= 0) g.state = 'patrol';
   } else if (g.state === 'chase'){
@@ -250,8 +251,7 @@ function updateGuard(g, dt){
     }
   }
   if (g.state !== 'stun') g.g.rotation.y = g.h;
-  const sw = g.state === 'stun' || g.pause > 0 || g.state === 'chat' ? 0 : Math.sin(g.walkT) * .5;
-  g.legs[0].rotation.x = sw; g.legs[1].rotation.x = -sw;
+  guardPose(g, dt, {walk:g.state === 'stun' || g.pause > 0 || g.state === 'chat' && !g.chatWalk || g.state === 'look' && g.walkMax <= 0 ? null : g.walkT, run:g.state === 'chase', wet:g.state === 'stun', down:g.state === 'stun' && g.downT > 0});
   g.g.position.set(g.x, 0, g.z);
   /* the cone goes from yellow to red as he gets suspicious; the mark over his head grows with it */
   const R = (night ? TORCH_VIEW : GUARD_VIEW) + .7 * lv, hot = g.state === 'chase' ? 1 : g.alert, c = night ? g.torch : g.cone;
@@ -280,7 +280,8 @@ function soakGuard(g, power, info){
   if (!g.on) return;
   const t = 3.5 * (power || 1) * PVE_SOAK[pveLevel()];
   g.state = 'stun'; g.stun = t; g.catchT = 0; g.alert = 0; g.chat = 0; splashAt(g.x, 1.6, g.z); sfx.splash(); unlock('soak'); EX.spotted++;
-  if (info && info.push) for (let k = 0; k < 6; k++){ const x = g.x + info.fx * .5, z = g.z + info.fz * .5; if (hitsBuilding(x, z, .45)) break; g.x = x; g.z = z; }
+  g.downT = 0;
+  if (info && info.push){ for (let k = 0; k < 6; k++){ const x = g.x + info.fx * .5, z = g.z + info.fz * .5; if (hitsBuilding(x, z, .45)) break; g.x = x; g.z = z; } g.downT = Math.min(1.3, t * .5); g.h = Math.atan2(-info.fx, -info.fz); }      /* the water cannon knocks him flat on his back */
   if (g.hasKey){ g.hasKey = false; EX.keyAt = [g.x, g.z]; exKeyMark.position.set(g.x, .05, g.z); exKeyMark.visible = true; sfx.ding(); gx.callout('钥匙掉了！', '趁他擦脸，走过去捡', '#ffd24a'); }
   else gx.callout('淋湿了', `${g.buddy ? '增援保安' : '保安'}擦脸 ${wgSecs(t)} 秒`, '#4aa3ff');
   EX.soaks++; if (!g.buddy && EX.kind === 'exam' && EX.soaks >= (pveLevel() >= 1 ? 1 : 2)) guardCall();
