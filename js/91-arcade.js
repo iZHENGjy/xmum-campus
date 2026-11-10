@@ -10,7 +10,9 @@
  *   所以车、保安、外卖和挑战的计时、水枪、车行全部停住；平台自己在 gx.frame（每帧都调，暂停时也调）里走路、摆镜头。
  *   这期间 js/90-main.js 的 keys 不可靠（暂停时按键在记进 keys 之前就返回了），小游戏只读 ctx.input。
  *   同时把校园的物体都藏起来，只画游戏厅或小游戏的场景，所以比在外面还流畅。
- * 存档：localStorage 'xmum-mini-v1' = {best:{id:分数}, plays:{id:次数}, store:{id:{...}}}；
+ * 一个小游戏可以有几个模式（register 的 modes）：游戏厅里还是一台街机，开局前选模式；每个模式有自己的纪录、奖牌线和排行榜，
+ *   榜的 id 是「游戏id_模式id」（模式可以用 key 指定别的 id）。平台内部把每个模式当成一个「变体」（g.vars），没有模式的游戏只有它自己。
+ * 存档：localStorage 'xmum-mini-v1' = {best:{榜id:分数}, plays:{榜id:次数}, store:{游戏id:{...}}, last:{游戏id:上次玩的模式}}；
  *   排行榜：/mini/{gameId}/{uid} = {name, value, ts}（js/net.js 的 XNet.miniTop / miniSubmit，规则在 database.rules.json）。
  */
 'use strict';
@@ -18,16 +20,17 @@ const ARC = {in:false, state:'out', door:null, leaving:false, ox:0, oz:-2700, W:
 const ARC_BG = '#171a30';
 const ARC_SPAWN = [0, 5.6];
 const MG_ID = /^[a-z][a-z0-9_]{1,15}$/, MG_KEY = 'xmum-mini-v1', MG_CAP = 60, MG_MAX = 1e6;
-const MG = {list:[], byId:{}, cur:null, ctx:null, pending:null, prev:'', elapsed:0, timers:[], offs:[], paid:0, cd:0, beep:0, run:0};
+const MG = {list:[], byId:{}, vById:{}, cur:null, ctx:null, pending:null, prev:'', elapsed:0, timers:[], offs:[], paid:0, cd:0, beep:0, run:0};
 
 /* ---------- save ---------- */
-const mgSave = {best:{}, plays:{}, store:{}};
+const mgSave = {best:{}, plays:{}, store:{}, last:{}};
 (function mgLoad(){
   try {
     const d = JSON.parse(localStorage.getItem(MG_KEY) || 'null'); if (!d) return;
     for (const k in d.best || {}) if (MG_ID.test(k) && isFinite(d.best[k])) mgSave.best[k] = +d.best[k];
     for (const k in d.plays || {}) if (MG_ID.test(k)) mgSave.plays[k] = Math.max(0, d.plays[k] | 0);
     for (const k in d.store || {}) if (MG_ID.test(k) && d.store[k] && typeof d.store[k] === 'object') mgSave.store[k] = d.store[k];
+    for (const k in d.last || {}) if (MG_ID.test(k) && typeof d.last[k] === 'string') mgSave.last[k] = d.last[k];
   } catch(e){}
 })();
 function mgWrite(){ try { localStorage.setItem(MG_KEY, JSON.stringify(mgSave)); } catch(e){} }
@@ -44,15 +47,35 @@ mgAch([['arcade1', '社团人', '第一次走进 B1 游戏厅', 10], ['arcadeall
 /* ---------- registry ---------- */
 function mgRegister(def){
   if (!def || !MG_ID.test(String(def.id || ''))){ console.error('[XMini] id 要匹配 ' + MG_ID, def && def.id); return null; }
-  if (MG.byId[def.id]){ console.error('[XMini] id 重复：' + def.id); return null; }
+  if (MG.byId[def.id] || MG.vById[def.id]){ console.error('[XMini] id 重复：' + def.id); return null; }
   if (typeof def.start !== 'function' || typeof def.update !== 'function'){ console.error('[XMini] 需要 start(ctx) 和 update(dt, ctx)：' + def.id); return null; }
   const g = Object.assign({name:def.id, desc:'', icon:'🎮', color:'#ff8a3d', intro:'', minPlayers:1, maxPlayers:1, board:null, medals:null, countdown:true, shadow:26, sky:null}, def);
   g.controls = Object.assign({move:false, a:null, b:null, tap:false}, def.controls || {});
-  if (g.board) g.board = Object.assign({lower:false, max:MG_MAX, fmt:v => Math.round(v) + ' 分'}, g.board);
-  MG.list.push(g); MG.byId[g.id] = g;
+  const BD = {lower:false, max:MG_MAX, fmt:v => Math.round(v) + ' 分'};
+  if (g.board) g.board = Object.assign({}, BD, g.board);
+  g.base = g; g.mode = null; g.vars = [g];
+  /* modes: each one becomes a variant that inherits everything from the game and overrides what the mode states */
+  if (Array.isArray(def.modes) && def.modes.length){
+    const vars = [];
+    for (const m of def.modes){
+      const vid = m && (m.key || g.id + '_' + m.id);
+      if (!m || !/^[a-z][a-z0-9]{0,11}$/.test(String(m.id || '')) || !MG_ID.test(vid) || MG.vById[vid] || (MG.byId[vid] && vid !== g.id) || vars.some(x => x.id === vid)){
+        console.error('[XMini] 模式 id 不对或者和别的榜重复：' + g.id + ' / ' + (m && m.id)); return null;
+      }
+      const v = Object.assign(Object.create(g), m, {id:vid, name:g.name, mode:m, modeName:m.name || m.id, base:g});
+      v.controls = Object.assign({}, g.controls, m.controls || {});
+      v.board = m.board === null || (!m.board && !g.board) ? null : Object.assign({}, g.board || BD, m.board || {});
+      vars.push(v);
+    }
+    g.vars = vars;
+  }
+  MG.list.push(g); MG.byId[g.id] = g; for (const v of g.vars) MG.vById[v.id] = v;
   if (g.achievements) mgAch(g.achievements);
   return g;
 }
+const mgTitle = v => v.icon + ' ' + v.name + (v.mode ? ' · ' + v.modeName : '');
+const mgLastVar = g => g.vars.find(v => v.mode && v.mode.id === mgSave.last[g.id]) || g.vars[0];
+const mgPlayed = g => g.vars.some(v => mgSave.plays[v.id]);
 const mgFmt = (g, v) => (g.board ? g.board.fmt(v) : Math.round(v) + ' 分');
 const mgBest = id => (mgSave.best[id] != null ? mgSave.best[id] : null);
 /* the leaderboard only takes "higher is better", so time-based games (board.lower) are stored as MG_MAX - value */
@@ -277,9 +300,9 @@ function arcHallCam(){
 }
 
 /* ---------- input: keyboard, the joystick (#joy), platform buttons in #acts, taps on the canvas ---------- */
-const IN = {k:{}, x:0, y:0, run:false, a:false, b:false, pa:false, pb:false, ptap:false, tapX:0, tapY:0, sim:null};
+const IN = {k:{}, x:0, y:0, run:false, a:false, b:false, pa:false, pb:false, ptap:false, tapX:0, tapY:0, sim:null, drag:null, swipe:null, pswipe:false, ptr:-1};
 const IN_A = {Space:1, KeyF:1, Enter:1, KeyJ:1}, IN_B = {KeyK:1, KeyE:1};
-function inReset(){ IN.k = {}; IN.a = IN.b = IN.pa = IN.pb = IN.ptap = false; IN.x = IN.y = 0; IN.sim = null; }
+function inReset(){ IN.k = {}; IN.a = IN.b = IN.pa = IN.pb = IN.ptap = IN.pswipe = false; IN.x = IN.y = 0; IN.sim = null; IN.drag = IN.swipe = null; IN.ptr = -1; }
 function inAxis(){
   const k = IN.k;
   let x = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0) + joy.x, y = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0) - joy.y;
@@ -310,11 +333,26 @@ window.addEventListener('keyup', e => {
   if (IN_B[e.code]) IN.b = Object.keys(IN_B).some(c => IN.k[c]) || mgBtnB.classList.contains('on');
 });
 window.addEventListener('blur', inReset);
+/* taps and drags on the canvas. controls.tap: a tap counts as button A. controls.swipe: the game also gets the drag while a finger
+   (or the mouse) is down, and the whole swipe when it lifts; distances are in units of the shorter side of the screen, up is +dy.
+   Only one pointer drags at a time, so the other thumb can stay on the joystick. */
 canvas.addEventListener('pointerdown', e => {
-  if (ARC.state !== 'play' || !MG.cur || !MG.cur.controls.tap) return;
+  const c = MG.cur && MG.cur.controls;
+  if (ARC.state !== 'play' || !c || (!c.tap && !c.swipe)) return;
   const r = canvas.getBoundingClientRect();
-  IN.tapX = (e.clientX - r.left) / r.width * 2 - 1; IN.tapY = -((e.clientY - r.top) / r.height) * 2 + 1; IN.ptap = true; IN.pa = true;
+  IN.tapX = (e.clientX - r.left) / r.width * 2 - 1; IN.tapY = -((e.clientY - r.top) / r.height) * 2 + 1; IN.ptap = true; if (c.tap) IN.pa = true;
+  if (c.swipe && IN.ptr < 0){
+    IN.ptr = e.pointerId; IN.drag = {x0:e.clientX, y0:e.clientY, dx:0, dy:0, s:Math.max(1, Math.min(r.width, r.height)), t0:performance.now()};
+    try { canvas.setPointerCapture(e.pointerId); } catch(_){}
+  }
 });
+canvas.addEventListener('pointermove', e => { const d = IN.drag; if (d && e.pointerId === IN.ptr){ d.dx = (e.clientX - d.x0) / d.s; d.dy = (d.y0 - e.clientY) / d.s; } });
+function inDragEnd(e, cancel){
+  const d = IN.drag; if (!d || e.pointerId !== IN.ptr) return;
+  IN.ptr = -1; IN.drag = null;
+  if (!cancel && ARC.state === 'play'){ IN.swipe = {dx:(e.clientX - d.x0) / d.s, dy:(d.y0 - e.clientY) / d.s, t:(performance.now() - d.t0) / 1000}; IN.pswipe = true; }
+}
+canvas.addEventListener('pointerup', e => inDragEnd(e, false)); canvas.addEventListener('pointercancel', e => inDragEnd(e, true));
 function arcAct(k){
   if (k === 'jump'){ if (!nw.air){ nw.air = true; nw.vy = 7.5; sfx.boing(); } return; }
   if (nw.air) return;
@@ -395,9 +433,11 @@ function arcOpenList(){
   if (!MG.list.length) rows.append(arcEl('p', 'mg-lead', '还没有小游戏'));
   for (const g of MG.list){
     const b = arcEl('button', 'mg-row'); b.type = 'button'; b.style.setProperty('--mg-c', g.color);
-    const best = mgBest(g.id), md = mgMedal(g, best), txt = arcEl('span', 'mg-row-t');
+    const one = g.vars.length === 1, v0 = g.vars[0], best = mgBest(v0.id), md = one ? mgMedal(v0, best) : 3, txt = arcEl('span', 'mg-row-t');
+    const got = g.vars.filter(v => mgMedal(v, mgBest(v.id)) < 3).length;
     txt.append(arcEl('b', null, g.name), arcEl('span', null, g.desc));
-    txt.append(arcEl('em', md < 3 ? 'm' + md : '', best != null ? `本机最好 ${mgFmt(g, best)}${md < 3 ? ' · ' + GX_MEDAL[md] : ''}` : '还没玩过'));
+    txt.append(arcEl('em', md < 3 ? 'm' + md : '', !one ? `${g.vars.length} 个模式` + (got ? ` · 拿到 ${got} 枚奖牌` : mgPlayed(g) ? '' : ' · 还没玩过')
+      : best != null ? `本机最好 ${mgFmt(v0, best)}${md < 3 ? ' · ' + GX_MEDAL[md] : ''}` : '还没玩过'));
     b.append(arcEl('i', 'mg-row-i', g.icon), txt, arcEl('span', 'mg-row-go', '开玩'));
     b.addEventListener('click', () => { ac(); arcCloseList(); mgIntro(g.id); });
     rows.append(b);
@@ -405,8 +445,8 @@ function arcOpenList(){
   arcOpenDlg(mgList);
 }
 function arcOpenBoard(id){
-  const g = MG.byId[id] || MG.cur || MG.pending || MG.list[0];
-  if (window.XUI && XUI.openLeaderboard) XUI.openLeaderboard(g ? 'mini:' + g.id : 'mini');
+  const g = MG.vById[id] || (MG.byId[id] && mgLastVar(MG.byId[id])) || MG.cur || MG.pending || (MG.list[0] && mgLastVar(MG.list[0]));
+  if (window.XUI && XUI.openLeaderboard) XUI.openLeaderboard(g && g.board ? 'mini:' + g.id : 'mini');
 }
 
 /* ---------- entering and leaving the hall ---------- */
@@ -463,7 +503,7 @@ function arcHallFrame(dt){
   mgBtnSet(mgBtnA, best ? best.act : ''); mgBtnSet(mgBtnB, '');
 }
 function arcMenu(){
-  arcCard({kicker:'暂停', title:'B1 游戏厅', lines:[`钱包 ${fmtRM(money)} · 已经玩过 ${MG.list.filter(g => mgSave.plays[g.id]).length} / ${MG.list.length} 个小游戏`],
+  arcCard({kicker:'暂停', title:'B1 游戏厅', lines:[`钱包 ${fmtRM(money)} · 已经玩过 ${MG.list.filter(mgPlayed).length} / ${MG.list.length} 个小游戏`],
     btns:[{t:'继续逛', primary:true, fn:arcCardClose}, {t:'游戏列表', fn:() => { arcCardClose(); arcOpenList(); }}, {t:'排行榜', fn:() => { arcCardClose(); arcOpenBoard(); }}, {t:'出门', fn:() => arcLeave()}], esc:arcCardClose});
 }
 /* P / Esc, the HUD pause button */
@@ -473,9 +513,31 @@ function arcEsc(){
   else if (arcPlaying()) mgPause(true);
 }
 
+/* ---------- a second 奶娃 for mini-games (a rival, a teammate): ctx.actor({color, belly}) ----------
+   Set x / z / y / h / spd (m/s, drives the walk cycle) / up (arms raised) / lean, then call update(dt). Lives under ctx.root, so it goes with it. */
+function arcActor(root, o){
+  o = o || {};
+  const A = makeNaiwa(), [aL, aR] = A.arms, [eL, eR] = A.elbows, [lL, lR] = A.legs;
+  if (o.color) A.mats.skin.color.set(o.color);
+  if (o.belly) A.mats.belly.color.set(o.belly);
+  root.add(A.root);
+  const a = {obj:A.root, parts:A, x:0, z:0, y:0, h:0, spd:0, walkT:0, up:false, lean:0,
+    update(dt){
+      const mv = a.spd > .3, air = a.y > .05; if (mv) a.walkT += dt * (7 + a.spd * .6);
+      const sw = mv ? Math.sin(a.walkT) : 0;
+      lL.rotation.x = air ? -.6 : sw * .55; lR.rotation.x = air ? -.6 : -sw * .55;
+      if (a.up || air){ aL.rotation.set(-.2, 0, a.up ? 2.5 : 1.3); aR.rotation.set(-.2, 0, a.up ? -2.5 : -1.3); eL.rotation.set(-.3, 0, 0); eR.rotation.set(-.3, 0, 0); }
+      else { aL.rotation.set(-.32 - sw * .35, 0, .36); aR.rotation.set(-.32 + sw * .35, 0, -.36); eL.rotation.set(-1.22, 0, -.32); eR.rotation.set(-1.22, 0, .32); }
+      A.body.rotation.set(a.lean, 0, sw * .08); A.body.position.y = mv ? Math.abs(sw) * .05 : 0;
+      A.root.position.set(a.x, a.y, a.z); A.root.rotation.y = a.h;
+    }};
+  a.update(0);
+  return a;
+}
+
 /* ---------- running a mini-game ---------- */
 function mgHudShow(g){
-  $('#mgIcon').textContent = g.icon; $('#mgName').textContent = g.name; mgHud.style.setProperty('--mg-c', g.color);
+  $('#mgIcon').textContent = g.icon; $('#mgName').textContent = g.name + (g.mode ? ' · ' + g.modeName : ''); mgHud.style.setProperty('--mg-c', g.color);
   $('#mgTimeC').hidden = $('#mgScoreC').hidden = true; $('#mgInfo').textContent = ''; $('#mgTimeC').classList.remove('urgent');
   mgHud.hidden = false;
 }
@@ -483,7 +545,7 @@ function mgCtx(g){
   const root = new THREE.Group(); root.position.set(ARC.sx, 0, ARC.sz); scene.add(root);
   const sx = ARC.sx, sz = ARC.sz;
   const ctx = {
-    game:g, root, q:arcQ(), touch:TOUCH, reduced:REDUCED, dead:false,
+    game:g, mode:g.mode ? g.mode.id : null, modeDef:g.mode, root, q:arcQ(), touch:TOUCH, reduced:REDUCED, dead:false,
     get aspect(){ return camera.aspect; }, get elapsed(){ return MG.elapsed; }, get best(){ return mgBest(g.id); },
     camera:{
       set(pos, look, fov){ ACam.fit = ACam.follow = null; ACam.pos.set(sx + pos[0], pos[1], sz + pos[2]); ACam.look.set(sx + look[0], look[1], sz + look[2]); if (fov) ACam.fov = fov; },
@@ -495,7 +557,9 @@ function mgCtx(g){
     input:{
       get x(){ return IN.x; }, get y(){ return IN.y; }, get run(){ return IN.run; }, get a(){ return IN.a; }, get b(){ return IN.b; },
       get tapX(){ return IN.tapX; }, get tapY(){ return IN.tapY; },
-      pressed(k){ return k === 'a' ? IN.pa : k === 'b' ? IN.pb : k === 'tap' ? IN.ptap : false; }
+      get drag(){ return IN.drag; }, get swipe(){ return IN.swipe; },
+      pressed(k){ return k === 'a' ? IN.pa : k === 'b' ? IN.pb : k === 'tap' ? IN.ptap : k === 'swipe' ? IN.pswipe : false; },
+      label(k, text){ mgBtnSet(k === 'b' ? mgBtnB : mgBtnA, text || ''); }
     },
     player:{
       get x(){ return nw.x - sx; }, set x(v){ nw.x = sx + v; }, get z(){ return nw.z - sz; }, set z(v){ nw.z = sz + v; },
@@ -515,9 +579,9 @@ function mgCtx(g){
     hud:{
       score(v){ const c = $('#mgScoreC'); c.hidden = false; const t = typeof v === 'number' ? String(Math.round(v)) : String(v); const el = $('#mgScore'); if (el.textContent !== t) el.textContent = t; },
       /* also ticks through the last five seconds, so every timed game gets the same tension for free */
-      time(s){
+      time(s, quiet){
         const c = $('#mgTimeC'), n = Math.max(0, Math.ceil(s)), t = String(n), el = $('#mgTime'); c.hidden = false;
-        if (el.textContent !== t){ if (n >= 1 && n <= 5 && +el.textContent === n + 1 && ARC.state === 'play') tone('square', n <= 2 ? 880 : 660, n <= 2 ? 880 : 660, .07, .07); el.textContent = t; }
+        if (el.textContent !== t){ if (!quiet && n >= 1 && n <= 5 && +el.textContent === n + 1 && ARC.state === 'play') tone('square', n <= 2 ? 880 : 660, n <= 2 ? 880 : 660, .07, .07); el.textContent = t; }
         c.classList.toggle('urgent', s <= 10);
       },
       info(t){ const el = $('#mgInfo'); t = t || ''; if (el.textContent !== t) el.textContent = t; },
@@ -526,6 +590,10 @@ function mgCtx(g){
       toast(t, sub, ms){ toast(t, sub, ms); }
     },
     ui:mgUi,
+    /* stage metres -> CSS pixels on the screen, for HTML that has to sit next to something in the scene */
+    screen(x, y, z){ const r = canvas.getBoundingClientRect(); _acP.set(sx + x, y, sz + z).project(camera); return [r.left + (_acP.x + 1) / 2 * r.width, r.top + (1 - _acP.y) / 2 * r.height]; },
+    actor(o){ return arcActor(root, o); },
+    debug(v){ MG.dbg = v; },
     sfx, tone, noise, rnd:Math.random,
     part(kind, x, y, z, size, o){ spawnPart(kind, sx + x, y, sz + z, size, o); },
     after(sec, fn){ const run = MG.run; MG.timers.push({t:MG.elapsed + sec, fn:() => { if (run === MG.run && !ctx.dead) fn(); }}); },
@@ -536,34 +604,47 @@ function mgCtx(g){
     pause(){ if (!ctx.dead && arcPlaying()) mgPause(true); },
     quit(){ if (!ctx.dead) mgEnd(); },
     board:{top:n => (window.XNet && XNet.miniTop ? XNet.miniTop(g.id, n).then(rows => rows.map(r => Object.assign({}, r, {value:mgFromBoard(g, r.value)}))) : Promise.resolve([])), fmt:v => mgFmt(g, v)},
-    store:{get(k){ const s = mgSave.store[g.id]; return s ? s[k] : undefined; }, set(k, v){ (mgSave.store[g.id] = mgSave.store[g.id] || {})[k] = v; mgWrite(); }}
+    store:{get(k){ const s = mgSave.store[g.base.id]; return s ? s[k] : undefined; }, set(k, v){ (mgSave.store[g.base.id] = mgSave.store[g.base.id] || {})[k] = v; mgWrite(); }}
   };
   return ctx;
 }
 function mgKeysText(g){
   const c = g.controls, out = [];
+  if (c.help) return TOUCH ? c.help.touch : c.help.key;
   if (TOUCH){ if (c.move) out.push('左下摇杆移动'); if (c.a) out.push(c.tap ? `点屏幕或「${c.a}」` : `右下「${c.a}」`); if (c.b) out.push(`右下「${c.b}」`); }
   else { if (c.move) out.push('WASD 移动，Shift 跑'); if (c.a) out.push(`空格${c.tap ? '或点鼠标' : ''}：${c.a}`); if (c.b) out.push(`K：${c.b}`); out.push('P 暂停'); }
   return out.join(' · ');
 }
-function mgIntro(id){
-  const g = MG.byId[id]; if (!g) return false;
+/* id: a game id, or the board id of one mode; modeId picks a mode of that game (default: the one played last) */
+function mgIntro(id, modeId){
+  const base = MG.byId[id] || (MG.vById[id] && MG.vById[id].base); if (!base) return false;
+  const g = base.vars.find(v => v.mode && v.mode.id === modeId) || (!MG.byId[id] && MG.vById[id]) || mgLastVar(base);
   if (!ARC.in && !arcEnter({quiet:true})) return false;
   if (MG.cur) mgEnd();
   arcCloseList(); MG.pending = g;
-  const best = mgBest(g.id), md = mgMedal(g, best), lines = [g.intro || g.desc, mgKeysText(g)];
+  const best = mgBest(g.id), md = mgMedal(g, best), lines = [];
+  if (base.vars.length > 1){
+    const chips = arcEl('div', 'lb-chips'); chips.style.justifyContent = 'center'; chips.setAttribute('role', 'group'); chips.setAttribute('aria-label', '选模式');
+    for (const v of base.vars){
+      const vm = mgMedal(v, mgBest(v.id)), c = arcEl('button', 'lb-chip', v.modeName + (vm < 3 ? ' ' + ['🥇', '🥈', '🥉'][vm] : '')); c.type = 'button'; c.setAttribute('aria-pressed', String(v === g));
+      c.addEventListener('click', () => { ac(); mgIntro(base.id, v.mode.id); }); chips.append(c);
+    }
+    lines.push(chips);
+  }
+  lines.push(g.intro || g.desc, mgKeysText(g));
   if (g.medals) lines.push(`金牌 ${mgFmt(g, g.medals[0])} · 银牌 ${mgFmt(g, g.medals[1])} · 铜牌 ${mgFmt(g, g.medals[2])}`);
   const b = arcEl('div', 'mg-best'); b.append(arcEl('span', null, '本机最好'), arcEl('b', null, best != null ? mgFmt(g, best) + (md < 3 ? ' · ' + GX_MEDAL[md] : '') : '还没玩过')); lines.push(b);
   const back = () => { MG.pending = null; arcCardClose(); };
   const btns = [{t:'开始', primary:true, fn:mgBegin}]; if (g.board) btns.push({t:'排行榜', fn:() => arcOpenBoard(g.id)}); btns.push({t:'返回', fn:back});
-  arcCard({kicker:'B1 游戏厅', title:g.icon + ' ' + g.name, lines, btns, esc:back});
+  arcCard({kicker:g.mode ? '模式 · ' + g.modeName : 'B1 游戏厅', title:g.icon + ' ' + g.name, lines, btns, esc:back});
   return true;
 }
 function mgBegin(){
   const g = MG.pending; if (!g || !ARC.in) return;
   arcCardClose(); MG.pending = null;
   if (ARC.state === 'hall') ARC.back = {x:nw.x, z:nw.z, h:nw.h};
-  MG.cur = g; MG.elapsed = 0; MG.paid = 0; MG.timers.length = 0; MG.run++;
+  MG.cur = g; MG.elapsed = 0; MG.paid = 0; MG.timers.length = 0; MG.run++; MG.dbg = null;
+  if (g.mode && mgSave.last[g.base.id] !== g.mode.id){ mgSave.last[g.base.id] = g.mode.id; mgWrite(); }
   for (const s of ARC.spots) if (s.lbl) s.lbl.dead = true;
   arcG.visible = false; arcBar.hidden = true; ARC.near = null;
   const ctx = MG.ctx = mgCtx(g);
@@ -600,7 +681,7 @@ function mgPause(on){
     if (!arcPlaying()) return;
     MG.prev = ARC.state; ARC.state = 'pause'; inReset();
     try { if (g.pause) g.pause(true, MG.ctx); } catch(e){ console.error(e); }
-    arcCard({kicker:'暂停', title:g.icon + ' ' + g.name, lines:[mgKeysText(g)],
+    arcCard({kicker:'暂停', title:mgTitle(g), lines:[mgKeysText(g)],
       btns:[{t:'继续', primary:true, fn:() => mgPause(false)}, {t:'重新开始', fn:mgRetry}, {t:'退出游戏', fn:() => mgEnd()}], esc:() => mgPause(false)});
   } else if (ARC.state === 'pause'){
     arcCardClose(); ARC.state = MG.prev || 'play'; inReset();
@@ -639,12 +720,12 @@ function mgFinish(score, o){
   sess.acts++; if (medal < 3) sess.medals++;
   if (pay > 0){ MG.paid += pay; earn(pay); } else saveGame();
   if (medal === 0) unlock('arcgold');
-  if (MG.list.length > 1 && MG.list.every(x => mgSave.plays[x.id])) unlock('arcadeall');
+  if (MG.list.length > 1 && MG.list.every(mgPlayed)) unlock('arcadeall');
   if (medal < 3){ gx.callout(GX_MEDAL[medal], has ? mgFmt(g, v) : '', ['#e3b95a', '#b8c2cc', '#c98a55'][medal]); for (let i = 0; i < 5; i++) tone('triangle', 523 * Math.pow(1.19, i), 523 * Math.pow(1.19, i), .18, .13, i * .09); }
   else sfx.ding();
   if (rec && prev != null) setTimeout(() => { if (ARC.state === 'result') sfx.laugh(); }, 700);   /* a new personal best: 奶娃 laughs */
   const lines = [];
-  const big = arcEl('div', 'mg-score'); big.append(arcEl('b', null, has ? mgFmt(g, v) : '—'), arcEl('span', medal < 3 ? 'm' + medal : '', medal < 3 ? GX_MEDAL[medal] : has ? '没拿到奖牌' : '这局没有成绩')); lines.push(big);
+  const big = arcEl('div', 'mg-score'); big.append(arcEl('b', null, o.big || (has ? mgFmt(g, v) : '—')), arcEl('span', medal < 3 ? 'm' + medal : '', medal < 3 ? GX_MEDAL[medal] : has ? '没拿到奖牌' : '这局没有成绩')); lines.push(big);
   if (o.sub) lines.push(o.sub);
   lines.push((rec ? (prev != null ? '新纪录！' : '第一次完成') : prev != null ? `本机最好 ${mgFmt(g, prev)}` : '') + (pay > 0 ? `${rec || prev != null ? ' · ' : ''}+RM ${pay}` : ''));
   if (has && g.medals && medal > 0){ const need = Math.abs(g.medals[medal - 1] - v); lines.push(`离${GX_MEDAL[medal - 1]}还差 ${mgFmt(g, Math.ceil(need * 100) / 100)}`); }
@@ -661,8 +742,10 @@ function mgFinish(score, o){
       net.textContent = i >= 0 ? `排行榜第 ${i + 1} 名（${mgFmt(g, mgFromBoard(g, rows[i].value))}）` : rows.length >= 50 ? '还没进前 50 名' : '成绩已提交';
     }).catch(() => { if (run === MG.run) net.textContent = '成绩没提交上去，下次再试'; });
   }
-  const btns = [{t:'再来一局', primary:true, fn:mgRetry}]; if (g.board) btns.push({t:'排行榜', fn:() => arcOpenBoard(g.id)}); btns.push({t:ARC.door ? '回' + ARC.door.name : '回游戏厅', fn:() => mgEnd()});
-  arcCard({kicker:o.kicker || (medal < 3 ? '漂亮' : '结束'), title:o.title || g.icon + ' ' + g.name, lines, btns, esc:() => mgEnd()});
+  const btns = [{t:'再来一局', primary:true, fn:mgRetry}];
+  if (g.base.vars.length > 1 && !ARC.door) btns.push({t:'换模式', fn:() => { const id = g.base.id; mgEnd(); mgIntro(id); }});
+  if (g.board) btns.push({t:'排行榜', fn:() => arcOpenBoard(g.id)}); btns.push({t:ARC.door ? '回' + ARC.door.name : '回游戏厅', fn:() => mgEnd()});
+  arcCard({kicker:o.kicker || (medal < 3 ? '漂亮' : '结束'), title:o.title || mgTitle(g), lines, btns, esc:() => mgEnd()});
 }
 
 /* ---------- per-frame, from gx.frame (js/90-main.js calls it every frame, paused or not) ---------- */
@@ -680,7 +763,7 @@ function arcFrame(dt){
   if ((nw.state === 'laugh' || nw.state === 'pose') && nw.t > 2.3) nw.state = 'idle';
   NW.root.position.set(nw.x, nw.y, nw.z); NW.root.rotation.y = nw.h;
   arcCamApply(dt);
-  IN.pa = IN.pb = IN.ptap = false;
+  IN.pa = IN.pb = IN.ptap = IN.pswipe = false;
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden && ARC.state === 'play') mgPause(true); });
 
@@ -705,25 +788,27 @@ arcMark.visible = false;
    def = {id, name, icon, fmt(value), what, local() -> this device's best, empty}; values are whole numbers, higher is better */
 const MG_XBOARD = {};
 function mgAddBoard(def){
-  if (!def || !MG_ID.test(String(def.id || '')) || MG.byId[def.id] || MG_XBOARD[def.id]){ console.error('[XMini] addBoard：id 不对或者重复', def && def.id); return false; }
+  if (!def || !MG_ID.test(String(def.id || '')) || MG.byId[def.id] || MG.vById[def.id] || MG_XBOARD[def.id]){ console.error('[XMini] addBoard：id 不对或者重复', def && def.id); return false; }
   MG_XBOARD[def.id] = Object.assign({name:def.id, icon:'🏆', what:'', empty:'还没有成绩', fmt:v => Math.round(+v || 0) + ' 分', local:() => 0}, def,
     {top:n => (window.XNet && XNet.miniTop ? XNet.miniTop(def.id, n) : Promise.resolve([]))});
   return true;
 }
 window.XMini = {
   register:mgRegister, addBoard:mgAddBoard,
-  /* ids of everything that has a leaderboard: the mini-games with a board, then the boards added with addBoard */
-  get boards(){ return MG.list.filter(g => g.board).map(g => g.id).concat(Object.keys(MG_XBOARD)); },
-  get games(){ return MG.list.slice(); },
+  /* one entry per leaderboard: a game without modes is itself, a game with modes gives one entry per mode (id = the board id) */
+  get games(){ return [].concat(...MG.list.map(g => g.vars)); },
+  get list(){ return MG.list.slice(); },
+  /* ids of everything that has a leaderboard: this.games (other files may wrap it, e.g. the race tracks in js/92-racing.js), then the boards added with addBoard */
+  get boards(){ return this.games.filter(g => g.board).map(g => g.id).concat(Object.keys(MG_XBOARD)); },
   get active(){ return MG.cur ? MG.cur.id : null; },
   get inside(){ return ARC.in; },
   get state(){ return ARC.state; },
   enter:arcEnter, leave:arcLeave,
   open(){ if (arcEnter({quiet:true})) arcOpenList(); },
   play:mgIntro,
-  start(id){ if (mgIntro(id)) mgBegin(); },
+  start(id, mode){ if (mgIntro(id, mode)) mgBegin(); },
   /* play a game from a door somewhere else on the map (KIP mall): no hall in between, and when the game is over 奶娃 is put back at door {x, z, h, name} */
-  startAt(id, door){ const g = MG.byId[id]; if (!g || ARC.in || !arcEnter({quiet:true, door})) return false; MG.pending = g; mgBegin(); return true; },
+  startAt(id, door){ const g = MG.vById[id] || (MG.byId[id] && mgLastVar(MG.byId[id])); if (!g || ARC.in || !arcEnter({quiet:true, door})) return false; MG.pending = g; mgBegin(); return true; },
   quit(){ if (MG.cur) mgEnd(); },
   best:mgBest,
   /* for testing without real time (a hidden tab runs no animation frames, see docs/MINIGAMES.md):
@@ -735,14 +820,19 @@ window.XMini = {
       while (n-- > 0 && ARC.in){ if (each && each(dt) === false) break; arcFrame(dt); animNaiwa(dt, t += dt); updateParts(dt); }
       renderer.render(scene, camera);
     },
-    press(k){ if (k === 'b'){ IN.pb = true; } else { IN.pa = true; } },
-    move(x, y, run){ IN.sim = x || y ? {x:+x || 0, y:+y || 0, run:!!run} : null; }
+    press(k){ if (k === 'b'){ IN.pb = true; } else if (k === 'tap'){ IN.ptap = true; } else { IN.pa = true; } },
+    hold(k, on){ k = k === 'b' ? 'b' : 'a'; if (on && !IN[k]) IN['p' + k] = true; IN[k] = !!on; },
+    move(x, y, run){ IN.sim = x || y ? {x:+x || 0, y:+y || 0, run:!!run} : null; },
+    drag(dx, dy){ IN.drag = dx == null ? null : {x0:0, y0:0, dx:+dx || 0, dy:+dy || 0, s:1, t0:performance.now()}; },
+    swipe(dx, dy, t){ IN.drag = null; IN.swipe = {dx:+dx || 0, dy:+dy || 0, t:t || .2}; IN.pswipe = true; },
+    get state(){ return MG.dbg; }
   },
   /* for the leaderboard dialog (js/ui-title.js): values on the board are "higher is better", fmt turns them back */
   board(id){
     if (MG_XBOARD[id]) return MG_XBOARD[id];
-    const g = MG.byId[id]; if (!g || !g.board) return null;
-    return {name:g.name, icon:g.icon, fmt:v => mgFmt(g, mgFromBoard(g, +v || 0)), what:`${g.icon} ${g.name}：${g.desc}`, local:() => (mgBest(id) != null ? mgToBoard(g, mgBest(id)) : 0), empty:`还没玩过「${g.name}」，去 B1 游戏厅试试`,
+    const g = MG.vById[id]; if (!g || !g.board) return null;
+    const multi = g.base.vars.length > 1, full = g.name + (g.mode ? ' · ' + g.modeName : '');
+    return {name:multi ? g.modeName : g.name, icon:g.icon, fmt:v => mgFmt(g, mgFromBoard(g, +v || 0)), what:`${g.icon} ${full}：${g.desc}`, local:() => (mgBest(id) != null ? mgToBoard(g, mgBest(id)) : 0), empty:`还没玩过「${full}」，去 B1 游戏厅试试`,
       top:n => (window.XNet && XNet.miniTop ? XNet.miniTop(id, n) : Promise.resolve([]))};
   }
 };
