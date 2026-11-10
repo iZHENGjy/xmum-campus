@@ -117,7 +117,11 @@ function azBuild(){
   if (AZ.built) return; AZ.built = true;
   const {H, SD, FB, TL, R, NOTCH, FLIGHTS, WALLS} = AZ;
   /* ---- the ground: one vertex-coloured mesh on a 2 m grid (paving on top, grass on the slopes), with a hole over the garage bay ---- */
-  { const C = 2, x0 = AZ.BOX.x0, z0 = AZ.BOX.z0, nx = Math.ceil((AZ.BOX.x1 - x0) / C) + 1, nz = Math.ceil((AZ.BOX.z1 - z0) / C) + 1;
+  /* the blocks standing on the top hide the ground under them: those cells are left out (a box per block, shrunk a little) */
+  const under = [];
+  for (const st of structures) if (st.groups.some(g => AZ.raw(g.position.x, g.position.z) >= H - .01)) for (const c of st.cols) if (!c.t && !c.dead && c.hx > 6) under.push(c);
+  const hidden = (x, z) => under.some(c => { const dx = x - c.cx, dz = z - c.cz; return Math.abs(dx * c.c - dz * c.s) < c.hx - 1.2 && Math.abs(dx * c.s + dz * c.c) < c.hz - 1.2; });
+  { const C = XQ.tier ? 2 : 3, x0 = AZ.BOX.x0, z0 = AZ.BOX.z0, nx = Math.ceil((AZ.BOX.x1 - x0) / C) + 1, nz = Math.ceil((AZ.BOX.z1 - z0) / C) + 1;   /* 3 m cells on 流畅 */
     const Y = new Float32Array(nx * nz), T = new Uint8Array(nx * nz);
     for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++){ const x = x0 + i * C, z = z0 + j * C, k = j * nx + i; Y[k] = AZ.raw(x, z); T[k] = inPoly(x, z, R) ? 1 : 0; }
     const pos = [], col = [], idx = [], map = new Int32Array(nx * nz).fill(-1), cPave = new THREE.Color('#a39b8b'), cPave2 = new THREE.Color('#968e7e'), cGrass = new THREE.Color('#4c7334'), cGrass2 = new THREE.Color('#567d3a'), c = new THREE.Color();
@@ -133,7 +137,8 @@ function azBuild(){
       const a = j * nx + i, b = a + 1, cc = a + nx, d = cc + 1;
       if (Y[a] < .02 && Y[b] < .02 && Y[cc] < .02 && Y[d] < .02) continue;
       const xm = x0 + (i + .5) * C, zm = z0 + (j + .5) * C;
-      if (hole(xm - 1, zm - 1) || hole(xm + 1, zm - 1) || hole(xm - 1, zm + 1) || hole(xm + 1, zm + 1)) continue;
+      const hc = C / 2; if (hole(xm - hc, zm - hc) || hole(xm + hc, zm - hc) || hole(xm - hc, zm + hc) || hole(xm + hc, zm + hc)) continue;
+      if (hidden(xm - C / 2, zm - C / 2) && hidden(xm + C / 2, zm - C / 2) && hidden(xm - C / 2, zm + C / 2) && hidden(xm + C / 2, zm + C / 2)) continue;
       idx.push(v(a), v(cc), v(b), v(b), v(cc), v(d));
     }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
@@ -214,7 +219,7 @@ function azBuild(){
   }
   /* ---- the garage: a bay at ground level under a deck, side and back walls, ceiling lights, a raised barrier, signs; three parked cars ---- */
   { const xa = N.x0, xb = N.x1, za = N.z0, zb = N.z1, zm = (za + zb) / 2;
-    tbox(P2, xb + 2.2 - (xa - 1.6), .7, zb - za + 3.4, (xa - 1.6 + xb + 2.2) / 2, H - .33, zm, '#a39b8b');   /* the deck (its top is the paving above) */
+    tbox(P2, xb + 2.2 - (xa - 3.4), .76, zb - za + 6.4, (xa - 3.4 + xb + 2.2) / 2, H - .32, zm, '#a39b8b');   /* the deck (its top is the paving above, covering the hole left in the ground mesh) */
     tbox(P2, xb - xa + .4, .06, zb - za, (xa + xb) / 2, H - .7, zm, '#d9d6cf');
     for (const z of [za - .6, zb + .6]){ tbox(P2, xb - xa + 1.2, H - .2, 1.2, (xa + xb) / 2 - .6, (H - .2) / 2 - .1, z, '#8f887c'); AZ.cols.push(addBox((xa + xb) / 2 - .6, z, (xb - xa) / 2 + .6, .6, 0)); }
     tbox(P2, 1.2, H - .2, zb - za + 2.4, xa - .6, (H - .2) / 2 - .1, zm, '#8f887c'); AZ.cols.push(addBox(xa - .6, zm, .6, (zb - za) / 2 + 1.2, 0));
