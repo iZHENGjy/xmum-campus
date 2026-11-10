@@ -14,9 +14,9 @@
  *   排行榜：/mini/{gameId}/{uid} = {name, value, ts}（js/net.js 的 XNet.miniTop / miniSubmit，规则在 database.rules.json）。
  */
 'use strict';
-const ARC = {in:false, state:'out', ox:0, oz:-2700, W:34, D:22, H:3.6, sx:0, sz:-2950, built:false, cabN:-1, hid:[], spots:[], cols:[], near:null, back:null, keep:null, fLbl:false};
+const ARC = {in:false, state:'out', ox:0, oz:-2700, W:26, D:18, H:3.6, sx:0, sz:-2950, built:false, cabN:-1, hid:[], spots:[], cols:[], near:null, back:null, keep:null, fLbl:false};
 const ARC_BG = '#171a30';
-const ARC_SPAWN = [0, 7.4];
+const ARC_SPAWN = [0, 5.6];
 const MG_ID = /^[a-z][a-z0-9_]{1,15}$/, MG_KEY = 'xmum-mini-v1', MG_CAP = 60, MG_MAX = 1e6;
 const MG = {list:[], byId:{}, cur:null, ctx:null, pending:null, prev:'', elapsed:0, timers:[], offs:[], paid:0, cd:0, beep:0, run:0};
 
@@ -66,7 +66,7 @@ const ARC_LIGHT = (() => {
   const p = Object.assign({}, P3.day);
   for (const f of ['bg', 'hs', 'hg', 'sc', 'cc', 'water']) p[f] = P3.day[f].clone();
   p.d = new THREE.Vector3(.3, .9, .34).normalize(); p.bg.set(ARC_BG); p.hg.set('#4f4a66');
-  return Object.assign(p, {hi:.88, si:.95, win:0, lamp:0, stars:0, moon:0, cloud:0});
+  return Object.assign(p, {hi:.6, si:.72, win:0, lamp:0, stars:0, moon:0, cloud:0});
 })();
 function arcLight(on, sky){
   if (on){ ARC_LIGHT.bg.set(sky || ARC_BG); tgt = ARC_LIGHT; }
@@ -124,21 +124,21 @@ function arcBuild(){
   /* floor: a dark apron so nothing shows past the walls, and a patterned carpet */
   const apron = new THREE.Mesh(new THREE.PlaneGeometry(220, 220).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({color:'#0f1122'})); apron.position.y = -.02; G.add(apron);
   const carpetTex = arcTex(512, 512, (g, w) => {
-    g.fillStyle = '#262a52'; g.fillRect(0, 0, w, w);
+    g.fillStyle = '#3d4390'; g.fillRect(0, 0, w, w);
     const cols = ['#ff5fa2', '#3fd6c6', '#ffc93c', '#7c8cff', '#ff8a3d'], r = mkRng(91);
     for (let i = 0; i < 44; i++){
       const x = r() * w, y = r() * w, s = 10 + r() * 16, k = (r() * 3) | 0;
-      g.save(); g.translate(x, y); g.rotate(r() * 6.3); g.globalAlpha = .3; g.strokeStyle = g.fillStyle = cols[(r() * cols.length) | 0]; g.lineWidth = 4; g.lineCap = 'round';
+      g.save(); g.translate(x, y); g.rotate(r() * 6.3); g.globalAlpha = .5; g.strokeStyle = g.fillStyle = cols[(r() * cols.length) | 0]; g.lineWidth = 4; g.lineCap = 'round';
       if (k === 0){ g.beginPath(); g.moveTo(-s, 0); g.quadraticCurveTo(-s / 2, -s, 0, 0); g.quadraticCurveTo(s / 2, s, s, 0); g.stroke(); }
       else if (k === 1){ g.beginPath(); g.moveTo(0, -s * .7); g.lineTo(s * .7, s * .5); g.lineTo(-s * .7, s * .5); g.closePath(); g.fill(); }
       else { g.beginPath(); g.arc(0, 0, s * .45, 0, 7); g.stroke(); }
       g.restore();
     }
   });
-  carpetTex.wrapS = carpetTex.wrapT = THREE.RepeatWrapping; carpetTex.repeat.set(5, 3.2);
+  carpetTex.wrapS = carpetTex.wrapT = THREE.RepeatWrapping; carpetTex.repeat.set(4, 2.8);
   const carpet = bx(W, .1, D, new THREE.MeshStandardMaterial({map:carpetTex, roughness:.95}), 0, -.03, 0); carpet.castShadow = false;
   /* walls: the south one is waist-high so the camera always sees 奶娃 over it */
-  const wall = M('#3a3566', {roughness:.85}), trim = new THREE.MeshBasicMaterial({color:'#ff5fa2'}), trim2 = new THREE.MeshBasicMaterial({color:'#3fd6c6'});
+  const wall = M('#5a52a6', {roughness:.85}), trim = new THREE.MeshBasicMaterial({color:'#ff5fa2'}), trim2 = new THREE.MeshBasicMaterial({color:'#3fd6c6'});
   bx(W + .8, H, .4, wall, 0, H / 2, -D / 2 - .2); bx(.4, H, D, wall, -W / 2 - .2, H / 2, 0); bx(.4, H, D, wall, W / 2 + .2, H / 2, 0);
   for (const s of [-1, 1]) bx(W / 2 - 1.6, 1.1, .4, wall, s * (W / 4 + .8), .55, D / 2 + .2);
   bx(W + .8, .12, .46, trim, 0, H + .06, -D / 2 - .2).castShadow = false;
@@ -162,37 +162,37 @@ function arcBuild(){
     g.textAlign = 'center'; g.fillStyle = '#ffc93c'; g.font = '900 78px ' + ARC_FONT; g.fillText('🏆 排行榜', w / 2, 112);
     g.fillStyle = '#e8e6ff'; g.font = '500 34px ' + ARC_FONT; g.fillText('每个小游戏一张榜', w / 2, 172); g.fillStyle = '#9aa0d8'; g.font = '500 28px ' + ARC_FONT; g.fillText('走近查看', w / 2, 216);
   });
-  bx(.25, 1.3, .25, stand, 10.4, .65, -3.2); bx(.25, 1.3, .25, stand, 14.6, .65, -3.2);
-  bx(5.2, 2.5, .18, stand, 12.5, 2.2, -3.2);
-  const lbScr = new THREE.Mesh(new THREE.PlaneGeometry(4.9, 2.25), new THREE.MeshBasicMaterial({map:lbTex})); lbScr.position.set(12.5, 2.2, -3.1); G.add(lbScr);
-  arcSolid(12.5, -3.2, 2.7, .35);
+  bx(.25, 1.3, .25, stand, 7.5, .65, -2.6); bx(.25, 1.3, .25, stand, 11.1, .65, -2.6);
+  bx(4.6, 2.3, .18, stand, 9.3, 2.1, -2.6);
+  const lbScr = new THREE.Mesh(new THREE.PlaneGeometry(4.3, 2.05), new THREE.MeshBasicMaterial({map:lbTex})); lbScr.position.set(9.3, 2.1, -2.5); G.add(lbScr);
+  arcSolid(9.3, -2.6, 2.4, .35);
   const kTex = arcTex(256, 256, (g, w, h) => {
     g.fillStyle = '#12142b'; g.fillRect(0, 0, w, h); g.strokeStyle = '#3fd6c6'; g.lineWidth = 8; g.strokeRect(6, 6, w - 12, h - 12);
     g.textAlign = 'center'; g.fillStyle = '#3fd6c6'; g.font = '900 56px ' + ARC_FONT; g.fillText('全部游戏', w / 2, 110);
     g.fillStyle = '#e8e6ff'; g.font = '500 30px ' + ARC_FONT; g.fillText('列表里直接选', w / 2, 170);
   });
-  bx(.5, 1.1, .5, stand, -12.5, .55, -3.2); bx(1.7, 1.5, .16, stand, -12.5, 1.75, -3.2);
-  const kScr = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.3), new THREE.MeshBasicMaterial({map:kTex})); kScr.position.set(-12.5, 1.75, -3.11); G.add(kScr);
-  arcSolid(-12.5, -3.2, .95, .35);
+  bx(.5, 1.1, .5, stand, -9.6, .55, -2.6); bx(1.7, 1.5, .16, stand, -9.6, 1.75, -2.6);
+  const kScr = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.3), new THREE.MeshBasicMaterial({map:kTex})); kScr.position.set(-9.6, 1.75, -2.51); G.add(kScr);
+  arcSolid(-9.6, -2.6, .95, .35);
   /* decor: prize counter and claw machine on the west wall, ping-pong table, sofas */
-  bx(1.2, 1, 7, M('#c9a24a', {roughness:.6}), -16.3, .5, 4); bx(1.3, .08, 7.1, M('#f3efe7'), -16.3, 1.04, 4); arcSolid(-16.3, 4, .7, 3.6);
-  bx(1.7, .9, 1.7, M('#ff5fa2', {roughness:.5}), -15.9, .45, -6.5); bx(1.7, .35, 1.7, M('#ff5fa2', {roughness:.5}), -15.9, 2.42, -6.5);
-  const glass = bx(1.6, 1.35, 1.6, new THREE.MeshStandardMaterial({color:'#bfe6ff', transparent:true, opacity:.28, roughness:.1}), -15.9, 1.57, -6.5); glass.castShadow = false;
-  arcSolid(-15.9, -6.5, .9, .9);
+  bx(1.2, 1, 6, M('#c9a24a', {roughness:.6}), -12.3, .5, 3.4); bx(1.3, .08, 6.1, M('#f3efe7'), -12.3, 1.04, 3.4); arcSolid(-12.3, 3.4, .7, 3.1);
+  bx(1.7, .9, 1.7, M('#ff5fa2', {roughness:.5}), -11.9, .45, -5.4); bx(1.7, .35, 1.7, M('#ff5fa2', {roughness:.5}), -11.9, 2.42, -5.4);
+  const glass = bx(1.6, 1.35, 1.6, new THREE.MeshStandardMaterial({color:'#bfe6ff', transparent:true, opacity:.28, roughness:.1}), -11.9, 1.57, -5.4); glass.castShadow = false;
+  arcSolid(-11.9, -5.4, .9, .9);
   { const toys = new THREE.InstancedMesh(new THREE.SphereGeometry(.22, 10, 8), M('#ffffff', {roughness:.7}), 16), m4 = new THREE.Matrix4(), col = new THREE.Color(), r = mkRng(7);
     const cs = ['#ffc93c', '#3fd6c6', '#7c8cff', '#ff8a3d', '#f4f2ec', '#ff5fa2'];
     for (let i = 0; i < 16; i++){
-      if (i < 6) m4.makeTranslation(-15.9 + (r() - .5) * 1.1, 1.1 + (i % 2) * .3, -6.5 + (r() - .5) * 1.1); else m4.makeTranslation(-16.3 + (r() - .5) * .5, 1.3, .9 + (i - 6) * .68);
+      if (i < 6) m4.makeTranslation(-11.9 + (r() - .5) * 1.1, 1.1 + (i % 2) * .3, -5.4 + (r() - .5) * 1.1); else m4.makeTranslation(-12.3 + (r() - .5) * .5, 1.3, .8 + (i - 6) * .58);
       toys.setMatrixAt(i, m4); toys.setColorAt(i, col.set(cs[i % cs.length]));
     }
     toys.castShadow = true; G.add(toys); }
-  bx(2.74, .08, 1.52, M('#2f6fb0', {roughness:.6}), 8.5, .76, 5); bx(.04, .16, 1.6, M('#f3efe7'), 8.5, .88, 5);
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) bx(.08, .72, .08, stand, 8.5 + sx * 1.2, .36, 5 + sz * .6);
-  arcSolid(8.5, 5, 1.45, .85);
-  for (const x of [-8.5, -5]){ bx(2.6, .45, .95, M('#ff8a3d', {roughness:.8}), x, .23, 6.2); bx(2.6, .95, .25, M('#e6722a', {roughness:.8}), x, .48, 6.8); arcSolid(x, 6.35, 1.35, .6); }
+  bx(2.74, .08, 1.52, M('#2f6fb0', {roughness:.6}), 7, .76, 4.2); bx(.04, .16, 1.6, M('#f3efe7'), 7, .88, 4.2);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) bx(.08, .72, .08, stand, 7 + sx * 1.2, .36, 4.2 + sz * .6);
+  arcSolid(7, 4.2, 1.45, .85);
+  for (const x of [-7.6, -4.6]){ bx(2.6, .45, .95, M('#ff8a3d', {roughness:.8}), x, .23, 5.4); bx(2.6, .95, .25, M('#e6722a', {roughness:.8}), x, .48, 6); arcSolid(x, 5.55, 1.35, .6); }
   /* a few students hanging around the machines that are not games */
   if (typeof npcBodyGeo !== 'undefined' && typeof npcHeadGeo !== 'undefined' && typeof npcLegGeo !== 'undefined'){
-    for (const [x, z, h, c] of [[-14.5, -6.5, -Math.PI / 2, '#3fd6c6'], [6.4, 5, Math.PI / 2, '#ffc93c'], [10.6, 5, -Math.PI / 2, '#7c8cff'], [-6.7, 5.2, 0, '#f4f2ec']]){
+    for (const [x, z, h, c] of [[-10.5, -5.4, -Math.PI / 2, '#3fd6c6'], [4.9, 4.2, Math.PI / 2, '#ffc93c'], [9.1, 4.2, -Math.PI / 2, '#7c8cff'], [-6.1, 4.3, 0, '#f4f2ec']]){
       const p = new THREE.Group();
       p.add(new THREE.Mesh(npcBodyGeo, M(c, {roughness:.8})), new THREE.Mesh(npcHeadGeo, M('#e8b98f', {roughness:.7})));
       for (const s of [-1, 1]){ const l = new THREE.Mesh(npcLegGeo, M('#2a3350', {roughness:.8, vertexColors:true})); l.position.set(s * .09, .87, 0); p.add(l); }
@@ -202,8 +202,8 @@ function arcBuild(){
   ARC.fixedCols = ARC.cols.length;
   ARC.fixedSpots = [
     {x:0, z:D / 2 - 1.5, r:2.2, act:'出门', say:'出门回校园', fn:() => arcLeave()},
-    {x:12.5, z:-1.5, r:2.2, act:'看榜', say:'看小游戏排行榜', fn:() => arcOpenBoard(), ring:arcRing('#ffc93c', 1.1, G)},
-    {x:-12.5, z:-1.5, r:2.2, act:'选游戏', say:'打开游戏列表', fn:() => arcOpenList(), ring:arcRing('#3fd6c6', 1.1, G)}
+    {x:9.3, z:-.9, r:2.2, act:'看榜', say:'看小游戏排行榜', fn:() => arcOpenBoard(), ring:arcRing('#ffc93c', 1.1, G)},
+    {x:-9.6, z:-.9, r:2.2, act:'选游戏', say:'打开游戏列表', fn:() => arcOpenList(), ring:arcRing('#3fd6c6', 1.1, G)}
   ];
   for (const s of ARC.fixedSpots) if (s.ring) s.ring.position.set(s.x, .05, s.z);
 }
@@ -215,7 +215,7 @@ function arcCabinets(){
   ARC.cols.length = ARC.fixedCols; ARC.spots = ARC.fixedSpots.slice();
   const games = MG.list.slice(0, 9), n = games.length, dark = M('#1c1e36', {roughness:.5});
   games.forEach((g, i) => {
-    const x = (i - (n - 1) / 2) * 3.4, z = -ARC.D / 2 + .75, c = new THREE.Group(); c.position.set(x, 0, z); arcCabG.add(c);
+    const x = (i - (n - 1) / 2) * 2.75, z = -ARC.D / 2 + .75, c = new THREE.Group(); c.position.set(x, 0, z); arcCabG.add(c);
     box(1.6, 2, 1.1, M(g.color, {roughness:.55}), 0, 1, 0, c); box(1.7, .14, .6, dark, 0, .98, .8, c); box(1.5, .7, .1, dark, 0, .5, .56, c);
     box(1.64, .42, .3, new THREE.MeshBasicMaterial({color:g.color}), 0, 2.2, .42, c).castShadow = false;
     const tex = arcTex(256, 192, (k, w, h) => {
@@ -227,7 +227,7 @@ function arcCabinets(){
     const ring = arcRing(g.color, 1.05, c); ring.position.set(0, .05, 2.1);
     arcSolid(x, z + .2, .95, .85);
     ARC.spots.push({x, z:z + 2.1, r:1.7, act:'开玩', say:`玩「${g.name}」`, fn:() => mgIntro(g.id), ring, game:g,
-      lbl:addLabel(g.icon + ' ' + g.name, ARC.ox + x, 3.3, ARC.oz + z, true)});
+      lbl:addLabel(g.icon + ' ' + g.name, ARC.ox + x, .4, ARC.oz + z + 3.7, true)});
   });
 }
 function arcHallBlocked(x, z){
@@ -270,21 +270,22 @@ function arcCamApply(dt){
   _acL.copy(C.look); camera.lookAt(_acL);
   if (Math.abs(camera.fov - C.fov) > .01){ camera.fov = C.fov; camera.updateProjectionMatrix(); }
 }
-const arcHallTarget = {get x(){ return (nw.x - ARC.ox) * .8; }, get z(){ return (nw.z - ARC.oz) * .8 - 1.5; }, y:0};   /* drifts less than 奶娃, so the room stays in frame */
+const arcHallTarget = {get x(){ return (nw.x - ARC.ox) * .6; }, get z(){ return Math.max(-2.6, (nw.z - ARC.oz) * .6 - 1.6); }, y:0};   /* drifts less than 奶娃, so the room stays in frame */
 function arcHallCam(){
   Object.assign(ACam, {fit:null, ox:ARC.ox, oz:ARC.oz, fov:55, lerp:7, snap:true, shake:0,
-    follow:{target:arcHallTarget, height:1.2, pitch:1, yaw:0, dist:a => (a < .8 ? 27 : a < 1.2 ? 23 : 19)}});
+    follow:{target:arcHallTarget, height:1.2, pitch:1, yaw:0, dist:a => (a < .8 ? 27 : a < 1.2 ? 21 : 17.5)}});
 }
 
 /* ---------- input: keyboard, the joystick (#joy), platform buttons in #acts, taps on the canvas ---------- */
-const IN = {k:{}, x:0, y:0, run:false, a:false, b:false, pa:false, pb:false, ptap:false, tapX:0, tapY:0};
+const IN = {k:{}, x:0, y:0, run:false, a:false, b:false, pa:false, pb:false, ptap:false, tapX:0, tapY:0, sim:null};
 const IN_A = {Space:1, KeyF:1, Enter:1, KeyJ:1}, IN_B = {KeyK:1, KeyE:1};
-function inReset(){ IN.k = {}; IN.a = IN.b = IN.pa = IN.pb = IN.ptap = false; IN.x = IN.y = 0; }
+function inReset(){ IN.k = {}; IN.a = IN.b = IN.pa = IN.pb = IN.ptap = false; IN.x = IN.y = 0; IN.sim = null; }
 function inAxis(){
   const k = IN.k;
   let x = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0) + joy.x, y = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0) - joy.y;
+  if (IN.sim){ x += IN.sim.x; y += IN.sim.y; }
   const l = Math.hypot(x, y); if (l > 1){ x /= l; y /= l; }
-  IN.x = x; IN.y = y; IN.run = !!(k.ShiftLeft || k.ShiftRight) || Math.hypot(joy.x, joy.y) > .95;
+  IN.x = x; IN.y = y; IN.run = !!(k.ShiftLeft || k.ShiftRight) || Math.hypot(joy.x, joy.y) > .95 || !!(IN.sim && IN.sim.run);
 }
 const arcPlaying = () => ARC.state === 'play' || ARC.state === 'count';
 window.addEventListener('keydown', e => {
@@ -424,7 +425,7 @@ function arcEnter(o){
   gx.paused = true; keys.Space = false; engineUpdate(0, 0, false); inReset();
   Object.assign(nw, {x:ARC.ox + ARC_SPAWN[0], z:ARC.oz + ARC_SPAWN[1], y:0, h:Math.PI, air:false, state:'idle', spd:0, vy:0});
   arcMark.visible = false; arcLbl.dead = true; arcPrompt = ''; if (ARC.fLbl){ ARC.fLbl = false; updateActs(); }
-  arcG.visible = true; arcWorld(false); arcLight(true); fitShadow(ARC.ox, ARC.oz, 26); arcHallCam();
+  wx.rain = 0; arcG.visible = true; arcWorld(false); arcLight(true); fitShadow(ARC.ox, ARC.oz, 22); arcHallCam();
   document.body.classList.add('arc-in'); arcBar.hidden = false; arcSetPrompt('');
   unlock('arcade1'); if (!o.quiet){ sfx.ding(); toast('B1 游戏厅', TOUCH ? '走到街机前点「开玩」，或者点上面的「游戏列表」' : '走到街机前按 F 开玩，Tab 打开游戏列表'); }
   arcFocus();
@@ -512,7 +513,12 @@ function mgCtx(g){
     },
     hud:{
       score(v){ const c = $('#mgScoreC'); c.hidden = false; const t = typeof v === 'number' ? String(Math.round(v)) : String(v); const el = $('#mgScore'); if (el.textContent !== t) el.textContent = t; },
-      time(s){ const c = $('#mgTimeC'); c.hidden = false; const t = String(Math.max(0, Math.ceil(s))); const el = $('#mgTime'); if (el.textContent !== t) el.textContent = t; c.classList.toggle('urgent', s <= 10); },
+      /* also ticks through the last five seconds, so every timed game gets the same tension for free */
+      time(s){
+        const c = $('#mgTimeC'), n = Math.max(0, Math.ceil(s)), t = String(n), el = $('#mgTime'); c.hidden = false;
+        if (el.textContent !== t){ if (n >= 1 && n <= 5 && +el.textContent === n + 1 && ARC.state === 'play') tone('square', n <= 2 ? 880 : 660, n <= 2 ? 880 : 660, .07, .07); el.textContent = t; }
+        c.classList.toggle('urgent', s <= 10);
+      },
       info(t){ const el = $('#mgInfo'); t = t || ''; if (el.textContent !== t) el.textContent = t; },
       hint(t){ arcSetPrompt(t || ''); },
       callout(t, sub, color){ gx.callout(t, sub, color || g.color); },
@@ -567,7 +573,7 @@ function mgBegin(){
   Object.assign(ACam, {fit:null, follow:null, ox:ARC.sx, oz:ARC.sz, fov:55, lerp:6, snap:true, shake:0});
   ACam.pos.set(ARC.sx, 14, ARC.sz + 12); ACam.look.set(ARC.sx, 0, ARC.sz);
   arcLight(true, g.sky); fitShadow(ARC.sx, ARC.sz, g.shadow);
-  ARC.state = g.countdown === false ? 'play' : 'count'; MG.cd = 3; MG.beep = 4;
+  ARC.state = g.countdown === false ? 'play' : 'count'; MG.cd = 2.25; MG.beep = 4;
   try { g.start(ctx); } catch(e){ mgCrash(e); return; }
   arcFocus();
 }
@@ -577,7 +583,7 @@ function mgCrash(e){
   mgEnd(); toast(`「${name}」出错了`, '已经回到游戏厅', 2600); sfx.fail();
 }
 function mgCount(dt){
-  MG.cd -= dt; const n = Math.ceil(MG.cd), g = MG.cur;
+  MG.cd -= dt; const n = Math.ceil(MG.cd / .75), g = MG.cur;
   if (n < MG.beep){ MG.beep = n; if (n > 0){ gx.callout(String(n), g.name, g.color); tone('square', 660, 660, .14, .09); } else { gx.callout('开始！', '', g.color); tone('square', 1320, 1320, .3, .12); } }
   if (MG.cd <= 0) ARC.state = 'play';
 }
@@ -615,7 +621,7 @@ function mgEnd(again){
   const b = ARC.back || {x:ARC.ox + ARC_SPAWN[0], z:ARC.oz + ARC_SPAWN[1], h:Math.PI};
   Object.assign(nw, {x:b.x, z:b.z, h:b.h, y:0, air:false, state:'idle', spd:0, vy:0}); NW.root.visible = true;
   if (!again){ arcG.visible = true; arcBar.hidden = false; }
-  arcLight(true); fitShadow(ARC.ox, ARC.oz, 26); arcHallCam();
+  arcLight(true); fitShadow(ARC.ox, ARC.oz, 22); arcHallCam();
 }
 /* the round is over: medal, local best, RM, achievements, leaderboard, result card */
 function mgFinish(score, o){
@@ -634,10 +640,12 @@ function mgFinish(score, o){
   if (MG.list.length > 1 && MG.list.every(x => mgSave.plays[x.id])) unlock('arcadeall');
   if (medal < 3){ gx.callout(GX_MEDAL[medal], has ? mgFmt(g, v) : '', ['#e3b95a', '#b8c2cc', '#c98a55'][medal]); for (let i = 0; i < 5; i++) tone('triangle', 523 * Math.pow(1.19, i), 523 * Math.pow(1.19, i), .18, .13, i * .09); }
   else sfx.ding();
+  if (rec && prev != null) setTimeout(() => { if (ARC.state === 'result') sfx.laugh(); }, 700);   /* a new personal best: 奶娃 laughs */
   const lines = [];
   const big = arcEl('div', 'mg-score'); big.append(arcEl('b', null, has ? mgFmt(g, v) : '—'), arcEl('span', medal < 3 ? 'm' + medal : '', medal < 3 ? GX_MEDAL[medal] : has ? '没拿到奖牌' : '这局没有成绩')); lines.push(big);
   if (o.sub) lines.push(o.sub);
   lines.push((rec ? (prev != null ? '新纪录！' : '第一次完成') : prev != null ? `本机最好 ${mgFmt(g, prev)}` : '') + (pay > 0 ? `${rec || prev != null ? ' · ' : ''}+RM ${pay}` : ''));
+  if (has && g.medals && medal > 0){ const need = Math.abs(g.medals[medal - 1] - v); lines.push(`离${GX_MEDAL[medal - 1]}还差 ${mgFmt(g, Math.ceil(need * 100) / 100)}`); }
   const net = arcEl('p', 'mg-net'); lines.push(net);
   const run = MG.run, N = window.XNet;
   if (!g.board) net.hidden = true;
@@ -703,6 +711,18 @@ window.XMini = {
   start(id){ if (mgIntro(id)) mgBegin(); },
   quit(){ if (MG.cur) mgEnd(); },
   best:mgBest,
+  /* for testing without real time (a hidden tab runs no animation frames, see docs/MINIGAMES.md):
+     sim.step(sec, each) advances the platform at 60 steps a second, calling each(dt) before every step, then draws one frame;
+     sim.press('a' | 'b') is a button press for the next step, sim.move(x, y, run) holds the stick until changed */
+  sim:{
+    step(sec, each){
+      const dt = 1 / 60; let n = Math.round(sec / dt), t = performance.now() / 1000;
+      while (n-- > 0 && ARC.in){ if (each && each(dt) === false) break; arcFrame(dt); animNaiwa(dt, t += dt); updateParts(dt); }
+      renderer.render(scene, camera);
+    },
+    press(k){ if (k === 'b'){ IN.pb = true; } else { IN.pa = true; } },
+    move(x, y, run){ IN.sim = x || y ? {x:+x || 0, y:+y || 0, run:!!run} : null; }
+  },
   /* for the leaderboard dialog (js/ui-title.js): values on the board are "higher is better", fmt turns them back */
   board(id){
     const g = MG.byId[id]; if (!g || !g.board) return null;

@@ -70,6 +70,30 @@
         }
       }
     },
+    "mini": {
+      "$game": {
+        ".read": "$game.matches(/^[a-z][a-z0-9_]{1,15}$/)",
+        ".indexOn": [
+          "value"
+        ],
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid && $game.matches(/^[a-z][a-z0-9_]{1,15}$/)",
+          ".validate": "newData.hasChildren(['name', 'value', 'ts']) && (!data.exists() || newData.child('value').val() >= data.child('value').val())",
+          "name": {
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16 && newData.val() === root.child('users').child(auth.uid).child('name').val()"
+          },
+          "value": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000"
+          },
+          "ts": {
+            ".validate": "newData.isNumber() && newData.val() > 0 && newData.val() <= now + 600000"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
     "saves": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
