@@ -185,41 +185,62 @@ structBlock(function(){
 
 /* ---------- 一主四从: A1–A5 ---------- */
 const sideDesc = '"一主四从"里的"从"楼之一：讲堂、课室、电脑室和实验室都在这几栋。';
-building({arcade:true, bay:true, gable:true, eaveLight:true, wash:{accent:WASH_VIOLET}, name:'A1', tag:'教学', desc:sideDesc + '它在最西端，紧挨礼堂。', floors:6, px:900, py:640, wp:95, dp:85, rot:18, variant:1, plaque:{text:'A1'}});
+/* The four side blocks stand on an arc that opens toward the lawn, each one turned to face its centre (the plan's angles had been applied the wrong way round:
+   the west blocks were swung away from A3, which left them overlapping at the corners). placeRot keeps the scenery where it was (see LATE_COLS in js/00-core.js).
+   grand: a deep ground-floor arcade to walk along, an open porch under the entrance tower, a lookout storey on top; waist: a skirt of eaves under the top floor. */
+building({arcade:true, bay:true, gable:true, eaveLight:true, grand:true, waist:[5], wash:{accent:WASH_VIOLET}, name:'A1', tag:'教学', desc:sideDesc + '它在最西端，紧挨礼堂。', floors:6, px:900, py:640, wp:95, dp:85, rot:-18, placeRot:18, variant:1, plaque:{text:'A1'}});
 const A_ST = [structures[structures.length - 1]];
-building({arcade:true, bay:true, gable:true, eaveLight:true, wash:{}, name:'A2', tag:'教学', desc:sideDesc, floors:6, px:1015, py:602, wp:100, dp:85, rot:8, plaque:{text:'A2'}});
+building({arcade:true, bay:true, gable:true, eaveLight:true, grand:true, waist:[5], wash:{}, name:'A2', tag:'教学', desc:sideDesc, floors:6, px:1015, py:602, wp:100, dp:85, rot:-8, placeRot:8, plaque:{text:'A2'}});
 A_ST.push(structures[structures.length - 1]);
 const a3Info = {name:'A3 百姓大楼', tag:'主楼', floors:9,
   desc:'九层的百姓大楼，是"一主四从"主楼群正中间的主楼，正对正门。图书馆就在这里，2023 年 5 月试开放，可藏书 100 多万册，座位 2000 多个。上面几层是招生、财务等办公室。'};
 const a3s = newStruct(a3Info);
 /* A3 as it stands: a two-storey arcaded base with a terrace, the nine-storey block rising flush with its front, a skirt of eaves under the top floor
    and a deep hipped roof round a flat skylit top (重檐), and in front six tall round columns on a curved porch above the wide steps. Same footprint and colliders as before. */
-building({arcade:true, portico:{w:36, h:13.4, curve:3.4, r:2.1, steps:false}, flat:true, wash:{}, struct:a3s, px:1155, py:575, wp:140, dp:115, floors:2, info:a3Info, label:false, variant:1, plaque:{text:'百姓大楼', w:5.6, y:15.15, z:40.2}});
+building({arcade:'deep', portico:{w:36, h:13.4, curve:3.4, r:2.1, steps:false}, flat:true, wash:{}, struct:a3s, px:1155, py:575, wp:140, dp:115, floors:2, info:a3Info, label:false, variant:1, plaque:{text:'百姓大楼', w:5.6, y:15.15, z:43.32}});
 A_ST.push(a3s);
 const a3t = building({struct:a3s, px:1155, py:585.5, wp:124, dp:92, floors:9, info:a3Info, label:'A3 百姓大楼', variant:0, roofH:8.5, over:3.8, roofCut:.6, noCollide:true, waist:[8], waistOver:3, eaveLight:true, wash:{top:'blue'}});
-building({arcade:true, bay:true, gable:true, eaveLight:true, wash:{}, name:'A4', tag:'教学', desc:sideDesc, floors:6, px:1295, py:580, wp:110, dp:85, plaque:{text:'A4'}});
+building({arcade:true, bay:true, gable:true, eaveLight:true, grand:true, waist:[5], wash:{}, name:'A4', tag:'教学', desc:sideDesc, floors:6, px:1295, py:580, wp:110, dp:85, plaque:{text:'A4'}});
 A_ST.push(structures[structures.length - 1]);
-building({arcade:true, bay:true, gable:true, eaveLight:true, wash:{accent:WASH_VIOLET}, name:'A5', tag:'教学', desc:sideDesc + '再往东走就是 B1 和运动场。', floors:6, px:1425, py:585, wp:110, dp:85, rot:-3, variant:1, plaque:{text:'A5'}});
+building({arcade:true, bay:true, gable:true, eaveLight:true, grand:true, waist:[5], wash:{accent:WASH_VIOLET}, name:'A5', tag:'教学', desc:sideDesc + '再往东走就是 B1 和运动场。', floors:6, px:1425, py:585, wp:110, dp:85, rot:3, placeRot:-3, variant:1, plaque:{text:'A5'}});
 A_ST.push(structures[structures.length - 1]);
-building({name:'礼堂', tag:'教学', desc:'A1 旁边的礼堂（Auditorium）。', floors:2, px:815, py:680, wp:75, dp:42, rot:18, roof:'#b9b2a6', roofH:4, minor:true, canopy:'front', plaque:{text:'礼堂', w:4, y:5.2, z:12.65}});
+building({name:'礼堂', tag:'教学', desc:'A1 旁边的礼堂（Auditorium）。', floors:2, px:815, py:680, wp:75, dp:42, rot:-18, placeRot:18, roof:'#b9b2a6', roofH:4, minor:true, canopy:'front', plaque:{text:'礼堂', w:4, y:5.2, z:12.65}});
 const iaec = {name:'国际学术交流中心', tag:'交流', desc:'International Academic Exchange Centre。教学区西边一排两层的小楼。'};
 [[565,650],[612,650],[660,648],[706,645]].forEach(([px, py], i) => building({px, py, wp:38, dp:24, floors:2, rot:-3, info:iaec, label:i === 1 ? '国际学术交流中心' : false, minor:true, canopy:'front'}));
 
-/* 连廊: covered walkways joining the arcades of the A row (each hangs off the western building, so it goes when that one is swallowed) */
+/* 连廊: what joins the five blocks of the A row into one front (each link hangs off the block to its west, so it goes when that one is swallowed).
+   - at ground level the arcades are carried across each gap by a colonnade of the same height, depth and arches, so you can walk the whole row under cover;
+   - above, a two-storey enclosed bridge crosses the gap at the second and third floors, with windows down both sides and a tiled roof.
+   Both are built in the link's own frame (x along it) and attached to the western block. No colliders: people and cars pass between the columns and under the bridge. */
 (function(){
-  const A = [[900, 640, 95, 85, 18], [1015, 602, 100, 85, 8], [1155, 575, 140, 115, 0], [1295, 580, 110, 85, 0], [1425, 585, 110, 85, -3]];
-  const edge = ([px, py, wp, dp, rot], sx) => { const [x, z] = P(px, py), r = -rot * D2R, lx = sx * S(wp) / 2, lz = S(dp) / 2 + 1.2; return [x + lx * Math.cos(r) + lz * Math.sin(r), z - lx * Math.sin(r) + lz * Math.cos(r)]; };
-  const M4 = new THREE.Matrix4(), inv = new THREE.Matrix4();
+  /* px, py, width, depth (map pixels), rotation, half width of the wall the bridge meets (A3's tall block is narrower than its base) */
+  const A = [[900, 640, 95, 85, -18, 28.5], [1015, 602, 100, 85, -8, 30], [1155, 575, 140, 115, 0, 37.2], [1295, 580, 110, 85, 0, 33], [1425, 585, 110, 85, 3, 33]];
+  const at = ([px, py, wp, dp, rot], lx, lz) => { const [x, z] = P(px, py), r = -rot * D2R; return [x + lx * Math.cos(r) + lz * Math.sin(r), z - lx * Math.sin(r) + lz * Math.cos(r)]; };
+  const M4 = new THREE.Matrix4(), inv = new THREE.Matrix4(), GLASS = '#3d5361';
   for (let i = 0; i < A.length - 1; i++){
-    const a = edge(A[i], 1), b = edge(A[i + 1], -1), dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz) + 1.2, y = 5.25;
-    const deco = [], rp = roofParts(L, 2.6, 1.15, .55, 0, y + .55, 0);
-    tbox(deco, L, .5, 3, 0, y + .25, 0, TRIM); tbox(deco, L, .16, 3.3, 0, y + .58, 0, TRIM2);
-    for (const e of [-1, 1]) for (const s of [-1, 1]) tbox(deco, .45, y, .45, e * (L / 2 - .5), y / 2, s * 1.1, PIL);
-    const st = A_ST[i], g = st.groups[0]; g.updateMatrixWorld(true);
-    M4.compose(_cp.set((a[0] + b[0]) / 2, 0, (a[1] + b[1]) / 2), _cq.setFromAxisAngle(UP, Math.atan2(-dz, dx)), _cs.set(1, 1, 1)).premultiply(inv.copy(g.matrixWorld).invert());
-    const ms = [new THREE.Mesh(geoMerge(deco), decoMat)]; ms[0].castShadow = ms[0].receiveShadow = true; g.add(ms[0]);
-    ms.push(...roofMeshes(rp, roofMat('#c4502a'), g));
-    for (const m of ms){ m.geometry.applyMatrix4(M4); m.userData.info = st.info; pickables.push(m); }
+    const st = A_ST[i], g = st.groups[0]; g.updateMatrixWorld(true); inv.copy(g.matrixWorld).invert();
+    const place = (a, b, parts, roofs) => {
+      const dx = b[0] - a[0], dz = b[1] - a[1];
+      M4.compose(_cp.set((a[0] + b[0]) / 2, 0, (a[1] + b[1]) / 2), _cq.setFromAxisAngle(UP, Math.atan2(-dz, dx)), _cs.set(1, 1, 1)).premultiply(inv);
+      const ms = [new THREE.Mesh(geoMerge(parts), decoMat)]; ms[0].castShadow = ms[0].receiveShadow = true; g.add(ms[0]);
+      if (roofs) ms.push(...roofMeshes(roofs, roofMat('#c4502a'), g));
+      for (const m of ms){ m.geometry.applyMatrix4(M4); m.userData.info = st.info; pickables.push(m); }
+    };
+    /* ground level: from the middle of one arcade's end to the middle of the next one's */
+    { const a = at(A[i], S(A[i][2]) / 2 - .6, S(A[i][3]) / 2 + 2.55), b = at(A[i + 1], -S(A[i + 1][2]) / 2 + .6, S(A[i + 1][3]) / 2 + 2.55), L = Math.hypot(b[0] - a[0], b[1] - a[1]), parts = [], yP = 5.6, n = Math.max(1, Math.round(L / 4.3));
+      tbox(parts, L + 3, .5, 5.3, 0, yP + .25, 0, TRIM); tbox(parts, L + 3.3, .18, 5.6, 0, yP + .59, 0, TRIM2); tbox(parts, L + 2, .12, 5.6, 0, .06, 0, '#8a8377');
+      for (const s of [-1, 1]){
+        tbox(parts, L + 3, .5, .14, 0, yP + .93, s * 2.6, BALC2);
+        for (let k = 0; k <= n; k++){ const u = -L / 2 + L * k / n; parts.push(geoTint(new THREE.CylinderGeometry(.5, .58, yP, 12).translate(u, yP / 2, s * 2.2).toNonIndexed(), '#f5f0e6'));
+          if (k < n) parts.push(geoTint(archGeo(u, u + L / n, yP).translate(0, 0, s * 2.2), TRIM)); }
+      }
+      place(a, b, parts); ROW_LINKS.push([a, b]); }
+    /* above: the bridge between the side walls */
+    { const a = at(A[i], A[i][5] - .5, 5), b = at(A[i + 1], -A[i + 1][5] + .5, 5), L = Math.hypot(b[0] - a[0], b[1] - a[1]), parts = [], y0b = 8.2, Hb = 7.2, Wb = 3.9;
+      tbox(parts, L, Hb, Wb, 0, y0b + Hb / 2, 0, PIL); tbox(parts, L, .3, Wb + .3, 0, y0b + .15, 0, TRIM2); tbox(parts, L, .25, Wb + .3, 0, y0b + 3.6, 0, TRIM2); tbox(parts, L, .5, Wb + .5, 0, y0b + Hb + .25, 0, TRIM);
+      for (const s of [-1, 1]) for (const fl of [0, 1]){ tbox(parts, L - 1.4, 1.9, .1, 0, y0b + fl * 3.6 + 1.85, s * (Wb / 2 + .02), GLASS);
+        for (let k = 1; k * 2.4 < L - 1.4; k++) tbox(parts, .14, 1.9, .14, -L / 2 + .7 + k * 2.4, y0b + fl * 3.6 + 1.85, s * (Wb / 2 + .04), '#e9e2d4'); }
+      place(a, b, parts, roofParts(L + .4, Wb + .5, 1.5, .8, 0, y0b + Hb + .5, 0)); }
   }
 })();
 

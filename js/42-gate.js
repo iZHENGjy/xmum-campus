@@ -3,6 +3,7 @@
    站在新建筑里的树和路灯在文件最后清掉。大台阶的高度通过包一层 groundAt 接进去（见 stairY）。
    夜里的发光都是自发光材质和贴片，没有真实光源；js/18-gfx.js 每帧调 gateNight(lamp)。 */
 'use strict';
+lateColsSwap();   /* the scenery is placed: buildings that were turned or opened up get their real colliders now (js/00-core.js) */
 const gateGlassMat = new THREE.MeshStandardMaterial({color:'#dbe6ec', emissive:'#f2f7ff', emissiveIntensity:0, roughness:.25});   /* booth windows, porch down-lights: white light after dark */
 const gateLampMat = new THREE.MeshStandardMaterial({color:'#fff3da', emissive:'#ffd08a', emissiveIntensity:0});                    /* lawn bollards, stair lanterns */
 const gateSignMats = [];   /* unlit sign faces (hotel name): dimmed by day, full at night */
@@ -195,7 +196,18 @@ var hotelMat;
 let gateCleared = false;
 function gateClearRun(){
   gateCleared = true;
+  /* a campus cat whose spot is now inside a block that was turned moves to the front of it */
+  if (typeof cats !== 'undefined') for (const k of cats) for (const c of LATE_REAL){
+    const dx = k.hx - c.cx, dz = k.hz - c.cz, lx = dx * c.c - dz * c.s, lz = dx * c.s + dz * c.c;
+    if (Math.abs(lx) < c.hx + .5 && Math.abs(lz) < c.hz + .5){ const sx = lx * c.c + (c.hz + 7) * c.s, sz = -lx * c.s + (c.hz + 7) * c.c; k.hx = k.x = k.tx = c.cx + sx; k.hz = k.z = k.tz = c.cz + sz; }
+  }
   for (const set of knockSets) set.spots.forEach((o, i) => {
-    if (!o.hidden && gateClear.some(([x0, z0, x1, z1]) => o.x > x0 && o.x < x1 && o.z > z0 && o.z < z1)){ o.down = true; o.hidden = true; o.s = 0; setKnock(set, i, false, 0, 0); }
+    if (o.hidden) return;
+    /* in the way of: the stair or a porch; a block that was turned (its box, with a margin); an arcade walk; a link between two blocks */
+    const hit = gateClear.some(([x0, z0, x1, z1]) => o.x > x0 && o.x < x1 && o.z > z0 && o.z < z1)
+      || LATE_REAL.some(c => { const dx = o.x - c.cx, dz = o.z - c.cz, lx = dx * c.c - dz * c.s, lz = dx * c.s + dz * c.c; return Math.abs(lx) < c.hx + 1.4 && Math.abs(lz) < c.hz + 1.4; })
+      || GRAND_FRONTS.some(f => { const dx = o.x - f.x, dz = o.z - f.z, c = Math.cos(f.rot), s = Math.sin(f.rot), lx = dx * c - dz * s, lz = dx * s + dz * c; return Math.abs(lx) < f.w / 2 + 1.5 && lz > f.d / 2 - 1 && lz < f.d / 2 + f.depth; })
+      || ROW_LINKS.some(([a, b]) => segDist(o.x, o.z, a, b) < 3.6);
+    if (hit){ o.down = true; o.hidden = true; o.s = 0; setKnock(set, i, false, 0, 0); }
   });
 }
