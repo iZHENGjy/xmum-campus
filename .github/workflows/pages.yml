@@ -1,0 +1,87 @@
+# Publishes the site: main at the root (the live game), dev at /preview/ (test build).
+# Replaces the old "deploy from branch" setting; Settings > Pages > Source must be "GitHub Actions".
+#
+# The preview is kept away from live data:
+#   - js/firebase-config.js is replaced: offline, or the test Firebase project if dev has
+#     js/firebase-config.preview.js. It never gets the live project's config.
+#   - .github/preview/guard.js is injected first into every preview page and prefixes all
+#     localStorage keys (same origin as the live game), so preview saves never touch real ones.
+name: 部署网站
+
+on:
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  # The github-pages environment only deploys from main, so a push to dev re-runs this workflow on main.
+  relay:
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - run: gh workflow run pages.yml --repo "$GITHUB_REPOSITORY" --ref main
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  build:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: site
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+          path: dev
+
+      - name: Assemble main + dev/preview
+        run: |
+          set -euo pipefail
+          GUARD=site/.github/preview/guard.js
+          mkdir -p site/preview
+          ( cd dev && git log -1 --format='%h %cd' --date=format:'%Y-%m-%d %H:%M' ) > preview-version.txt
+          rm -rf site/.git dev/.git dev/.github
+          cp -r dev/. site/preview/
+          cp "$GUARD" site/preview/preview-guard.js
+          rm -rf site/.github
+
+          # preview: offline unless dev ships a test-project config; never the live database
+          if [ -f site/preview/js/firebase-config.preview.js ]; then
+            cp site/preview/js/firebase-config.preview.js site/preview/js/firebase-config.js
+          else
+            echo 'window.XMUM_FIREBASE = null;  /* preview build: offline, see .github/workflows/pages.yml */' > site/preview/js/firebase-config.js
+          fi
+
+          # preview: guard first in <head>, keep it out of search engines
+          for f in site/preview/*.html; do
+            sed -i '0,/<head>/s##<head>\n<meta name="robots" content="noindex,nofollow">\n<script src="preview-guard.js"></script>#' "$f"
+          done
+          echo "preview built from dev $(cat preview-version.txt)"
+          grep -c 'preview-guard.js' site/preview/index.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

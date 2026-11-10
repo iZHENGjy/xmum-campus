@@ -615,3 +615,8 @@ body.titled #labels{opacity:0}
 #act-w{grid-column:1 / -1}
 #act-w:not([disabled]){border-color:#7cc7ff}
 .water{color:#2a78d6;letter-spacing:1px;font-size:13px}
+/* ---------- nickname registration hint (js/net.js claims names first come, first served) ---------- */
+.t-namehint{margin:0;font-size:12.5px;line-height:1.5;color:var(--muted)}
+.t-namehint[data-tone="ok"]{color:#2f8f5a}
+.t-namehint[data-tone="bad"]{color:var(--tile)}
+.t-namehint[data-tone="warn"]{color:#b7791f}
