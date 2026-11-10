@@ -802,6 +802,8 @@ function dmUpdate(dt, px, pz){
     const nd = dmNearDoor();
     if (nd){ const why = dmBusyWhy(); dmPrompt = why ? `${nd.name} 宿舍 · ${why}` : (TOUCH ? '点「进宿舍」' : '按 F ') + `进 ${nd.name} 宿舍搜一圈 · 23:00 门禁` + (prog.best.dorm ? ` · 纪录 RM ${prog.best.dorm}` : ''); }
     dmF(nd ? '进宿舍' : '');
+    if (nd && !dmBusyWhy() && typeof offerJob === 'function') offerJob('dorm:' + nd.name, () => ({icon:'🎒', title:nd.name + ' 宿舍搜刮', desc:'进去搜一圈，赶在 23:00 门禁前带着东西出来', accept:'进宿舍',
+      pay:prog.best.dorm ? '纪录 RM ' + prog.best.dorm : '带出来多少算多少', risk:'被宿管阿姨抓到，身上的东西全没', onAccept:() => { const d = dmNearDoor(); if (d && !dmBusyWhy()) dmEnter(d); }}));
     return;
   }
   const run = DORM.run, L = DORM.L, hold = keys.KeyF || keys.Enter || actF.classList.contains('on');
