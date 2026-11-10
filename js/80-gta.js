@@ -2,7 +2,7 @@
 'use strict';
 /* hooks filled in by js/85-activities.js; no-ops keep pages that skip that file working */
 const gx = {paused:false, update(){}, mini(){}, target(){ return null; }, prompt(){ return ''; }, busy(){ return false; },
-  onStunt(){}, onCrash(){}, onBust(){}, leave(){}, scale(){ return 1; }, callout(){}, togglePause(){}};
+  onStunt(){}, onCrash(){}, onBust(){}, leave(){}, scale(){ return 1; }, callout(){}, togglePause(){}, extBusy(){ return false; }};
 
 /* ---------- progression: saved upgrades, achievements, records; this session's stats ---------- */
 const prog = {up:{eng:0, grip:0, arm:0}, ach:{}, best:{}, life:{deliv:0, bust:0, taxi:0}, daily:''};
@@ -18,7 +18,7 @@ const ACH = [
   ['lake', '飞进湖里', '开着车飞进湖里', 30], ['eject', '人车分离', '车祸把奶娃甩飞出去', 20], ['air2', '空中飞人', '一次飞跃超过 2 秒', 40],
   ['combo5k', '连击大师', '一次连击超过 5,000 分', 60], ['early8', '早八不迟到', '跑完早八冲刺', 30], ['gold', '金牌车手', '任意挑战拿到金牌', 80],
   ['taxi5', '五星好评', '顺风车拿到五星评价', 40], ['allcars', '集齐五辆车', '车行五辆车全部买下', 200], ['tuned', '改装狂人', '任意一项改装到满级', 60],
-  ['rich', '小富婆', '钱包超过 RM 2,000', 0]
+  ['rich', '小富婆', '钱包超过 RM 2,000', 0], ['exam', '期末救星', '成功抢救期末卷', 50], ['soak', '落汤保安', '用水枪淋湿保安', 20]
 ];
 const achQ = []; let achT = 0;
 function unlock(id){
@@ -87,6 +87,7 @@ function spawnChaser(tx, tz){
 }
 function chaseInput(c, tx, tz, dt){
   const want = Math.atan2(tx - c.x, tz - c.z), da = Math.atan2(Math.sin(want - c.h), Math.cos(want - c.h)), sp = Math.hypot(c.vx, c.vz);
+  if (c.soakT > 0){ c.soakT -= dt; c.inp.thr = 0; c.inp.steer = 0; c.inp.brake = true; return; }   /* soaked by the water gun (js/87-classroom.js) */
   if (c.stuck > 0){ c.stuck -= dt; c.inp.thr = -1; c.inp.steer = -(Math.sign(da) || 1); c.inp.brake = false; return; }
   c.lowT = sp < 1.5 ? c.lowT + dt : 0; if (c.lowT > 1.1){ c.stuck = 1.1; c.lowT = 0; }
   c.inp.thr = Math.abs(da) > 1.9 ? .5 : 1; c.inp.steer = Math.max(-1, Math.min(1, da * 2.2)); c.inp.brake = Math.abs(da) > 1.1 && sp > 14;
@@ -100,7 +101,9 @@ function busted(){
   sfx.fail(); toast('被保安抓住了', fine > .005 ? `罚款 RM ${fine.toFixed(2)}，警戒解除` : '没钱罚，警告一次，警戒解除', 2800);
 }
 function updateChase(dt){
-  const tx = driving ? driving.x : nw.x, tz = driving ? driving.z : nw.z;
+  /* hiding in a classroom (js/87-classroom.js): the patrol cars wait at that building's door and cannot arrest you */
+  const indoor = typeof ROOM !== 'undefined' && ROOM.in && ROOM.from;
+  const tx = indoor ? ROOM.from.x : driving ? driving.x : nw.x, tz = indoor ? ROOM.from.z : driving ? driving.z : nw.z;
   const stars = Math.min(5, Math.floor(heat));
   const active = patrols.filter(c => c.active && c !== driving);
   if (stars >= 1 && !warned){ warned = true; toast('保安盯上你了', '撞东西、吓到同学都会让警戒升级', 2400); }
@@ -132,7 +135,7 @@ function updateChase(dt){
   for (const c of active){
     c.T.maxV = CAR_T.patrol.maxV * boost; c.T.acc = CAR_T.patrol.acc * boost;
     chaseInput(c, tx, tz, dt);
-    const d = Math.hypot(c.x - tx, c.z - tz); minD = Math.min(minD, d);
+    const d = Math.hypot(c.x - tx, c.z - tz); if (!(c.soakT > 0)) minD = Math.min(minD, d);
     c.farT = d > 100 ? (c.farT || 0) + dt : 0;
     if (c.farT > 7){ c.farT = 0; c.active = false; c.root.visible = false; cars.splice(cars.indexOf(c), 1); spawnChaser(tx, tz); continue; }
     const on = Math.floor(performance.now() / 160) % 2 === 0;
@@ -140,9 +143,9 @@ function updateChase(dt){
   }
   if (active.length){
     const mySp = driving ? Math.hypot(driving.vx, driving.vz) : 0;
-    if (minD < (driving ? 5.5 : 3.2) && mySp < 4) bustT += dt * (driving ? 1 : 1.6); else bustT = Math.max(0, bustT - dt);
+    if (!indoor && minD < (driving ? 5.5 : 3.2) && mySp < 4) bustT += dt * (driving ? 1 : 1.6); else bustT = Math.max(0, bustT - dt);
     if (bustT > 1.5){ busted(); return; }
-    if (minD > (inForest ? 70 : 150)){ calmT += dt * (inForest ? 1.6 : 1); if (calmT > 6){ calmT = 0; heat = Math.floor(heat) - 1 + .5; if (heat < 1){
+    if (indoor || minD > (inForest ? 70 : 150)){ calmT += dt * (inForest ? 1.6 : 1); if (calmT > 6){ calmT = 0; heat = Math.floor(heat) - 1 + .5; if (heat < 1){
       heat = 0; despawnChasers(); toast('甩掉了保安', chasePeak >= 4 ? `从 ${chasePeak} 星警戒里溜了` : '警戒解除'); sfx.ding(); if (chasePeak >= 4) unlock('escape4'); chasePeak = 0; } } }
     else calmT = 0;
     sirenT -= dt; if (sirenT <= 0){ sirenT = .42; sirenHi = !sirenHi; tone('triangle', sirenHi ? 900 : 680, sirenHi ? 900 : 680, .38, .035); }

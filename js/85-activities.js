@@ -9,6 +9,7 @@ function gxMarker(color, s){
 }
 const gxPx = arr => arr.map(p => P(p[0], p[1]));
 const GX_MEDAL = ['金牌', '银牌', '铜牌'];
+const GX_MORE = [];   /* extra records for the pause panel: {id, name, fmt} (js/87-classroom.js adds 抢救期末卷) */
 /* par times come from an autopilot run: a stock sedan lands around bronze/silver, a tuned sports car can take gold */
 const GX_ACTS = [
   {id:'lake', type:'race', name:'环湖赛', color:'#4aa3ff', start:P(1180, 508),
@@ -83,7 +84,7 @@ function gxTaxiEnd(ok, title, sub){
 function gxUpdateTaxi(dt, px, pz, sp){
   const T = gxTaxi; T.quipT -= dt;
   if (T.say){ T.sayT -= dt; if (T.sayT <= 0){ if (T.on) toast(T.type.name + '：' + T.say, gxStarsTxt(), 1900); T.say = ''; T.quipT = 2.5; } }
-  const blocked2 = mission.on || gxA.act;
+  const blocked2 = mission.on || gxA.act || gx.extBusy();
   if (!T.on){
     gxDestMark.visible = false;
     if (!T.pk){
@@ -170,7 +171,7 @@ function gxUpdateAct(dt, px, pz, sp){
   const a = gxA.act;
   if (!a){
     /* idle: show start rings; drive into one to begin */
-    const hide = mission.on || gxTaxi.on;
+    const hide = mission.on || gxTaxi.on || gx.extBusy();
     for (const b of GX_ACTS){
       b.mark.visible = !hide; b.lbl.dead = hide;
       if (hide) continue;
@@ -267,7 +268,7 @@ function gxRenderPause(){
     const b = prog.best[a.id]; let medal = '';
     if (b != null){ const low = a.type === 'race'; for (let i = 0; i < 3; i++) if (low ? b <= a.medal[i] : b >= a.medal[i]){ medal = `<em class="m${i}">${GX_MEDAL[i]}</em>`; break; } }
     return `<li><span>${a.name}</span><b>${b != null ? gxScoreTxt(a, b) : '—'}</b>${medal}</li>`;
-  }).join('');
+  }).join('') + GX_MORE.map(a => { const b = prog.best[a.id]; return `<li><span>${a.name}</span><b>${b != null ? a.fmt(b) : '—'}</b></li>`; }).join('');
   const got = ACH.filter(a => prog.ach[a[0]]).length;
   const achs = ACH.map(a => `<li class="${prog.ach[a[0]] ? 'on' : ''}" title="${a[2]}"><b>${a[1]}</b><span>${a[2]}</span></li>`).join('');
   $('#gxpBody').innerHTML = `
