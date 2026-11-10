@@ -236,7 +236,7 @@ function roomUpdate(dt, px, pz){
   wgShow();
   for (const c of patrols) if (c.soakT > 0 && c.active && rnd() < dt * 6) spawnPart('dust', c.x + (rnd() - .5) * 2, 1.6, c.z + (rnd() - .5) * 2, .4, {vy:-1, life:.6, op:.8, color:'#9fd8ff'});
   /* doors outside */
-  const busyOther = mission.on || gxA.act || gxTaxi.on;
+  const busyOther = mission.on || gxA.act || gxTaxi.on || gx.extBusy();   /* extBusy: anything a later file runs (js/89-outskirts-play.js) */
   for (const d of ROOM_DOORS){
     const target = EX.on && EX.door === d && !EX.got;
     d.mark.visible = !ROOM.in; d.lbl.dead = ROOM.in || Math.hypot(px - d.x, pz - d.z) > 140;
