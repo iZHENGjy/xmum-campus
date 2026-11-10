@@ -230,7 +230,7 @@ function wardFrame(now){
    开着自己的车冲进门就行：卷帘门落下（追兵丢了视线），车自动刹停，2~3 秒自动换一种漆，开门时警戒清零，按星收费（每星 RM 50）。
    不用停稳、不用管附近有没有巡逻车、不用开面板，手机上一个按钮都不用点。钱不够门就不关，提示还差多少。
    同一个车间喷完要冷却 2 分钟。没被通缉时停在车间里按 F（手机：停稳一会儿）打开完整的喷漆店挑颜色。
-   车间：window.XSPRAY.door（Bell 那间，js/13-outskirts.js），另外在车行旁边盖了一间。
+   车间：window.XSPRAY.door（Bell 那间，js/13-outskirts.js）。
    door = {x, z 门口中点, h 朝里的朝向, w 内宽, d 进深, top 门洞高}。对外：window.XSprays */
 const SPRAY_FEE = 50, SPRAY_CD = 120;
 const SPRAYS = [];
@@ -246,6 +246,10 @@ function sprayAdd(D, name){
   const geo = new THREE.BoxGeometry(D.w, D.top, .12).translate(0, -D.top / 2, 0);
   const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({map:tex, roughness:.6, metalness:.3}));
   m.position.set(D.x + Math.sin(D.h) * .2, D.top, D.z + Math.cos(D.h) * .2); m.rotation.y = D.h; m.scale.y = .02; m.visible = false; m.castShadow = true; scene.add(m);
+  /* the building only draws its roof and lintel from outside: give the inside a ceiling and a wall above the shutter (seen only from in there) */
+  const fx = Math.sin(D.h), fz = Math.cos(D.h), ceil = D.ceil || D.top + 1.45, inMat = M('#3b3f45', {roughness:.85});
+  const roof = new THREE.Mesh(new THREE.PlaneGeometry(D.w, D.d).rotateX(Math.PI / 2), inMat); roof.rotation.y = D.h; roof.position.set(D.x + fx * D.d / 2, ceil, D.z + fz * D.d / 2); scene.add(roof);
+  const lin = new THREE.Mesh(new THREE.PlaneGeometry(D.w, ceil - D.top), inMat); lin.rotation.y = D.h; lin.position.set(D.x + fx * .35, (D.top + ceil) / 2, D.z + fz * .35); scene.add(lin);
   const G = {D, name, door:m, k:0, cd:0, done:false, still:0, panel:false};
   SPRAYS.push(G); return G;
 }
@@ -254,28 +258,6 @@ function sprayDoor(G, k){ G.k = k; G.door.scale.y = Math.max(.02, k); G.door.vis
 function sprayAt(G, p){ const D = G.D, dx = p.x - D.x, dz = p.z - D.z, fx = Math.sin(D.h), fz = Math.cos(D.h); return {v:dx * fx + dz * fz, u:dx * fz - dz * fx}; }
 /* the Bell one (js/13-outskirts.js); without a door spec, a box in front of XSPRAY */
 if (window.XSPRAY){ const S = XSPRAY; sprayAdd(S.door || {x:S.x, z:S.z - 10, h:S.h || 0, w:12, d:16, top:3.8}, 'Bell 喷漆'); }
-/* a second one on campus, beside the XMUM 车行 turntable: back to the south fence, door facing into campus (north) */
-(function sprayCampus(){
-  const D = {x:15, z:197.4, h:0, w:11.6, d:15.6, top:3.9}, t = .4, H = 5.2, X0 = D.x - D.w / 2 - t, X1 = D.x + D.w / 2 + t, Z0 = D.z, Z1 = D.z + D.d + t;
-  if (typeof clearArea === 'function') clearArea(D.x, (Z0 + Z1) / 2 - 1.5, (X1 - X0) / 2 + 2, (Z1 - Z0) / 2 + 3);
-  const y0 = typeof groundAt === 'function' ? groundAt(D.x, D.z + D.d / 2) : 0, g = new THREE.Group(); g.position.y = y0; scene.add(g);
-  const mat = {}, mk = c => mat[c] || (mat[c] = M(c, {roughness:.75}));
-  const box = (c, x0, yA, z0, x1, yB, z1) => { const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, yB - yA, z1 - z0), mk(c)); m.position.set((x0 + x1) / 2, (yA + yB) / 2, (z0 + z1) / 2); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
-  box('#9aa3ab', X0, 0, Z0, X0 + t, H, Z1); box('#9aa3ab', X1 - t, 0, Z0, X1, H, Z1); box('#9aa3ab', X0, 0, Z1 - t, X1, H, Z1);
-  box('#dfe3e6', X0 + t, 0, Z0, X0 + t + .02, H, Z1 - t); box('#dfe3e6', X1 - t - .02, 0, Z0, X1 - t, H, Z1 - t); box('#dfe3e6', X0 + t, 0, Z1 - t - .02, X1 - t, H, Z1 - t);
-  box('#6f767d', X0 - .3, H, Z0 - .5, X1 + .3, H + .45, Z1 + .3);
-  box('#2a2d33', X0, D.top, Z0 - .05, X1, H, Z0 + .35);
-  box('#8e8a83', X0 + .02, .02, Z0 - 3, X1 - .02, .11, Z1 - .02);
-  for (let k = 0; k < 6; k++) for (const x of [X0, X1 - t]) box(k % 2 ? '#1f2125' : '#f2c230', x - .03, k * .65, Z0 - .06, x + t + .03, k * .65 + .65, Z0 + .32);
-  const sc = document.createElement('canvas'); sc.width = 512; sc.height = 96; const sg = sc.getContext('2d');
-  sg.fillStyle = '#e84d8a'; sg.fillRect(0, 0, 512, 96); sg.fillStyle = '#fff'; sg.font = '900 54px "Noto Sans SC","Microsoft YaHei",sans-serif'; sg.textAlign = 'center'; sg.textBaseline = 'middle'; sg.fillText('车行喷漆  SPRAY', 256, 50);
-  const st = new THREE.CanvasTexture(sc); st.anisotropy = ANISO;
-  const sign = new THREE.Mesh(new THREE.PlaneGeometry(D.w * .8, D.w * .8 * 96 / 512), new THREE.MeshBasicMaterial({map:st})); sign.position.set(D.x, (D.top + H) / 2, Z0 - .07); sign.rotation.y = Math.PI; g.add(sign);
-  addBox(X0 + t / 2, (Z0 + Z1) / 2, t / 2 + .05, (Z1 - Z0) / 2, 0); addBox(X1 - t / 2, (Z0 + Z1) / 2, t / 2 + .05, (Z1 - Z0) / 2, 0); addBox(D.x, Z1 - t / 2, (X1 - X0) / 2, t / 2 + .05, 0);
-  if (typeof addFp === 'function') addFp({t:0, x:D.x, z:(Z0 + Z1) / 2, w:X1 - X0, d:Z1 - Z0, rot:0, color:'#7d858d'});
-  D.top += y0; sprayAdd(D, '车行喷漆');
-})();
-
 /* a new colour for the respray: one you already own if there is one, otherwise a plain one (yours from now on) */
 function sprayPick(kind){
   const cur = (wardSave.cars[kind] || {}).p || 'stock';
@@ -305,14 +287,14 @@ function sprayUpdate(dt){
     if (!inside){
       if (a.v < .5 || Math.abs(a.u) > G.D.w){ G.done = false; G.panel = false; G.still = 0; }
       if (driving === myCar && a.v > -16 && a.v <= 1.2 && Math.abs(a.u) < G.D.w * .8)
-        spray.msg = wanted ? (G.cd > now ? `这间车间刚喷过，还要等 ${Math.ceil((G.cd - now) / 1000)} 秒，去另一间` : `直接开进去：卷帘门一关就换漆甩掉保安（每星 RM ${SPRAY_FEE}）`) : '喷漆车间：开进去给车换漆';
+        spray.msg = wanted ? (G.cd > now ? `这间车间刚喷过，还要等 ${Math.ceil((G.cd - now) / 1000)} 秒` : `直接开进去：卷帘门一关就换漆甩掉保安（每星 RM ${SPRAY_FEE}）`) : '喷漆车间：开进去给车换漆';
       continue;
     }
     if (!driving){ spray.msg = '喷漆车间：开着自己的车进来'; return; }
     if (driving !== myCar){ spray.msg = '喷漆车间只给你自己的车喷漆'; return; }
     if (wanted && !G.done){
       const left = Math.ceil((G.cd - now) / 1000), stars = Math.min(5, Math.floor(heat)), fee = SPRAY_FEE * stars;
-      if (left > 0){ spray.msg = `这间车间刚喷过，还要等 ${left} 秒，去另一间`; return; }
+      if (left > 0){ spray.msg = `这间车间刚喷过，还要等 ${left} 秒`; return; }
       if (money < fee){ spray.msg = `喷漆要 ${fmtRM(fee)}，还差 ${fmtRM(Math.ceil(fee - money))}，门不关`; return; }
       sprayRun(G, stars, fee); return;
     }
