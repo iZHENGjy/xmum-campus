@@ -60,6 +60,16 @@ function gfxCarBeam(c){
   m.position.set(0, .13, c.T.L / 2 + L / 2 - .3); m.renderOrder = 2; m.visible = false; c.root.add(m); return m;
 }
 
+/* ---------- 流畅 has no shadow map: a soft dark blob under each car and under 奶娃 keeps them planted on the ground ---------- */
+const blobTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(0,0,0,1)'); gr.addColorStop(.55, 'rgba(0,0,0,.8)'); gr.addColorStop(.8, 'rgba(0,0,0,.3)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c);
+})();
+const blobMat = new THREE.MeshBasicMaterial({map:blobTex, color:'#000000', transparent:true, opacity:.5, depthWrite:false, polygonOffset:true, polygonOffsetFactor:-11, polygonOffsetUnits:-44});
+function gfxBlob(w, l){ const m = new THREE.Mesh(new THREE.PlaneGeometry(w, l).rotateX(-Math.PI / 2), blobMat); m.position.y = .07; m.renderOrder = 1; m.visible = false; return m; }
+let gfxNwBlob = null;
+
 /* ---------- cars: trim, chrome and wheels only within sight; beams at night ---------- */
 let gfxCarTick = 0;
 function gfxCarDetail(lamp){
@@ -72,6 +82,9 @@ function gfxCarDetail(lamp){
     const b = beams && on && !c.wrecked;
     if (b && !c.beam) c.beam = gfxCarBeam(c);
     if (c.beam) c.beam.visible = b;
+    const bl = !renderer.shadowMap.enabled && on;
+    if (bl && !c.blob){ c.blob = gfxBlob(c.T.W * 1.9, c.T.L * 1.45); c.root.add(c.blob); }
+    if (c.blob) c.blob.visible = bl;
   }
 }
 
@@ -313,6 +326,10 @@ function gfxRender(dt, T){
   const glow = XQ.cfg.glow && lamp > .04;
   glowMat.opacity = Math.min(1, lamp) * .5; beamMat.opacity = Math.min(1, lamp) * .42;
   for (const g of glowSets) g.im.visible = glow;
+  if (typeof NW !== 'undefined'){
+    if (!gfxNwBlob){ gfxNwBlob = gfxBlob(2.2, 2.2); NW.root.add(gfxNwBlob); }
+    gfxNwBlob.visible = !renderer.shadowMap.enabled; gfxNwBlob.position.y = .07 - NW.root.position.y + (typeof groundAt === 'function' ? Math.max(0, groundAt(NW.root.position.x, NW.root.position.z)) : 0);
+  }
   for (const h of farHills) h.m.material.color.copy(h.col).multiplyScalar(.25 + .75 * Math.min(1, hemi.intensity * 1.4 - .35 + sun.intensity * .2)).lerp(skyU.hor.value, h.haze + rain * (1 - h.haze) * .8);
   farHills.towers.emissiveIntensity = cur.win * .9;
   renderer.render(scene, camera);
