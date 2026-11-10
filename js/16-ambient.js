@@ -179,7 +179,7 @@ function updateWeather(dt, T){
     });
     birdIm.instanceMatrix.needsUpdate = true;
   }
-  updateCats(dt, T);
+  updateCats(dt, T); updateSwans(dt, T);
 }
 
 /* ---------- 奶娃航空: now and then an airliner in 奶娃 yellow crosses high overhead, trailing two contrails; at night its navigation lights blink ----------
@@ -250,4 +250,74 @@ function updatePlanes(dt, T){
   const night = Math.min(1, cur.lamp), s = .5 + night * 1.1;
   A.red.scale.setScalar(s); A.green.scale.setScalar(s); A.strobe.scale.setScalar(s * 1.3); A.strobe.visible = (T % 1.3) < .09 || (T % 1.3 > .22 && T % 1.3 < .3);
   A.trailMat.opacity = (.8 - night * .5) * Math.min(1, A.t * 12, (1 - A.t) * 12) * (1 - wx.rain * .7);
+}
+
+/* ---------- swans on 芙蓉湖: a few glide about the water, a pair rests on the bank; come close and they paddle away ----------
+   One instanced mesh (about 260 triangles each). How many are out depends on the quality tier: 4 on 流畅, 7 on 标准, 9 on 高清. */
+const swanGeo = (() => {
+  const W = '#f7f5ee', P2 = [], add = (g, c) => P2.push(geoTint(g.index ? g.toNonIndexed() : g, c));
+  /* origin on the water line, facing +z */
+  add(new THREE.SphereGeometry(1, 10, 7).scale(.36, .26, .62).translate(0, .14, -.04), W);                 /* body */
+  add(new THREE.ConeGeometry(.16, .42, 6).rotateX(-Math.PI / 2.6).translate(0, .3, -.66), W);              /* tail, tipped up */
+  for (const s of [-1, 1]) add(new THREE.SphereGeometry(1, 8, 5).scale(.09, .2, .46).translate(s * .3, .25, -.12), '#ffffff');   /* folded wings */
+  /* the neck: an S from the breast up to the head */
+  const N = [[0, .28, .46], [0, .52, .6], [0, .78, .6], [0, .98, .5], [0, 1.1, .56]];
+  for (let i = 0; i < N.length - 1; i++) add(rodGeo(.085 - i * .008, .077 - i * .008, N[i], N[i + 1], 6), W);
+  add(new THREE.SphereGeometry(.105, 8, 6).scale(1, .95, 1.25).translate(0, 1.12, .62), W);                /* head */
+  add(new THREE.ConeGeometry(.055, .2, 6).rotateX(Math.PI / 2).translate(0, 1.09, .8), '#e8862a');         /* beak */
+  add(new THREE.SphereGeometry(.045, 6, 4).translate(0, 1.15, .71), '#1f1f1f');                            /* the black knob at its base */
+  return geoMerge(P2);
+})();
+const SWAN_MAX = 9;
+const swanIm = new THREE.InstancedMesh(swanGeo, M('#ffffff', {vertexColors:true, roughness:.55}), SWAN_MAX);
+swanIm.frustumCulled = false; swanIm.instanceMatrix.setUsage(THREE.DynamicDrawUsage); swanIm.receiveShadow = true; scene.add(swanIm);
+/* home points in map pixels: [x, y] on the water, or [x, y, bankX, bankY] for one that rests on the bank and takes to the water when disturbed.
+   Ordered so that the first four (流畅) already show both kinds and both lakes. */
+const swans = [[1330, 452, 1336, 484], [1400, 385], [1120, 296], [1296, 372], [1205, 286, 1152, 247], [1450, 430], [1350, 420], [1245, 300], [1490, 392]].map(([hx, hy, bx, by]) => {
+  const h = P(hx, hy), b = bx != null ? P(bx, by) : null;
+  return {hx:h[0], hz:h[1], bank:b, x:b ? b[0] : h[0], z:b ? b[1] : h[1], y:b ? .2 : 0, h:ambRng() * 6.28, tx:h[0], tz:h[1], wait:ambRng() * 5, state:b ? 'rest' : 'swim', calm:0, sp:0, ph:ambRng() * 6};
+});
+const swanWet = (x, z) => lakes.some(L => inPoly(x, z, L));
+const _swq = new THREE.Quaternion(), _swe = new THREE.Euler();
+function updateSwans(dt, T){
+  const n = typeof XQ !== 'undefined' ? XQ.pick(4, 7, SWAN_MAX) : 7;
+  if (swanIm.count !== n){ swanIm.count = n; swanIm.castShadow = typeof XQ !== 'undefined' && XQ.tier > 1; }
+  const threats = catThreats();
+  if (mode === 'hole' && typeof HOLES !== 'undefined') for (const h of HOLES) if (h.alive) threats.push([h.x, h.z, h.r + 2]);
+  for (let i = 0; i < n; i++){
+    const s = swans[i]; let fx = 0, fz = 0, scared = false;
+    for (const [tx, tz, tr] of threats){ const dx = s.x - tx, dz = s.z - tz, d = Math.hypot(dx, dz), R = tr + 7; if (d < R){ scared = true; fx += dx / (d || 1) * (R - d); fz += dz / (d || 1) * (R - d); } }
+    s.calm = scared ? 0 : s.calm + dt;
+    let want = 0, gx = s.tx, gz = s.tz;
+    if (s.state === 'rest'){
+      if (scared){ s.state = 'swim'; s.tx = s.hx; s.tz = s.hz; s.wait = 0; }
+    } else if (scared && swanWet(s.x, s.z)){
+      /* paddle straight away from whatever came too close, as long as that keeps it on the water */
+      const l = Math.hypot(fx, fz) || 1; gx = s.x + fx / l * 6; gz = s.z + fz / l * 6; want = 2.3;
+      if (!swanWet(s.x + fx / l * 2.5, s.z + fz / l * 2.5)){ gx = s.hx; gz = s.hz; }
+    } else {
+      const d = Math.hypot(s.tx - s.x, s.tz - s.z);
+      if (d < .6){
+        if (s.bank && s.tx === s.bank[0] && s.tz === s.bank[1]){ s.state = 'rest'; }
+        else if ((s.wait -= dt) <= 0){
+          /* back to the bank after a quiet spell, otherwise drift to another spot near home */
+          if (s.bank && s.calm > 22 && Math.hypot(s.x - s.hx, s.z - s.hz) < 16){ s.tx = s.bank[0]; s.tz = s.bank[1]; }
+          else for (let k = 0; k < 6; k++){ const a = ambRng() * 6.28, r = 4 + ambRng() * 13, x = s.hx + Math.cos(a) * r, z = s.hz + Math.sin(a) * r; if (swanWet(x, z) && swanWet(x + Math.cos(a) * 2, z + Math.sin(a) * 2)){ s.tx = x; s.tz = z; break; } }
+          s.wait = 2 + ambRng() * 7;
+        }
+      } else want = scared ? 1.8 : swanWet(s.x, s.z) ? .45 : 1;
+    }
+    s.sp += (want - s.sp) * Math.min(1, dt * 3);
+    if (s.sp > .02){
+      const hd = Math.atan2(gx - s.x, gz - s.z); let dh = hd - s.h; dh = Math.atan2(Math.sin(dh), Math.cos(dh));
+      s.h += dh * Math.min(1, dt * (scared ? 5 : 2.2));
+      s.x += Math.sin(s.h) * s.sp * dt; s.z += Math.cos(s.h) * s.sp * dt;
+    }
+    /* afloat it bobs a little; on the bank it sits on the sand */
+    const wet = swanWet(s.x, s.z), ty = wet ? Math.sin(T * 1.7 + s.ph) * .018 : .2;
+    s.y += (ty - s.y) * Math.min(1, dt * 4);
+    _swe.set(wet ? Math.sin(T * 1.3 + s.ph) * .03 : 0, s.h, wet ? Math.sin(T * 1.1 + s.ph * 2) * .035 : 0, 'YXZ');
+    _cm.compose(_cp.set(s.x, s.y + .1, s.z), _swq.setFromEuler(_swe), _cs.setScalar(1.25)); swanIm.setMatrixAt(i, _cm);
+  }
+  swanIm.instanceMatrix.needsUpdate = true;
 }

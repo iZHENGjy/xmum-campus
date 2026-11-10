@@ -40,7 +40,9 @@ const OUT_ROADS = [
   {id:'resB', kind:'lane', w:4.5, line:[[149.5, 405.5], [149.5, 459]]},
   {id:'resC', kind:'lane', w:4.5, line:[[229, 405.5], [229, 459]]},
   {id:'resE', kind:'lane', w:5, line:[[322, 363], [322, 459]]},
-  {id:'kip',  kind:'main', w:11, ctrl:[[-62, 289], [-64, 345], [-95, 430], [-185, 505], [-300, 570], [-420, 630], [-500, 705], [-530, 790], [-527, 880], [-505, 960], [-498, 1040], [-511, 1110], [-520, 1148]]}
+  {id:'kip',  kind:'main', w:11, flatAfterZ:700, ctrl:[[-62, 289], [-64, 345], [-95, 430], [-185, 505], [-300, 570], [-420, 630], [-500, 705], [-530, 790], [-527, 880], [-505, 960], [-498, 1040], [-511, 1110], [-520, 1148]]},
+  /* 油棕园公路 (js/92-racing.js track): from 麦当当 east through the hills and the oil-palm estate back up to Jalan Sunsuria */
+  {id:'estate', kind:'main', w:10, ctrl:[[-505, 1152], [-380, 1160], [-220, 1140], [-60, 1100], [100, 1050], [260, 985], [410, 905], [545, 820], [625, 700], [650, 560], [640, 420], [632, 330], [630, 293]]}
 ];
 OUT_ROADS.forEach(r => {
   const pts = [];
@@ -134,7 +136,7 @@ function terrainY(x, z){
     if (!r.ctrl) continue;
     let y = Float32Array.from(r.p, ([x, z]) => sample(x, z));
     y = avg(avg(y, r.s, 60), r.s, 60);
-    let sEnd = r.L; for (let i = 0; i < r.p.length; i++) if (r.p[i][1] > 700){ sEnd = r.s[i]; break; }
+    let sEnd = r.L; if (r.flatAfterZ != null) for (let i = 0; i < r.p.length; i++) if (r.p[i][1] > r.flatAfterZ){ sEnd = r.s[i]; break; }
     for (let i = 0; i < y.length; i++) y[i] *= smooth01(40, 130, r.s[i]) * smooth01(30, 130, sEnd - r.s[i]);
     const g = .09;
     for (let i = 1; i < y.length; i++) y[i] = Math.min(y[i], y[i - 1] + g * (r.s[i] - r.s[i - 1]));

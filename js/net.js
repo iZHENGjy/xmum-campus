@@ -136,7 +136,7 @@
   /* 排行榜上自己的旧成绩换成现在注册的名字（成绩本身不动） */
   async function fixBoardNames(){
     if (!claimed) return;
-    const mini = g(() => XMini.games.map(x => 'mini/' + x.id), []);          // 小游戏榜上的名字也一起换
+    const mini = g(() => [...new Set(XMini.games.map(x => x.id).concat(XMini.boards || []))].map(id => 'mini/' + id), []);   // 小游戏榜（包括宿舍搜刮）上的名字也一起换
     await Promise.all(Object.keys(BOARDS).map(b => 'boards/' + b).concat(mini).map(async path => {
       try {
         const ref = db.ref(path + '/' + XNet.uid), v = (await timeout(ref.once('value'), 10000, '读取成绩')).val();

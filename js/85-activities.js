@@ -78,7 +78,7 @@ function gxQuip(text){ if (gxTaxi.quipT > 0 || gxTaxi.say) return; gxTaxi.say = 
 const gxStarsTxt = () => { const r = gxTaxi.rating; return '评价 ' + '★'.repeat(Math.floor(r)) + (r % 1 ? '½' : '') + '☆'.repeat(5 - Math.ceil(r)); };
 function gxRate(d, quip){ if (!gxTaxi.on) return; gxTaxi.rating = Math.max(1, Math.min(5, gxTaxi.rating + d)); gxTaxi.quipT = 0; gxQuip(quip); }
 function gxTaxiEnd(ok, title, sub){
-  gxTaxi.on = false; gxTaxi.pk = null; gxTaxi.spawnCd = 6; gxDestMark.visible = false;
+  gxTaxi.on = false; gxTaxi.pk = null; gxTaxi.ask = null; gxTaxi.spawnCd = 6; gxDestMark.visible = false;
   if (!ok){ sfx.fail(); toast(title, sub, 2600); }
 }
 function gxUpdateTaxi(dt, px, pz, sp){
@@ -89,7 +89,7 @@ function gxUpdateTaxi(dt, px, pz, sp){
     gxDestMark.visible = false;
     if (!T.pk){
       T.spawnCd -= dt; gxPaxFig.visible = gxPaxMark.visible = false; gxPaxLbl.dead = true;
-      if (T.spawnCd <= 0){ T.spawnCd = 4; const s = gxPaxSpot(px, pz); if (s){ T.pk = s; T.type = GX_PAX[(rnd() * GX_PAX.length) | 0]; } }
+      if (T.spawnCd <= 0){ T.spawnCd = 4; const s = gxPaxSpot(px, pz); if (s){ T.pk = s; T.ask = null; T.type = GX_PAX[(rnd() * GX_PAX.length) | 0]; } }
       return;
     }
     const [x, z] = T.pk, d = Math.hypot(px - x, pz - z);
@@ -103,13 +103,20 @@ function gxUpdateTaxi(dt, px, pz, sp){
     if (d < 6.5){
       if (!driving){ gxPromptMsg = '顺风车要开车来接，找辆车再过来'; return; }
       if (sp > 5){ gxPromptMsg = '慢下来停稳，让同学上车'; return; }
-      const opts = DESTS.filter(o => { const dd = Math.hypot(o.x - x, o.z - z); return dd > 150 && dd < 600; });
-      const to = opts[(rnd() * opts.length) | 0]; if (!to){ T.pk = null; return; }
-      Object.assign(T, {on:true, to, dist:Math.hypot(to.x - x, to.z - z), rating:T.type.rate, driftT:0});
-      T.limit = T.t = Math.round(T.dist / 11 + 15);
-      gxPaxFig.visible = gxPaxMark.visible = false; gxPaxLbl.dead = true;
-      gxDestMark.position.set(to.x, .1, to.z); sfx.ding();
-      toast(T.type.name + '上车了：去 ' + to.name, T.type.hello + ` · 限时 ${T.limit} 秒`, 3000);
+      /* where to: decided when the passenger is first asked, so the card can say it (js/89-offers.js); skipping sends this one away */
+      if (!T.ask){ const opts = DESTS.filter(o => { const dd = Math.hypot(o.x - x, o.z - z); return dd > 150 && dd < 600; }); T.ask = opts[(rnd() * opts.length) | 0]; if (!T.ask){ T.pk = null; return; } }
+      const to = T.ask, dist = Math.hypot(to.x - x, to.z - z), limit = Math.round(dist / 11 + 15);
+      const board = () => {
+        if (T.on || !T.pk) return;
+        Object.assign(T, {on:true, to, dist, rating:T.type.rate, driftT:0, ask:null});
+        T.limit = T.t = limit;
+        gxPaxFig.visible = gxPaxMark.visible = false; gxPaxLbl.dead = true;
+        gxDestMark.position.set(to.x, .1, to.z); sfx.ding();
+        toast(T.type.name + '上车了：去 ' + to.name, T.type.hello + ` · 限时 ${T.limit} 秒`, 3000);
+      };
+      if (typeof offerJob !== 'function') board();
+      else offerJob('taxi', () => ({icon:'🙋', title:'顺风车 · ' + T.type.name, desc:'「' + T.type.hello + '」', accept:'载上，去 ' + to.name, time:limit, dist, pay:'按评价给钱',
+        risk:{hurry:'赶时间：越快到越好', sick:'晕车：别急刹、别漂移、别撞', vlog:'想看特技：飞跃和漂移加分'}[T.type.k] || '', onAccept:board, onDecline:() => { T.pk = null; T.ask = null; T.spawnCd = 5; }}));
     }
     return;
   }
@@ -180,7 +187,9 @@ function gxUpdateAct(dt, px, pz, sp){
       if (gxA.rearm === b){ if (d > 14) gxA.rearm = null; continue; }
       if (d < 6.5){
         if (!driving) gxPromptMsg = `开车进圈开始「${b.name}」` + (prog.best[b.id] != null ? ` · 纪录 ${gxScoreTxt(b, prog.best[b.id])}` : '');
-        else { gxStart(b); break; }
+        else if (typeof offerJob !== 'function'){ gxStart(b); break; }
+        else if (offerJob('act:' + b.id, () => ({icon:b.type === 'race' ? '🏁' : '🎯', title:b.name, desc:b.intro, accept:'开始', time:b.limit, pay:b.pay ? '金牌 RM ' + b.pay[0] : null,
+          risk:prog.best[b.id] != null ? '纪录 ' + gxScoreTxt(b, prog.best[b.id]) : '', onAccept:() => { if (!gxA.act && driving) gxStart(b); }}))) break;
       }
     }
     return;
