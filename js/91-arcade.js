@@ -14,7 +14,7 @@
  *   排行榜：/mini/{gameId}/{uid} = {name, value, ts}（js/net.js 的 XNet.miniTop / miniSubmit，规则在 database.rules.json）。
  */
 'use strict';
-const ARC = {in:false, state:'out', ox:0, oz:-2700, W:26, D:18, H:3.6, sx:0, sz:-2950, built:false, cabN:-1, hid:[], spots:[], cols:[], near:null, back:null, keep:null, fLbl:false};
+const ARC = {in:false, state:'out', door:null, leaving:false, ox:0, oz:-2700, W:26, D:18, H:3.6, sx:0, sz:-2950, built:false, cabN:-1, hid:[], spots:[], cols:[], near:null, back:null, keep:null, fLbl:false};
 const ARC_BG = '#171a30';
 const ARC_SPAWN = [0, 5.6];
 const MG_ID = /^[a-z][a-z0-9_]{1,15}$/, MG_KEY = 'xmum-mini-v1', MG_CAP = 60, MG_MAX = 1e6;
@@ -421,24 +421,25 @@ function arcEnter(o){
   closeShop(); if (gx.paused) gx.togglePause();
   arcBuild(); arcCabinets();
   ARC.keep = {dist:camDist, pitch:camPitch};
-  ARC.in = true; ARC.state = 'hall'; window.XINDOOR = 'arcade'; window.XINDOOR_AT = {x:ARC_DOOR.x, z:ARC_DOOR.z, h:ARC_DOOR.h, name:'B1 游戏厅'};
+  ARC.door = o.door || null;   /* XMini.startAt: came in from somewhere else on the map and goes back there */
+  ARC.in = true; ARC.state = 'hall'; window.XINDOOR = 'arcade'; window.XINDOOR_AT = ARC.door ? Object.assign({}, ARC.door) : {x:ARC_DOOR.x, z:ARC_DOOR.z, h:ARC_DOOR.h, name:'B1 游戏厅'};
   gx.paused = true; keys.Space = false; engineUpdate(0, 0, false); inReset();
   Object.assign(nw, {x:ARC.ox + ARC_SPAWN[0], z:ARC.oz + ARC_SPAWN[1], y:0, h:Math.PI, air:false, state:'idle', spd:0, vy:0});
   arcMark.visible = false; arcLbl.dead = true; arcPrompt = ''; if (ARC.fLbl){ ARC.fLbl = false; updateActs(); }
   wx.rain = 0; arcG.visible = true; arcWorld(false); arcLight(true); fitShadow(ARC.ox, ARC.oz, 22); arcHallCam();
   document.body.classList.add('arc-in'); arcBar.hidden = false; arcSetPrompt('');
-  unlock('arcade1'); if (!o.quiet){ sfx.ding(); toast('B1 游戏厅', TOUCH ? '走到街机前点「开玩」，或者点上面的「游戏列表」' : '走到街机前按 F 开玩，Tab 打开游戏列表'); }
+  if (!ARC.door) unlock('arcade1'); if (!o.quiet){ sfx.ding(); toast('B1 游戏厅', TOUCH ? '走到街机前点「开玩」，或者点上面的「游戏列表」' : '走到街机前按 F 开玩，Tab 打开游戏列表'); }
   arcFocus();
   return true;
 }
 function arcLeave(quiet){
   if (!ARC.in) return;
-  if (MG.cur) mgEnd();
+  ARC.leaving = true; if (MG.cur) mgEnd(); ARC.leaving = false;
   arcCardClose(); arcCloseList(); MG.pending = null;
   ARC.in = false; ARC.state = 'out'; window.XINDOOR = null; window.XINDOOR_AT = null; gx.paused = false;
   arcG.visible = false; arcWorld(true); arcLight(false);
   for (const s of ARC.spots) if (s.lbl) s.lbl.dead = true;
-  const d = ARC_DOOR;
+  const d = ARC.door || ARC_DOOR; ARC.door = null;
   Object.assign(nw, {x:d.x + Math.sin(d.h) * 2, z:d.z + Math.cos(d.h) * 2, y:0, h:d.h, air:false, state:'idle', spd:0, vy:0});
   camYaw = d.h + Math.PI; if (ARC.keep){ camDist = ARC.keep.dist; camPitch = ARC.keep.pitch; }
   NW.root.visible = mode !== 'hole'; NW.root.position.set(nw.x, 0, nw.z); NW.root.rotation.y = nw.h;
@@ -580,7 +581,7 @@ function mgBegin(){
 function mgCrash(e){
   console.error('[XMini] 小游戏出错：' + (MG.cur && MG.cur.id), e);
   const name = MG.cur ? MG.cur.name : '';
-  mgEnd(); toast(`「${name}」出错了`, '已经回到游戏厅', 2600); sfx.fail();
+  const out = !!ARC.door; mgEnd(); toast(`「${name}」出错了`, out ? '已经回到门口' : '已经回到游戏厅', 2600); sfx.fail();
 }
 function mgCount(dt){
   MG.cd -= dt; const n = Math.ceil(MG.cd / .75), g = MG.cur;
@@ -622,6 +623,7 @@ function mgEnd(again){
   Object.assign(nw, {x:b.x, z:b.z, h:b.h, y:0, air:false, state:'idle', spd:0, vy:0}); NW.root.visible = true;
   if (!again){ arcG.visible = true; arcBar.hidden = false; }
   arcLight(true); fitShadow(ARC.ox, ARC.oz, 22); arcHallCam();
+  if (!again && ARC.door && !ARC.leaving) arcLeave();   /* played from outside the hall: straight back to where you came in */
 }
 /* the round is over: medal, local best, RM, achievements, leaderboard, result card */
 function mgFinish(score, o){
@@ -659,7 +661,7 @@ function mgFinish(score, o){
       net.textContent = i >= 0 ? `排行榜第 ${i + 1} 名（${mgFmt(g, mgFromBoard(g, rows[i].value))}）` : rows.length >= 50 ? '还没进前 50 名' : '成绩已提交';
     }).catch(() => { if (run === MG.run) net.textContent = '成绩没提交上去，下次再试'; });
   }
-  const btns = [{t:'再来一局', primary:true, fn:mgRetry}]; if (g.board) btns.push({t:'排行榜', fn:() => arcOpenBoard(g.id)}); btns.push({t:'回游戏厅', fn:() => mgEnd()});
+  const btns = [{t:'再来一局', primary:true, fn:mgRetry}]; if (g.board) btns.push({t:'排行榜', fn:() => arcOpenBoard(g.id)}); btns.push({t:ARC.door ? '回' + ARC.door.name : '回游戏厅', fn:() => mgEnd()});
   arcCard({kicker:o.kicker || (medal < 3 ? '漂亮' : '结束'), title:o.title || g.icon + ' ' + g.name, lines, btns, esc:() => mgEnd()});
 }
 
@@ -720,6 +722,8 @@ window.XMini = {
   open(){ if (arcEnter({quiet:true})) arcOpenList(); },
   play:mgIntro,
   start(id){ if (mgIntro(id)) mgBegin(); },
+  /* play a game from a door somewhere else on the map (KIP mall): no hall in between, and when the game is over 奶娃 is put back at door {x, z, h, name} */
+  startAt(id, door){ const g = MG.byId[id]; if (!g || ARC.in || !arcEnter({quiet:true, door})) return false; MG.pending = g; mgBegin(); return true; },
   quit(){ if (MG.cur) mgEnd(); },
   best:mgBest,
   /* for testing without real time (a hidden tab runs no animation frames, see docs/MINIGAMES.md):
