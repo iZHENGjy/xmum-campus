@@ -148,6 +148,8 @@ XMini.register((() => {
 | `XMini.quit()` | 结束当前这一局，回游戏厅 |
 | `XMini.inside` / `XMini.active` / `XMini.state` | 在不在游戏厅里 / 正在玩的游戏 id / `'out' 'hall' 'count' 'play' 'pause' 'result'` |
 | `XMini.best(id)` | 本机最好成绩 |
+| `XMini.addBoard({id, name, icon, fmt, what, local, empty})` | 给不是街机的玩法加一张榜（宿舍搜刮用的 `dorm`）：同样存在 `/mini/{id}/{uid}`，出现在排行榜「小游戏」页的选项里。成绩用 `XNet.miniSubmit(id, value)` 自己提交 |
+| `XMini.boards` | 所有带排行榜的 id：有榜的小游戏，加上 `addBoard` 加的 |
 | `XMini.sim` | 测试用，见第 7 节 |
 
 ## 5. 排行榜
