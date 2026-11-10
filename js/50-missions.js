@@ -35,13 +35,14 @@ let money = 0, deliveries = 0;
 const mission = {on:false, from:null, to:null, t:0, limit:0};
 const missionEl = $('#mission'), moneyEl = $('#money');
 function startMission(pk){
-  const opts = DESTS.filter(d => { const dd = Math.hypot(d.x - pk.x, d.z - pk.z); return dd > 120 && (dd < 650 || d.far); });
+  const opts = DESTS.filter(d => { const dd = Math.hypot(d.x - pk.x, d.z - pk.z); return dd > 120 && (dd < 650 || d.far || pk.out); });
   const to = opts[(rnd() * opts.length) | 0]; if (!to) return;
   const dist = Math.hypot(to.x - pk.x, to.z - pk.z);
   const hot = pk === hotPk && prog.daily !== dayKey();
-  Object.assign(mission, {on:true, from:pk, to, limit:Math.round(dist / 13 + 14), t:0, hot}); mission.t = mission.limit;
+  const cross = typeof outCross === 'function' ? outCross(pk, to) : null;   /* through the gate: longer limit, better pay (js/89-outskirts-play.js) */
+  Object.assign(mission, {on:true, from:pk, to, limit:cross ? cross.limit : Math.round(dist / 13 + 14), t:0, hot, cross, stolen:false, recovered:false}); mission.t = mission.limit;
   destMark.position.set(to.x, .1, to.z); destMark.visible = true;
-  sfx.ding(); toast((hot ? '加急单：' : '接单：') + pk.name + ' → ' + to.name, `限时 ${mission.limit} 秒` + (hot ? ' · 今天第一单报酬翻倍' : '，找辆车会快很多'), 3000);
+  sfx.ding(); toast((hot ? '加急单：' : '接单：') + pk.name + ' → ' + to.name, `限时 ${mission.limit} 秒` + (hot ? ' · 今天第一单报酬翻倍' : cross ? ` · 跨区远单报酬 ×${cross.mult}` : '，找辆车会快很多'), 3000);
 }
 function updateMission(dt, px, pz){
   const T = performance.now() / 1000;
@@ -58,10 +59,11 @@ function updateMission(dt, px, pz){
   }
   mission.t -= dt;
   const d = Math.hypot(px - mission.to.x, pz - mission.to.z);
-  missionEl.textContent = `${mission.from.name} → ${mission.to.name} · ${Math.max(0, Math.ceil(mission.t))} 秒 · ${Math.round(d)} 米`;
-  missionEl.classList.toggle('urgent', mission.t < 10);
-  if (d < 5.5){
-    const pay = (25 + mission.t * 1.2) * (mission.hot ? 2 : 1); deliveries++; sess.deliv++; prog.life.deliv++;
+  /* a thief can snatch the order on the way (js/89-outskirts-play.js sets mission.stolen): the clock keeps running, and it cannot be handed over until it is won back */
+  missionEl.textContent = mission.stolen ? `被抢了 ${Math.max(0, Math.ceil(mission.t))} 秒 · 追上小偷拿回来` : `${mission.from.name} → ${mission.to.name} · ${Math.max(0, Math.ceil(mission.t))} 秒 · ${Math.round(d)} 米`;
+  missionEl.classList.toggle('urgent', mission.t < 10 || !!mission.stolen);
+  if (d < 5.5 && !mission.stolen){
+    const pay = (25 + mission.t * 1.2) * (mission.hot ? 2 : 1) * (mission.cross ? mission.cross.mult : 1) * (typeof outCred === 'function' ? outCred() : 1); deliveries++; sess.deliv++; prog.life.deliv++;
     if (mission.hot) prog.daily = dayKey();
     earn(pay);
     sfx.ding(); toast((mission.hot ? '加急送达 ' : '送达 ') + mission.to.name, `+RM ${pay.toFixed(2)} · 已送 ${deliveries} 单`, 2600);
