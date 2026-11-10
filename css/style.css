@@ -928,3 +928,63 @@ body.dm-in #gstat .grow:nth-child(2),body.dm-in #gstat .grow:nth-child(3),body.d
 }
 /* 喷漆车间 respray (js/88-wardrobe-ui.js): a 4-second cut scene, the HUD steps aside */
 body.sp-run .topbar,body.sp-run #acts,body.sp-run #joy,body.sp-run #prompt,body.sp-run #compass,body.sp-run #combo,body.sp-run #labels{display:none!important}
+/* ---------- 改装车间 (js/93-tuning-ui.js): same side panel / bottom sheet as the wardrobe ---------- */
+#tune{position:fixed;z-index:9;right:calc(var(--safe-r) + 16px);top:calc(var(--safe-t) + 16px);bottom:calc(var(--safe-b) + 16px);width:min(400px,42vw);display:flex;flex-direction:column;
+  padding:18px 16px 12px;background:var(--panel-solid);box-sizing:border-box}
+#tuneMoney{font-family:var(--display);font-size:15px;font-weight:700;color:var(--gold)}
+.tn-inv{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;flex:none;margin-bottom:8px}
+.tn-p{display:flex;align-items:center;justify-content:center;gap:4px;min-height:30px;padding:0 4px;border:1px solid var(--line);border-radius:999px;background:var(--card-bg);color:var(--ink);cursor:pointer;font:inherit}
+.tn-p.sel{border-color:var(--tile);box-shadow:inset 0 0 0 1px var(--tile)}
+.tn-p i,.tn-gain i,.tn-cost .pt i{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:5px;background:var(--c);color:#fff;font-style:normal;font-size:11px;font-weight:700;flex:none}
+.tn-p b{font-family:var(--display);font-size:14px;font-variant-numeric:tabular-nums}
+.tn-q{display:grid;gap:4px;flex:none;margin-bottom:8px}
+.tn-bay{position:relative;display:flex;align-items:center;gap:8px;min-height:36px;padding:3px 6px 3px 10px;border-radius:var(--r-md);border:1px solid var(--line);overflow:hidden;isolation:isolate}
+.tn-bay::before{content:"";position:absolute;inset:0;z-index:-1;transform-origin:left;transform:scaleX(var(--k,0));background:color-mix(in srgb,var(--tile) 16%,transparent);transition:transform .9s linear}
+.tn-bay.ready{border-color:color-mix(in srgb,var(--ok) 60%,var(--line))}
+.tn-bay.ready::before{background:color-mix(in srgb,var(--ok) 16%,transparent)}
+.tn-bay b{font-family:var(--display);font-size:13.5px;white-space:nowrap}
+.tn-bay span{flex:1;min-width:0;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tn-bay .btn{min-height:28px;padding:0 9px;font-size:12px;flex:none}
+.tn-bay.idle{border-style:dashed}
+.tn-bay2{min-height:28px;border:1px dashed var(--line);border-radius:var(--r-md);background:transparent;color:var(--muted);font:inherit;font-size:12px;cursor:pointer}
+.tn-bay2:disabled{opacity:.55;cursor:default}
+.tn-list{flex:1;min-height:0;overflow:auto;margin:0 -4px;padding:0 4px 4px;overscroll-behavior:contain}
+.tn-list h4{margin:6px 0 5px;font-family:var(--display);font-size:13.5px;color:var(--muted);font-weight:700}
+.tn-list .wd-grid{overflow:visible;flex:none;margin:0;padding:0}
+.tn-ic{display:grid;place-items:center;color:var(--ink);background:var(--chip)}
+.tn-ic svg{width:22px;height:22px}
+.tn-it.tr:not(.sel){border-style:dashed;border-color:var(--tile)}
+.wd-it em.b{color:var(--tile);font-weight:700}
+.tn-cost{display:flex!important;flex-wrap:wrap;gap:4px 8px;margin-top:3px;color:var(--ink)!important}
+.tn-cost span{display:inline-flex;align-items:center;gap:3px;font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tn-cost span:first-child{font-family:var(--display);font-weight:700;color:var(--gold)}
+.tn-cost .no,.tn-cost span.no:first-child{color:#d8483a}
+.tn-cost .tm{color:var(--muted)}
+#garageBtn.tn-ready{position:relative;border-color:var(--ok)}
+#garageBtn.tn-ready::after{content:"可提车";position:absolute;top:-8px;right:-6px;padding:0 6px;border-radius:999px;background:var(--ok);color:#fff;font-size:10px;line-height:16px;font-weight:700;white-space:nowrap}
+#tnGain{position:fixed;z-index:8;left:50%;top:calc(var(--safe-t) + 112px);transform:translateX(-50%);display:grid;justify-items:center;gap:4px;pointer-events:none}
+.tn-gain{display:flex;align-items:center;gap:6px;padding:4px 12px 4px 5px;border-radius:999px;background:var(--panel-solid);box-shadow:0 4px 14px var(--shadow);font-size:13px;white-space:nowrap;animation:tnIn .25s ease-out;transition:opacity .45s,transform .45s}
+.tn-gain b{font-family:var(--display)}
+.tn-gain span{color:var(--muted);font-size:12px}
+.tn-gain.out{opacity:0;transform:translateY(-6px)}
+@keyframes tnIn{from{opacity:0;transform:translateY(8px) scale(.96)}to{opacity:1;transform:none}}
+body.wd-open #tnGain{top:auto;bottom:calc(var(--safe-b) + 24px);left:calc((100% - min(400px,42vw) - 32px) / 2)}
+@media (max-width:760px){
+  #tune{left:calc(var(--safe-l) + 8px);right:calc(var(--safe-r) + 8px);top:auto;bottom:calc(var(--safe-b) + 8px);width:auto;height:min(58vh,500px);padding:12px 12px 10px}
+  #tune .shop-h{margin-bottom:6px}
+  #tune .shop-h h2{font-size:18px}
+  .tn-inv{gap:3px;margin-bottom:6px}
+  .tn-p{min-height:28px;gap:3px}
+  .tn-p i{width:16px;height:16px;font-size:10px}
+  .tn-bay{min-height:32px}
+  .tn-bay .btn{padding:0 7px}
+  .tn-list .wd-grid{grid-template-columns:repeat(auto-fill,minmax(84px,1fr))}
+  .tn-ic svg{width:18px;height:18px}
+  #tune .wd-foot{flex-wrap:wrap}
+  #tune .wd-sel{flex:1 1 100%}
+  #tune .wd-btns{flex:1 1 100%}
+  #tune .wd-btns .btn{flex:1}
+  #tnGain{top:calc(var(--safe-t) + 150px)}
+  body.wd-open #tnGain{top:calc(var(--safe-t) + 12px);bottom:auto;left:50%}
+}
+@media (prefers-reduced-motion: reduce){ .tn-gain{animation:none} .tn-bay::before{transition:none} }
