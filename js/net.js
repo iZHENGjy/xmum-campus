@@ -21,6 +21,9 @@
  *   /presence/{uid} = {name, mode, x, z, y, h, car?, color, t}
  *   /boards/{board}/{uid} = {name, value, ts}
  *   /saves/{uid} = {data, score, ts}   只有 Google 登录的人才有：本机所有 xmum-* 存档的 JSON，双向同步，进度多的一边为准
+ *   /names/{昵称小写} = {uid, name, ts}  昵称先到先得，永久归主人：只有主人能改名放出或删掉（ts 是最近一次上线）
+ *   /users/{uid} = {name, key}          自己现在注册的昵称；排行榜规则要求成绩上的名字和这里一致，防止冒充
+ *   XNet.claimedName()   已注册的昵称（还没注册或离线时为 ''）
  */
 'use strict';
 (() => {
@@ -58,6 +61,7 @@
 
   /* ---------- 名字 ---------- */
   function playerName(){
+    if (XNet.online && claimed) return claimed;           // 联机时只用已注册的名字，别人冒充不了
     let n = '';
     try { if (window.XUI && typeof XUI.playerName === 'function') n = String(XUI.playerName() || ''); } catch(e){}
     if (!n) try { n = localStorage.getItem('xmum-name') || ''; } catch(e){}
@@ -67,6 +71,106 @@
     }
     n = n.replace(/[\u0000-\u001f\u007f<>]/g, '').trim();
     return [...n].slice(0, 16).join('').slice(0, 16) || '游客';
+  }
+
+  /* ---------- 昵称注册：先到先得 ---------- */
+  const NAME_RE = /^[0-9A-Za-z一-龥 _·~!?-]{1,12}$/;
+  const nameOk = n => NAME_RE.test(n) && n === n.trim() && !n.includes('  ');
+  let claimed = '', claimedKey = '';
+  XNet.claimedName = () => claimed;
+  const hint = (t, tone) => g(() => XUI.setNameHint(t, tone));
+  async function claimName(name){
+    if (!nameOk(name)) return 'invalid';
+    if (!XNet.online) return 'offline';
+    const key = name.toLowerCase(), uid = XNet.uid;
+    try {
+      const cur = (await timeout(db.ref('names/' + key).once('value'), 10000, '读取昵称')).val();
+      if (cur && cur.uid !== uid) return 'taken';
+      const up = {};
+      up['names/' + key] = {uid, name, ts:firebase.database.ServerValue.TIMESTAMP};
+      up['users/' + uid] = {name, key};
+      if (claimedKey && claimedKey !== key) up['names/' + claimedKey] = null;   // 改名：旧名字放出来
+      await timeout(db.ref().update(up), 15000, '注册昵称');
+      claimed = name; claimedKey = key; lastSent = null; emit();
+      return 'ok';
+    } catch(e){
+      if (String(e && (e.code || e.message) || e).toUpperCase().includes('PERMISSION')) return 'taken';   // 刚好被别人抢先
+      console.warn('[XNet] 昵称注册失败', e); return 'error';
+    }
+  }
+  function useName(n){ try { localStorage.setItem('xmum-name', n); } catch(e){} g(() => XUI.setName(n)); }
+  const numbered = (base, n) => (base || '游客').slice(0, 12 - String(n).length - 1).trim() + ' ' + n;
+  const cleanName = n => String(n || '').replace(/[^0-9A-Za-z一-龥 _·~!?-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 12).trim();
+  /* 注册制之前已经有很多人重名（默认昵称只有 15 个）。按排行榜上最早一条成绩的时间排先后：
+     最早的保留原名，后面的依次编为「名字 2」「名字 3」…；没有成绩记录的新玩家排在所有老玩家后面 */
+  let legacy = null;
+  async function legacyBoards(){
+    if (legacy) return legacy;
+    const m = new Map();                                    // uid -> {first, last, name}
+    await Promise.all(Object.keys(BOARDS).map(async b => {
+      try {
+        const v = (await timeout(db.ref('boards/' + b).once('value'), 10000, '读取排行榜')).val() || {};
+        for (const u in v){
+          const r = v[u]; if (!r || typeof r.ts !== 'number') continue;
+          const e = m.get(u) || {first:Infinity, last:-1, name:''};
+          e.first = Math.min(e.first, r.ts); if (r.ts > e.last){ e.last = r.ts; e.name = String(r.name || ''); }
+          m.set(u, e);
+        }
+      } catch(e){}
+    }));
+    return (legacy = m);
+  }
+  async function legacyRank(want){
+    const key = want.toLowerCase(), m = await legacyBoards();
+    const same = [...m.entries()].filter(([, e]) => cleanName(e.name).toLowerCase() === key)
+      .sort((a, b) => a[1].first - b[1].first || (a[0] < b[0] ? -1 : 1));
+    const i = same.findIndex(([u]) => u === XNet.uid);
+    return i < 0 ? same.length : i;
+  }
+  /* 排行榜上自己的旧成绩换成现在注册的名字（成绩本身不动） */
+  async function fixBoardNames(){
+    if (!claimed) return;
+    await Promise.all(Object.keys(BOARDS).map(async b => {
+      try {
+        const ref = db.ref('boards/' + b + '/' + XNet.uid), v = (await timeout(ref.once('value'), 10000, '读取成绩')).val();
+        if (v && v.name !== claimed) await ref.update({name:claimed});
+      } catch(e){}
+    }));
+  }
+  /* 启动、改名、换账号后调用：把本机的昵称注册下来；被别人占了就保留自己原来的，或者自动加个编号 */
+  async function settleName(fromUser){
+    if (!XNet.online) return;
+    if (!claimedKey){
+      try { const mine = (await timeout(db.ref('users/' + XNet.uid).once('value'), 10000, '读取昵称')).val(); if (mine && mine.key){ claimed = mine.name; claimedKey = mine.key; } } catch(e){}
+    }
+    let want = ''; try { want = String(XUI.playerName() || localStorage.getItem('xmum-name') || ''); } catch(e){}
+    if (want && want === claimed){
+      db.ref('names/' + claimedKey + '/ts').set(firebase.database.ServerValue.TIMESTAMP).catch(() => {});   // 记一下最近上线时间（名字本身永久有效）
+      if (fromUser) hint('名字已注册，只有你能用', 'ok');
+      fixBoardNames();
+      return;
+    }
+    if (!claimed && nameOk(want)){                          // 第一次注册：先看老玩家里有没有比你早用这个名字的
+      const rank = await legacyRank(want);
+      if (rank > 0){
+        for (let n = rank + 1; n < rank + 40; n++){
+          const cand = numbered(want, n), r2 = await claimName(cand);
+          if (r2 === 'ok'){ useName(cand); hint(`「${want}」有更早的玩家在用，按先后给你编为「${cand}」。成绩和存档都还在，也可以在这里改名`, 'bad'); cloudPush(); fixBoardNames(); return; }
+          if (r2 !== 'taken') return;
+        }
+      }
+    }
+    const r = await claimName(want);
+    if (r === 'ok'){ if (fromUser) hint('名字已注册，只有你能用', 'ok'); cloudPush(); fixBoardNames(); return; }
+    if (r === 'offline' || r === 'error'){ if (fromUser) hint('暂时连不上，名字还没注册，稍后会再试', 'warn'); return; }
+    const why = r === 'taken' ? `「${want}」已经被别人注册了` : '名字只能用中文、字母、数字、空格和 _ - · ~ ! ?';
+    if (claimed){ useName(claimed); hint(`${why}，继续用「${claimed}」`, 'bad'); return; }
+    const base = nameOk(want) ? want : '游客';
+    for (let n = 2; n < 60; n++){                            // 第一次上线就撞名：依次加编号
+      const cand = numbered(base, n), r2 = await claimName(cand);
+      if (r2 === 'ok'){ useName(cand); hint(`${why}，先给你用「${cand}」，可以在这里改`, 'bad'); cloudPush(); fixBoardNames(); return; }
+      if (r2 !== 'taken') return;
+    }
   }
 
   /* ---------- 在线人数 ---------- */
@@ -305,6 +409,7 @@
         const cn = typeof cloud['xmum-name'] === 'string' ? cloud['xmum-name'] : '';
         if (cn && cn !== localStorage.getItem('xmum-name')){
           localStorage.setItem('xmum-name', cn); g(() => XUI.setName(cn)); lastSent = null;
+          await settleName();
         }
         if (blobScore(cloud) > blobScore(localBlob()) + .5){
           for (const k of Object.keys(cloud)) if (SAVE_KEY(k) && typeof cloud[k] === 'string') localStorage.setItem(k, cloud[k]);
@@ -351,7 +456,7 @@
       throw e;
     }
   };
-  window.addEventListener('xmum-name', () => { cloudPush(); });   // 改了昵称马上存到云端
+  window.addEventListener('xmum-name', () => { if (XNet.online) settleName(true); else cloudPush(); });   // 改名：先注册，成功了再存云端
   XNet.signOut = async () => {
     if (!XNet.online) return;
     await cloudPush();
@@ -381,6 +486,7 @@
       }))), 15000, '读取数据库');
       XNet.online = true;
       db.ref('.info/serverTimeOffset').on('value', s => { serverOffset = +s.val() || 0; });
+      await settleName();                                   // 先注册好昵称，再上线和交成绩
       presRef = db.ref('presence/' + me.uid);
       db.ref('.info/connected').on('value', s => {
         connected = !!s.val();
