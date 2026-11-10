@@ -427,8 +427,8 @@ XMini.register((() => {
     S.ready.position.set(me.x + Math.sin(a0) * .5, .05, me.z + Math.cos(a0) * .5); S.ready.material.opacity = me.cd <= 0 ? .6 + Math.sin(T * 7) * .2 : .12; S.ready.scale.setScalar(me.cd <= 0 ? 1 : .8);
     /* camera: looks from the south on a wide screen, from the east on a tall one (the shop is wider than it is deep) */
     const port = ctx.aspect < 1;
-    if (port !== S.port){ S.port = port; S.yaw = port ? Math.PI / 2 : 0; ctx.camera.follow(S.camT, {dist:port ? 40 : 24, pitch:port ? 1.03 : 1.06, yaw:S.yaw, height:0, lerp:5, fov:55}); }
-    if (port){ S.camT.x = me.x * .15 - .8; S.camT.z = me.z * .3; } else { S.camT.x = me.x * .15; S.camT.z = me.z * .12 - 2.5; }
+    if (port !== S.port){ S.port = port; S.yaw = port ? Math.PI / 2 : 0; ctx.camera.follow(S.camT, {dist:port ? 44 : 24, pitch:port ? 1.03 : 1.06, yaw:S.yaw, height:0, lerp:5, fov:55}); for (const s of S.sh) if (s.tag) s.tag.scale.set(port ? 4.4 : 2.9, port ? 1.1 : .725, 1); }
+    if (port){ S.camT.x = me.x * .12 - .8; S.camT.z = me.z * .2 - .5; } else { S.camT.x = me.x * .15; S.camT.z = me.z * .12 - 2.5; }
   }
   function finish(ctx){
     const me = S.sh[0], order = S.sh.slice().sort((a, b) => b.pts - a.pts || a.i - b.i), rank = order.indexOf(me) + 1, tier = S.tier, score = Math.round(me.pts * tier.mult);
