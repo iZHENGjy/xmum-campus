@@ -633,7 +633,7 @@ function mkUpdate(dt, px, pz){
     else if (MK.war && !driving){      /* always say what to do next: close in, or fire */
       let bd = 1e9; for (const m of MK.pool) if (m.on && m.st !== 'scared' && m.st !== 'drop') bd = Math.min(bd, Math.hypot(m.x - px, m.z - pz));
       const R = wgStat().range, key = TOUCH ? '点「水枪」' : '按 E ';
-      if (bd < 1e8) smPrompt = WG.ammo < 1 ? (bd < 10 - lv ? `没水了，${TOUCH ? '点「大笑」' : '按 R 大笑'}吓跑它` : '没水了，等回水，或者凑近了大笑') : bd <= R ? (TOUCH ? '蓝线对准猴子，点「水枪」；按住拖动可以瞄' : '鼠标对准猴子，按 E 或点左键 · 跑动的要打提前量') : `再靠近 ${Math.ceil(bd - R)} 米就能淋到`;
+      if (bd < 1e8) smPrompt = WG.ammo < 1 ? (bd < 10 - lv ? `没水了，${TOUCH ? '点「大笑」' : '按 R 大笑'}吓跑它` : '没水了，等回水，或者凑近了大笑') : bd <= R ? (TOUCH ? '蓝线对准猴子，点「水枪」；按住拖动可以瞄' : '鼠标对准猴子，按 E 掏枪开火 · 跑动的要打提前量') : `再靠近 ${Math.ceil(bd - R)} 米就能淋到`;
     }
   } else if (!indoors){
     /* residents of the hill: there while you are around, gone when you are far away */
@@ -651,7 +651,7 @@ function mkUpdate(dt, px, pz){
     }
   }
   for (const m of MK.pool) if (m.on) mkStep(m, dt, px, pz, slow, sp, lv);
-  if (MK.loot && MK.loot.m.on && !driving){ const bd = Math.hypot(MK.loot.m.x - px, MK.loot.m.z - pz), R = wgStat().range; smPrompt = bd <= R ? (TOUCH ? '蓝线对准它，点「水枪」！' : '鼠标对准它，按 E 或点左键！') : `追上去，再近 ${Math.ceil(bd - R)} 米就能淋到`; }
+  if (MK.loot && MK.loot.m.on && !driving){ const bd = Math.hypot(MK.loot.m.x - px, MK.loot.m.z - pz), R = wgStat().range; smPrompt = bd <= R ? (TOUCH ? '蓝线对准它，点「水枪」！' : '鼠标对准它，按 E 掏枪开火！') : `追上去，再近 ${Math.ceil(bd - R)} 米就能淋到`; }
   /* a thief that was switched off some other way must not keep the loot */
   if (MK.loot && !MK.loot.m.on){ const L = MK.loot; MK.loot = null; if (L.kind === 'cash'){ money += L.amt; moneyChanged(); } }
   const py = driving ? driving.y : nw.y;
