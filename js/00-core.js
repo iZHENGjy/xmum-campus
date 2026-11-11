@@ -517,6 +517,37 @@ function gableParts(L, S, h, over, ox, oy, oz, out, axis){
   out.vent = out.vent || []; vent.forEach(g => out.vent.push(place(g)));
   return out;
 }
+/* 风车顶 (the A-row side blocks, as seen from the air): four fan-shaped tiled roofs at the corners, sloping out and down from round the middle,
+   with a low glazed pyramid in the middle that shows between them along the axes, and a little hipped turret at each corner.
+   Tiles go to out.tile, the glass to out.glass (vertex-coloured), its white glazing bars to deco. */
+function millParts(w, d, h, over, oy, out, deco){
+  const W = w / 2, D = d / 2, m = Math.min(W, D), r0 = m * .3, NA = 10, NR = 7, span = .58;
+  const edge = a => Math.min(W / Math.max(1e-3, Math.abs(Math.cos(a))), D / Math.max(1e-3, Math.abs(Math.sin(a)))) + over;
+  for (const [sx, sz] of [[1, 1], [-1, 1], [-1, -1], [1, -1]]){
+    const ac = Math.atan2(sz * D, sx * W), pos = [], uv = [];
+    const pt = (i, j) => { const a = ac - span + 2 * span * i / NA, s = j / NR, r = r0 + (edge(a) - r0) * s, y = oy + h * Math.pow(1 - s, 1.4) + .5 * Math.max(0, s - .85) / .15;
+      return {p:[Math.cos(a) * r, y, Math.sin(a) * r], u:(a - ac) * (r0 + r) / 2 / TILE_U, v:r / TILE_V}; };
+    for (let i = 0; i < NA; i++) for (let j = 0; j < NR; j++){
+      const A = pt(i, j), B = pt(i + 1, j), C = pt(i + 1, j + 1), E = pt(i, j + 1);
+      for (const q of [A, C, B, A, E, C]){ pos.push(...q.p); uv.push(q.u, q.v); }
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.computeVertexNormals();
+    out.tile.push(g);
+    /* the turret at the corner */
+    const tx = sx * (W - 3), tz = sz * (D - 3);
+    tbox(deco, 4.6, 3.2, 4.6, tx, oy + 1.4, tz, PIL); tbox(deco, 5.1, .4, 5.1, tx, oy + 3.1, tz, TRIM);
+    roofParts(4.6, 4.6, 1.9, .9, tx, oy + 3.3, tz, out);
+  }
+  /* glazed pyramid in the middle, corners on the axes, with white bars up its edges and round it */
+  const hg = h * .62, gl = new THREE.ConeGeometry(m, hg, 4, 1).scale(W / m, 1, D / m).translate(0, oy + hg / 2 - .3, 0).toNonIndexed();
+  (out.glass = out.glass || []).push(geoTint(gl, '#2c4258'));
+  const apex = [0, oy + hg - .3, 0];
+  for (const c of [[W, 0], [-W, 0], [0, D], [0, -D]]) deco.push(geoTint(rodGeo(.16, .16, apex, [c[0], oy - .3, c[1]], 4), '#eeeae2'));
+  for (const f of [.35, .7]){ const yy = oy - .3 + hg * f, k = 1 - f, ring = [[W * k, 0], [0, D * k], [-W * k, 0], [0, -D * k]];
+    for (let i = 0; i < 4; i++){ const a = ring[i], b = ring[(i + 1) % 4]; deco.push(geoTint(rodGeo(.12, .12, [a[0], yy, a[1]], [b[0], yy, b[1]], 4), '#eeeae2')); } }
+  return out;
+}
+const millGlassMat = M('#ffffff', {vertexColors:true, roughness:.22, metalness:.45});
 function roofMeshes(rp, mat, parent){
   const out = [new THREE.Mesh(geoMergeUV(rp.tile), mat)];
   if (rp.ridge.length) out.push(new THREE.Mesh(geoMerge(rp.ridge), ridgeMat));
@@ -640,12 +671,24 @@ function building(o){
   if (o.flat){
     /* roof terrace: the cornice slab is the floor, with a parapet round it */
     for (const s of [-1, 1]){ tbox(deco, w + .8, 1.05, .3, 0, y0 + H + 1.1, s * (d / 2 + .25), BALC); tbox(deco, .3, 1.05, d + .2, s * (w / 2 + .25), y0 + H + 1.1, 0, BALC); }
-  } else if (o.gable) gableParts(w >= d ? w + .8 : d + .8, w >= d ? d + .8 : w + .8, rh, over, 0, y0 + H + .6, 0, roofs, w >= d ? 'x' : 'z');
+  } else if (o.mill) millParts(w + .8, d + .8, rh * .7, over, y0 + H + .6, roofs, deco);
+  else if (o.gable) gableParts(w >= d ? w + .8 : d + .8, w >= d ? d + .8 : w + .8, rh, over, 0, y0 + H + .6, 0, roofs, w >= d ? 'x' : 'z');
   else roofParts(w + .8, d + .8, rh, over, 0, y0 + H + .6, 0, roofs, o.roofCut);
   if (o.roofCut && o.roofCut < 1){
     /* the flat top inside the ridge course: a grey deck with a glazed skylight */
     const W2 = (w + .8) / 2 + over, D2 = (d + .8) / 2 + over, tx = W2 + ((W2 >= D2 ? W2 - D2 + .25 : .25) - W2) * o.roofCut, tz = D2 + ((W2 >= D2 ? .25 : D2 - W2 + .25) - D2) * o.roofCut;
-    tbox(deco, tx * 2 - .4, .4, tz * 2 - .4, 0, y0 + H + .6 + rh + .12, 0, '#8d9296'); tbox(deco, tx * 1.1, .9, tz * .9, 0, y0 + H + .6 + rh + .7, 0, '#a9cbd6');
+    const yt = y0 + H + .6 + rh + .12;
+    if (o.dome){
+      /* A3 (the library): a white frame round a dark square, and in it a round glazed dome over the atrium */
+      const q = Math.min(tx, tz) * .78, R = q * .78;
+      tbox(deco, tx * 2 - .4, .4, tz * 2 - .4, 0, yt, 0, '#b9b2a6'); tbox(deco, q * 2, .5, q * 2, 0, yt + .08, 0, '#353d45');
+      for (const s of [-1, 1]){ tbox(deco, q * 2 + 1.2, .9, .6, 0, yt + .3, s * (q + .3), '#f1ece2'); tbox(deco, .6, .9, q * 2 + 1.2, s * (q + .3), yt + .3, 0, '#f1ece2'); }
+      parts.push(Object.assign(new THREE.Mesh(new THREE.SphereGeometry(R, 32, 8, 0, Math.PI * 2, 0, Math.PI / 2).scale(1, .42, 1).translate(0, yt + .3, 0), glassRoofMat), {castShadow:true}));
+      g.add(parts[parts.length - 1]);
+      deco.push(geoTint(new THREE.TorusGeometry(R, .22, 4, 40).rotateX(Math.PI / 2).translate(0, yt + .32, 0), '#f1ece2'));
+      for (let k = 0; k < 12; k++){ const a = k / 12 * Math.PI * 2; for (let j = 0; j < 4; j++){ const b0 = j / 4 * Math.PI / 2, b1 = (j + 1) / 4 * Math.PI / 2;
+        deco.push(geoTint(rodGeo(.09, .09, [Math.cos(a) * Math.cos(b0) * R, yt + .3 + Math.sin(b0) * R * .42, Math.sin(a) * Math.cos(b0) * R], [Math.cos(a) * Math.cos(b1) * R, yt + .3 + Math.sin(b1) * R * .42, Math.sin(a) * Math.cos(b1) * R], 4), '#e8e6e0')); } }
+    } else { tbox(deco, tx * 2 - .4, .4, tz * 2 - .4, 0, yt, 0, '#8d9296'); tbox(deco, tx * 1.1, .9, tz * .9, 0, y0 + H + .6 + rh + .7, 0, '#a9cbd6'); }
   }
   /* gold light under the eaves at night */
   if (o.eaveLight && !o.flat){
@@ -799,6 +842,7 @@ function building(o){
   if (glow.length) mk(geoMerge(glow), eaveMat, false);
   if (wq && wq.p.length) washMesh(wq, g);
   parts.push(...roofMeshes(roofs, rmat, g));
+  if (roofs.glass) mk(geoMerge(roofs.glass), millGlassMat);
   const roofTop = y0 + H + .6 + rh;
   /* gilded pearl on the ridge of a crowning roof */
   if (o.finial){

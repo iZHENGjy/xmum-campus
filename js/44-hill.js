@@ -22,7 +22,7 @@ const hlNear = (x, z, line, w) => { for (let i = 0; i < line.length - 1; i += 2)
 /* ---------- trees on the slopes (the old plan had a lawn here, which no tree of js/10-world.js grows on) ---------- */
 (function(){
   const rr = mkRng(9071), trees = [], palms = [];
-  for (let k = 0, n = 0; n < (TOUCH ? 120 : 150) && k < 4000; k++){
+  for (let k = 0, n = 0; n < Math.min(TOUCH ? 120 : 150, XQ.pick(90, 130, 150)) && k < 4000; k++){
     const x = -380 + rr() * 200, z = -232 + rr() * 150, h = terrainY(x, z);
     if (h < 2.5 || !inPoly(x, z, FOREST) || hillTopD(x, z) < 8) continue;
     if (hlNear(x, z, HL.stair, 4) || hlNear(x, z, HL.ridge, 3.5) || Math.hypot(x - HILL.mx, z - HILL.mz) < 30 || hitsBuilding(x, z, 2.5) || onRoad(x, z, 2.5)) continue;
@@ -54,7 +54,7 @@ const hlNear = (x, z, line, w) => { for (let i = 0; i < line.length - 1; i += 2)
         pos.push(px, groundAt(px, pz) + (rim ? .03 : .1), pz);
         c.set(rim ? edge : nose ? edge : tread).multiplyScalar(.94 + hash2(i, (o * 10) | 0) * .1); col.push(c.r, c.g, c.b);
       }
-      if (i) for (let k = 0; k < 4; k++){ const p = (i - 1) * 5 + k, q = i * 5 + k; idx.push(p, q, p + 1, p + 1, q, q + 1); }
+      if (i) for (let k = 0; k < 4; k++){ const p = (i - 1) * 5 + k, q = i * 5 + k; idx.push(p, p + 1, q, p + 1, q + 1, q); }
     }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
     const m = new THREE.Mesh(g, M('#ffffff', {vertexColors:true, roughness:.95, polygonOffset:true, polygonOffsetFactor:-4, polygonOffsetUnits:-16})); m.receiveShadow = true; scene.add(m); HL.meshes.push(m); return m;

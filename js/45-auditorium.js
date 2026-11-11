@@ -27,9 +27,9 @@ const audiInfo = {name:'陈华春音乐厅', tag:'礼堂', floors:4, spawn:[...a
   const g = new THREE.Group(); g.position.set(AUDI.x, 0, AUDI.z); g.rotation.y = AUDI.rot; scene.add(g); regGroup(st, g);
   /* ---- stone: one texture of coursed ashlar (0.6 m courses, 1.2 m blocks) mapped in metres on every face ---- */
   const cv = document.createElement('canvas'); cv.width = cv.height = 256; const c2 = cv.getContext('2d'), rr = mkRng(6071);
-  c2.fillStyle = '#f1ebe0'; c2.fillRect(0, 0, 256, 256);
+  c2.fillStyle = '#f6ede0'; c2.fillRect(0, 0, 256, 256);
   for (let r = 0; r < 4; r++) for (let b = -1; b < 3; b++){
-    const x0 = b * 128 + (r % 2) * 64, v = 238 + rr() * 16 | 0; c2.fillStyle = `rgb(${v},${v - 5},${v - 15})`; c2.fillRect(x0 + 2, r * 64 + 2, 124, 60);
+    const x0 = b * 128 + (r % 2) * 64, v = 238 + rr() * 16 | 0; c2.fillStyle = `rgb(${v},${v - 8},${v - 22})`; c2.fillRect(x0 + 2, r * 64 + 2, 124, 60);
   }
   c2.fillStyle = 'rgba(176,166,150,.7)'; for (let r = 0; r < 4; r++){ c2.fillRect(0, r * 64, 256, 2); for (let b = -1; b < 3; b++) c2.fillRect(b * 128 + (r % 2) * 64, r * 64, 2, 64); }
   const stoneTex = new THREE.CanvasTexture(cv); stoneTex.wrapS = stoneTex.wrapT = THREE.RepeatWrapping; stoneTex.anisotropy = ANISO;
@@ -143,7 +143,7 @@ const audiInfo = {name:'陈华春音乐厅', tag:'礼堂', floors:4, spawn:[...a
   for (let i = 0; i < 24; i++){
     const t0 = -.43 + .86 * i / 24, t1 = -.43 + .86 * (i + 1) / 24, p = (t, r) => audiW(r * Math.sin(t), C0 + r * Math.cos(t));
     const [a, b2, c, e] = [p(t0, R + 3.8), p(t0, R + 5.4), p(t1, R + 5.4), p(t1, R + 3.8)];
-    band.push(quadGeo([a[0], .075, a[1]], [b2[0], .075, b2[1]], [c[0], .075, c[1]], [e[0], .075, e[1]], '#cfc8ba'));
+    band.push(quadGeo([a[0], .075, a[1]], [b2[0], .075, b2[1]], [c[0], .075, c[1]], [e[0], .075, e[1]], '#a9a397'));
   }
   const bm = new THREE.Mesh(geoMerge(band), M('#ffffff', {vertexColors:true, roughness:.8, polygonOffset:true, polygonOffsetFactor:-12, polygonOffsetUnits:-48, side:THREE.DoubleSide})); bm.receiveShadow = true; scene.add(bm);
   /* nothing stands on the plaza or in the hall: trees, palms and lamps from the old lawn and the promenade go */
