@@ -629,8 +629,13 @@ const KIP_SB = 4.6;   /* height of the shop band at the foot of the mall walls *
   tBox(m, -536.22, .45, 751.78, -535.78, 12, 752.22, '#c9ccd0');
   tBox(m, -538.2, 12, 751.6, -533.8, 16.4, 752.4, '#c8102e', 'pz nz ny'); fZ(m, 751.58, -538, -534, 12.2, 16.2, -1, A_BURGER, '#ffffff'); fZ(m, 752.42, -538, -534, 12.2, 16.2, 1, A_BURGER, '#ffffff');
   tBox(m, -539.5, 10.3, 751.7, -532.5, 11.7, 752.3, '#c8102e', 'pz nz ny'); fZ(m, 751.68, -539.3, -532.7, 10.4, 11.6, -1, A_SIGN(SIGN_MCD), '#ffffff'); fZ(m, 752.32, -539.3, -532.7, 10.4, 11.6, 1, A_SIGN(SIGN_MCD), '#ffffff');
-  addBox((MX0 + MX1) / 2 + MDX, (MZ0 + MZ1) / 2 + MDZ, (MX1 - MX0) / 2 + .5, (MZ1 - MZ0) / 2 + .5, 0); addCircle(-536 + MDX, 752 + MDZ, .8);
-  addFp({t:0, x:(MX0 + MX1) / 2 + MDX, z:(MZ0 + MZ1) / 2 + MDZ, w:MX1 - MX0, d:MZ1 - MZ0, rot:0, color:'#c8402e'});
+  /* colliders and minimap footprint: the main block and the badge tower at its corner, each on its own. One box round both (MX0..MX1 x MZ0..MZ1)
+     also blocked the 6 m strips of open lot beside the tower, an invisible wall on the drive-thru and along the bays */
+  for (const [x0, z0, x1, z1] of [[-495, 768, MX1, MZ1], [MX0, MZ0, -495, 768]]){
+    addBox((x0 + x1) / 2 + MDX, (z0 + z1) / 2 + MDZ, (x1 - x0) / 2 + .5, (z1 - z0) / 2 + .5, 0);
+    addFp({t:0, x:(x0 + x1) / 2 + MDX, z:(z0 + z1) / 2 + MDZ, w:x1 - x0, d:z1 - z0, rot:0, color:'#c8402e'});
+  }
+  addCircle(-536 + MDX, 752 + MDZ, .8);
   /* the lot: the drive-thru loop with a row of bays along Jalan Warisan Sentral 1 (it used to be a 93 × 68 m lot with two rows of bays) */
   gRect(mLot, -520.5, 751, -458, 801, .05, ASPH);
   for (let z = 753.5; z < 799; z += 2.8) gLine(mMark, -520, z, -515, z, .12, .075, LINE);
