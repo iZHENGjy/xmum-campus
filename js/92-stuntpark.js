@@ -273,8 +273,8 @@
       for (const [x, z1, z0, w] of [[CX, LIP, BASE, BIG.W / 2], [L1, GAPK.z - GAPK.L / 2, GAPK.z + GAPK.L / 2, GAPK.W / 2]]){ mg.beginPath(); mg.moveTo(X(x), Z(z1) - 3); mg.lineTo(X(x + w) + 2, Z(z0) + 2); mg.lineTo(X(x - w) - 2, Z(z0) + 2); mg.closePath(); mg.fill(); mg.stroke(); }
       mg.strokeStyle = '#e8412c'; mg.lineWidth = 3; mg.beginPath(); mg.arc(X(LP.x + LP.w / 2), Z(LP.z), Math.max(3, LP.R * k), 0, 7); mg.stroke();
       mg.beginPath(); mg.arc(X(FW.x), Z(FW.z), Math.max(3, FW.r * k * .6), 0, 7); mg.strokeStyle = '#f2c230'; mg.stroke();
-      const lx = X(-900), lz = Z(40);
-      if (lx > -60 && lx < mg.canvas.width + 60 && lz > -10 && lz < mg.canvas.height + 10){
+      const lx = X(-900), lz = Z(40);   /* the big map (js/ui-guide.js) writes the 3D labels as names itself */
+      if (typeof mini !== 'undefined' && mg.canvas === mini && lx > -60 && lx < mg.canvas.width + 60 && lz > -10 && lz < mg.canvas.height + 10){
         mg.font = '700 13px sans-serif'; mg.textAlign = 'center'; mg.lineWidth = 3; mg.strokeStyle = 'rgba(31,42,51,.85)'; mg.strokeText('飞车乐园', lx, lz); mg.fillStyle = '#ffffff'; mg.fillText('飞车乐园', lx, lz); mg.textAlign = 'start';
       }
     };
