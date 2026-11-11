@@ -3,7 +3,7 @@
 /* Everything placed here uses private generators or pure noise, never rnd(), so the campus layout that later files place stays put. */
 
 /* ---------- map bounds: the campus hedge ring stays a wall, open only where the road leaves the main gate ---------- */
-Object.assign(MAP, {x0:-1080, x1:820, z0:-560, z1:1180});
+Object.assign(MAP, {x0:-1080, x1:1150, z0:-560, z1:1260});
 const CAMPUS_R = {x0:-603, x1:603, z0:-278, z1:265};
 const GATE_GAP = [GX - 16, GX + 16];
 MAP.wall = (x, z, r) => {
@@ -28,7 +28,7 @@ const OUT_PADS = [
   {id:'mcd',  x0:-503, x1:-406, z0:1065, z1:1137, fall:45},
   /* 汽车游乐园二园 (js/92-f1park.js): the Sepang-style circuit and the stunt zone, south-east of Bell Avenue. The oil-palm estate road
      crosses it and becomes the circuit's back straight: its profile is sampled after this pad is levelled, so it comes down to the floor too.
-     Kept within z 1195: online positions only reach ±1200 m (js/net.js). */
+     The map edge is x 1150 / z 1260 (the line above); online positions reach z 1300 (js/net.js). */
   {id:'park2', x0:-230, x1:1070, z0:675, z1:1195, fall:45}
 ];
 /* 汽车游乐园 (js/92-stuntpark.js): a level block west of the campus, from Jalan Sunsuria north toward the map edge (big jump on x = -920).
@@ -226,9 +226,6 @@ function terrainY(x, z){
   for (let k = 0; k < N; k++) H[k] -= .06;
   TG.Y = H; TG.RW = RW; TG.RD = RD;
 })();
-/* the map reaches further east and south for 汽车游乐园二园 (set only now, so the hills above are shaped by the old edge and stay as they were;
-   the height grid ends at x 1156) */
-MAP.x1 = 1150; MAP.z1 = 1260;
 
 /* ---------- drawn hills: one mesh per ninth of the map (frustum-culled), plus the campus forest (hidden in black-hole mode) ---------- */
 const terrMat = regWet(M('#b4b4b4', {vertexColors:true, roughness:.95}), .62);   /* grey, not white: the hills' vertex greens were clipping to neon in full sun */
