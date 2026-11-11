@@ -76,11 +76,14 @@
     if (inGame && !tall.matches){ stop(); return; }
     const busy = b.contains('wd-open') || b.contains('arc-in') || b.contains('sp-run') || D.querySelector('dialog[open]');
     const want = inGame && tall.matches && !busy;
-    if (want && tip.hidden && shownAt !== -1){
-      const tb = D.querySelector('.topbar');
-      tip.style.top = Math.round(tb ? tb.getBoundingClientRect().bottom + 10 : 120) + 'px';
-      tip.hidden = false; if (!shownAt) shownAt = Date.now();
-    } else if (!want && !tip.hidden) tip.hidden = true;
+    if (want && tip.hidden && shownAt !== -1){ tip.hidden = false; if (!shownAt) shownAt = Date.now(); }
+    else if (!want && !tip.hidden) tip.hidden = true;
+    if (!tip.hidden){
+      /* under the top card, and under the car radio strip when it hangs there (it comes and goes with the car) */
+      const tb = D.querySelector('.topbar'), rd = D.getElementById('radio');
+      const y = Math.max(tb ? tb.getBoundingClientRect().bottom : 110, rd && !rd.hidden ? rd.getBoundingClientRect().bottom : 0);
+      tip.style.top = Math.round(y + 10) + 'px';
+    }
     /* 不点也只挂 12 秒，下次进游戏再提示 */
     if (!tip.hidden && shownAt && Date.now() - shownAt > 12000){ tip.hidden = true; shownAt = -1; }
     if (!inGame && shownAt === -1) shownAt = 0;
