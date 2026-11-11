@@ -685,11 +685,16 @@ function smReset(){ swOff(); SW.fly = null; if (SW.lbl || actSp.querySelector('b
     lL.rotation.x = lR.rotation.x = Math.max(-1.75, Math.min(-.4, -1.15 - v * .5));                                              /* legs kick out on the way forward */
     NW.mouth.scale.y = .018 + k * .09;
   }; }
-/* while a monkey has the takeaway, the order cannot be handed over */
+/* while a monkey has the takeaway, the order cannot be handed over; the clock keeps running, and if it runs out the order is lost */
 { const base = updateMission; updateMission = function(dt, px, pz){
     const L = MK.loot;
     if (L && L.kind === 'food' && mission.on && mode === 'naiwa'){
       mission.t -= dt; missionEl.classList.add('urgent');
+      if (mission.t <= 0){
+        MK.loot = null; mission.on = false; destMark.visible = false; missionEl.classList.remove('urgent');
+        sfx.fail(); toast('外卖凉了', '还在猴子手里就超时了，这单黄了。回食堂再接一单', 2800);
+        return;
+      }
       missionEl.textContent = `外卖在猴子手里 · 淋它或者笑它 · ${Math.max(0, Math.ceil(L.m.fleeT))} 秒后它就上树了`;
       return;
     }
