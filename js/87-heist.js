@@ -96,15 +96,20 @@ function exMarks(){
 
 /* ---------- people ---------- */
 function exFig(shirt, o){
-  o = o || {}; const g = new THREE.Group();
-  g.add(new THREE.Mesh(npcBodyGeo, M(shirt, {roughness:.8})), new THREE.Mesh(npcHeadGeo, M(o.skin || '#d9a37c', {roughness:.7})));
-  const legs = [-1, 1].map(s => { const l = new THREE.Mesh(npcLegGeo, M(o.legs || '#1f2a3c', {roughness:.8, vertexColors:true})); l.position.set(s * .09, .87, 0); g.add(l); return l; });
-  if (o.cap){ box(.34, .1, .36, M(o.cap), 0, 1.79, .02, g); box(.32, .03, .16, M(o.cap), 0, 1.75, .2, g); }
+  o = o || {}; const g = new THREE.Group(), shirtM = M(shirt, {roughness:.8}), skinM = M(o.skin || '#d9a37c', {roughness:.7});
+  g.add(new THREE.Mesh(npcBodyGeo, shirtM), new THREE.Mesh(npcHeadGeo, skinM));
+  const legs = [-1, 1].map(s => { const l = new THREE.Mesh(npcLegGeo, M(o.legs || '#1f2a3c', {roughness:.8, vertexColors:true})); l.position.set(s * .09, PPL_HIP, 0); g.add(l); return l; });
+  const arms = pplArms(g, shirtM, skinM);   /* js/86-guard.js: arms[0] right (-x), arms[1] left (+x) */
+  if (o.cap) g.add(new THREE.Mesh(pplCapGeo, M(o.cap)));
   if (o.hair){ const h = new THREE.Mesh(new THREE.SphereGeometry(.17, 8, 6), M(o.hair, {roughness:.9})); h.position.set(0, 1.69, -.04); g.add(h); }
   if (o.glasses) box(.26, .05, .02, M('#1c1c1c'), 0, 1.64, .135, g);
   if (o.badge) box(.08, .1, .02, M('#e3b95a', {metalness:.5, roughness:.4}), .08, 1.32, .12, g);
-  if (o.mop){ box(.05, 1.5, .05, M('#b08a55'), .28, .95, .25, g); box(.5, .08, .2, M('#dfe6ea'), .28, .06, .5, g); }
-  g.children.forEach(m => { m.castShadow = true; }); g.scale.setScalar(o.s || 1.35); g.visible = false; roomG.add(g); return {g, legs};
+  if (o.mop){
+    /* the mop in the left hand */
+    const h = new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, 1.5, 6), M('#b08a55')); h.position.set(.28, .95, .25); g.add(h);
+    box(.5, .08, .2, M('#dfe6ea'), .28, .06, .5, g); arms[1].rotation.set(-.5, 0, .14);
+  }
+  g.traverse(m => { if (m.isMesh) m.castShadow = true; }); g.scale.setScalar(o.s || 1.35); g.visible = false; roomG.add(g); return {g, legs, arms};
 }
 /* what someone can see, drawn on the floor: a fan that stops at walls and shut doors (rebuilt every frame by exFan) */
 const EX_RAYS = 18;
@@ -288,7 +293,7 @@ function soakGuard(g, power, info){
 }
 /* --- the teacher: at her desk in the office, marking. Every few seconds she looks up and sweeps the room. --- */
 const TCH = Object.assign(exFig('#b0526a', {hair:'#2a2420', glasses:true, s:1.3}), {cone:exCone(), bang:exBang(), x:RX(20), z:RZ(-6.45), h:0, on:false, up:0, next:4, warned:false, alert:0, mad:0});
-TCH.legs.forEach(l => { l.visible = false; });
+TCH.legs.forEach(l => { l.visible = false; }); TCH.arms.forEach(a => { a.rotation.x = -1.0; });   /* sitting: hands on the desk */
 function tchSpot(why){
   TCH.mad = 6; TCH.alert = 0; EX.spotted++; EX.t += 5; sfx.fail(); camShake = Math.max(camShake, .4);
   toast(why || '老师：哪个班的！站住！', '她喊了保安 · −5 秒。离开她的视线', 3000); guardsTo(nw.x, nw.z);
@@ -324,7 +329,7 @@ function clnUpdate(dt){
   if (C.rest > 0) C.rest -= dt;
   else { C.x += C.dir * 1.15 * dt; C.z = RZ(13.1) + Math.sin(C.x * .9) * .5; if (C.x > RX(23.5) || C.x < RX(3.5)){ C.dir = -C.dir; C.rest = 2; }
     if (Math.abs(C.x - C.last) > 3.2){ C.last = C.x; const w = C.wet.reduce((a, b) => a.life < b.life ? a : b); w.x = C.x - C.dir * 1.6; w.z = C.z; w.life = 15; w.m.position.set(w.x, .04, w.z); w.m.visible = true; } }
-  C.g.position.set(C.x, 0, C.z); C.g.rotation.y = C.dir > 0 ? Math.PI / 2 : -Math.PI / 2; const sw = C.rest > 0 ? 0 : Math.sin(performance.now() / 160) * .35; C.legs[0].rotation.x = sw; C.legs[1].rotation.x = -sw;
+  C.g.position.set(C.x, 0, C.z); C.g.rotation.y = C.dir > 0 ? Math.PI / 2 : -Math.PI / 2; const sw = C.rest > 0 ? 0 : Math.sin(performance.now() / 160) * .35; C.legs[0].rotation.x = sw; C.legs[1].rotation.x = -sw; C.arms[0].rotation.x = -sw * .8;
   const d = Math.hypot(nw.x - C.x, nw.z - C.z), running = !EX.crouch && nw.spd > 7;
   if (d < 1.25 && d > .01){ const k = (1.25 - d) / d, x = nw.x + (nw.x - C.x) * k, z = nw.z + (nw.z - C.z) * k; if (!footBlocked(x, z)){ nw.x = x; nw.z = z; } clnShout('看着点路！'); }      /* she is in the way */
   else if (running && d < 5.5) clnShout('别跑！地刚拖过！');
@@ -338,7 +343,7 @@ function clnUpdate(dt){
 }
 /* --- the top student asleep at a desk: a noise next to him and he wakes up loudly --- */
 const NERD = Object.assign(exFig('#5d6fbf', {glasses:true, hair:'#1c1c1c', s:1.25}), {x:0, z:0, on:false, awake:0, zt:0});
-NERD.legs.forEach(l => { l.visible = false; });
+NERD.legs.forEach(l => { l.visible = false; }); NERD.arms.forEach(a => { a.rotation.x = -1.2; });   /* asleep on his folded arms */
 function nerdWake(){
   NERD.awake = 8; tone('sawtooth', 500, 700, .2, .09); gxCallout('学霸：嘘——！', '把他吵醒了，他一嚷保安就来', '#ffd24a'); exNoise(NERD.x, NERD.z, 16, '学霸在抱怨', NERD);
 }
@@ -362,7 +367,7 @@ function palUpdate(dt){
   const P = PAL; if (!P.on) return;
   if (P.out && guards[0].state !== 'chat' && !(P.path && P.path.length)){ P.out = false; palBack(); }      /* the chat is over: back to the printer */
   if (P.path && P.path.length){ const w = P.path[0], dx = w[0] - P.x, dz = w[1] - P.z, L = Math.hypot(dx, dz), v = Math.min(L, 5 * dt); if (L < .2) P.path.shift(); else { P.x += dx / L * v; P.z += dz / L * v; P.g.rotation.y = Math.atan2(dx, dz); } }
-  const moving = P.path && P.path.length, sw = moving ? Math.sin(performance.now() / 90) * .5 : 0; P.legs[0].rotation.x = sw; P.legs[1].rotation.x = -sw; P.g.position.set(P.x, 0, P.z);
+  const moving = P.path && P.path.length, sw = moving ? Math.sin(performance.now() / 90) * .5 : 0; P.legs[0].rotation.x = sw; P.legs[1].rotation.x = -sw; P.arms[0].rotation.x = -sw * .8; P.arms[1].rotation.x = sw * .8; P.g.position.set(P.x, 0, P.z);
 }
 const exNearPal = () => PAL.on && exHere() && !(PAL.path && PAL.path.length) && Math.hypot(nw.x - PAL.x, nw.z - PAL.z) < 2.6;
 wgAddTarget(() => {

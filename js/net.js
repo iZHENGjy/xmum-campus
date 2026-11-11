@@ -373,6 +373,7 @@
       });
       c.root.traverse(m => { if (m.isMesh) m.castShadow = false; });
       c.body.add(G.n.root); G.n.root.position.set(...c.T.seat); G.n.root.rotation.set(0, 0, 0);
+      g(() => nwRingOn(c, G.n.shape));                              // 车顶的密封圈（js/40-vehicles.js）
       G.car = c;
     } else { scene.add(G.n.root); G.n.root.scale.setScalar(g(() => NAI_S, 1.3)); }
   }
@@ -436,14 +437,14 @@
         G.car.x = G.x; G.car.z = G.z; G.car.h = G.h;
         G.car.root.position.set(G.x, G.y, G.z); G.car.root.rotation.set(0, G.h, 0);
         const w = G.spd * dt / (G.car.T.r || .35); G.car.wheels.forEach(wh => { wh.rotation.x += w; });
-        G.n.legs.forEach(l => { l.rotation.x = -1.4; }); G.n.arms.forEach(a => { a.rotation.x = -1.05; });
+        nwSitPose(G.n, G.car.T.bike);
         G.L.pos.set(G.x, G.y + G.car.T.H + 1.6, G.z);
       } else {
         G.n.root.position.set(G.x, G.y, G.z); G.n.root.rotation.y = G.h;
         const moving = G.spd > .4; if (moving) G.walkT += dt * Math.min(14, 4 + G.spd * 1.1);
         const sw = moving ? Math.sin(G.walkT) : 0, [aL, aR] = G.n.arms, [lL, lR] = G.n.legs;
-        lL.rotation.x = sw * .55; lR.rotation.x = -sw * .55; aL.rotation.set(-.35 - sw * .4, 0, .1); aR.rotation.set(-.35 + sw * .4, 0, -.1);
-        G.n.body.position.y = moving ? Math.abs(sw) * .05 : 0; G.n.body.rotation.z = sw * .09;
+        lL.rotation.set(sw * .55, 0, 0); lR.rotation.set(-sw * .55, 0, 0); aL.rotation.set(-.35 - sw * .4, 0, .1); aR.rotation.set(-.35 + sw * .4, 0, -.1);
+        G.n.body.position.y = moving ? Math.abs(sw) * .05 : 0; G.n.body.rotation.set(0, 0, sw * .09);
         G.L.pos.set(G.x, G.y + 3.4, G.z);
       }
     }

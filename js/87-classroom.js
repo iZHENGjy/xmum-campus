@@ -31,7 +31,10 @@ const ROOM_DESKS = [], ROOM_CABS = {};
 let roomBoard = null;
 (() => {
   const H = ROOM.H, wallM = M('#efe7d6'), wallLow = M('#b9ae99'), doorM = M('#7a4a2a', {roughness:.6}), green = M('#2f8f5a', {emissive:'#2f8f5a', emissiveIntensity:.6});
-  const flat = (w, d, x, z, col, y) => { const m = box(w, .2, d, M(col, {roughness:.85}), RX(x), y || -.08, RZ(z), roomG); m.castShadow = false; return m; };
+  /* the floors sit only a centimetre or two over the campus ground plane (y = 0) that runs under the room: a small depth offset keeps
+     the grass from showing through them when the camera is tilted low (it did in the dorm and the classroom) */
+  const floorMat = col => M(col, {roughness:.85, polygonOffset:true, polygonOffsetFactor:-1, polygonOffsetUnits:-4});
+  const flat = (w, d, x, z, col, y) => { const m = box(w, .2, d, floorMat(col), RX(x), y || -.08, RZ(z), roomG); m.castShadow = false; return m; };
   flat(84, 70, 6, 3, '#55524d', -.1);                      /* the ground outside the walls */
   flat(28, 20, 0, 0, '#9c7350'); flat(40, 6, 6, 13, '#8f897c'); flat(12, 12, 20, -4, '#5f7268'); flat(12, 8, 20, 6, '#7d8288');   /* classroom, corridor, office, print room */
   /* A wall is a tall part that can be cut away plus a dado that always stays. Things hanging on a wall go into its items. */

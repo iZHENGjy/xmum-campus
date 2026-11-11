@@ -171,9 +171,13 @@ function arcBuild(){
   /* neon sign on the north wall */
   const signTex = arcTex(1024, 160, (g, w, h) => {
     g.fillStyle = '#1a1c38'; g.fillRect(0, 0, w, h);
-    g.font = '900 96px ' + ARC_FONT; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.shadowColor = '#ff5fa2'; g.shadowBlur = 26; g.fillStyle = '#ffd3e6'; g.fillText('B1 游戏厅', w / 2 - 150, h / 2 + 4);
-    g.shadowColor = '#3fd6c6'; g.fillStyle = '#d2fff8'; g.font = '700 56px ' + ARC_FONT; g.fillText('XMUM ARCADE', w / 2 + 230, h / 2 + 8);
+    /* the two words are measured and laid out side by side (fixed centres let them run into each other with some fonts) */
+    const f1 = '900 96px ' + ARC_FONT, f2 = '700 56px ' + ARC_FONT; g.textAlign = 'left'; g.textBaseline = 'middle';
+    g.font = f1; const w1 = g.measureText('B1 游戏厅').width; g.font = f2; const w2 = g.measureText('XMUM ARCADE').width;
+    const k = Math.min(1, (w - 60) / (w1 + w2 + 56)), x0 = (w - (w1 + w2 + 56) * k) / 2;
+    g.save(); g.translate(x0, 0); g.scale(k, 1);
+    g.font = f1; g.shadowColor = '#ff5fa2'; g.shadowBlur = 26; g.fillStyle = '#ffd3e6'; g.fillText('B1 游戏厅', 0, h / 2 + 4);
+    g.font = f2; g.shadowColor = '#3fd6c6'; g.fillStyle = '#d2fff8'; g.fillText('XMUM ARCADE', w1 + 56, h / 2 + 8); g.restore();
   });
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(12, 1.9), new THREE.MeshBasicMaterial({map:signTex})); sign.position.set(0, 2.72, -D / 2 + .02); G.add(sign);
   /* exit ring */
@@ -217,9 +221,19 @@ function arcBuild(){
   if (typeof npcBodyGeo !== 'undefined' && typeof npcHeadGeo !== 'undefined' && typeof npcLegGeo !== 'undefined'){
     for (const [x, z, h, c] of [[-10.5, -5.4, -Math.PI / 2, '#3fd6c6'], [4.9, 4.2, Math.PI / 2, '#ffc93c'], [9.1, 4.2, -Math.PI / 2, '#7c8cff'], [-6.1, 4.3, 0, '#f4f2ec']]){
       const p = new THREE.Group();
-      p.add(new THREE.Mesh(npcBodyGeo, M(c, {roughness:.8})), new THREE.Mesh(npcHeadGeo, M('#e8b98f', {roughness:.7})));
-      for (const s of [-1, 1]){ const l = new THREE.Mesh(npcLegGeo, M('#2a3350', {roughness:.8, vertexColors:true})); l.position.set(s * .09, .87, 0); p.add(l); }
-      p.children.forEach(m => { m.castShadow = true; }); p.scale.setScalar(1.3); p.position.set(x, 0, z); p.rotation.y = h; G.add(p); ARC.cols.push([x - .45, x + .45, z - .45, z + .45]);
+      const shirt = M(c, {roughness:.8}), skin = M('#e8b98f', {roughness:.7});
+      /* body, head, hair and backpack (the students' gear), legs at the hip height of js/86-guard.js, and arms */
+      p.add(new THREE.Mesh(npcBodyGeo, shirt), new THREE.Mesh(npcHeadGeo, skin), new THREE.Mesh(npcGearGeo, M('#ffffff', {roughness:.8, vertexColors:true})));
+      for (const s of [-1, 1]){ const l = new THREE.Mesh(npcLegGeo, M('#2a3350', {roughness:.8, vertexColors:true})); l.position.set(s * .09, PPL_HIP, 0); p.add(l); }
+      const arms = pplArms(p, shirt, skin);
+      if (Math.abs(h) === Math.PI / 2 && x > 0){
+        /* the two at the ping-pong table hold a bat up in the right hand */
+        arms[0].rotation.set(-1.0, 0, -.2);
+        const bat = new THREE.Group(); bat.position.set(0, -.5, .04); bat.rotation.x = 1.0; arms[0].add(bat);
+        const blade = new THREE.Mesh(new THREE.CylinderGeometry(.08, .08, .02, 14), M('#c8321e', {roughness:.6})); blade.rotation.z = Math.PI / 2; blade.position.y = .1;
+        const grip = new THREE.Mesh(new THREE.CylinderGeometry(.018, .018, .1, 6), M('#b08a55', {roughness:.7})); bat.add(blade, grip);
+      } else arms.forEach(a => { a.rotation.x = -.15; });
+      p.traverse(m => { if (m.isMesh) m.castShadow = true; }); p.scale.setScalar(1.3); p.position.set(x, 0, z); p.rotation.y = h; G.add(p); ARC.cols.push([x - .45, x + .45, z - .45, z + .45]);
     }
   }
   ARC.fixedCols = ARC.cols.length;

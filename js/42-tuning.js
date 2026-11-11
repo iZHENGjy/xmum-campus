@@ -351,7 +351,9 @@ function tnAnchors(kind){
   /* the shells are extruded profiles with big flat faces (few vertices), so probe them with rays instead of reading vertices */
   const T = CAR_T[kind], geo = carParts(kind, T).paint, p = geo.attributes.position;
   let zf = -1e9, zr = 1e9;
-  for (let i = 0; i < p.count; i++){ const z = p.getZ(i); if (z > zf) zf = z; if (z < zr) zr = z; }
+  /* the ends of the body at bumper height: the 越野车's spare wheel cover (also paint) hangs further back, and the exhausts,
+     diffuser and under-glow hung off it floated in the air behind the car */
+  for (let i = 0; i < p.count; i++){ if (p.getY(i) > T.r * 1.6) continue; const z = p.getZ(i); if (z > zf) zf = z; if (z < zr) zr = z; }
   const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({side:THREE.DoubleSide})); mesh.updateMatrixWorld(true);
   const rc = new THREE.Raycaster(), o = new THREE.Vector3(), d = new THREE.Vector3();
   const hit = () => { rc.set(o, d); const h = rc.intersectObject(mesh, false); return h.length ? h[0].point : null; };
@@ -627,6 +629,7 @@ function tnApply(c, fit){
     w.geometry = wg; piv.position.x = sx * (T.W / 2 - .08 + out); piv.position.y = r - lift; piv.rotation.z = sx * cam;
     if (fit.rim === 'glow') add(w, tnRing(r, sz.lp), tnNeonMat(neonCol).tube);
   }
+  for (const m of c.body.children) if (m.userData.stockWing) m.visible = fit.wing === 'none';   /* the 兰博's own wing makes way for a tuned one */
   const B = tnBody(c.kind, fit), aero = fit.aero === 'carbon' ? TN_MAT.carbon : fit.aero === 'black' ? TN_MAT.black : c.paint;
   if (B.aero) add(c.body, B.aero, aero, false);
   if (B.black) add(c.body, B.black, TN_MAT.black);
