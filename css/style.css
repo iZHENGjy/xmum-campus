@@ -1404,3 +1404,10 @@ body.titled:has(#embedTip:not([hidden])) #title .t-wrap{padding-top:56px}
 #loginGate .lg-main{border:0;background:var(--tile);color:var(--on-accent);font-weight:700}
 #loginGate .lg-skip{border:1px solid var(--line);background:transparent;color:var(--ink)}
 #loginGate .lg-tip{margin:0;font-size:13.5px;line-height:1.6;padding:10px 12px;border-radius:10px;background:var(--tile-soft);color:var(--ink)}
+
+/* ---------- 3D 画面被浏览器收回时的提示（js/00-core.js） ---------- */
+#glLost{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:90;background:var(--panel-solid);box-shadow:0 18px 50px rgba(0,0,0,.35);width:min(360px, calc(100% - 32px));padding:18px;display:flex;flex-direction:column;gap:10px;text-align:center}
+#glLost[hidden]{display:none}
+#glLost b{font-size:17px}
+#glLost span{font-size:13.5px;line-height:1.6;color:var(--muted)}
+#glLost button{height:42px;border:0;border-radius:12px;background:var(--tile);color:var(--on-accent);font:inherit;font-weight:700;cursor:pointer}
