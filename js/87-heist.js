@@ -424,7 +424,13 @@ function exFinish(){
 }
 
 /* ---------- going in and out ---------- */
-function exQ(){ const b = actQ.querySelector('b'), t = exHere() ? (EX.crouch ? '起身' : '蹲下') : '撩头'; if (b.textContent !== t) b.textContent = t; }
+/* crouching is shared with the dorm (js/89-dorm.js): every indoor game that allows it pushes {here(), st, set(on)} here.
+   st carries crouch, hid, desk (what you are tucked in beside, {x, z}) and slide; the Q / jump / walk / squash hooks at the bottom of this file read it */
+const SNEAK = [];
+const sneakHere = () => driving ? null : SNEAK.find(s => s.here()) || null;
+const sneakDown = () => SNEAK.find(s => s.st.crouch) || null;
+function sneakQ(){ const s = sneakHere(), b = actQ.querySelector('b'), t = s ? (s.st.crouch ? '起身' : '蹲下') : '撩头'; if (b.textContent !== t) b.textContent = t; }
+function exQ(){ sneakQ(); }
 /* the job's building has just been entered: doors, people, marks */
 function exSetup(){
   const k = EX.kind, night = k === 'night';
@@ -658,25 +664,29 @@ ROOM.hook = (dt, fl) => exHere() ? exInside(dt) : fl;
     leave(){ if (EX.on){ if (ROOM.in) roomLeave(true); exEnd(); } EX.rearm = ''; exHideStart(); base.leave(); }
   });
 }
-/* crouching: Q / the 撩头 button toggles it, jumping stands up, moving is slow and silent, 奶娃 is squashed and slides in beside the furniture when hidden */
+/* crouching: Q / the 撩头 button toggles it, jumping stands up, moving is slow and silent, 奶娃 is squashed and slides in beside the furniture when hidden.
+   The same hooks serve the dorm: whichever game is registered in SNEAK and says here() */
+SNEAK.push({here:exHere, st:EX, set:exCrouch});
 { const base = footAction; footAction = function(k){
-    if (exHere() && !driving){ if (k === 'pose'){ if (nw.state === 'idle' && !nw.air) exCrouch(!EX.crouch); return; } if (k === 'jump' && EX.crouch){ exCrouch(false); return; } }
+    const s = sneakHere();
+    if (s){ if (k === 'pose'){ if (nw.state === 'idle' && !nw.air) s.set(!s.st.crouch); return; } if (k === 'jump' && s.st.crouch){ s.set(false); return; } }
     base(k);
   }; }
 { const base = updateFoot; updateFoot = function(dt){
-    if (!EX.crouch){ base(dt); return; }
+    if (!sneakDown()){ base(dt); return; }
     const sl = keys.ShiftLeft, sr = keys.ShiftRight, jx = joy.x, jy = joy.y, m = Math.hypot(jx, jy);
     keys.ShiftLeft = keys.ShiftRight = false; if (m > .9){ joy.x = jx / m * .9; joy.y = jy / m * .9; }
     base(dt * .55);      /* about 3 m/s on all fours, and never a run */
     keys.ShiftLeft = sl; keys.ShiftRight = sr; joy.x = jx; joy.y = jy;
   }; }
-{ const base = animNaiwa; let squash = 1; animNaiwa = function(dt, T){
+{ const base = animNaiwa; let squash = 1, st = null; animNaiwa = function(dt, T){
     base(dt, T);
-    const want = EX.crouch && !driving ? .55 : 1; if (squash === 1 && want === 1) return;
+    const s = sneakDown(); if (s) st = s.st;
+    const want = s && !driving ? .55 : 1; if (squash === 1 && want === 1) return;
     squash += (want - squash) * Math.min(1, dt * 12); if (want === 1 && squash > .985) squash = 1;
-    EX.slide += ((EX.hid ? 1 : 0) - EX.slide) * Math.min(1, dt * 8);
+    if (st) st.slide += ((st.hid ? 1 : 0) - st.slide) * Math.min(1, dt * 8);
     if (driving) return;
     NW.root.scale.set(NAI_S, NAI_S * squash, NAI_S);
-    if (EX.desk && EX.slide > .02){ NW.root.position.x += (EX.desk.x - nw.x) * .55 * EX.slide; NW.root.position.z += (EX.desk.z - nw.z) * .55 * EX.slide; }
+    if (st && st.desk && st.slide > .02){ NW.root.position.x += (st.desk.x - nw.x) * .55 * st.slide; NW.root.position.z += (st.desk.z - nw.z) * .55 * st.slide; }
   }; }
 exHideStart();

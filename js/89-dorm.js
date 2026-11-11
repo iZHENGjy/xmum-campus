@@ -8,7 +8,9 @@
  *   带出来的东西自动卖成 RM，限量周边另外给「周边券」，在衣橱里换独家配件（js/89-dorm-ui.js）。
  *   被宿管抓到或超时：请出宿舍，背包里的东西没收。最后半分钟她去大门口守着。
  * 谜题：上锁的后门、储物柜、寝室。线索在便利贴、白板课程表、手机上，每局的门牌、课程表、日期、开关顺序都随机。
- * 敌人：宿管阿姨沿楼道巡逻（地上的光扇是她的视野，跑步她听得见）；偷外卖的小偷会搬空柜子、偷你背包里最贵的东西再往消防梯跑。
+ * 敌人：宿管阿姨沿楼道巡逻（地上的光扇是她的视野，跑步她听得见）；Q（手机「蹲下」）蹲着走没声音、她看不远，
+ *   蹲在床、衣柜、书桌、快递箱这些家具旁边不动就是躲起来（js/87-heist.js 的 SNEAK 共用蹲下的按键和动作）；
+ *   偷外卖的小偷会搬空柜子、偷你背包里最贵的东西再往消防梯跑。
  *   水枪（js/87-classroom.js）淋中宿管她擦 3 秒眼镜，淋中小偷他滑倒，按 F 抓住。
  * 室内开关：进门时设 window.XINDOOR = 'dorm'（indoorNow() 在 js/40-vehicles.js）。界面在 js/89-dorm-ui.js。
  */
@@ -459,19 +461,19 @@ function dmEnter(door, seed){
   DORM.run = {t:0, limit:DM_LIMIT + (coach ? 30 : 0), bag:new Array(DM_SLOTS).fill(null), seen:false, solved:0, caught:0, bounty:0, told:{}, noiseT:0, alarm:0, bell:false, lockup:false, lastCd:0, lblT:0, dg:0, hb:0, opened:0, coach:coach ? 0 : -1, coachT:0, tip:''};
   dmBuild(L);
   DORM.in = true; DORM.door = door; DORM.keep = {dist:camDist, pitch:camPitch}; DORM.near = null; DORM.hold = 0; DORM.lootBox = null;
-  window.XINDOOR = 'dorm'; window.XINDOOR_AT = door;
+  window.XINDOOR = 'dorm'; window.XINDOOR_AT = door; dmSneakReset();
   Object.assign(nw, {x:L.spawn[0], z:L.spawn[1], y:0, h:Math.PI, air:false, state:'idle'}); camYaw = 0; camDist = 13; camPitch = 1.02;
   dmSpawnNpcs(L);
   dmG.visible = true; document.body.classList.add('dm-in');
   for (const d of DM_DOORS){ d.mark.visible = false; d.lbl.dead = true; }
   prog.life.dormRuns++; saveGame(); sfx.ding();
   gxCallout('22:30', `${door.name} 宿舍 · ${L.floor} 楼`, '#c9a0ff');
-  toast(`${door.name} 宿舍 · ${L.floor} 楼`, '23:00 宿管锁门。搜到的东西要带到撤离点才算你的', 3600);
+  toast(`${door.name} 宿舍 · ${L.floor} 楼`, `23:00 宿管锁门，东西带到撤离点才算你的。${TOUCH ? '点「蹲下」' : '按 Q '}蹲着走没声音`, 3600);
   dmUiReset();
 }
 function dmLeaveWorld(){
   if (!DORM.in) return;
-  const d = DORM.door; DORM.in = false; dmG.visible = false; window.XINDOOR = ''; window.XINDOOR_AT = null;
+  const d = DORM.door; DORM.in = false; dmG.visible = false; window.XINDOOR = ''; window.XINDOOR_AT = null; dmSneakReset();
   for (const c of dmCols) c.dead = true;
   for (const l of dmLbls) l.dead = true; for (const e of dmExitFx) e.lbl.dead = true; dmAuntLbl.dead = dmThiefLbl.dead = true;
   if (DORM.keep){ camDist = DORM.keep.dist; camPitch = DORM.keep.pitch; }
@@ -606,7 +608,13 @@ function dmAunt(dt){
   const hot = run.bag.some(it => it && it.id === 'pot');
   a.range = (a.state === 'chase' ? 12 : 9) * (hot ? 1.3 : 1);
   const ang = Math.atan2(nw.x - a.x, nw.z - a.z), da = Math.abs(Math.atan2(Math.sin(ang - a.h), Math.cos(ang - a.h)));
-  const sees = d < a.range && (d < 2.2 || da < .96) && dmSee(a.x, a.z, nw.x, nw.z);
+  /* crouched she has to be closer, and does not feel you behind her until you bump into her (not while she is chasing: she has her eyes on you).
+     Tucked in beside furniture and still, only right on top of you, unless she was looking at you a moment ago (a.knows: she watched you duck).
+     So in a chase: break her line of sight first, then hide */
+  if (a.knows == null) a.knows = 0;
+  const low = DORM.crouch && a.state !== 'chase', R = DORM.hid && a.knows <= 0 ? DM_HID_R : low ? a.range * DM_CROUCH_VIEW : a.range, back = low ? 1.2 : 2.2;
+  const sees = d < R && (d < back || da < .96) && dmSee(a.x, a.z, nw.x, nw.z);
+  a.knows = sees ? DM_KNOW : Math.max(0, a.knows - dt);
   let wob = 0; a.moving = false;
   if (a.state === 'stun'){
     a.stun -= dt; wob = Math.sin(a.stun * 14) * .4;
@@ -614,10 +622,10 @@ function dmAunt(dt){
     if (a.stun <= 0){ a.state = 'search'; a.tx = nw.x; a.tz = nw.z; a.look = 0; a.seeT = .4; dmStop(a); }
   } else {
     /* she needs a moment to be sure it is you: about 0.2 s up close, 0.8 s at the far end of her torch */
-    a.seeT = sees ? a.seeT + dt * (d < 3 ? 4 : 4 - (d - 3) / (a.range - 3) * 3.1) : Math.max(0, a.seeT - dt * .8);
+    a.seeT = sees ? a.seeT + dt * (d < 3 ? 4 : 4 - (d - 3) / Math.max(.5, R - 3) * 3.1) : Math.max(0, a.seeT - dt * .8);
     if (a.state !== 'chase' && a.seeT > .7){
       a.state = 'chase'; a.lostT = 0; run.seen = true; dmStop(a); tone('square', 880, 660, .15, .08);
-      if (!run.told.seen){ run.told.seen = 1; toast('宿管阿姨：哪个寝室的！站住！', TOUCH ? '跑！或者用「水枪」淋她，她要擦 3 秒眼镜' : '跑！或者按 E 用水枪淋她，她要擦 3 秒眼镜', 2600); }
+      if (!run.told.seen){ run.told.seen = 1; toast('宿管阿姨：哪个寝室的！站住！', TOUCH ? '跑！拐过墙角再蹲到家具旁边，或者用「水枪」淋她' : '跑！拐过墙角再按 Q 蹲到家具旁边，或者按 E 用水枪淋她', 3000); }
       else gxCallout('被发现了', '宿管在追你', '#ff6f61');
     }
     if (a.state === 'chase'){
@@ -697,7 +705,7 @@ function dmThiefUp(dt){
       t.state = 'roam'; t.tgt = null;
     }
   } else {
-    if (t.cd <= 0 && d < 8 && stealable() >= 0 && dmSee(t.x, t.z, nw.x, nw.z)){ t.state = 'stalk'; dmStop(t); if (!run.told.thief){ run.told.thief = 1; toast('有个戴口罩的人盯着你的背包', '偷外卖的小偷！别让他贴上来', 2200); } }
+    if (t.cd <= 0 && d < (DORM.hid ? 2 : DORM.crouch ? 5 : 8) && stealable() >= 0 && dmSee(t.x, t.z, nw.x, nw.z)){ t.state = 'stalk'; dmStop(t); if (!run.told.thief){ run.told.thief = 1; toast('有个戴口罩的人盯着你的背包', '偷外卖的小偷！别让他贴上来', 2200); } }
     else {
       if (!t.tgt){ const pool = L.boxes.filter(b => !b.open && b.items.length && !(b.lock && !b.lock.open) && !(b.room && b.room.lock && !b.room.lock.open) && b.type !== 'sack'); t.tgt = pool[(Math.random() * pool.length) | 0] || null; dmStop(t); if (!t.tgt){ t.wp = L.way[(Math.random() * L.way.length) | 0]; } }
       const g = t.tgt ? [t.tgt.x, t.tgt.z] : t.wp;
@@ -792,6 +800,49 @@ function dmF(t){
   dmFL = t;
 }
 
+/* ---------- crouching: Q / 「蹲下」. The key, the slow walk and the squashed 奶娃 are js/87-heist.js's (SNEAK); what it means here is below ----------
+   Crouched: about 3 m/s instead of 5.5, never a run, so no footsteps; the 宿管 sees 60% as far and does not feel you behind her.
+   Crouched, still and within reach of furniture in the same room (bed, wardrobe, desk, parcel...): hidden, she only sees you right on top of you,
+   unless she was looking at you when you ducked. Jumping or the water gun stands you up. */
+const DM_CROUCH_VIEW = .6, DM_HID_R = 1.6, DM_KNOW = 1.2, DM_HIDE_GAP = 1.6, DM_STEP_R = 3, DM_RUMMAGE = 5;
+Object.assign(DORM, {crouch:false, hid:false, desk:null, slide:0, shots:0});
+const dmQ = () => { if (typeof sneakQ === 'function') sneakQ(); };
+function dmCrouch(on){
+  if (DORM.crouch === on) return; DORM.crouch = on; if (!on){ DORM.hid = false; DORM.desk = null; }
+  tone('sine', on ? 420 : 300, on ? 300 : 420, .08, .05); dmQ();
+}
+function dmSneakReset(){ DORM.crouch = DORM.hid = false; DORM.desk = null; DORM.slide = 0; DORM.shots = typeof WG !== 'undefined' ? WG.shots : 0; dmQ(); }
+if (typeof SNEAK !== 'undefined') SNEAK.push({here:() => DORM.in && mode === 'naiwa', st:DORM, set:dmCrouch});
+/* the nearest point on the side of a piece of furniture in the room you are in, if you are close enough to tuck in beside it.
+   You cannot stand closer than 0.9 m to anything (footBlocked), so 1.6 means "against it, give or take a step" */
+function dmCover(x, z){
+  const here = dmSpace(x, z); let best = null, bd = DM_HIDE_GAP;
+  for (const f of DORM.L.fur){
+    if ((f.room || 'C') !== here) continue;
+    const F = DM_FUR[f.type], sw = Math.abs(Math.sin(f.ry)) > .5, hx = (sw ? F.d : F.w) / 2, hz = (sw ? F.w : F.d) / 2;
+    const qx = Math.max(f.x - hx, Math.min(f.x + hx, x)), qz = Math.max(f.z - hz, Math.min(f.z + hz, z)), g = Math.hypot(x - qx, z - qz);
+    if (g < bd){ bd = g; best = {x:qx, z:qz, f}; }
+  }
+  return best;
+}
+function dmSneak(dt){
+  const a = DORM.aunt, run = DORM.run;
+  if (typeof WG !== 'undefined' && WG.shots !== DORM.shots){ DORM.shots = WG.shots; if (DORM.crouch) dmCrouch(false); }
+  DORM.desk = DORM.crouch && !nw.air ? dmCover(nw.x, nw.z) : null;
+  const hid = !!DORM.desk && nw.spd < .5;
+  if (hid && !DORM.hid){ tone('sine', 300, 220, .1, .05); if (!run.told.hid){ run.told.hid = 1; gxCallout('躲起来了', '宿管走到跟前才看得见你', '#c9a0ff'); } }
+  DORM.hid = hid;
+  /* walking upright right behind her: she hears your steps and turns round to look. Crouched you can creep past */
+  if (!DORM.crouch && nw.spd > 1 && a && a.state === 'patrol' && !run.lockup && Math.hypot(a.x - nw.x, a.z - nw.z) < DM_STEP_R) dmNoise(nw.x, nw.z, DM_STEP_R, '走得太近，宿管听见脚步了（蹲着走没声音）');
+}
+/* the line above the backpack when nothing in reach wants F */
+function dmSneakPrompt(){
+  const a = DORM.aunt;
+  if (DORM.hid) return a && a.knows > 0 ? '她看着你蹲下的！先拐过墙角甩开她再躲' : '躲好了 · 宿管走到跟前才看得见你';
+  if (DORM.crouch) return DORM.desk ? '靠着家具 · 停下别动就是躲起来' : '蹲着走没声音，宿管看不远 · 停在家具旁边就是躲起来';
+  return '';
+}
+
 /* ---------- per-frame ---------- */
 let dmPrompt = '';
 /* first runs: one line at a time above the backpack, each moving on when you have done what it says */
@@ -801,7 +852,7 @@ function dmCoach(dt){
   const steps = [
     [`① 金色菱形 = 还没搜过的柜子。走过去，${F}`, () => run.opened > 0, 60],
     ['② 点东西放进背包。只有 6 格，便宜的别拿；第一格是贴身口袋，自动装最值钱的小件', () => dmBagItems().length > 0, 14],   /* shown inside the list while a container is open (js/89-dorm-ui.js) */
-    [`③ 地上的光扇是宿管的视野，绕开走。${TOUCH ? '摇杆推到底是跑，' : '按 Shift 是跑，'}她听得见`, () => false, 9],
+    [`③ 地上的光扇是宿管的视野，绕开走。跑步她听得见；${TOUCH ? '点「蹲下」' : '按 Q '}蹲着走没声音，停在家具旁边就是躲起来`, () => false, 11],
     [`④ 23:00 前走到撤离点，东西才算你的。绿圈大门最稳；消防梯（橙）多卖 ${dmPct('fire')}%，后门（蓝，要密码）多卖 ${dmPct('back')}%`, () => false, 11]
   ];
   const s = steps[run.coach]; run.coachT += dt;
@@ -838,6 +889,7 @@ function dmUpdate(dt, px, pz){
   for (const k of L.locks) if (k.cool > 0) k.cool -= dt;
   /* rooms you have stepped into show up on the floor plan */
   for (const r of L.rooms) if (!r.seen && nw.x > r.x0 && nw.x < r.x1 && nw.z > r.z0 && nw.z < r.z1) r.seen = true;
+  dmSneak(dt);
   if (nw.spd > 8) dmNoise(nw.x, nw.z, 7, '跑起来脚步声太响');
   if (nw.state === 'laugh' && nw.t < .1) dmNoise(nw.x, nw.z, 14, '在楼道里大笑');
   /* the water gun without the target list of js/87-classroom.js: watch for a shot and see what stands in front */
@@ -870,13 +922,15 @@ function dmUpdate(dt, px, pz){
     else if (n.kind === 'box'){
       const name = o.type === 'sack' ? DM_FUR.sack.name : DM_FUR[o.type].name;
       if (dmLocked(o)){ label = '开锁'; dmPrompt = `${o.lock.name}锁着 · ` + (TOUCH ? '点「开锁」输密码' : '按 F 输密码'); }
-      else if (!o.open){ label = '搜'; need = DM_FUR[o.type].t; dmPrompt = `${TOUCH ? '按住「搜」' : '按住 F '}搜${name} · ${Math.round(DORM.hold / need * 100)}%`; }
+      else if (!o.open){ label = '搜'; need = DM_FUR[o.type].t; dmPrompt = `${TOUCH ? '按住「搜」' : '按住 F '}搜${name} · ${Math.round(DORM.hold / need * 100)}%` + (DORM.crouch ? '' : ' · 蹲着翻更小声'); }
       else { label = '拿'; dmPrompt = DORM.lootBox === o ? (TOUCH ? '点下面的东西拿走' : '按 F 拿下一件，或者点下面的东西') : (TOUCH ? '点「拿」' : '按 F ') + `再看看${name}（还有 ${o.items.length} 件）`; }
     }
     if (need){
       if (DORM.holdOn !== o){ DORM.holdOn = o; DORM.hold = 0; }
       if (hold){
-        DORM.hold += dt;
+        /* rummaging is heard: when you start and every 1.2 s after. Crouched hands are quieter (js/87-heist.js does the same) */
+        const was = DORM.hold; DORM.hold += dt;
+        if (n.kind === 'box' && (was === 0 || Math.floor(was / 1.2) !== Math.floor(DORM.hold / 1.2))) dmNoise(o.x, o.z, DORM.crouch ? DM_RUMMAGE * .5 : DM_RUMMAGE, DORM.crouch ? '翻东西的声音' : '翻东西的声音太大（蹲着翻小声一半）');
         if (Math.floor(DORM.hold * 6) !== Math.floor((DORM.hold - dt) * 6)){ tone('square', 260 + DORM.hold / need * 240, 260 + DORM.hold / need * 240, .04, .04); spawnPart('dust', o.x + (Math.random() - .5) * .6, (o.h || 1) + .2, o.z + (Math.random() - .5) * .6, .45, {vy:1.4, life:.5, op:.7, color:'#e9dcc3'}); }
         if (DORM.hold >= need){
           DORM.hold = 0;
@@ -888,6 +942,8 @@ function dmUpdate(dt, px, pz){
     } else { DORM.holdOn = null; DORM.hold = 0; }
   } else { DORM.holdOn = null; DORM.hold = 0; }
   DORM.need = need;
+  if (!dmPrompt) dmPrompt = dmSneakPrompt();
+  else if (DORM.hid) dmPrompt = (DORM.aunt.knows > 0 ? '她看着你蹲下的 · ' : '躲好了 · ') + dmPrompt;
   /* pushing the fire door: the alarm starts as soon as you lean on it */
   if (n && n.kind === 'exit' && n.o.kind === 'fire' && DORM.hold > .5 && run.alarm <= 0){ run.alarm = 6; dmNoise(n.o.x, n.o.z, 60, '消防门的警报响了'); }
   dmF(label);
