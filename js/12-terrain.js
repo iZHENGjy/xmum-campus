@@ -27,7 +27,7 @@ const OUT_PADS = [
   {id:'prima', x0:-490, x1:-274, z0:888, z1:1012, fall:45},
   {id:'mcd',  x0:-503, x1:-406, z0:1065, z1:1137, fall:45}
 ];
-/* 校外飞车乐园 (js/92-stuntpark.js): a level block west of the campus, from Jalan Sunsuria north toward the map edge (big jump on x = -920).
+/* 汽车游乐园 (js/92-stuntpark.js): a level block west of the campus, from Jalan Sunsuria north toward the map edge (big jump on x = -920).
    Not in OUT_PADS: it is levelled later by TG.flattenLate (below), after js/13-outskirts.js has planted the hill trees on the
    untouched land, so every tree on the map stays exactly where it was; js/92-stuntpark.js clears the few standing in the park. */
 const PARK_PAD = {id:'park', x0:-1002, x1:-798, z0:-470, z1:262, fall:45};
