@@ -220,8 +220,9 @@ function dtOpen(){
   const night = opNight(), pool = DESTS.filter(d => opIn(d.x, d.z, CAMPUS_R) && (!night || /^(LY|D)\d/.test(d.name)));
   const cards = DT_MENU.map(m => {
     const to = pool.splice((rnd() * pool.length) | 0, 1)[0], route = opRoute(DT.wx, DT.wz, to.x, to.z);
-    const limit = Math.round((route / 18 + 20) * m.time * (night ? .92 : 1)), mult = m.pay * (night ? 1.5 : 1);
-    return {m, to, route, limit, mult, night, est:Math.round((40 + route * .035 + limit * .3) * mult / 5) * 5};
+    const base = Math.round((route / 18 + 20) * m.time * (night ? .92 : 1)), ease = typeof DELIV_EASE === 'number' ? DELIV_EASE : 1;
+    const limit = Math.round(base * ease), mult = m.pay * (night ? 1.5 : 1);   /* more time, same pay: the extra seconds (grace) do not count */
+    return {m, to, route, limit, grace:limit - base, mult, night, est:Math.round((40 + route * .035 + base * .3) * mult / 5) * 5};
   });
   const pick = i => {
     const c = cards[i]; if (!c) return;
@@ -280,7 +281,7 @@ function dtUpdate(dt, px, pz, sp, free){
   missionEl.classList.toggle('urgent', j.t < 12 || !!j.stolen);
   if (d < 6 && j.stolen) opMsg = '外卖还在小偷手里，先追回来';
   else if (d < 6){
-    const pay = (40 + j.route * .035 + j.t) * j.mult * (.4 + .6 * j.intact) * outCred() + (j.perfect ? 8 : 0), n = opAdd('o_dt');
+    const pay = (40 + j.route * .035 + Math.max(0, j.t - (j.grace || 0))) * j.mult * (.4 + .6 * j.intact) * outCred() + (j.perfect ? 8 : 0), n = opAdd('o_dt');
     sess.deliv++; prog.life.deliv++; earn(pay); sfx.ding(); gxCallout(j.night ? '夜宵送达！' : '送达！', `+RM ${Math.round(pay)}`, '#ffc72c'); if (j.intact > .95) opFanfare(); if (j.recovered) unlock('back');
     for (let i = 0; i < 8; i++) spawnPart('heart', j.to.x + (rnd() - .5) * 4, 2 + rnd() * 2, j.to.z + (rnd() - .5) * 4, .9, {vy:2.5, life:1.4, op:1, color:'#ff6fa3'});
     /* 改装零件 (js/93-tuning-ui.js): a perfect run is the top grade; a night order adds a 霓虹灯管 */
