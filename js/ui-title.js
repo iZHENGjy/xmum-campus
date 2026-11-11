@@ -220,11 +220,13 @@ if (UI_EMBEDDED) (() => {
   try { if (sessionStorage.getItem(KEY)) return; } catch(e){}
   const app = /MicroMessenger/i.test(navigator.userAgent) ? '微信' : /QQ\//i.test(navigator.userAgent) ? 'QQ' : 'App';
   const bar = document.createElement('div'); bar.id = 'embedTip'; bar.setAttribute('role', 'note');
-  bar.innerHTML = '<div><b></b><span></span></div><button type="button">知道了</button><i aria-hidden="true">↗</i>';
-  bar.querySelector('b').textContent = '在' + app + '里玩，进度可能会丢';
-  bar.querySelector('span').textContent = '点右上角「···」→「在浏览器打开」，可以全屏，还能用 Google 登录保存进度';
-  bar.querySelector('button').addEventListener('click', () => { bar.remove(); try { sessionStorage.setItem(KEY, '1'); } catch(e){} });
-  const put = () => { const t = document.getElementById('title'); (t || document.body).appendChild(bar); };
+  bar.innerHTML = '<span></span><button type="button" aria-label="关掉提示">×</button><i aria-hidden="true">↗</i>';
+  bar.querySelector('span').textContent = '在' + app + '里进度可能会丢：点右上角「···」→「在浏览器打开」，还能用 Google 登录';
+  const close = e => { if (e){ e.preventDefault(); e.stopPropagation(); } bar.hidden = true; bar.style.display = 'none'; try { sessionStorage.setItem(KEY, '1'); } catch(err){} };
+  bar.querySelector('button').addEventListener('click', close);
+  /* a slim strip on the body, never over the title's buttons; it goes away by itself after a while too */
+  setTimeout(() => { if (!bar.hidden) close(); }, 20000);
+  const put = () => document.body.appendChild(bar);
   if (document.body) put(); else document.addEventListener('DOMContentLoaded', put);
 })();
 function uiLoginError(e){
