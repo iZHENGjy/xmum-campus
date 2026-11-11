@@ -8,7 +8,7 @@
    3. 一直不动的小网格：按 材质 × 240 米区域 × 大小档 合成一个网格画（成员动了、藏了就拆开，黑洞模式也安全）。
    4. 其余网格：在屏幕上小到看不见就不画（流畅 / 标准档另有最远距离）；地面上的扁平细节、远处的小件不投影。
    5. 阴影：阴影框按档位收紧，只放阴影框里的实例；脚下慢走的时候「标准」档阴影隔一帧重画一次。
-   6. 自动降档更早、更果断（替换 js/90-main.js 的 adaptQuality）。
+   6. 画面调速：渲染像素封顶、动态分辨率、更快的自动降档、没开硬件加速的提示（替换 js/90-main.js 的 adaptQuality）。
    它包了几个全局函数：fitShadow（js/00-core.js）、gfxShadowTick（js/18-gfx.js）、adaptQuality（js/90-main.js），
    读 ChunkIM 的字段（m / count / far / dist / cast / castFar / _vis / all / chunks），并把 90-main 的点击射线 ray 设成能打到停放图层。
    隐藏一律用 layers（不改 visible / castShadow，那两个是游戏代码在用的）：
@@ -426,7 +426,11 @@
   const sun0 = sun;
   function update(){
     const t0 = performance.now();
-    if (++st.frame % 120 === 1){ const a = performance.now(); scan(); st.scanMs = +(performance.now() - a).toFixed(1); }
+    /* 扫描：开局 3 次（第 1、121、241 帧，合批要连续两次没动），之后每 600 帧一次；场景里多了东西就提前扫 */
+    const f = ++st.frame;
+    if (f === 1 || f === 121 || f === 241 || f % 600 === 0 || (f % 60 === 0 && scene.children.length !== st.nKids)){
+      st.nKids = scene.children.length; const a = performance.now(); scan(); st.scanMs = +(performance.now() - a).toFixed(1);
+    }
     const t = T();
     camera.updateMatrixWorld();
     _m.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); fr.setFromProjectionMatrix(_m); planes(fr, gpl);
@@ -482,26 +486,90 @@
     lastSnap = snap;
   };
 
-  /* ---------- 自动降档：更早（开局 4 秒后就看）、更果断（很卡就直接跳到流畅；电脑「标准」档先降分辨率） ---------- */
-  QUAL.wait = 1;
+  /* ---------- 画面调速：渲染像素封顶 + 动态分辨率 + 自动降档（替换 js/90-main.js 的 adaptQuality） ----------
+     渲染像素 = 画布 CSS 尺寸 × 像素比²。像素比 = min(设备像素比, 档位上限) × 动态比例，再封顶：
+       不管屏幕多大、缩放多少，渲染像素不超过 PXMAX（高清 / 标准 1920×1080，流畅 1600×900）。
+     每 1 秒看一次平均帧率（开局和换档后先等 2 秒，着色器编译那种单帧长卡顿不算）：
+       - 低于 42 帧连续 2 秒、不是玩家手动选的档：降一档（低于 24 帧从高清直接到流畅），会记住；
+       - 低于 52 帧：动态比例 × 0.88，最低 流畅 0.6 / 标准 0.7 / 高清 0.75（手动选的档位也这样兜底）；
+       - 连续 5 秒都在 57 帧以上：动态比例 × 1.06，慢慢回到 1；刚升完又不够就 40 秒内不再升（不来回跳）；
+       - 连续两次降分辨率帧率都没变好（瓶颈在 CPU，不在像素）：退回去，30 秒内不再降（再发生就 60、120……最多 300 秒）。
+     没开硬件加速（SwiftShader、llvmpipe、Microsoft Basic Render……）：直接流畅档 + 最低比例，并提示一次。 */
+  const PXMAX = {low:1600 * 900, mid:1920 * 1080, high:1920 * 1080}, FLOOR = {low:.6, mid:.7, high:.75};
+  const res = {dyn:1, base:1, pr:1};
+  const _sz = new THREE.Vector2();
+  function applyRes(){
+    const c = XQ.cfg, dpr = window.devicePixelRatio || 1;
+    let p = Math.min(dpr, c.pr) * XQ.scale;
+    if (st.on){
+      renderer.getSize(_sz);
+      const area = Math.max(1, _sz.x * _sz.y);
+      p = Math.min(p, Math.sqrt(PXMAX[XQ.level] / area));
+      res.base = p; p *= res.dyn;
+    } else res.base = p;
+    p = Math.max(.25, Math.round(p * 1000) / 1000);
+    res.pr = p;
+    if (Math.abs(renderer.getPixelRatio() - p) > 1e-3) renderer.setPixelRatio(p);
+  }
+  /* 00-core 的 applyQuality 每次换档、resize 都会把像素比设回去：跟在它后面再设一次 */
+  const applyQ0 = applyQuality;
+  applyQuality = function(){ applyQ0.apply(this, arguments); applyRes(); };
+
+  const glName = (() => { try { const gl = renderer.getContext(), e = gl.getExtension('WEBGL_debug_renderer_info'); return String((e && gl.getParameter(e.UNMASKED_RENDERER_WEBGL)) || gl.getParameter(gl.RENDERER) || ''); } catch(e){ return ''; } })();
+  const SOFT = /swiftshader|llvmpipe|softpipe|software|basic render/i.test(glName);
+  const gov = {acc:0, n:0, wait:2, bad:0, good:0, t:0, lastUp:-1e9, noUpUntil:0, noDownUntil:0, steps:[], futile:0, hinted:false};
+  function setDyn(v){ v = Math.max(FLOOR[XQ.level] || .6, Math.min(1, v)); if (Math.abs(v - res.dyn) < 1e-3) return false; res.dyn = v; applyRes(); return true; }
   const adapt0 = adaptQuality;
   adaptQuality = function(dt){
     if (!st.on) return adapt0(dt);
-    if (document.hidden || dt > .25) return;   /* 单独一帧很长多半是第一次编译着色器，不算 */
-    QUAL.acc += dt; QUAL.frames++;
-    if (QUAL.acc < 2) return;
-    const fps = QUAL.frames / QUAL.acc; QUAL.acc = 0; QUAL.frames = 0;
-    if (QUAL.wait > 0){ QUAL.wait--; return; }
-    if (fps >= 45 || fps < 6) return;   /* 低于 6 帧多半是页面在后台被浏览器限速，不是显卡 */
-    QUAL.wait = 1;
-    if (XQ.level === 'low'){ if (XQ.scale > .8 && fps < 32) XQ.setScale(.75); return; }
-    if (XQ.manual){ if (!QUAL.hinted){ QUAL.hinted = true; toast('画面有点卡？', '回菜单把画质改成「' + XQ.labels[XQ.level === 'high' ? 'mid' : 'low'] + '」会顺很多', 3600); } return; }
-    /* 电脑「标准」档先把渲染分辨率降到 8 成（高分屏笔记本上很管用，画面还是标准档），还不够再降到流畅 */
-    if (XQ.level === 'mid' && !XQ.touch && XQ.scale > .9 && fps >= 28){ XQ.setScale(.8); return; }
-    const next = XQ.level === 'high' && fps >= 24 ? 'mid' : 'low';
-    XQ.set(next, {auto:true});
-    toast('已切换到更流畅的画质', '画质：' + XQ.label + ' · 菜单里可以改', 2000);
+    if (QUAL.wait >= 1e6) return;   /* 测试页（test/perf-bench.js）用这个关掉自动调整 */
+    if (document.hidden || dt > .25) return;
+    gov.t += dt; gov.acc += dt; gov.n++;
+    if (gov.acc < 1) return;
+    const fps = gov.n / gov.acc; gov.acc = 0; gov.n = 0; st.fps = fps;
+    if (gov.wait > 0){ gov.wait--; return; }
+    if (fps < 6) return;   /* 低于 6 帧多半是页面在后台被浏览器限速 */
+    /* 上一步降了分辨率却没变快：瓶颈不在像素 */
+    const last = gov.steps[gov.steps.length - 1];
+    if (last && !last.judged){
+      last.judged = true;
+      if (fps < last.fps * 1.03) gov.futile++; else gov.futile = 0;
+      if (gov.futile >= 2){
+        const back = gov.steps[Math.max(0, gov.steps.length - 2)].from;
+        gov.futile = 0; gov.steps.length = 0; gov.cpuWait = Math.min(300, (gov.cpuWait || 15) * 2); gov.noDownUntil = gov.t + gov.cpuWait; setDyn(back); return;
+      }
+    }
+    /* 降档：明显不够、而且不是玩家自己选的 */
+    if (fps < 42 && XQ.level !== 'low' && !XQ.manual){
+      if (++gov.bad >= 2){
+        gov.bad = 0;
+        XQ.set(XQ.level === 'high' && fps >= 24 ? 'mid' : 'low', {auto:true});
+        toast('已切换到更流畅的画质', '画质：' + XQ.label + ' · 菜单里可以改', 2000);
+        return;
+      }
+    } else gov.bad = 0;
+    if (fps < 52){
+      gov.good = 0;
+      if (gov.t < gov.noDownUntil) return;
+      if (gov.t - gov.lastUp < 6) gov.noUpUntil = gov.t + 40;
+      const from = res.dyn;
+      if (setDyn(res.dyn * .88)) gov.steps.push({from, fps, judged:false});
+      else if (XQ.manual && !gov.hinted && XQ.level !== 'low' && fps < 40){
+        gov.hinted = true; toast('画面有点卡？', '回菜单把画质改成「' + XQ.labels[XQ.level === 'high' ? 'mid' : 'low'] + '」会顺很多', 3600);
+      }
+    } else if (fps >= 57){
+      gov.steps.length = 0; gov.futile = 0;
+      if (++gov.good >= 5 && gov.t >= gov.noUpUntil && res.dyn < 1){ gov.good = 0; if (setDyn(res.dyn * 1.06)) gov.lastUp = gov.t; }
+    } else gov.good = 0;
   };
+  XQ.onChange(() => { res.dyn = 1; gov.wait = 2; gov.bad = gov.good = 0; gov.steps.length = 0; applyRes(); });
+  window.addEventListener('resize', applyRes);
+  if (SOFT){
+    if (!XQ.manual) XQ.set('low', {auto:true});
+    res.dyn = FLOOR[XQ.level] || .6; applyRes();
+    setTimeout(() => { try { toast('浏览器没开硬件加速', '打开浏览器设置里的「使用图形加速」（硬件加速）会流畅很多', 7000); } catch(e){} }, 2500);
+  }
+  applyRes();
 
   /* ---------- 开关（对比用） ---------- */
   function setOn(v){
@@ -514,7 +582,7 @@
     for (const B of batches.values()){ B.mesh.visible = v; for (const e of B.list) e.o.layers.mask = v ? M_PARK : M0; }
     if (!v) for (const e of meshes){ if (!e.b) e.o.layers.mask = M0; e.hid = false; }
     /* 关掉以后 ChunkIM 照原来的办法每帧自己切换（js/00-core.js 的 updateLod） */
-    renderer.shadowMap.needsUpdate = true;
+    renderer.shadowMap.needsUpdate = true; applyRes();
     try { if (typeof player !== 'undefined') fitShadow(sun0.target.position.x, sun0.target.position.z, mode === 'orbit' ? 640 : 150); } catch(e){}
   }
   scan();
@@ -524,6 +592,8 @@
     get on(){ return st.on; },
     TIER,
     off(){ setOn(false); return 'XPerf 关'; },
+    /* 动态分辨率：XPerf.dyn() 看现在的比例，XPerf.dyn(0.7) 手动设（会被夹在这一档的下限和 1 之间） */
+    dyn(v){ if (v != null) setDyn(v); return {dyn:+res.dyn.toFixed(3), floor:FLOOR[XQ.level], base:+res.base.toFixed(3), pixelRatio:res.pr}; },
     on(){ setOn(true); return 'XPerf 开'; },
     /* 连续画 n 帧（每帧读 1 个像素等 GPU 画完），返回平均毫秒、绘制调用、三角形（含阴影这一遍） */
     stats(n){
@@ -538,7 +608,8 @@
         calls += info.render.calls; tri += info.render.triangles;
       }
       sm.render = smr; info.autoReset = ar;
-      return {ms:+(ms / n).toFixed(1), calls:Math.round(calls / n), tris:Math.round(tri / n), shadowCalls:Math.round(shc / n), shadowTris:Math.round(sht / n), cpuMs:+st.cpu.toFixed(2), scanMs:st.scanMs, level:XQ.level, on:st.on};
+      return {ms:+(ms / n).toFixed(1), calls:Math.round(calls / n), tris:Math.round(tri / n), shadowCalls:Math.round(shc / n), shadowTris:Math.round(sht / n), cpuMs:+st.cpu.toFixed(2), scanMs:st.scanMs, level:XQ.level, on:st.on,
+        pixelRatio:res.pr, dyn:+res.dyn.toFixed(3), px:renderer.getContext().drawingBufferWidth + '×' + renderer.getContext().drawingBufferHeight, fps:st.fps ? +st.fps.toFixed(1) : null, gl:glName, software:SOFT};
     },
     census(){
       let hid = 0, col = 0; for (const e of meshes){ if (e.o.layers.mask === M_PARK) hid++; else if (e.o.layers.mask === M_COL) col++; }

@@ -84,7 +84,8 @@
       } finally { renderer.render = rr; }
       const out = [];
       for (const q of qs){
-        for (let k = 0; k < 200 && !gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE); k++) await new Promise(r => setTimeout(r, 5));
+        /* 隐藏的页面里 setTimeout 会被限速到很慢，用 MessageChannel 让出一下就行 */
+        for (let k = 0; k < 4000 && !gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE); k++) await new Promise(r => { const c = new MessageChannel(); c.port1.onmessage = () => r(); c.port2.postMessage(0); });
         if (!gl.getParameter(ext.GPU_DISJOINT_EXT)) out.push(gl.getQueryParameter(q, gl.QUERY_RESULT) / 1e6);
         gl.deleteQuery(q);
       }
@@ -103,6 +104,15 @@
       }
       XPerf.on();
       return {scene:name, level:XQ.level, off:best.off, on:best.on};
+    },
+    /* 一张表：每个机位 [同步毫秒, GPU 最小, GPU 中位, render() 的 CPU, 调用(含阴影), 三角形(含阴影), 像素比, 缓冲尺寸] */
+    async table(scenes, w, h, dpr){
+      PB.setup(w, h, dpr); const out = {};
+      for (const k of scenes){
+        PB.go(k, 6); const g = await PB.gpu(8); const m = PB.measure(6); const gl = renderer.getContext();
+        out[k] = [m.med, g.gpu, g.gpuMed, g.cpu, m.calls, m.tris, +renderer.getPixelRatio().toFixed(3), gl.drawingBufferWidth + 'x' + gl.drawingBufferHeight];
+      }
+      return out;
     },
     /* 同一个页面里 XPerf 开 / 关 交替测 rounds 轮，各取最好的一轮（别的程序也在用显卡时，最好的一轮最接近真实） */
     ab(name, rounds, n){
@@ -156,6 +166,20 @@
       g.fillText('改前 · ' + XQ.label, 10, 24); g.fillText('改后 · ' + XQ.label, W + 16, 24);
       const url = cv.toDataURL('image/jpeg', .82);
       await fetch((sink || 'http://127.0.0.1:8799') + '/save?name=' + encodeURIComponent(name), {method:'POST', body:url});
+      return name;
+    },
+    /* 按屏幕尺寸放大以后，从中间偏上裁一块 1:1 的图发给收图服务（看分辨率降低以后糊不糊） */
+    async crop(name, cw, ch, sink){
+      renderer.shadowMap.needsUpdate = renderer.shadowMap.enabled; gfxRender(0, PB.T || 1);
+      const u = renderer.domElement.toDataURL('image/png');
+      const img = await new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = u; });
+      const sz = renderer.getSize(new THREE.Vector2()), dpr = window.devicePixelRatio || 1, W = Math.round(sz.x * dpr), H = Math.round(sz.y * dpr);
+      const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch; const g = cv.getContext('2d'); g.imageSmoothingEnabled = true;
+      const sx = W / img.width, x0 = (W - cw) / 2, y0 = (H - ch) * .35;
+      g.drawImage(img, x0 / sx, y0 / sx, cw / sx, ch / sx, 0, 0, cw, ch);
+      g.font = '600 18px sans-serif'; g.fillStyle = '#fff'; g.shadowColor = '#000'; g.shadowBlur = 4;
+      g.fillText(XQ.label + ' · 渲染 ' + img.width + '×' + img.height + ' → 屏幕 ' + W + '×' + H, 12, 28);
+      await fetch((sink || 'http://127.0.0.1:8799') + '/save?name=' + encodeURIComponent(name), {method:'POST', body:cv.toDataURL('image/jpeg', .85)});
       return name;
     },
     unshow(){ const ov = document.getElementById('pb-ov'); if (ov) ov.remove(); },
