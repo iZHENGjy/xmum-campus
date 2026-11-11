@@ -7,17 +7,18 @@ const outRng = mkRng(5307);
 /* ---------- shop signs ---------- */
 /* Bell Avenue shops in their real order along the block, from the OpenStreetMap shop list (x = game metres);
    names are puns or plain descriptions, never the real brands. Units without a known shop are "to let". */
-const BELL_N = [[154, '鲜果蔬菜'], [160, '西餐 Gourmet'], [174, '火锅 Steamboat'], [181, '便利店 Mart'], [190, '土豆粉'], [206, '汽车服务'], [220, '咖啡简餐'],
+const BELL_N = [[146, 'Nasi Kandar Al-Hajeera'], [154, '鲜果蔬菜'], [160, '西餐 Gourmet'], [174, '火锅 Steamboat'], [181, '便利店 Mart'], [190, '土豆粉'], [206, '汽车服务'], [220, '咖啡简餐'],
   [230, 'Eat 哈密'], [236, '文具店'], [242, '宠物医院 Vet'], [249, '24h 便利店'], [256, '理发 Salon'], [260, '越南咖啡'], [266, '31 冰淇淋'], [273, '日式小馆'],
   [286, '星爸爸咖啡'], [294, '快餐 AllAce'], [301, '蜜雪冰橙'], [311, 'K 记超市'], [322, '冰雪甜品'], [327, '麻辣烫'], [335, '诊所 Klinik'], [340, '租车 Rental'],
   [347, '369 快餐'], [354, '沙县小吃'], [360, '瓦煲饭 Claypot'], [365, '秘方蛋糕'], [378, '酸菜鱼'], [387, '面对面'], [395, '开心小火锅'], [406, '麻辣香锅']];
-const BELL_S = [[146, '嘛嘛档 Nasi Kandar'], [164, '123 便利店'], [172, '烧烤 BBQ'], [177, '家悦私房菜'], [182, '螺蛳粉'], [188, '咖啡 Coffee'], [192, '普拉提 Pilates'],
+const BELL_S = [[146, 'Nasi Kandar Al-Hajeera'], [164, '123 便利店'], [172, '烧烤 BBQ'], [177, '家悦私房菜'], [182, '螺蛳粉'], [188, '咖啡 Coffee'], [192, '普拉提 Pilates'],
   [199, '巴厘食家'], [225, '马来餐 Lazat'], [235, '韩国料理'], [241, '木兰小馆'], [246, '熊猫奶茶'], [251, '印尼炸鸡'], [261, '韩语学校'], [286, '咖啡 Marqa'],
   [299, '活动场地'], [303, '新疆拉面'], [312, '瑜伽 Yoga'], [321, '中医馆'], [327, '瓦煲鸡'], [332, '自助洗衣 Dobi'], [338, '八卦咖啡'], [343, '桌球 Snooker'],
   [348, '乐器行'], [352, '聚饺'], [360, '寿司 Sushi'], [369, '新疆炒米粉'], [405, '娘惹糕 Kueh']];
 const SIGN_STYLE = {'星爸爸咖啡':['#1f6b4b', '#ffffff', 1, 'cup'], '31 冰淇淋':['#f07aa6', '#ffffff', 0, 'cone'], '蜜雪冰橙':['#d7262d', '#ffffff', 0, 'snow'],
   '店铺出租 To Let':['#f4f1ea', '#c0392b', 2], '麦当当 24h':['#c8102e', '#ffc72c', 0], 'Bell 喷漆 Spray':['#1d1f24', '#ffcf3a', 2],
-  '上校炸鸡':['#b5121b', '#ffffff', 3], 'DIY 五金百货':['#f6d23a', '#c8102e', 0], '酒店 Hotel':['#2a3f8f', '#ffffff', 2]};
+  '上校炸鸡':['#b5121b', '#ffffff', 3], 'DIY 五金百货':['#f6d23a', '#c8102e', 0], '酒店 Hotel':['#2a3f8f', '#ffffff', 2],
+  'Nasi Kandar Al-Hajeera':['#141416', '#f2c230', 3]};   /* the 24-hour mamak at the west end, both rows; its open-air tables are js/89-mamak.js */
 const SIGN_PAIRS = [['#1b5aa6', '#ffffff'], ['#2f6f3e', '#fff4d6'], ['#7a3b1d', '#ffe8b0'], ['#f08a1c', '#ffffff'], ['#2b9a8f', '#ffffff'], ['#3d3d3d', '#ffd84a'],
   ['#c0392b', '#ffffff'], ['#2a3f8f', '#ffffff'], ['#8a5a3c', '#fff1dc'], ['#b3261e', '#ffd84a'], ['#d98a1c', '#3a1d0a'], ['#ffffff', '#c0392b'], ['#3c6e9f', '#ffffff'],
   ['#e48aa8', '#ffffff'], ['#4e342e', '#ffd54f'], ['#00838f', '#ffffff'], ['#6a1b9a', '#ffffff'], ['#9e9d24', '#ffffff']];
@@ -321,8 +322,9 @@ const tTri = (b, A, B, C, col) => {
   addLabel('Bell Suites', 472, 66, 344, true);
   OUT_DESTS.push({name:'Bell Suites 公寓', x:522, z:318});
   /* Bell 喷漆: a drive-in spray garage at the west end of the block, open to the frontage lane (north).
-     Only its three walls collide; js/88-wardrobe-ui.js (the paint shop) reads window.XSPRAY to clear the wanted stars. */
-  { const X0 = 116, X1 = 130, Z0 = 316, Z1 = 334, H = 5.4, t = .4, wall = '#9aa3ab', inner = '#dfe3e6';
+     Only its three walls collide; js/88-wardrobe-ui.js (the paint shop) reads window.XSPRAY to clear the wanted stars.
+     It stands against the west lane (was x 116–130, in the middle of the empty lot): the lot between it and the block is the mamak's open-air tables (js/89-mamak.js). */
+  { const X0 = 108, X1 = 122, Z0 = 316, Z1 = 334, H = 5.4, t = .4, wall = '#9aa3ab', inner = '#dfe3e6';
     tBox(bellB, X0, 0, Z0, X0 + t, H, Z1, wall); tBox(bellB, X1 - t, 0, Z0, X1, H, Z1, wall); tBox(bellB, X0, 0, Z1 - t, X1, H, Z1, wall);
     fX(bellB, X0 + t + .01, Z0, Z1 - t, 0, H, 1, null, inner); fX(bellB, X1 - t - .01, Z0, Z1 - t, 0, H, -1, null, inner); fZ(bellB, Z1 - t - .01, X0 + t, X1 - t, 0, H, -1, null, inner);
     tBox(bellB, X0 - .3, H, Z0 - .6, X1 + .3, H + .5, Z1 + .3, '#6f767d', '');
