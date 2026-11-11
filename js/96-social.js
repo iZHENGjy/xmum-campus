@@ -31,19 +31,20 @@
   const PHRASES = ['上车！', '等等我', '比一场？', '谢了', 'GG', '去 D6 吃饭吗', '冲冲冲', '来了来了', '跟我走', '好车！',
     '哈哈哈', '不好意思', '下次一定', '我先走啦', '早八救命', '去图书馆', '保安来了！', '求带', '牛啊', '拜拜'];
   const FX_CD = 2.5, FX_SHOW = 3, EMO_DUR = 2.4;
-  /* 乘客座位（车身坐标，和 CAR_T.seat 一样）：司机坐在中间，所以乘客坐后座、车顶、车尾；每辆车 1 到 3 个，摩托 1 个 */
+  /* 乘客座位（车身坐标，和 CAR_T.seat 一样，是座面的高度：坐下时身体往下沉到座面上，见 js/30-naiwa.js 的 NW_SIT_DROP）：
+     司机坐在中间，所以乘客坐后座、车顶、车尾；每辆车 1 到 3 个，摩托 1 个。后座和司机前后隔开约 1.27 米（一个奶娃的肚子到后背），不会叠在一起 */
   const SEATS = {
     bus:[[-.7, .95, 1.4], [.7, .95, -.6], [-.7, .95, -2.6]],
-    sedan:[[0, .42, -1.25], [0, 1.43, -.35]],
-    myvi:[[0, .42, -1.15], [0, 1.53, -.4]],
-    mase:[[0, .3, -1.4], [0, 1.38, -.5]],
-    rr:[[0, .45, -1.55], [0, 1.73, -.55], [0, .98, -2.45]],
-    gwag:[[0, .55, -1.3], [0, 1.98, -.4], [0, 1.05, -2.15]],
-    p911:[[0, .3, -1.25]],
-    lambo:[[0, 1.02, -1.45]],
-    cart:[[0, .62, -1.0], [0, 1.95, -.3]],
-    patrol:[[0, .62, -1.0], [0, 1.95, -.3]],
-    moto:[[0, .86, -.9]]
+    sedan:[[0, .42, -1.47], [0, 1.43, -.35]],
+    myvi:[[0, .42, -1.42], [0, 1.53, -.4]],
+    mase:[[0, .3, -1.62], [0, 1.38, -.5]],
+    rr:[[0, .45, -1.72], [0, 1.73, -.55], [0, 1.12, -2.45]],
+    gwag:[[0, .55, -1.62], [0, 1.98, -.4], [0, 1.05, -2.15]],
+    p911:[[0, .3, -1.6]],
+    lambo:[[0, 1.02, -1.52]],
+    cart:[[0, .68, -1.4], [0, 1.95, -.3]],
+    patrol:[[0, .68, -1.4], [0, 1.95, -.3]],
+    moto:[[0, 1.28, -1.12]]
   };
   const seatsOf = kind => SEATS[kind] || SEATS.sedan;
   const GAMES = {
@@ -612,7 +613,7 @@ body.wd-open #socStat,body.wd-open #socMenu,body.wd-open #socCard,body.wd-open #
     const c = p.car, s = seatsOf(c.kind)[Math.min(R.seat, seatsOf(c.kind).length) - 1], h = c.root.rotation.y, cs = Math.cos(h), sn = Math.sin(h);
     const cp = c.root.position;
     nw.x = cp.x + cs * s[0] + sn * s[2]; nw.z = cp.z - sn * s[0] + cs * s[2]; nw.y = cp.y + s[1]; nw.h = h;
-    nw.state = 'sit'; nw.air = false; nw.spd = 0; nw.vy = 0;
+    nw.state = 'sit'; nw.air = false; nw.spd = 0; nw.vy = 0; nw.bike = !!(c.T && c.T.bike);
     if (camYawHold <= 0) camYaw += wrapA(h + Math.PI - camYaw) * Math.min(1, dt * 3);
   }
   /* driver: drop passengers who left, went quiet, or never sat down */
@@ -646,8 +647,7 @@ body.wd-open #socStat,body.wd-open #socMenu,body.wd-open #socCard,body.wd-open #
       const G = r.g, root = G.n.root, s = seatsOf(host.kind)[Math.max(1, Math.min(seatsOf(host.kind).length, d.rs | 0 || 1)) - 1];
       if (root.parent !== host.body){ if (root.parent) root.parent.remove(root); host.body.add(root); attached.set(uid, root); }
       root.position.set(s[0], s[1], s[2]); root.rotation.set(0, 0, 0);
-      G.n.legs.forEach(l => { l.rotation.x = -1.4; });
-      if (!S.remFx.has(uid)){ G.n.arms.forEach(a => { a.rotation.x = -.75; }); G.n.body.position.y = 0; G.n.body.rotation.z = 0; }
+      nwSitPose(G.n, host.T && host.T.bike, S.remFx.has(uid));
       host.root.updateMatrixWorld(); _sv.set(s[0], s[1], s[2]); host.root.localToWorld(_sv);
       G.socSeatW = [_sv.x, _sv.y, _sv.z]; G.L.pos.set(_sv.x, _sv.y + 2.6, _sv.z);
     }
@@ -932,7 +932,7 @@ body.wd-open #socStat,body.wd-open #socMenu,body.wd-open #socCard,body.wd-open #
     placeRiders();
   };
   /* your own 奶娃: emote pose on top of the usual animation; riding instead of walking */
-  { const orig = animNaiwa; animNaiwa = function(dt, T){ orig(dt, T); if (S.myFx && nw.state !== 'fly' && nw.state !== 'flop'){ pose(NW, S.myFx.id, S.myFx.t); const p = myPos(); fxParts(S.myFx.id, S.myFx.t, dt, p.x, (driving ? driving.y : nw.y), p.z); } }; }
+  { const orig = animNaiwa; animNaiwa = function(dt, T){ orig(dt, T); if (S.myFx && nw.state !== 'fly' && nw.state !== 'flop'){ pose(NW, S.myFx.id, S.myFx.t); if (nw.state === 'sit') NW.body.position.y -= NW_SIT_DROP; const p = myPos(); fxParts(S.myFx.id, S.myFx.t, dt, p.x, (driving ? driving.y : nw.y), p.z); } }; }
   { const orig = updateFoot; updateFoot = function(dt){
       if (S.ride) return rideFrame(dt);
       const D = S.duel;

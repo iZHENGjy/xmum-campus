@@ -231,8 +231,11 @@ function dmGen(seed){
 /* ---------- models, built once; every run only moves instances around ---------- */
 /* tint = per-instance colours: the colour buffer has to be made while count is still the full capacity */
 const dmIM = (geo, mat, n, shadow, tint) => { const im = new THREE.InstancedMesh(geo, mat, n); if (tint) im.setColorAt(0, new THREE.Color('#ffffff')); im.count = 0; im.frustumCulled = false; im.castShadow = !!shadow; im.receiveShadow = true; dmG.add(im); return im; };
-{ const g = box(150, .2, 130, M('#2f3238'), DM_OX, -.09, DM_OZ, dmG); g.castShadow = false; }   /* dark ground round the building, just above the grass */
-const dmFloorIM = dmIM(new THREE.BoxGeometry(1, .1, 1), M('#ffffff', {roughness:.85}), 64, false, true);
+/* the ground and the floors sit only a centimetre or two over the campus ground plane (y = 0): a small depth offset keeps the grass
+   from showing through them when the camera is tilted low */
+const DM_FLOOR_PO = {polygonOffset:true, polygonOffsetFactor:-1, polygonOffsetUnits:-4};
+{ const g = box(150, .2, 130, M('#2f3238', DM_FLOOR_PO), DM_OX, -.09, DM_OZ, dmG); g.castShadow = false; }   /* dark ground round the building, just above the grass */
+const dmFloorIM = dmIM(new THREE.BoxGeometry(1, .1, 1), M('#ffffff', Object.assign({roughness:.85}, DM_FLOOR_PO)), 64, false, true);
 const dmWallIM = dmIM(new THREE.BoxGeometry(1, 1, 1), M('#ffffff', {roughness:.9}), 260, true, true);
 const dmFurIM = {};
 {
@@ -280,21 +283,27 @@ for (const e of dmExitFx) e.lbl.dead = true;
 
 /* the 宿管 and the thief: the little people from js/60-details.js, a size bigger */
 function dmFigure(shirt, pants, extra){
-  const g = new THREE.Group();
-  const body = new THREE.Mesh(npcBodyGeo, M(shirt, {roughness:.8})), head = new THREE.Mesh(npcHeadGeo, M('#e2b08a', {roughness:.7}));
-  const legs = [-1, 1].map(s => { const l = new THREE.Mesh(npcLegGeo, M(pants, {roughness:.8, vertexColors:true})); l.position.set(s * .09, .87, 0); g.add(l); return l; });
-  g.add(body, head); extra(g); g.traverse(m => { if (m.isMesh) m.castShadow = true; }); g.scale.setScalar(1.35); g.visible = false; dmG.add(g);
-  return {g, legs};
+  const g = new THREE.Group(), shirtM = M(shirt, {roughness:.8}), skinM = M('#e2b08a', {roughness:.7});
+  const body = new THREE.Mesh(npcBodyGeo, shirtM), head = new THREE.Mesh(npcHeadGeo, skinM);
+  const legs = [-1, 1].map(s => { const l = new THREE.Mesh(npcLegGeo, M(pants, {roughness:.8, vertexColors:true})); l.position.set(s * .09, PPL_HIP, 0); g.add(l); return l; });
+  const arms = pplArms(g, shirtM, skinM);
+  g.add(body, head); extra(g, arms); g.traverse(m => { if (m.isMesh) m.castShadow = true; }); g.scale.setScalar(1.35); g.visible = false; dmG.add(g);
+  return {g, legs, arms};
 }
-const dmAuntFig = dmFigure('#8e5aa8', '#3a3340', g => {
-  box(.3, .46, .03, M('#f3e6c8'), 0, 1.12, .185, g); const bun = new THREE.Mesh(new THREE.SphereGeometry(.12, 10, 8), M('#2a2420')); bun.position.set(0, 1.8, -.07); g.add(bun);
+/* she carries a torch in her left hand (+x) and wears an apron that wraps the front of her torso */
+const dmAuntFig = dmFigure('#8e5aa8', '#3a3340', (g, arms) => {
+  g.add(new THREE.Mesh(pplBand(1.1, .5, .012, -1.05, 1.05), M('#f3e6c8', {side:THREE.DoubleSide})));
+  const bun = new THREE.Mesh(new THREE.SphereGeometry(.12, 10, 8), M('#2a2420')); bun.position.set(0, 1.8, -.07); g.add(bun);
   const hair = new THREE.Mesh(new THREE.SphereGeometry(.155, 12, 8, 0, 7, 0, 1.75), M('#2a2420')); hair.position.set(0, 1.63, -.02); g.add(hair);
   for (const s of [-1, 1]) box(.08, .02, .02, M('#1d1d1f'), s * .06, 1.63, .135, g);
-  const torch = new THREE.Mesh(new THREE.CylinderGeometry(.03, .04, .22, 8).rotateX(Math.PI / 2), M('#2b2b2e')); torch.position.set(.22, 1.05, .16); g.add(torch);
+  arms[1].rotation.set(-.75, 0, .12);
+  const torch = new THREE.Mesh(new THREE.CylinderGeometry(.03, .04, .22, 8).rotateX(Math.PI / 2), M('#2b2b2e')); torch.position.set(0, -.47, .07); torch.rotation.x = .75; arms[1].add(torch);
 });
-const dmThiefFig = dmFigure('#2b2f3a', '#1d2026', g => {
-  box(.3, .1, .32, M('#16181d'), 0, 1.77, .01, g); box(.28, .03, .14, M('#16181d'), 0, 1.74, .2, g); box(.2, .1, .03, M('#f3f1ea'), 0, 1.58, .135, g);
-  box(.3, .3, .2, M('#e8552d'), .26, 1.0, .08, g); box(.32, .04, .22, M('#f6f3ea'), .26, 1.17, .08, g);
+/* the thief: dark cap, white face mask, the stolen takeaway in his left hand */
+const dmThiefFig = dmFigure('#2b2f3a', '#1d2026', (g, arms) => {
+  g.add(new THREE.Mesh(pplCapGeo, M('#16181d')), new THREE.Mesh(pplHeadBand(1.575, .085, .006, -1.15, 1.15), M('#f3f1ea', {side:THREE.DoubleSide})));
+  const bag = new THREE.Group(); bag.position.set(.02, -.5, .02); arms[1].add(bag); arms[1].rotation.set(.05, 0, .16);
+  box(.3, .3, .2, M('#e8552d'), 0, -.15, 0, bag); box(.32, .04, .22, M('#f6f3ea'), 0, .02, 0, bag);
 });
 const DM_FAN_N = 22, DM_FAN_HALF = .96;
 const dmFan = (() => {   /* her field of view on the floor: a 110° fan, reshaped every frame so walls cut it off */
@@ -593,6 +602,7 @@ function dmSpawnNpcs(L){
 function dmPlace(e, fig, wob){
   fig.g.position.set(e.x, 0, e.z); fig.g.rotation.y = e.h + (wob || 0);
   const sw = e.moving ? Math.sin(e.walkT) * .5 : 0; fig.legs[0].rotation.x = sw; fig.legs[1].rotation.x = -sw;
+  fig.arms[0].rotation.x = -sw * .8;   /* the right arm swings against the legs; the left one holds her torch / his bag */
 }
 /* something loud at (x, z): if the 宿管 is within r and not already after you, she walks over to look */
 function dmNoise(x, z, r, say){

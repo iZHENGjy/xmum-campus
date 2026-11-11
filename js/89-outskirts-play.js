@@ -539,15 +539,18 @@ const thFig = (() => {
   const g = new THREE.Group(), mk = (geo, mat, x, y, z, par) => { const m = new THREE.Mesh(geo, mat); m.position.set(x || 0, y || 0, z || 0); m.castShadow = true; (par || g).add(m); return m; };
   const dark = M('#26262b', {roughness:.8}), skin = M('#e0ac84', {roughness:.7}), body = new THREE.Group(); g.add(body);
   mk(npcBodyGeo, M('#3b3b44', {roughness:.8}), 0, 0, 0, body); mk(npcHeadGeo, skin, 0, 0, 0, body);
-  for (let i = 0; i < 3; i++) mk(new THREE.BoxGeometry(.38, .05, .26), M('#e8e6df'), 0, 1.02 + i * .13, 0, body);            /* striped jumper */
-  mk(new THREE.BoxGeometry(.3, .07, .2), M('#111111'), 0, 1.645, .06, body); mk(new THREE.SphereGeometry(.16, 8, 5, 0, 6.3, 0, 1.5), dark, 0, 1.66, 0, body);   /* mask and beanie */
+  mk(geoMerge([0, 1, 2].map(i => pplBand(1.02 + i * .13, .055, .006))), M('#e8e6df', {roughness:.8}), 0, 0, 0, body);   /* striped jumper: white bands hugging the torso (js/86-guard.js) */
+  mk(pplHeadBand(1.645, .065, .008), M('#111111', {roughness:.6}), 0, 0, 0, body); mk(new THREE.SphereGeometry(.16, 12, 6, 0, 6.3, 0, 1.5), dark, 0, 1.66, 0, body);   /* bandit eye mask and beanie */
   const bag = mk(new THREE.BoxGeometry(.42, .4, .3), M('#ff8a3d', {roughness:.6, emissive:'#7a3008', emissiveIntensity:.5}), 0, 1.22, -.3, body);   /* the stolen takeaway */
   const legs = [-1, 1].map(s => mk(npcLegGeo, M('#2e3a52', {roughness:.8, vertexColors:true}), s * .09, .92, 0, body));
   const arms = [-1, 1].map(s => { const a = new THREE.Group(); a.position.set(s * .215, 1.39, 0); a.rotation.z = s * .1; mk(npcSleeveGeo, M('#3b3b44'), 0, 0, 0, a); mk(npcForeGeo, skin, 0, 0, 0, a); body.add(a); return a; });
   const bike = new THREE.Group(), tyre = M('#1c1c1e', {roughness:.7}), frame = M('#2f9e8f', {roughness:.5, metalness:.3});
-  for (const z of [-.55, .6]){ const w = mk(new THREE.CylinderGeometry(.24, .24, .1, 12), tyre, 0, .24, z, bike); w.rotation.z = Math.PI / 2; }
-  mk(new THREE.BoxGeometry(.3, .08, 1.0), frame, 0, .3, 0, bike); mk(new THREE.BoxGeometry(.34, .5, .2), frame, 0, .55, -.45, bike);
-  mk(new THREE.BoxGeometry(.07, .9, .07), frame, 0, .75, .55, bike).rotation.x = -.25; mk(new THREE.BoxGeometry(.6, .05, .05), tyre, 0, 1.2, .44, bike);
+  /* e-scooter: tyres with grey hubs, a rounded deck, the battery hump over the back wheel, a round stem and bar with grips */
+  const hub = M('#9aa0a6', {roughness:.4, metalness:.4});
+  for (const z of [-.55, .6]){ const w = mk(new THREE.CylinderGeometry(.24, .24, .1, 14), tyre, 0, .24, z, bike); w.rotation.z = Math.PI / 2; const hb = mk(new THREE.CylinderGeometry(.11, .11, .12, 10), hub, 0, .24, z, bike); hb.rotation.z = Math.PI / 2; }
+  mk(roundBox(.3, .08, 1.0, .035, 2), frame, 0, .3, 0, bike); mk(roundBox(.34, .5, .2, .06, 2), frame, 0, .55, -.45, bike);
+  mk(new THREE.CylinderGeometry(.035, .035, .9, 8), frame, 0, .75, .55, bike).rotation.x = -.25;
+  const bar = mk(new THREE.CylinderGeometry(.025, .025, .6, 8), tyre, 0, 1.2, .44, bike); bar.rotation.z = Math.PI / 2;
   g.add(bike); g.scale.setScalar(1.3); g.visible = false; scene.add(g);
   return {g, body, legs, arms, bike, bag};
 })();

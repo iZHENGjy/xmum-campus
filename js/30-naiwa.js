@@ -137,16 +137,35 @@ NW.root.position.set(nw.x, 0, nw.z); NW.root.rotation.y = nw.h;
 /* Arm angles are given for the left arm (+x side); the right arm mirrors z.
    s = shoulder {x: forward(-)/back(+), z: out(+)/in(-)}, e = elbow {x: bend forward(-), z: in(-)} */
 const NW_REST = {sx:-.32, sz:.36, ex:-1.22, ez:-.32};
+/* Sitting: the root stands on the seat (CAR_T.seat), and the body drops by this much (model units) so the bottom and the
+   thighs rest on it instead of floating a leg's length above it. On a motorbike 奶娃 straddles the tank instead:
+   leaning forward, legs down either side, hands on the bars. */
+const NW_SIT_DROP = .47, NW_BIKE = {lean:.2, legX:-.5, legZ:.3, sx:-1.2, sz:.3, ex:-.45, ez:-.1};
+/* the same seated pose for a figure that animNaiwa does not drive (online ghosts in js/net.js, riders in js/96-social.js).
+   keepArms: an emote (js/96-social.js pose()) has just set the arms and the body this frame, so only sink it onto the seat */
+function nwSitPose(N, bike, keepArms){
+  if (keepArms) N.body.position.y -= NW_SIT_DROP;
+  else { N.body.position.y = -NW_SIT_DROP; N.body.rotation.set(bike ? NW_BIKE.lean : 0, 0, 0); }
+  N.legs.forEach((l, i) => l.rotation.set(bike ? NW_BIKE.legX : -1.4, 0, bike ? (i ? -NW_BIKE.legZ : NW_BIKE.legZ) : 0));
+  if (!keepArms) N.arms.forEach(a => { a.rotation.x = bike ? NW_BIKE.sx : -.75; });
+}
 function animNaiwa(dt, T){
   const B = NW.body, [aL, aR] = NW.arms, [eL, eR] = NW.elbows || [], [lL, lR] = NW.legs;
-  let lean = 0, roll = 0, lift = 0, bob = 0, mouthY = .018, bz = .42, wink = 1, lLx = 0, lRx = 0;
+  let lean = 0, roll = 0, lift = 0, bob = 0, mouthY = .018, bz = .42, wink = 1, lLx = 0, lRx = 0, lz = 0;
   const L = {sx:NW_REST.sx, sz:NW_REST.sz, ex:NW_REST.ex, ez:NW_REST.ez}, R = {sx:NW_REST.sx, sz:NW_REST.sz, ex:NW_REST.ex, ez:NW_REST.ez};
   const st = nw.state, t = nw.t;
   const mix = (a, b, k) => a + (b - a) * k;
   const rub = (k) => { L.ex = NW_REST.ex + Math.sin(T * 9) * .22 * k; R.ex = NW_REST.ex - Math.sin(T * 9) * .22 * k; L.sx = R.sx = NW_REST.sx - .05 * k; };
   if (st === 'sit'){
-    lLx = lRx = -1.4; const s = driving ? driving.steer : 0;
-    L.sx = R.sx = -.75; L.sz = .22 - s * .45; R.sz = .22 + s * .45; L.ex = R.ex = -.75; L.ez = R.ez = -.3; roll = -s * .12;
+    const s = driving ? driving.steer : 0, bike = driving ? !!driving.T.bike : !!nw.bike;
+    lift = -NW_SIT_DROP;
+    if (bike){
+      const k = NW_BIKE; lean = k.lean; lLx = lRx = k.legX; lz = k.legZ;
+      L.sx = R.sx = k.sx; L.sz = k.sz - s * .2; R.sz = k.sz + s * .2; L.ex = R.ex = k.ex; L.ez = R.ez = k.ez;
+    } else {
+      lLx = lRx = -1.4;
+      L.sx = R.sx = -.75; L.sz = .22 - s * .45; R.sz = .22 + s * .45; L.ex = R.ex = -.75; L.ez = R.ez = -.3; roll = -s * .12;
+    }
   } else if (st === 'fly'){
     lean = nw.spin; L.sz = 2.3 + Math.sin(T * 25) * .4; R.sz = 2.3 - Math.sin(T * 25) * .4; L.sx = R.sx = 0; L.ex = R.ex = -.2; L.ez = R.ez = 0;
     lLx = Math.sin(T * 20) * .8; lRx = -lLx; mouthY = .12;
@@ -177,5 +196,5 @@ function animNaiwa(dt, T){
   NW.eyes[0].scale.y = blink * wink; NW.eyes[1].scale.y = blink;
   aL.rotation.set(L.sx, 0, L.sz); aR.rotation.set(R.sx, 0, -R.sz);
   if (eL){ eL.rotation.set(L.ex, 0, L.ez); eR.rotation.set(R.ex, 0, -R.ez); }
-  lL.rotation.x = lLx; lR.rotation.x = lRx;
+  lL.rotation.set(lLx, 0, lz); lR.rotation.set(lRx, 0, -lz);
 }

@@ -398,9 +398,10 @@ body.be-on #acts kbd{color:rgba(255,255,255,.85)}
     S.por = por; S.span = por ? 1.05 : 2.05;
     S.vis = Math.max(0, Math.min(3, Math.floor((S.span - .62 - .3) / .6)));
     S.table.scale.x = S.span * 2 + .6;
-    S.me.a.x = -S.span - .45; S.op.a.x = S.span + .45; S.me.a.z = S.op.a.z = .05;
+    /* the eaters stand back from the ends far enough that their bellies (they lean in, turned toward the camera) stay off the table */
+    S.me.a.x = -S.span - .8; S.op.a.x = S.span + .8; S.me.a.z = S.op.a.z = .05;
     S.me.fx = 1; S.op.fx = -1;
-    const vf = 46, tv = Math.tan(vf / 2 * Math.PI / 180), hw = S.span + (por ? 1.2 : 1.55), dist = Math.max(6.2, hw / (tv * ctx.aspect));
+    const vf = 46, tv = Math.tan(vf / 2 * Math.PI / 180), hw = S.span + (por ? 1.5 : 1.75), dist = Math.max(6.2, hw / (tv * ctx.aspect));
     ctx.camera.set([0, 1.6 + dist * .26, dist], [0, por ? 2.05 : 1.25, 0], vf); ctx.camera.snap();
   }
   function setInst(m, i, x, y, z, sx, sy, sz, ry){ _p.set(x, y, z); _e.set(0, ry || 0, 0); _q.setFromEuler(_e); _s.set(sx, sy, sz); _m.compose(_p, _q, _s); m.setMatrixAt(i, _m); }
