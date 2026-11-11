@@ -118,7 +118,7 @@ window.addEventListener('pointermove', e => {
   down.moved += Math.abs(dx) + Math.abs(dy);
   if (mode === 'walk'){ player.yaw -= dx * .0045; player.pitch = Math.max(-1.2, Math.min(1.2, player.pitch - dy * .0045)); }
   if (mode === 'hole'){ camYaw -= dx * .005; }
-  if (mode === 'naiwa'){ camYaw -= dx * .005; camPitch = Math.max(indoorNow() ? .75 : -.1, Math.min(1.2, camPitch + dy * .004)); camYawHold = 1.6; }
+  if (mode === 'naiwa'){ camYaw -= dx * .005; camPitch = Math.max(indoorNow() ? (window.XINDOOR_PITCH != null ? window.XINDOOR_PITCH : .75) : -.1, Math.min(1.2, camPitch + dy * .004)); camYawHold = 1.6; }
 });
 const endDown = e => {
   if (!down || e.pointerId !== down.id) return;
