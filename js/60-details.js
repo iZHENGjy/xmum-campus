@@ -19,9 +19,12 @@ const benchGeo = (() => {
   }
   return geoMerge(P);
 })();
-const binGeo = geoMerge([geoTint(new THREE.CylinderGeometry(.27, .24, .82, 10, 1, true).translate(0, .43, 0), '#2f6b4f'),
-  geoTint(geoAt(new THREE.TorusGeometry(.27, .03, 4, 10), 0, .84, 0, Math.PI / 2), '#24563f'),
-  geoTint(new THREE.CylinderGeometry(.2, .29, .1, 10).translate(0, .9, 0), '#1f2a26')]);
+/* the campus bins are tall and blue (see the night photos): a tapered body with a raised base, a darker hinged lid with a handle */
+const binGeo = geoMerge([geoTint(new THREE.CylinderGeometry(.28, .25, .9, 12, 1, true).translate(0, .53, 0), '#2a5ea8'),
+  geoTint(new THREE.CylinderGeometry(.26, .26, .08, 12).translate(0, .04, 0), '#1d2a3a'),
+  geoTint(geoAt(new THREE.TorusGeometry(.28, .03, 4, 12), 0, .98, 0, Math.PI / 2), '#1f477f'),
+  geoTint(new THREE.CylinderGeometry(.27, .3, .1, 12).translate(0, 1.04, 0), '#1f3f6e'), geoTint(new THREE.BoxGeometry(.2, .04, .06).translate(0, 1.11, .12), '#dfe3e6'),
+  geoTint(new THREE.BoxGeometry(.2, .14, .01).translate(0, .78, .275), '#f2f2ee')]);
 const benches = [], bins = [];
 function sampleLine(pxLine, step, off, cb){
   const pts = pxPts(pxLine);
@@ -50,23 +53,40 @@ function clearArea(cx, cz, hw, hd){
     if (Math.abs(o.x - cx) < hw && Math.abs(o.z - cz) < hd){ o.down = true; o.hidden = true; o.s = 0; setKnock(set, i, false, 0, 0); }
   });
 }
-function lot(cx, cz, w, d, lines){
+/* a lot: asphalt, painted bays, a low kerb all round with a gap where the driveway (dx0..dx1 or dz0..dz1 on side 'n'/'s'/'e'/'w') meets it,
+   concrete wheel stops at the head of each bay ([x, z, ry] in stops); the driveway itself is asphalt out to the road */
+const lotDeco = [];
+function lot(cx, cz, w, d, lines, o){
+  o = o || {};
   clearArea(cx, cz, w / 2 + 2, d / 2 + 2);
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), flatMat('#6e6b66', 4)); m.rotation.x = -Math.PI / 2; m.position.set(cx, .046, cz); m.receiveShadow = true; scene.add(m);
   const im = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), flatMat('#f1ede4', 8), lines.length);
   lines.forEach(([x, z, lw, ld], i) => { _cm.compose(_cp.set(x, .052, z), _cq.identity(), _cs.set(lw, 1, ld)); im.setMatrixAt(i, _cm); });
   im.frustumCulled = false; scene.add(im);
+  const K = '#b9b2a6', kb = (x0, z0, x1, z1) => { if (x1 - x0 > .05 || z1 - z0 > .05) tbox(lotDeco, Math.max(.3, x1 - x0), .16, Math.max(.3, z1 - z0), (x0 + x1) / 2, .08, (z0 + z1) / 2, K); };
+  const x0 = cx - w / 2, x1 = cx + w / 2, z0 = cz - d / 2, z1 = cz + d / 2, g = o.gap || [0, 0], side = o.side;
+  for (const [sd, a, b, fixed, alongX] of [['n', x0, x1, z0, true], ['s', x0, x1, z1, true], ['w', z0, z1, x0, false], ['e', z0, z1, x1, false]]){
+    const segs = sd === side ? [[a, g[0]], [g[1], b]] : [[a, b]];
+    for (const [p, q] of segs) alongX ? kb(p, fixed - .15, q, fixed + .15) : kb(fixed - .15, p, fixed + .15, q);
+  }
+  for (const [x, z, ry] of o.stops || []) lotDeco.push(geoTint(geoAt(new THREE.BoxGeometry(1.7, .14, .22), x, .07, z, 0, ry, 0), '#cfc9bd'), geoTint(geoAt(new THREE.BoxGeometry(.3, .145, .225), x, .07, z, 0, ry, 0), '#e0b23c'));
+  if (o.drive){ const [ax, az, bx, bz] = o.drive, dm = new THREE.Mesh(new THREE.PlaneGeometry(bx - ax, bz - az), flatMat('#6e6b66', 4)); dm.rotation.x = -Math.PI / 2; dm.position.set((ax + bx) / 2, .046, (az + bz) / 2); dm.receiveShadow = true; scene.add(dm); clearArea((ax + bx) / 2, (az + bz) / 2, (bx - ax) / 2 + 1, (bz - az) / 2 + 1); }
 }
 const PALETTE = ['#c0392b', '#2d5d8a', '#1f1f22', '#f0eee8', '#7f8c8d', '#d4a017', '#2e7d5b', '#8e44ad'];
 (function(){
   const L1 = [];
   for (let k = 0; k <= 16; k++){ const zz = -18 + k * 3.2; L1.push([502, zz, 6, .14], [536, zz, 6, .14]); }
-  lot(519, 8, 46, 60, L1);
-  [[502, -11], [502, -1.4], [502, 14.6], [536, -14.2], [536, 1.8], [536, 24.2]].forEach(([x, z], i) => makeCar('sedan', PALETTE[i % PALETTE.length], x, z, x < 519 ? -Math.PI / 2 : Math.PI / 2));
+  /* east lot: the driveway leaves its east side for the ring road (it used to sit in the grass with no way in) */
+  const S1 = []; for (let k = 0; k < 16; k++){ const zz = -18 + k * 3.2 + 1.6; S1.push([499.4, zz, Math.PI / 2], [538.6, zz, Math.PI / 2]); }
+  lot(519, 8, 46, 60, L1, {side:'e', gap:[3.5, 12.5], stops:S1, drive:[541.8, 3.5, 549.6, 12.5]});
+  [[502, -10], [502, -.4], [502, 15.6], [536, -13.2], [536, 2.8], [536, 25.2]].forEach(([x, z], i) => makeCar('sedan', PALETTE[i % PALETTE.length], x, z, x < 519 ? -Math.PI / 2 : Math.PI / 2));
   const L2 = [];
   for (let k = 0; k <= 10; k++) L2.push([-220 + k * 3.2, 200, .14, 6]);
-  lot(-204, 200, 38, 14, L2);
-  [[-216.8, 200], [-210.4, 200], [-197.6, 200], [-191.2, 200]].forEach(([x, z], i) => makeCar('sedan', PALETTE[(i + 3) % PALETTE.length], x, z, Math.PI));
+  /* west lot: a driveway north to the road past the auditorium */
+  const S2 = []; for (let k = 0; k < 10; k++) S2.push([-218.4 + k * 3.2, 202.6, 0]);
+  lot(-204, 200, 38, 14, L2, {side:'n', gap:[-207.5, -200.5], stops:S2.filter((p, i) => i !== 4 && i !== 5), drive:[-207.5, 174.5, -200.5, 193.2]});
+  { const k = new THREE.Mesh(geoMerge(lotDeco), decoMat); k.receiveShadow = true; k.castShadow = true; scene.add(k); }
+  [[-218.4, 200], [-212, 200], [-199.2, 200], [-192.8, 200]].forEach(([x, z], i) => makeCar('sedan', PALETTE[(i + 3) % PALETTE.length], x, z, Math.PI));
   addLabel('停车场', 519, 5, 8, true); addLabel('停车场', -204, 5, 200, true);
 })();
 

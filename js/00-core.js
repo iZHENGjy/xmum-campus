@@ -772,6 +772,20 @@ function building(o){
     if (o.gable) gableParts(10, bw + .8, Math.min(8, bw * .46), 1.3, 0, y0 + bH + .6, d / 2 - 1.5, roofs, 'z');
     else roofParts(bw + .8, 9, Math.min(7, bw * .34), 2.2, 0, y0 + bH + .6, d / 2 - 1, roofs);
     for (let k = 0; k < 3; k++) gran.push(new THREE.BoxGeometry(bw + 6 - k * 1.6, .35 * (k + 1), 1.3).translate(0, .175 * (k + 1), d / 2 + 3.6 + (2 - k) * 1.3));
+    /* the steps used to climb to a blank wall: a glazed entrance (three pairs of doors in a stone frame) under a flat canopy on two slim columns */
+    { const fz = d / 2 + 3.5, dw = Math.min(9, bw * .45), yb = 1.05, dh = 3.1;
+      tbox(deco, dw + 1.2, dh + .6, .16, 0, yb + (dh + .6) / 2, fz + .02, '#d9d2c4'); tbox(deco, dw, dh, .16, 0, yb + dh / 2, fz + .06, '#26343c');
+      for (let k = 1; k < 6; k++) tbox(deco, k % 2 ? .07 : .14, dh, .2, -dw / 2 + dw * k / 6, yb + dh / 2, fz + .08, '#8f979c');
+      tbox(deco, dw, .12, .2, 0, yb + 2.45, fz + .08, '#8f979c');
+      for (let k = 0; k < 3; k++) for (const s of [-1, 1]) tbox(deco, .05, .5, .06, -dw / 2 + dw * (2 * k + 1) / 6 + s * .18, yb + 1.25, fz + .19, '#c9ced2');
+      const cy = yb + dh + .75, cd = 3.2;
+      tbox(deco, dw + 3, .3, cd, 0, cy, fz + cd / 2, TRIM); tbox(deco, dw + 3.1, .45, .16, 0, cy - .05, fz + cd, TRIM2); tbox(deco, dw + 2.6, .04, cd - .3, 0, cy - .17, fz + cd / 2, '#fdf6e3');
+      for (const s of [-1, 1]){
+        const lx = s * (dw / 2 + 1.1), lz = fz + cd - .35; cols.push([lx, lz, cy - .15 - .35, .45, .35]);
+        /* the columns collide once the scenery is placed (LATE_COLS), so nothing that was scattered moves */
+        const c = addCircle(x + lx * Math.cos(rot) + lz * Math.sin(rot), z - lx * Math.sin(rot) + lz * Math.cos(rot), .3); c.dead = true; LATE_COLS.push([c, undefined, st]);
+      }
+      if (wq) washQuad(wq, true, -dw / 2, dw / 2, yb + dh, yb, fz + .3, WASH_WARM, .25, .7); }
     for (const sx of [-1, 1]) cols.push([sx * (bw / 2 - .7), d / 2 + 3.2, 4.6]);
     if (wq){ for (const sx of [-1, 1]) washQuad(wq, true, sx * (bw / 2 - .25) - .5, sx * (bw / 2 - .25) + .5, y0 + 4.9, y0 + bH - .6, d / 2 + 3.78, WASH_WARM); washQuad(wq, true, -bw / 2, bw / 2, y0 + bH - .1, y0 + bH - 3.2, d / 2 + 3.56, WASH_ORANGE, 0, .8); }
     colBox(d / 2 + 1, bw / 2 + .5, 3);
@@ -834,6 +848,7 @@ function building(o){
     if (end){ tbox(deco, cd, .35, cw, w / 2 + cd / 2, yc, 0, TRIM); tbox(deco, .2, .5, cw, w / 2 + cd - .1, yc - .25, 0, TRIM2); tbox(deco, .5, 3.3, cw + 1.2, w / 2 + .25, y0 + 1.65, 0, BALC2); }
     else { tbox(deco, cw, .35, cd, 0, yc, d / 2 + cd / 2, TRIM); tbox(deco, cw, .5, .2, 0, yc - .25, d / 2 + cd - .1, TRIM2); tbox(deco, cw + 1.2, 3.3, .5, 0, y0 + 1.65, d / 2 + .25, BALC2); }
   }
+  if (o.extra) o.extra(deco);   /* extra trim from the caller, in this building's own coordinates (crossB: the masts of the aviation lights) */
   const mk = (geo, mat, shadow) => { const m = new THREE.Mesh(geo, mat); m.castShadow = shadow !== false; m.receiveShadow = true; g.add(m); parts.push(m); return m; };
   /* white gable walls and their dark round vents go into the trim mesh */
   roofs.wall.forEach(g2 => deco.push(geoTint(g2, '#f4f0e8'))); roofs.vent.forEach(g2 => deco.push(geoTint(g2, '#5a5550')));
@@ -880,15 +895,24 @@ function building(o){
 }
 function crossB(o){
   const info = o.info || o, st = o.struct || newStruct(info);
-  const balc = o.balc === false ? null : S(o.tp) / 2 + .2;
+  /* where the arms meet, the first arm's balconies run up to the second arm's wall and the second arm's stop just past them,
+     so the two never overlap in the inner corner (they used to share an 0.8 m square there and flicker) */
+  const balc = o.balc === false ? null : S(o.tp) / 2, balc2 = balc == null ? null : balc + 1.12;
   const t1 = building(Object.assign({balc, canopy:'end'}, o, {info, struct:st, wp:o.ap, dp:o.tp, label:o.crown ? false : o.label}));
-  building(Object.assign({balc}, o, {info, struct:st, wp:o.tp, dp:o.bp, label:false}));
+  building(Object.assign({balc:balc2}, o, {info, struct:st, wp:o.tp, dp:o.bp, label:false}));
   if (!o.crown) return t1;
   /* a little pavilion where the arms cross: two more storeys under their own hipped roof */
-  const cw = S(o.tp) + 3.2;
-  const top = building({struct:st, info, px:o.px, py:o.py, rot:o.rot, w:cw, d:cw, floors:2.2, y0:o.floors * 3.6 - 1.2, variant:o.variant, roof:o.roof, roofH:5, over:2.3, noCollide:true, relief:false, label:o.label || o.name, minor:o.minor, finial:true});
+  const cw = S(o.tp) + 3.2, cy0 = o.floors * 3.6 - 1.2;
+  const a1 = S(o.ap) / 2 - 1, a2 = S(o.bp) / 2 - 1, ya = 1 + o.floors * 3.6 + .6 + Math.min(S(o.tp) * .3, 13) + .9;
+  /* each blue light sits on a slim mast that rises out of the hipped end of its arm (it used to hang in the air over the roof), with a dark lamp housing */
+  const masts = deco => { for (const [lx, lz] of [[a1, 0], [-a1, 0], [0, a2], [0, -a2]]){
+    const yb = 1 + o.floors * 3.6 - cy0, yt = ya - cy0;
+    deco.push(geoTint(new THREE.CylinderGeometry(.05, .08, yt - yb - .1, 5, 1, true).translate(lx, (yb + yt - .1) / 2, lz), '#3d4247'),
+      geoTint(new THREE.CylinderGeometry(.16, .13, .22, 8).translate(lx, yt - .2, lz), '#2b2f33'), geoTint(new THREE.CylinderGeometry(.11, .16, .08, 8).translate(lx, yt + .04, lz), '#2b2f33'));
+  } };
+  const top = building({struct:st, info, px:o.px, py:o.py, rot:o.rot, w:cw, d:cw, floors:2.2, y0:cy0, variant:o.variant, roof:o.roof, roofH:5, over:2.3, noCollide:true, relief:false, label:o.label || o.name, minor:o.minor, finial:true, extra:masts});
   /* red beacon (slow flash) on the crown, steady blue lights at the four arm ends */
-  { const c = o.xz || P(o.px, o.py), r = -(o.rot || 0) * D2R, a1 = S(o.ap) / 2 - 1, a2 = S(o.bp) / 2 - 1, ya = 1 + o.floors * 3.6 + .6 + Math.min(S(o.tp) * .3, 13) + .9;
+  { const c = o.xz || P(o.px, o.py), r = -(o.rot || 0) * D2R;
     const put = (lx, lz, y, red) => AVI_LIGHTS.push({st, x:c[0] + lx * Math.cos(r) + lz * Math.sin(r), y, z:c[1] - lx * Math.sin(r) + lz * Math.cos(r), red});
     put(0, 0, top + 3.6, true); put(a1, 0, ya, false); put(-a1, 0, ya, false); put(0, a2, ya, false); put(0, -a2, ya, false); }
   return top;

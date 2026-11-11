@@ -17,8 +17,8 @@ function hideSpotsNear(x, z, r){
 }
 /* local (lx, lz) of a building given by its plan numbers -> world [x, z] */
 function bLocal(px, py, rot, lx, lz){ const [x, z] = P(px, py), r = -rot * D2R; return [x + lx * Math.cos(r) + lz * Math.sin(r), z - lx * Math.sin(r) + lz * Math.cos(r)]; }
-/* nearest asphalt road segment */
-function roadAt(x, z){
+/* nearest asphalt road segment (named campusRoadAt: js/13-outskirts.js has its own global roadAt(r, s), which a second declaration here used to overwrite) */
+function campusRoadAt(x, z){
   let best = null, bd = 1e9;
   for (const r of ROADS_W){ if (r.m !== asphalt) continue; for (let i = 0; i < r.p.length - 1; i++){ const d = segDist(x, z, r.p[i], r.p[i + 1]); if (d < bd){ bd = d; best = {a:r.p[i], b:r.p[i + 1], w:r.w}; } } }
   return best;
@@ -62,7 +62,7 @@ const rot2 = (lx, lz, ry) => [lx * Math.cos(ry) + lz * Math.sin(ry), -lx * Math.
 (function(){
   const spots = [];
   const zebra = (x, z) => {
-    const r = roadAt(x, z), dx = r.b[0] - r.a[0], dz = r.b[1] - r.a[1], l = Math.hypot(dx, dz), ux = dx / l, uz = dz / l;
+    const r = campusRoadAt(x, z), dx = r.b[0] - r.a[0], dz = r.b[1] - r.a[1], l = Math.hypot(dx, dz), ux = dx / l, uz = dz / l;
     const t = (x - r.a[0]) * ux + (z - r.a[1]) * uz, cx = r.a[0] + ux * t, cz = r.a[1] + uz * t, h = Math.atan2(ux, uz), n = Math.round(r.w / 1.05);
     for (let k = 0; k < n; k++){ const o = -r.w / 2 + .6 + k * (r.w - 1.2) / (n - 1); spots.push([cx - uz * o, cz + ux * o, h]); }
   };
@@ -96,6 +96,24 @@ const streetSpots = [];
     }
   }
   knockSets.push({kind:'lamp', spots:streetSpots, ims:[instanced(poleGeo, M('#596068', {metalness:.45, roughness:.45}), streetSpots), instanced(headGeo, bulbMat, streetSpots)]});
+})();
+
+/* ---------- clear trees and lamps that were scattered onto a campus road, into the Music Island's base, onto the stadium track,
+   or where the east gate, the B1 canopy columns and the sports posts now stand (those collide only from lateColsSwap() on) ---------- */
+(function(){
+  const asphaltSegs = []; for (const r of ROADS_W) if (r.m === asphalt) for (let i = 0; i < r.p.length - 1; i++) asphaltSegs.push([r.p[i], r.p[i + 1], r.w / 2]);
+  const [ix, iz] = P(1015, 295);
+  const trackIn = (x, z, pad) => { const dz = Math.max(0, Math.abs(z - FIELD.z) - FIELD.a), dx = x - FIELD.x, r = Math.hypot(dx, dz); return r < FIELD.R + pad && r > FIELD.R - FIELD.lanes * FIELD.lw - pad; };
+  const solids = LATE_SOLIDS.concat(EGATE.solids.map(([x, z, r]) => [x, z, r + .8]));
+  for (const set of knockSets){
+    if (set.kind !== 'tree' && set.kind !== 'lamp') continue;
+    set.spots.forEach(o => {
+      if (o.hidden) return;
+      const pad = set.kind === 'tree' ? .4 : .2;
+      if (asphaltSegs.some(([a, b, h]) => segDist(o.x, o.z, a, b) < h + pad) || Math.hypot(o.x - ix, o.z - iz) < 16.2 || trackIn(o.x, o.z, 1.5) || solids.some(([x, z, r]) => Math.hypot(o.x - x, o.z - z) < r + pad))
+        hideSpotsNear(o.x, o.z, .01);
+    });
+  }
 })();
 
 /* ---------- south-gate bus stop (outside the fence, on the ring road) ---------- */
