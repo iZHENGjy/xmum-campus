@@ -233,6 +233,11 @@ structBlock(function(){
   /* grass steps fanning out on the landward side */
   const steps = [];
   for (let k = 0; k < 3; k++) arcStep(steps, x, z, 16.4 + k * 2.3, 18.7 + k * 2.3, Math.PI * .62, Math.PI * 1.42, k * .32, (k + 1) * .32, k % 2 ? '#476a32' : '#527838', '#cfc9bb', 14);
+  /* the platform was a plain white disc: a darker coping round its rim, a band of red paving round the shell and radial joints between the slabs */
+  steps.push(geoTint(new THREE.TorusGeometry(15.05, .2, 4, 64).rotateX(Math.PI / 2).scale(1, .6, 1).translate(x, .8, z), '#9f998e'),
+    geoTint(new THREE.RingGeometry(11.2, 12.6, 56, 1).rotateX(-Math.PI / 2).translate(x, .815, z), '#a85a45'),
+    geoTint(new THREE.RingGeometry(14.2, 14.9, 64, 1).rotateX(-Math.PI / 2).translate(x, .815, z), '#a59f93'));
+  for (let k = 0; k < 28; k++){ const a = k / 28 * Math.PI * 2, c = Math.cos(a), s = Math.sin(a); steps.push(quadGeo([x + c * 12.6 - s * .05, .816, z + s * 12.6 + c * .05], [x + c * 14.2 - s * .05, .816, z + s * 14.2 + c * .05], [x + c * 14.2 + s * .05, .816, z + s * 14.2 - c * .05], [x + c * 12.6 + s * .05, .816, z + s * 12.6 - c * .05], '#b3ada1')); }
   const stepMesh = new THREE.Mesh(geoMerge(steps), decoMat); stepMesh.receiveShadow = true; scene.add(stepMesh);
   [base, shell, stepMesh].forEach(m => { m.userData.info = info; pickables.push(m); });
   addCircle(x, z, 15.5); addFp({t:1, x, z, r:15});
@@ -342,9 +347,10 @@ const LATE_SOLIDS = [], SPORT_HEADS = [];
 function lateSolid(x, z, r){ const c = addCircle(x, z, r); c.dead = true; LATE_COLS.push([c, undefined, curStruct || {cols:[]}]); LATE_SOLIDS.push([x, z, r + .4]); }
 const sportNetMat = (() => {
   const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d');
-  g.strokeStyle = '#f5f5f0'; g.lineWidth = 3; g.strokeRect(0, 0, 32, 32);
+  g.strokeStyle = '#f5f5f0'; g.lineWidth = 5; g.strokeRect(0, 0, 32, 32);
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  return new THREE.MeshStandardMaterial({map:t, alphaTest:.5, side:THREE.DoubleSide, roughness:.8});
+  /* translucent rather than alpha-tested: up close the mesh shows, further off the mipmaps blend it into a light veil instead of letting it vanish */
+  return new THREE.MeshStandardMaterial({map:t, transparent:true, opacity:.95, depthWrite:false, side:THREE.DoubleSide, roughness:.8});
 })();
 /* a net panel through four corners (a, b along the top, c, e below them), UVs in 12 cm cells */
 function netQuad(list, a, b, c, e){
@@ -522,7 +528,7 @@ function stadPt(r, u){
     kit.push(geoTint(rodGeo(.12, .09, [RX0, RY0, cz], [RX1, RY1, cz], 6), '#d8d4cc'), geoTint(rodGeo(.08, .08, [RX0, RY0 - 2.6, cz], [RX0 - (RX0 - RX1) * .55, RY0 - (RY0 - RY1) * .55, cz], 5), '#d8d4cc'));
   }
   const slope = Math.atan2(RY0 - RY1, RX0 - RX1);
-  st.push(geoTint(geoAt(new THREE.BoxGeometry(RX0 - RX1 + .6, .22, L + 1.2), (RX0 + RX1) / 2, (RY0 + RY1) / 2 + .2, z, 0, 0, slope), '#86503c'), geoTint(geoAt(new THREE.BoxGeometry(.18, .6, L + 1.2), RX1 - .2, RY1 + .1, z, 0, 0, slope), '#5e2f20'));
+  st.push(geoTint(geoAt(new THREE.BoxGeometry(RX0 - RX1 + .6, .22, L + 1.2), (RX0 + RX1) / 2, (RY0 + RY1) / 2 + .2, z, 0, 0, slope), '#6f4334'), geoTint(geoAt(new THREE.BoxGeometry(.18, .6, L + 1.2), RX1 - .2, RY1 + .1, z, 0, 0, slope), '#5e2f20'));
   const stand = new THREE.Mesh(geoMerge(st.concat(kit)), decoMat); stand.castShadow = stand.receiveShadow = true; scene.add(stand);
   const nm = new THREE.Mesh(geoMergeUV(nets), sportNetMat); scene.add(nm);
   [track, pitch, lines, stand, nm].forEach(m => { m.userData.info = fieldInfo; pickables.push(m); });
@@ -633,6 +639,7 @@ structBlock(function(){
   EGATE.solids.push([gx, gz, 2]);
   const by = x - 2.2, bzz = z - 6.9;
   bx(.5, 1.1, .5, by, .55, bzz, '#d9d6cf'); bx(.56, .14, .56, by, 1.1, bzz, '#c4502a');
+  lateSolid(by, bzz, .3);
   { const A = 1.22, seg = .9;   /* the boom points across the lane, raised (open): red and white bands */
     for (let k = 0; k < 6; k++){ const p0 = [by, 1.2 + Math.sin(A) * seg * k, bzz + Math.cos(A) * seg * k], p1 = [by, 1.2 + Math.sin(A) * seg * (k + 1), bzz + Math.cos(A) * seg * (k + 1)]; d.push(geoTint(rodGeo(.07, .06, p0, p1, 6), k % 2 ? '#f4f1ea' : '#c4502a')); } }
   const m = new THREE.Mesh(geoMerge(d), decoMat); m.castShadow = m.receiveShadow = true; scene.add(m);
@@ -647,6 +654,14 @@ structBlock(function(){
   const out = new THREE.Mesh(new THREE.PlaneGeometry(10, 1.05), new THREE.MeshStandardMaterial({map:nt, roughness:.5})); out.rotation.y = Math.PI / 2; out.position.set(x + .91, 8.72, z); scene.add(out);
   const inn = new THREE.Mesh(new THREE.PlaneGeometry(3.6, .9), plaqueMat('东门')); inn.rotation.y = -Math.PI / 2; inn.position.set(x - .91, 8.72, z); scene.add(inn);
   [m, out, inn].forEach(o => { o.userData.info = info; pickables.push(o); });
+  /* at night: warm uplights on every face of the piers and under the name boards (washMat, like the teaching blocks) */
+  const wq = {p:[], u:[], c:[]};
+  for (const s of [-1, 1]){
+    const pz = z + s * PZ;
+    for (const f of [-1, 1]){ washQuad(wq, false, pz - 1.15, pz + 1.15, 1.3, 7.4, x + f * 1.24, WASH_WARM, 0, .9); washQuad(wq, true, x - 1.15, x + 1.15, 1.3, 7.4, pz + f * 1.24, WASH_WARM, 0, .9); }
+  }
+  for (const f of [-1, 1]) washQuad(wq, false, z - PZ + 1.3, z + PZ - 1.3, 8.06, 9.35, x + f * .93, WASH_WARM, .2, .8);
+  washMesh(wq, scene);
   r.traverse(o => { if (o.isMesh){ o.userData.info = info; pickables.push(o); } });
   /* the trees and lamps were scattered round the old posts (on the ring road): they stand in until lateColsSwap(), then the piers and the booth take over */
   for (const sz of [-1, 1]) LATE_COLS.push([null, addBox(P(1898, 0)[0], z + sz * 9, 1.4, 1.4, 0), curStruct]);
