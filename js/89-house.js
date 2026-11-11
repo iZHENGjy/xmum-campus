@@ -12,6 +12,7 @@
  * 装修：五套风格（学生宿舍风、北欧原木、中式红木、电竞房、奶娃主题），每套九件，放在九个固定位置上（不做自由摆放），
  *   一件件买，买过的随时换上、收起；墙面和地板颜色另买。电竞房的部分家具要改装道具（XParts，js/93-tuning-ui.js），
  *   奶娃主题按解锁的成就数开放。界面在 js/89-house-ui.js。
+ * 家具上的动作：走到沙发、椅子、床、灶台旁边，F 变成「坐下」「躺下」「做饭」（HZ_SEATS 写着每件家具的位置），推摇杆、跳、按 F 就起来。
  * 总资产（js/80-gta.js netWorth）：房价 + 家具原价 + 用掉的改装道具估值 + 墙面地板。
  * 存档：localStorage 'xmum-house-v1'（Google 登录的人由 js/net.js 跟其他 xmum-* 键一起云同步），很小：每户只存买过的 id。
  * 室内开关：window.XINDOOR = 'house'（indoorNow() 在 js/40-vehicles.js），巡逻车在门口等，抓不了你。
@@ -588,6 +589,32 @@ const HZ_MODEL = {
     k.ball(.3, .5, .72, -.3, HZ_C.yel, {sy:1.2}); hzEyes(k, .5, .82, -.03, .5);
   }
 };
+/* ---------- where 奶娃 can sit, lie down or cook on each piece: [kind, x, y (seat / mattress top), z, facing, arms] in the piece's own coordinates.
+   kind: 'sit' | 'lie' | 'cook'; facing 0 = the way the piece faces (+z); arms: 'r' resting, 't' at the table, 'w' hands on a wheel.
+   Lying: 奶娃's feet go at the spot and it falls back onto the bed, so the spot is near the foot end and the head lands on the pillow. */
+const HZ_PI = Math.PI;
+const hzRing = (n, R, y, a0) => Array.from({length:n}, (_, i) => { const a = a0 + i / n * HZ_PI * 2, x = Math.cos(a) * R, z = Math.sin(a) * R; return ['sit', x, y, z, Math.atan2(-x, -z), 't']; });
+const HZ_SEATS = {
+  dm_sofa:[['sit', -.75, .55, 0, 0, 'r'], ['sit', .75, .55, .2, 0, 'r']],
+  nd_sofa:[['sit', -.82, .69, .12, 0, 'r'], ['sit', 0, .69, .12, 0, 'r'], ['sit', .82, .69, .12, 0, 'r']],
+  cn_sofa:[['sit', -.95, .62, .1, 0, 'r'], ['sit', .95, .62, .1, 0, 'r']],
+  es_sofa:[['sit', -.82, .69, .12, 0, 'r'], ['sit', 0, .69, .12, 0, 'r'], ['sit', .82, .69, .12, 0, 'r']],
+  nw_sofa:[['sit', -.8, .69, .12, 0, 'r'], ['sit', 0, .69, .12, 0, 'r'], ['sit', .8, .69, .12, 0, 'r']],
+  dm_dine:[['sit', -.4, .49, .75, HZ_PI, 't'], ['sit', .45, .49, .7, HZ_PI, 't'], ['sit', 0, .49, -.75, 0, 't']],
+  nd_dine:[['sit', -.5, .62, -.85, 0, 't'], ['sit', .5, .62, -.85, 0, 't'], ['sit', -.5, .62, .85, HZ_PI, 't'], ['sit', .5, .62, .85, HZ_PI, 't']],
+  cn_dine:hzRing(6, 1.45, .55, 0),
+  es_dine:[['sit', -.7, 1.09, .75, HZ_PI, 't'], ['sit', 0, 1.09, .75, HZ_PI, 't'], ['sit', .7, 1.09, .75, HZ_PI, 't']],
+  nw_dine:hzRing(4, 1.35, .52, .78),
+  dm_kit:[['cook', -.6, 0, 1.0, HZ_PI]], nd_kit:[['cook', .1, 0, 1.05, HZ_PI]], cn_kit:[['cook', .1, 0, 1.05, HZ_PI]], es_kit:[['cook', .1, 0, 1.05, HZ_PI]], nw_kit:[['cook', -.4, 0, 1.05, HZ_PI]],
+  nd_yard:[['sit', -.25, .95, -.42, 0, 'r']], cn_yard:[['sit', .3, .32, 1.32, HZ_PI, 'r']], es_yard:[['sit', -.9, .5, .6, HZ_PI, 'r'], ['sit', -.3, .5, .6, HZ_PI, 'r']],
+  nw_yard:[['sit', -.3, .08, -.2, 0, 'r']],
+  dm_bed:[['lie', 0, 1.72, 1.2, 0]], nd_bed:[['lie', 0, .7, 1.25, 0]], cn_bed:[['lie', 0, .78, 1.25, 0]], es_bed:[['lie', 0, .76, 1.25, 0]], nw_bed:[['lie', 0, .74, 1.25, 0]],
+  dm_desk:[['sit', 0, .54, .7, HZ_PI, 't']], nd_desk:[['sit', -.2, .62, .7, HZ_PI, 't']], cn_desk:[['sit', 0, .62, .75, HZ_PI, 't']], es_desk:[['sit', 0, .67, .8, HZ_PI, 't']], nw_desk:[['sit', .1, .52, .75, HZ_PI, 't']],
+  dm_hobby:[['sit', -.6, .81, -.2, 0, 'r']], nd_hobby:[['sit', -.3, .52, .6, 0, 'r']], cn_hobby:[['sit', 1.0, .57, .25, -HZ_PI / 2, 'r'], ['sit', -1.0, .57, .25, HZ_PI / 2, 'r']],
+  es_hobby:[['sit', 0, .62, .35, HZ_PI, 'w']], nw_hobby:[['sit', -.3, .35, .2, 0, 'r']]
+};
+/* the spots of the furniture now in the house, in world coordinates (filled by hzBuildFurniture) */
+const hzSpots = [];
 let hzFur = null, hzGlow = null;
 const hzFurCols = []; let hzFurColN = 0;
 function hzFurCol(cx, cz, hx, hz_, rot){
@@ -597,10 +624,13 @@ function hzFurCol(cx, cz, hx, hz_, rot){
 /* build all the furniture of a house into two meshes. place = {slot: item id} (what is in each spot, saved or previewed) */
 function hzBuildFurniture(place){
   const S = [], G = []; hzFurColN = 0;
+  if (typeof HZ !== 'undefined' && HZ.pose) hzPoseEnd(true);   /* the piece under you may be about to change */
+  hzSpots.length = 0;
   for (const sl of HZ_SLOTS){
     const id = place[sl.id], fn = id && HZ_MODEL[id]; if (!fn) continue;
     const k = hzKit(); fn(k);
-    const ax = HX(sl.x, sl.fl), az = HZZ(sl.z);
+    const ax = HX(sl.x, sl.fl), az = HZZ(sl.z), c = Math.cos(sl.r), sn = Math.sin(sl.r);
+    for (const [kind, x, y, z, f, arms] of HZ_SEATS[id] || []) hzSpots.push({kind, fl:sl.fl, x:ax + x * c + z * sn, y, z:az - x * sn + z * c, h:sl.r + f, arms:arms || 'r', id});
     for (const g of k.S) S.push(geoAt(g, ax, 0, az, 0, sl.r, 0)); for (const g of k.G) G.push(geoAt(g, ax, 0, az, 0, sl.r, 0));
     /* a collider a bit smaller than the piece: you can walk right up to it but not through it */
     const sw = Math.abs(Math.sin(sl.r)) > .5, hx = Math.max(.1, (sw ? sl.d : sl.w) / 2 - .5), hz_ = Math.max(.1, (sw ? sl.w : sl.d) / 2 - .5);
@@ -636,7 +666,7 @@ for (const l of hzInLbls) l.dead = true;
 for (const m of [hzExitMark, ...hzStairMarks]) m.children.forEach(c => { if (c !== m.userData.ring) c.visible = false; });
 
 /* ---------- state, going in, coming out ---------- */
-const HZ = {in:null, tour:false, fl:0, keep:null, near:null, act:null, parkT:0, told:{}};
+const HZ = {in:null, tour:false, pose:null, fl:0, keep:null, near:null, act:null, parkT:0, told:{}};
 const hzBusyWhy = () => mission.on ? '先把手上的外卖送完' : gx.busy() ? '先把手上的挑战做完' : '';
 function hzEnter(h, tour){
   if (HZ.in || !h) return;
@@ -655,6 +685,7 @@ function hzEnter(h, tour){
 }
 function hzLeave(quiet){
   const h = HZ.in; if (!h) return;
+  if (HZ.pose) hzPoseEnd(true);
   if (typeof hzUiClose === 'function') hzUiClose(true);
   HZ.in = null; HZ.tour = false; hzG.visible = false; window.XINDOOR = null; window.XINDOOR_AT = null;
   for (const c of hzCols) c.dead = true; hzFreeFurniture();
@@ -683,6 +714,61 @@ function hzBuy(h){
   return true;
 }
 
+/* ---------- sitting, lying down, cooking ---------- */
+const HZ_POSE_F = {sit:'坐下', lie:'躺下', cook:'做饭'};
+const HZ_POSE_TIP = {sit:'坐着', lie:'躺着歇会儿', cook:'在做饭'};
+function hzSpotNear(){
+  let best = null, bd = 1.8;
+  for (const s of hzSpots){ if (s.fl !== HZ.fl) continue; const d = Math.hypot(nw.x - s.x, nw.z - s.z); if (d < bd){ bd = d; best = s; } }
+  return best;
+}
+const hzZz = addLabel('Z z z', 0, 0, 0, true); hzZz.dead = true;
+function hzPoseStart(sp){
+  if (!sp || driving) return;
+  HZ.pose = {kind:sp.kind, sp, from:{x:nw.x, z:nw.z, h:nw.h}, t:0, fx:0};
+  nw.state = sp.kind; Object.assign(nw, {x:sp.x, y:sp.y, z:sp.z, h:sp.h, t:0, spd:0, air:false, vx:0, vz:0, vy:0});
+  tone('sine', sp.kind === 'lie' ? 380 : 520, sp.kind === 'lie' ? 260 : 420, .12, .06);
+}
+/* stand up where you were before sitting down: that spot is free for certain */
+function hzPoseEnd(quiet){
+  const p = HZ.pose; if (!p) return; HZ.pose = null; hzZz.dead = true;
+  if (nw.state === p.kind) nw.state = 'idle';
+  nw.x = p.from.x; nw.z = p.from.z; nw.y = 0; nw.air = false;
+  if (!quiet) tone('sine', 420, 560, .08, .05);
+}
+/* while posing, the walking update is skipped: 奶娃 stays put until you push the stick, jump, laugh or press F */
+{ const base = updateFoot; updateFoot = function(dt){
+  const p = HZ.pose;
+  if (!p) return base(dt);
+  if (!HZ.in || driving || nw.air || nw.state !== p.kind){ hzPoseEnd(true); return base(dt); }
+  const f = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) - joy.y, r = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0) + joy.x;
+  if (p.t > .35 && Math.hypot(f, r) > .3){ hzPoseEnd(); return base(dt); }
+  nw.t += dt; p.t += dt; const s = p.sp; nw.x = s.x; nw.y = s.y; nw.z = s.z; nw.h = s.h; nw.spd = 0;
+  const fx = Math.sin(s.h), fz = Math.cos(s.h);
+  if (p.kind === 'lie'){
+    hzZz.dead = p.t < 2.5;
+    if (!hzZz.dead) hzZz.pos.set(s.x - fx * 1.9, s.y + 1.5 + Math.sin(p.t * 1.5) * .15, s.z - fz * 1.9);
+  } else if (p.kind === 'cook'){
+    p.fx -= dt; if (p.fx <= 0){ p.fx = .22; spawnPart('dust', s.x + fx * .95 + (rnd() - .5) * .3, 1.3, s.z + fz * .95 + (rnd() - .5) * .3, .35, {vy:1.4, life:1.1, op:.55, grow:1.6, color:'#ffffff'}); }
+  }
+}; }
+{ const base = animNaiwa; animNaiwa = function(dt, T){
+  base(dt, T);
+  const p = HZ.pose; if (!p || driving) return;
+  const B = NW.body, [aL, aR] = NW.arms, [eL, eR] = NW.elbows || [], [lL, lR] = NW.legs, el = (x, z) => { if (eL){ eL.rotation.set(x, 0, z); eR.rotation.set(x, 0, -z); } };
+  if (p.kind === 'sit'){
+    if (p.sp.arms === 'r'){ aL.rotation.set(-.3, 0, .5); aR.rotation.set(-.3, 0, -.5); el(-1.05, -.35); }
+    else if (p.sp.arms === 't'){ const w = Math.sin(T * 13) * .07; aL.rotation.set(-1.0 + w, 0, .2); aR.rotation.set(-1.0 - w, 0, -.2); el(-.55, -.2); }
+  } else if (p.kind === 'lie'){
+    B.rotation.set(-1.5, 0, Math.sin(T * 1.2) * .03); B.position.y = .38 + Math.sin(T * 1.6) * .012;
+    lL.rotation.set(.35, 0, .1); lR.rotation.set(.25, 0, -.1); aL.rotation.set(.15, 0, .75); aR.rotation.set(.15, 0, -.75); el(-.4, -.1);
+    if (p.t > 2.5){ NW.eyes[0].scale.y = NW.eyes[1].scale.y = .08; NW.belly.scale.z = 1 + Math.sin(T * 1.6) * .04; }
+  } else if (p.kind === 'cook'){
+    const w = Math.sin(T * 7);
+    B.rotation.set(.1, 0, w * .03); aL.rotation.set(-1.15 + w * .18, 0, .3); aR.rotation.set(-1.15 - w * .18, 0, -.3); el(-.7, -.25);
+  }
+}; }
+
 /* ---------- the F button and the line above it ---------- */
 let hzFL = '';
 function hzSetF(t){
@@ -692,9 +778,15 @@ function hzSetF(t){
 const hzNearDoor = () => !driving && !HZ.in && nw.state !== 'fly' && HZ_HOUSES.find(h => Math.hypot(nw.x - h.door.x, nw.z - h.door.z) < 2.3) || null;
 /* inside: what F does where you stand */
 function hzActNow(){
+  if (HZ.pose) return {label:'起来', go:() => hzPoseEnd()};
+  /* the door, the stairs and the furniture spots each have a reach; when two overlap, the nearer one wins */
   const lx = nw.x - HZ_OX - (HZ.fl ? HZ_UP : 0), lz = nw.z - HZ_OZ;
-  if (!HZ.fl && Math.hypot(lx - HZ_EXIT.x, lz - HZ_EXIT.z) < 1.9) return {label:'出门', go:() => hzLeave()};
-  for (const s of HZ_STAIRS) if (s.fl === HZ.fl && Math.hypot(lx - s.x, lz - s.z) < 1.7) return {label:s.label, go:() => hzStairs(s)};
+  let best = null, bd = 1e9;
+  const offer = (d, r, a) => { if (d < r && d < bd){ bd = d; best = a; } };
+  if (!HZ.fl) offer(Math.hypot(lx - HZ_EXIT.x, lz - HZ_EXIT.z), 1.9, {label:'出门', go:() => hzLeave()});
+  for (const s of HZ_STAIRS) if (s.fl === HZ.fl) offer(Math.hypot(lx - s.x, lz - s.z), 1.7, {label:s.label, go:() => hzStairs(s)});
+  const sp = hzSpotNear(); if (sp) offer(Math.hypot(nw.x - sp.x, nw.z - sp.z), 1.8, {label:HZ_POSE_F[sp.kind], pose:true, go:() => hzPoseStart(sp)});
+  if (best) return best;
   if (HZ.tour) return {label:'买下', go:() => hzUiOpen('view', HZ.in)};
   return {label:'装修', go:() => hzUiOpen('deco', HZ.in)};
 }
@@ -716,7 +808,9 @@ function hzUpdate(dt, px, pz){
     if (driving){ hzSetF(''); return; }
     HZ.fl = nw.x - HZ_OX > HZ_UP / 2 ? 1 : 0;
     const a = hzActNow(); HZ.act = a; hzSetF(a.label);
-    hzPrompt = a.label === '出门' ? (TOUCH ? '点「出门」' : '按 F 出门') : a.label === '上楼' || a.label === '下楼' ? (TOUCH ? `点「${a.label}」` : `按 F ${a.label}`)
+    hzPrompt = HZ.pose ? HZ_POSE_TIP[HZ.pose.kind] + (TOUCH ? ' · 推摇杆或点「起来」' : ' · 走动或按 F 起来')
+      : a.pose ? (TOUCH ? `点「${a.label}」` : `按 F ${a.label}`)
+      : a.label === '出门' ? (TOUCH ? '点「出门」' : '按 F 出门') : a.label === '上楼' || a.label === '下楼' ? (TOUCH ? `点「${a.label}」` : `按 F ${a.label}`)
       : HZ.tour ? `看房中 · ${HZ.in.name} · RM ${HZ.in.price.toLocaleString()} · ${TOUCH ? '点「买下」' : '按 F 买下'}` : `${TOUCH ? '点「装修」' : '按 F 装修'} · 楼梯口上下楼 · 门口绿圈出门`;
     const T = performance.now() / 300; hzExitMark.userData.ring.scale.y = 1 + Math.sin(T) * .15; for (const m of hzStairMarks) m.userData.ring.scale.y = 1 + Math.sin(T + 1) * .15;
     const lit = Math.min(1, cur.lamp) * .3; if (Math.abs(hzSolidMat.emissiveIntensity - lit) > .005){ hzSolidMat.emissiveIntensity = lit; hzShellMat.emissiveIntensity = .22 + lit * .5; hzFloorMat.emissiveIntensity = lit * .5; }
