@@ -501,7 +501,9 @@ function dmFinish(how){
   if (items.length) unlock('dorm1'); if (pay >= 300) unlock('dormrich'); if (!run.seen && items.length) unlock('dormghost');
   const behind = DORM.L.boxes.reduce((s, b) => s + b.items.reduce((q, it) => q + it.v, 0), 0);
   if (items.length){ gxCallout(left < 15 ? '压哨撤离！' : '撤离成功', `+RM ${pay}`, '#4fd18b'); for (let i = 0; i < 6; i++) tone('triangle', 523 * Math.pow(1.19, i), 523 * Math.pow(1.19, i), .18, .13, i * .08); } else sfx.ding();
-  dmUiEnd({ok:true, how, items, value, pay, income, bounty:run.bounty, tok, bonus, rec, prev, top:dmTop(items), time:run.t, left, solved:run.solved, caught:run.caught, behind});
+  /* 改装零件 (js/93-tuning-ui.js): the more you carried out, the better; RM 150+ brings a recipe from the 宿舍 pool */
+  const loot = window.XParts && items.length ? XParts.reward('dorm', value >= 300 ? 0 : value >= 150 ? 1 : 2, '宿舍撤离 RM ' + Math.round(value)) : [];
+  dmUiEnd({ok:true, how, items, value, pay, income, bounty:run.bounty, tok, bonus, rec, prev, top:dmTop(items), time:run.t, left, solved:run.solved, caught:run.caught, behind, loot});
 }
 function dmFail(why, quiet){
   const run = DORM.run, kept = run.bag[0] && !run.bag[0].key ? run.bag[0] : null, lost = run.bag.slice(1).filter(it => it && !it.key);

@@ -95,7 +95,7 @@ function updateCats(dt, T){
     }
     const walking = c.state === 'walk', loaf = c.state === 'loaf';
     const bob = walking ? Math.abs(Math.sin(T * c.sp * 7 + c.ph)) * .03 : 0, breathe = 1 + Math.sin(T * 2 + c.ph) * .015;
-    _cp.set(c.x, bob, c.z); _cq.setFromAxisAngle(UP, c.h);
+    _cp.set(c.x, bob + azY(c.x, c.z), c.z); _cq.setFromAxisAngle(UP, c.h);   /* on the A zone's podium and slopes too (js/09-azone.js) */
     if (!walking) _cq2.setFromAxisAngle(_ax.set(1, 0, 0), loaf ? 0 : -.38), _cq.multiply(_cq2);
     _cs.set(1.3, (loaf ? .62 : 1) * breathe * 1.3, loaf ? 1.36 : 1.3);
     _cb.compose(_cp, _cq, _cs); catIm.setMatrixAt(i, _cb);
@@ -121,17 +121,27 @@ function setRain(on, instant){
   if (rainBtn) rainBtn.setAttribute('aria-pressed', String(!!on));
 }
 if (rainBtn) rainBtn.addEventListener('click', () => setRain(wx.target < .5));
+/* Rain (was: 1 s of white noise looped, which ticked at the loop seam and repeated every second, at .07). Now a 6 s pink-noise bed (softer than white hiss, loops without a click, see loopNoise in js/20-fx.js) rolled off above ~3.6 kHz,
+   with the low rumble cut, plus a faint, slowly drifting bright layer for the patter. The level follows wx.rain (which itself eases over
+   5 s) through a 1.2 s smoothing, so it fades in when the shower starts and out when it stops. */
 let rainSnd = null;
 function rainSound(){
-  if (typeof AC === 'undefined' || !AC || !noiseBuf || (!rainSnd && (AC.state !== 'running' || wx.rain < .01))) return;
+  if (typeof AC === 'undefined' || !AC || (!rainSnd && (AC.state !== 'running' || wx.rain < .01))) return;
   if (!rainSnd){
-    const src = AC.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
-    const hp = AC.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 700;
-    const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 5200;
-    const g = AC.createGain(); g.gain.value = 0; src.connect(hp); hp.connect(lp); lp.connect(g); g.connect(AC.destination); src.start();
+    const buf = loopNoise(AC, 6, true), g = AC.createGain(); g.gain.value = 0; g.connect(AC.destination);
+    const bed = AC.createBufferSource(); bed.buffer = buf; bed.loop = true;
+    const hp = AC.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 380;
+    const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 3600; lp.Q.value = .5;
+    bed.connect(hp); hp.connect(lp); lp.connect(g); bed.start();
+    /* the patter: the same noise from another start point, narrow band, quiet, its level drifting so it does not sit like a hiss */
+    const pat = AC.createBufferSource(); pat.buffer = buf; pat.loop = true; pat.playbackRate.value = .93;
+    const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2400; bp.Q.value = .7;
+    const pg = AC.createGain(); pg.gain.value = .35; pat.connect(bp); bp.connect(pg); pg.connect(g);
+    const lfo = AC.createOscillator(), lg = AC.createGain(); lfo.frequency.value = .23; lg.gain.value = .2; lfo.connect(lg); lg.connect(pg.gain);
+    pat.start(0, 2.7); lfo.start();
     rainSnd = g;
   }
-  rainSnd.gain.setTargetAtTime(soundOn && !document.hidden ? wx.rain * .07 : 0, AC.currentTime, .3);
+  rainSnd.gain.setTargetAtTime(soundOn && !document.hidden ? wx.rain * .045 : 0, AC.currentTime, 1.2);      /* about 7 dB quieter than the old .07 white-noise rain */
 }
 
 function updateWeather(dt, T){

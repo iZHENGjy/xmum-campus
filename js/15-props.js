@@ -142,7 +142,7 @@ function signpost(x, z, ry, boards){
   const [bx, bz] = rot2(0, 0, ry); pBox(3.1, .14, .14, '#3d4247', x + bx, 3.06, z + bz, ry);
 }
 /* each board faces +z (south) unless turned; arrows are as seen by someone facing the board */
-signpost(99, 205, 0, [['A3 百姓大楼', '↑'], ['中心湖 · LY 宿舍', '↑'], ['B1 · D6 · 田径场', '→'], ['A1 · 礼堂 · 二期', '←']]);
+signpost(99, 205, 0, [['A3 百姓大楼', '↑'], ['中心湖 · LY 宿舍', '↑'], ['B1 · D6 · 田径场', '→'], ['A1 · 音乐厅 · 二期', '←']]);
 signpost(117, 32, 0, [['中心湖 · LY 宿舍区', '↑'], ['D6 食堂 · B1', '→'], ['音乐岛', '←']]);
 signpost(...P(1560, 535), 0, [['D6 食堂 · D 区宿舍', '↑'], ['B1 学生活动中心', '→'], ['田径场 · 户外球场', '→'], ['A5 · A4', '←']]);
 signpost(...P(1030, 240), 0, [['LY3 食堂', '↑'], ['LY 宿舍区', '↑'], ['南门 · A3', '↓']]);

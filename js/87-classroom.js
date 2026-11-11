@@ -6,7 +6,7 @@
  *   小地图在室内换成这层楼的平面图。墙有碰撞，水柱和视线都穿不过去（lvSolid / lvSee）。
  *   在这层楼里发生的玩法（潜入、保安、老师……）在 js/87-heist.js。
  * 水枪：步行时按 E（手机点「水枪」）。没有自动瞄准：
- *   电脑上鼠标指哪喷哪（点左键也能开火），手机点一下朝面前喷，按住「水枪」拖动可以转方向，松手开火；
+ *   电脑上鼠标指哪喷哪：按 E 掏出水枪并开火，枪在手上的时候（约 12 秒没动静就收起）点左键也能开火，没掏枪时左键和水枪无关；手机点一下朝面前喷，按住「水枪」拖动可以转方向，松手开火；
  *   地上的蓝线是水柱能到的地方。水柱要飞一会儿才到，打跑动的目标得打提前量。手机上只有偏差在 8° 以内才帮你微调。
  *   淋到巡逻车，车停下来擦玻璃 4 秒。一箱 6 发，自己慢慢回满。
  *   车行里的「水枪工坊」（js/80-gta.js 的 WUPG）：喷嘴加射程，水压加淋湿时间和水柱速度，高压水炮一次喷三股。
@@ -192,7 +192,8 @@ function roomTryF(){
 }
 
 /* ---------- water gun ---------- */
-const WG = {ammo:6, max:6, regen:0, cd:0, el:$('#water'), jets:[], shots:0, mouse:false, mx:0, my:0, drag:null, click:null, aim:0, show:0, scanT:0, near:false, shotT:9, told:false};
+const WG = {ammo:6, max:6, regen:0, cd:0, el:$('#water'), jets:[], shots:0, mouse:false, mx:0, my:0, drag:null, click:null, aim:0, show:0, scanT:0, near:false, shotT:9, told:false, drawn:false, drawnT:0};
+const WG_HOLD = 12;      /* 电脑上：按 E 掏出水枪后，这么多秒没再按 E / 点左键，水枪自己收起来 */
 const WG_FAN = .17;      /* 高压水炮: the two extra jets leave this far (radians) either side */
 achAdd([['wg1', '水枪改装', '在水枪工坊升级一次', 20], ['wgmax', '水枪大师', '水枪工坊全部升到满级', 150]]);
 /* what the workshop upgrades (WUPG in js/80-gta.js) add up to */
@@ -264,7 +265,7 @@ const wgLine = (() => {
 })();
 function wgPreview(dt){
   const can = mode === 'naiwa' && !driving && !gx.paused && nw.state !== 'fly' && nw.state !== 'flop' && nw.state !== 'swing';
-  const on = can && (WG.drag || WG.near || WG.shotT < 2.5);
+  const on = can && (WG.drag || WG.near || WG.drawn || WG.shotT < 2.5);
   WG.show += ((on ? 1 : 0) - WG.show) * Math.min(1, dt * 10);
   if (WG.show < .03){ wgLine.m.visible = wgLine.tip.visible = false; return; }
   const st = wgStat(), indoor = indoorNow(), fan = st.multi > 1 ? [0, -WG_FAN, WG_FAN] : [0], p = wgLine.pos;
@@ -339,18 +340,25 @@ function soakCar(c, power, info){
 }
 /* soaked cars are skipped, so the jet goes on to one that is still coming */
 wgAddTarget(() => ROOM.in ? null : patrols.filter(c => c.active && c !== driving && !(c.soakT > 0)).map(c => ({x:c.x, z:c.z, r:1.7, hit:(p, i) => soakCar(c, p, i)})));
-/* --- input: E or a left click fires where the mouse points; on a phone a tap fires ahead, holding the button and dragging aims --- */
+/* --- input: E draws the gun and fires where the mouse points; only while the gun is out does a left click fire too (a click with the gun holstered
+   does nothing water-related). On a phone a tap fires ahead, holding the button and dragging aims --- */
+function wgHolster(){ WG.drawn = false; WG.drawnT = 0; }
 window.addEventListener('keydown', e => {
   if (e.code !== 'KeyE' || e.repeat || mode !== 'naiwa' || e.target.tagName === 'INPUT' || document.querySelector('dialog[open]')) return;
-  ac(); fireWater();
+  ac();
+  if (!TOUCH && !driving){
+    if (!WG.drawn && !WG.told2){ WG.told2 = true; toast('水枪掏出来了', '枪在手上时点左键也能开火；一会儿不用会自己收起来', 2600); }
+    WG.drawn = true; WG.drawnT = WG_HOLD;
+  }
+  fireWater();
 });
 window.addEventListener('pointermove', e => { if (e.pointerType === 'mouse'){ WG.mouse = true; WG.mx = e.clientX; WG.my = e.clientY; } });
 canvas.addEventListener('pointerdown', e => { WG.click = e.pointerType === 'mouse' && e.button === 0 ? {x:e.clientX, y:e.clientY, t:performance.now()} : null; });
 canvas.addEventListener('pointerup', e => {
   const c = WG.click; WG.click = null;
-  if (!c || mode !== 'naiwa' || Math.hypot(e.clientX - c.x, e.clientY - c.y) > 6 || performance.now() - c.t > 350) return;      /* a drag turns the camera; only a clean click fires */
+  if (!c || mode !== 'naiwa' || !WG.drawn || Math.hypot(e.clientX - c.x, e.clientY - c.y) > 6 || performance.now() - c.t > 350) return;      /* a drag turns the camera; only a clean click with the gun out fires */
   if (nw.state === 'swing') return;
-  WG.mouse = true; WG.mx = e.clientX; WG.my = e.clientY; ac(); fireWater();
+  WG.mouse = true; WG.mx = e.clientX; WG.my = e.clientY; WG.drawnT = WG_HOLD; ac(); fireWater();
 });
 { const b = $('#act-w'); if (b){
     b.style.touchAction = 'none';
@@ -381,13 +389,14 @@ function setFLabel(t){
 function roomUpdate(dt, px, pz){
   roomPrompt = '';
   WG.cd -= dt; WG.shotT += dt;
+  if (WG.drawn){ WG.drawnT -= dt; if (WG.drawnT <= 0 || driving || mode !== 'naiwa') wgHolster(); }
   if (WG.ammo < WG.max){ WG.regen += dt; if (WG.regen > wgStat().regen){ WG.regen = 0; WG.ammo++; } }
   wgShow(); wgJets(dt);
   /* the aim line shows up when something that can be soaked is around */
   WG.scanT -= dt;
   if (WG.scanT <= 0){
     WG.scanT = .25; const R = wgStat().range * 1.6 + 6; WG.near = !driving && wgTargets().some(t => Math.hypot(t.x - nw.x, t.z - nw.z) < R);
-    if (WG.near && !WG.told && !ROOM.in){ WG.told = true; toast('水枪要自己瞄', TOUCH ? '点「水枪」朝面前喷；按住它拖动可以转方向，松手开火。蓝线是水柱能到的地方' : '鼠标指哪喷哪，按 E 或点左键开火。蓝线是水柱能到的地方，跑动的目标要打提前量', 4200); }
+    if (WG.near && !WG.told && !ROOM.in){ WG.told = true; toast('水枪要自己瞄', TOUCH ? '点「水枪」朝面前喷；按住它拖动可以转方向，松手开火。蓝线是水柱能到的地方' : '鼠标指哪喷哪，按 E 掏枪开火（枪在手上时左键也能开火）。蓝线是水柱能到的地方，跑动的目标要打提前量', 4200); }
   }
   wgPreview(dt);
   for (const c of patrols) if (c.soakT > 0 && c.active && rnd() < dt * 6) spawnPart('dust', c.x + (rnd() - .5) * 2, 1.6, c.z + (rnd() - .5) * 2, .4, {vy:-1, life:.6, op:.8, color:'#9fd8ff'});
@@ -417,7 +426,7 @@ function roomUpdate(dt, px, pz){
     target(){ return base.target() || (ROOM.in ? {x:ROOM_DOOR[0], z:ROOM_DOOR[1], label:'出门'} : null); },
     mini(dot){ base.mini(dot); if (!ROOM.in) for (const d of ROOM_DOORS) dot(d.x, d.z, '#ffd27a', 4); },
     onBust(){ roomLeave(true); base.onBust(); },
-    leave(){ roomLeave(true); for (const d of ROOM_DOORS){ d.mark.visible = false; d.lbl.dead = true; } setFLabel(''); WG.jets.length = 0; WG.drag = null; wgLine.m.visible = wgLine.tip.visible = false; base.leave(); }
+    leave(){ roomLeave(true); for (const d of ROOM_DOORS){ d.mark.visible = false; d.lbl.dead = true; } setFLabel(''); WG.jets.length = 0; WG.drag = null; wgHolster(); wgLine.m.visible = wgLine.tip.visible = false; base.leave(); }
   });
 }
 for (const d of ROOM_DOORS){ d.mark.visible = false; d.lbl.dead = true; }

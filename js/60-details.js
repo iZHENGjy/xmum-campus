@@ -202,7 +202,7 @@ function updateNPCs(dt, T){
       }
     } else if (n.state === 'fall'){ y = n.y; tiltX = n.tilt; sc = Math.max(.01, 1 - n.tilt * .3); }
     else { sc = 0; }
-    _cp.set(n.x, y + bridgeY(n.x, n.z), n.z); _cq.setFromAxisAngle(UP, n.h + sway);   /* students crossing the lake bridge walk on its deck */
+    _cp.set(n.x, y + (bridgeY(n.x, n.z) || azY(n.x, n.z)), n.z); _cq.setFromAxisAngle(UP, n.h + sway);   /* students crossing the lake bridge walk on its deck, and up the A zone's stairs (js/09-azone.js) */
     if (tiltX){ _cq2.setFromAxisAngle(_ax.set(n.tdz, 0, -n.tdx).normalize(), tiltX); _cq.premultiply(_cq2); }
     _cs.setScalar(sc); _nb.compose(_cp, _cq, _cs);
     npcBodyIm.setMatrixAt(i, _nb); npcHeadIm.setMatrixAt(i, _nb);

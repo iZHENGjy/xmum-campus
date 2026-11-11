@@ -69,6 +69,30 @@ function vnoise(x, z){
   return a + (b - a) * su + (c - a) * sv + (a - b - c + d) * su * sv;
 }
 const fbm = (x, z) => vnoise(x / 380, z / 380) * .58 + vnoise(x / 170 + 31.7, z / 170 - 12.1) * .28 + vnoise(x / 70 - 7.3, z / 70 + 5.9) * .14;
+/* 后山: the wooded hill in the north-west of the campus (west of LY1 and the Musical Island, as in the campus 360° tour).
+   A summit about 34 m up with a flat top for the pavilion (js/44-hill.js), a ridge running east to 猴山 (js/89-swing-monkeys.js, kept at
+   its old spot and given its own knob), and two spurs. s = summit, m = 猴山, flat = radius of the level top. */
+/* The summit sits on a vertex of the 12 m height grid and everything within `flat` of it is level, so the 3 × 3 vertices round it
+   (a 24 m square) are all at the same height and the pavilion stands on truly flat ground. The hill is long east–west and short
+   north–south (the perimeter road to the north and the forest road to the south both need level verges). */
+const HILL = {sx:-296, sz:-164, top:27, flat:18, mx:-188, mz:-175};
+function hillY(x, z){
+  const b = t => t >= 1 ? 0 : (1 - t * t) * (1 - t * t);
+  const seg = (ax, az, bx, bz) => { const dx = bx - ax, dz = bz - az, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz))); return [t, Math.hypot(x - ax - t * dx, z - az - t * dz)]; };
+  const dx = x - HILL.sx, dz = z - HILL.sz, k = 1 + 1.25 * smooth01(10, 40, -dz) + .55 * smooth01(10, 40, dz);
+  const dS = Math.hypot(dx, dz), dA = Math.hypot(dx, dz * k), dM = Math.hypot(x - HILL.mx, z - HILL.mz);
+  let h = HILL.top * b(Math.max(0, dA - HILL.flat) / 112);
+  h = Math.max(h, 14 * b(Math.max(0, dM - 10) / 50));
+  /* the ridge to 猴山 dips to a saddle on the way; one spur falls away south-west, another south-east toward the forest road */
+  let [t, d] = seg(HILL.sx, HILL.sz, HILL.mx, HILL.mz); h = Math.max(h, ((1 - t) * 23 + t * 13 - 5 * Math.sin(Math.PI * t)) * b(d / 30));
+  [t, d] = seg(HILL.sx, HILL.sz, -405, -130); h = Math.max(h, (1 - t) * 21 * b(d / 28));
+  [t, d] = seg(HILL.sx, HILL.sz, -246, -116); h = Math.max(h, (1 - t) * 17 * b(d / 24));
+  /* folds and gullies on the slopes, none on the two level tops */
+  h += (fbm(x * 2.2 - 140, z * 2.2 + 90) - .5) * 10 * smooth01(HILL.flat + 2, HILL.flat + 24, dS) * smooth01(9, 26, dM) * smooth01(0, 6, h);
+  return Math.max(0, h);
+}
+/* how far a point is from the level top of the summit (used to keep everything else off it) */
+const hillTopD = (x, z) => Math.hypot(x - HILL.sx, z - HILL.sz) - HILL.flat;
 function terrainY(x, z){
   if (TG.flat && x > CAMPUS_R.x0 && x < CAMPUS_R.x1 && z > CAMPUS_R.z0 && z < CAMPUS_R.z1) return 0;
   const fx = (x - TG.x0) / TG.C, fz = (z - TG.z0) / TG.C, i = Math.floor(fx), j = Math.floor(fz);
@@ -88,8 +112,8 @@ function terrainY(x, z){
     const x = x0 + i * C, z = z0 + j * C, k = j * nx + i;
     if (x > CAMPUS_R.x0 && x < CAMPUS_R.x1 && z > CAMPUS_R.z0 && z < CAMPUS_R.z1){
       if (x > fb.x0 && x < fb.x1 && z > fb.z0 && z < fb.z1 && inPoly(x, z, FOREST)){
-        const n2 = fbm(x * 1.8 + 500, z * 1.8 - 300);
-        H[k] = 16 * Math.pow(Math.max(0, n2 - .22) / .78, 1.1) * smooth01(6, 55, polyEdge(x, z, FOREST));
+        const n2 = fbm(x * 1.8 + 500, z * 1.8 - 300), pe = polyEdge(x, z, FOREST);
+        H[k] = Math.max(16 * Math.pow(Math.max(0, n2 - .22) / .78, 1.1) * smooth01(6, 55, pe) * smooth01(0, 30, hillTopD(x, z)), hillY(x, z) * smooth01(4, 46, pe));
       }
       continue;
     }
@@ -179,7 +203,7 @@ const terrMat = regWet(M('#b4b4b4', {vertexColors:true, roughness:.95}), .62);  
     nor[k * 3] = -gx / l; nor[k * 3 + 1] = 1 / l; nor[k * 3 + 2] = -gz / l;
     const x = x0 + i * C, z = z0 + j * C, h = Y[k], slope = Math.hypot(gx, gz), jit = (hash2(i * 7 + 3, j * 5 + 1) - .5) * .08;
     const inC = x > CAMPUS_R.x0 && x < CAMPUS_R.x1 && z > CAMPUS_R.z0 && z < CAMPUS_R.z1;
-    if (inC) c.copy(fLow).lerp(fHigh, smooth01(1, 9, h));
+    if (inC){ c.copy(fLow).lerp(fHigh, smooth01(1, 9, h)).lerp(cHigh, smooth01(10, 34, h) * .55); c.lerp(cSoil, smooth01(.38, .7, slope) * .4); c.multiplyScalar(.9 + .2 * vnoise(x / 40 + 3.3, z / 40 - 8.1)); }
     else { c.copy(cLow).lerp(cMid, smooth01(.5, 6, h)).lerp(cHigh, smooth01(6, 32, h) * .8 + smooth01(.2, .45, slope) * .2); c.lerp(cSoil, smooth01(.45, .75, slope) * .55);
       c.multiplyScalar(.82 + .32 * vnoise(x / 95 + 9.1, z / 95 - 4.7)); }
     c.multiplyScalar(1 + jit); col[k * 3] = c.r; col[k * 3 + 1] = c.g; col[k * 3 + 2] = c.b;

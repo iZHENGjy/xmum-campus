@@ -119,6 +119,8 @@ function swLanded(){
   gxCallout(`${tier} · ${d} 米`, wet ? '一头扎进湖里' : rec && prev != null ? '新纪录！' : prev != null && d < prev ? `纪录 ${Math.round(prev)} 米` : d < 30 ? '飞到 30 米有成就' : '飞得真远', '#ffc93c');
   if (d >= 15) for (let i = 0; i < 10; i++) spawnPart('dust', nw.x + (rnd() - .5) * 3, nw.y + .5 + rnd() * 2, nw.z + (rnd() - .5) * 3, .5, {vx:(rnd() - .5) * 5, vy:3 + rnd() * 4, vz:(rnd() - .5) * 5, g:9, life:1, op:1, color:'#ffd24a'});
   if (d >= 30){ unlock('swingfar'); gxChime(2); }
+  /* 改装零件（js/93-tuning-ui.js）：按距离分档，有冷却和每日上限，零件弹在屏幕上 */
+  if (window.XParts) XParts.reward('swing', d >= 40 ? 0 : d >= 30 ? 1 : d >= 15 ? 2 : 3, `秋千飞跃 ${d} 米`);
 }
 /* called instead of the normal walking update while 奶娃 is on the seat */
 function swFoot(dt){
@@ -590,7 +592,8 @@ function mkWarEnd(win, title, sub){
   const pay = Math.round(40 + left * .8) + [40, 20, 8][medal] + 25 * w.lv;
   const next = medal ? ` · 再快 ${Math.ceil(w.limit * MK_MEDAL[medal - 1] - left)} 秒就是${GX_MEDAL[medal - 1]}` : '';      /* what the next medal takes */
   sess.acts++; sess.medals++; earn(pay); saveGame(); unlock('monkeywar'); if (medal === 0) unlock('gold');
-  toast(`${GX_MEDAL[medal]} · 猴子大战`, `还剩 ${Math.round(left)} 秒${rec && prev != null ? ' · 新纪录！' : ''} · +RM ${pay}${next}`, 4200);
+  const loot = window.XParts ? XParts.reward('monkey', medal, '猴子大战' + GX_MEDAL[medal]) : [];   /* 改装零件, js/93-tuning-ui.js */
+  toast(`${GX_MEDAL[medal]} · 猴子大战`, `还剩 ${Math.round(left)} 秒${rec && prev != null ? ' · 新纪录！' : ''} · +RM ${pay}${next}${loot.length ? ' · 改装：' + XParts.text(loot) : ''}`, 4200);
   gxCallout(GX_MEDAL[medal], '猴山大王', ['#e3b95a', '#b8c2cc', '#c98a55'][medal]);
   for (let i = 0; i < 5; i++) tone('triangle', 523 * Math.pow(1.19, i), 523 * Math.pow(1.19, i), .18, .13, i * .09);
 }
@@ -633,7 +636,7 @@ function mkUpdate(dt, px, pz){
     else if (MK.war && !driving){      /* always say what to do next: close in, or fire */
       let bd = 1e9; for (const m of MK.pool) if (m.on && m.st !== 'scared' && m.st !== 'drop') bd = Math.min(bd, Math.hypot(m.x - px, m.z - pz));
       const R = wgStat().range, key = TOUCH ? '点「水枪」' : '按 E ';
-      if (bd < 1e8) smPrompt = WG.ammo < 1 ? (bd < 10 - lv ? `没水了，${TOUCH ? '点「大笑」' : '按 R 大笑'}吓跑它` : '没水了，等回水，或者凑近了大笑') : bd <= R ? (TOUCH ? '蓝线对准猴子，点「水枪」；按住拖动可以瞄' : '鼠标对准猴子，按 E 或点左键 · 跑动的要打提前量') : `再靠近 ${Math.ceil(bd - R)} 米就能淋到`;
+      if (bd < 1e8) smPrompt = WG.ammo < 1 ? (bd < 10 - lv ? `没水了，${TOUCH ? '点「大笑」' : '按 R 大笑'}吓跑它` : '没水了，等回水，或者凑近了大笑') : bd <= R ? (TOUCH ? '蓝线对准猴子，点「水枪」；按住拖动可以瞄' : '鼠标对准猴子，按 E 掏枪开火 · 跑动的要打提前量') : `再靠近 ${Math.ceil(bd - R)} 米就能淋到`;
     }
   } else if (!indoors){
     /* residents of the hill: there while you are around, gone when you are far away */
@@ -651,7 +654,7 @@ function mkUpdate(dt, px, pz){
     }
   }
   for (const m of MK.pool) if (m.on) mkStep(m, dt, px, pz, slow, sp, lv);
-  if (MK.loot && MK.loot.m.on && !driving){ const bd = Math.hypot(MK.loot.m.x - px, MK.loot.m.z - pz), R = wgStat().range; smPrompt = bd <= R ? (TOUCH ? '蓝线对准它，点「水枪」！' : '鼠标对准它，按 E 或点左键！') : `追上去，再近 ${Math.ceil(bd - R)} 米就能淋到`; }
+  if (MK.loot && MK.loot.m.on && !driving){ const bd = Math.hypot(MK.loot.m.x - px, MK.loot.m.z - pz), R = wgStat().range; smPrompt = bd <= R ? (TOUCH ? '蓝线对准它，点「水枪」！' : '鼠标对准它，按 E 掏枪开火！') : `追上去，再近 ${Math.ceil(bd - R)} 米就能淋到`; }
   /* a thief that was switched off some other way must not keep the loot */
   if (MK.loot && !MK.loot.m.on){ const L = MK.loot; MK.loot = null; if (L.kind === 'cash'){ money += L.amt; moneyChanged(); } }
   const py = driving ? driving.y : nw.y;

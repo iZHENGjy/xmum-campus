@@ -413,7 +413,10 @@ function exFinish(){
   sess.acts++; sess.medals++; earn(pay); saveGame(); unlock(k === 'exam' ? 'exam' : k === 'hw' ? 'hw1' : '');
   if (medal === 0) unlock('gold'); if (ghost) unlock('exghost'); if (run >= 3) unlock('exrun3'); if (Object.keys(EX_KIND).every(q => prog.best[q] != null)) unlock('exall');
   const next = medal ? ` · 再快 ${Math.ceil(EX.limit * EX_MEDAL[medal - 1] - left)} 秒就是${GX_MEDAL[medal - 1]}` : '';
-  toast(`${GX_MEDAL[medal]} · ${K.name}`, `剩 ${Math.round(left)} 秒${rec && prev != null ? ' · 新纪录' : ''}${ghost ? ' · 没被发现 +25' : ''}${run > 1 ? ` · ${run} 连胜 ×${mult.toFixed(1)}` : ''} · +RM ${pay}${next}`, 4800);
+  /* 改装零件 (js/93-tuning-ui.js): 调校芯片 and a recipe from the 教学楼 pool; the exam can also bring the race-engine recipe */
+  const loot = window.XParts ? XParts.reward('heist', medal, K.name + GX_MEDAL[medal]) : [];
+  if (window.XParts && k === 'exam' && Math.random() < .3){ const had = XParts.has('bp_race'); if (XParts.grant('bp_race', 1, K.name)) loot.push({id:had ? 'plan' : 'bp_race', n:1}); }
+  toast(`${GX_MEDAL[medal]} · ${K.name}`, `剩 ${Math.round(left)} 秒${rec && prev != null ? ' · 新纪录' : ''}${ghost ? ' · 没被发现 +25' : ''}${run > 1 ? ` · ${run} 连胜 ×${mult.toFixed(1)}` : ''} · +RM ${pay}${next}${loot.length ? ' · 改装：' + XParts.text(loot) : ''}`, 4800);
   gxCallout(GX_MEDAL[medal], (ghost ? '神不知鬼不觉 · ' : '') + (run > 1 ? `${run} 连胜` : K.name), ['#e3b95a', '#b8c2cc', '#c98a55'][medal]);
   for (let i = 0; i < 5; i++) tone('triangle', 523 * Math.pow(1.19, i), 523 * Math.pow(1.19, i), .18, .13, i * .09);
   const p = driving || nw; for (let i = 0; i < 10; i++) spawnPart('dust', p.x + (rnd() - .5) * 5, p.y + 2 + rnd() * 3, p.z + (rnd() - .5) * 5, .8, {vy:2.5, life:1.6, op:1, color:'#fff6d8'});

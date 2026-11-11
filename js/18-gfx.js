@@ -2,7 +2,7 @@
    档位参数在 js/quality.js（XQ.cfg），主循环（js/90-main.js）每帧调一次 gfxRender(dt, T)。
    这里只管"怎么画"，不碰玩法：灯光贴片是挂在路灯集合 ims 里的一个假 InstancedMesh，路灯被撞倒或被吞掉时自己跟着消失。 */
 'use strict';
-const gfxU = {time:{value:0}, wind:{value:.035}, ripple:{value:.1}, sky:{value:new THREE.Color('#9fd2ef')}};
+const gfxU = {time:{value:0}, wind:{value:.035}, ripple:{value:.1}, sky:{value:new THREE.Color('#9fd2ef')}, glare:{value:0}};
 
 /* ---------- night: pools of warm light on the ground under every lamp (one additive quad each, no real lights) ---------- */
 const glowTex = (() => {
@@ -99,10 +99,10 @@ function gfxNpcDetail(){
 
 /* ---------- water: moving ripples, sky colour at grazing angles, sun glitter (标准 and 高清) ---------- */
 waterMat.onBeforeCompile = sh => {
-  sh.uniforms.uTime = gfxU.time; sh.uniforms.uRipple = gfxU.ripple; sh.uniforms.uSky = gfxU.sky;
+  sh.uniforms.uTime = gfxU.time; sh.uniforms.uRipple = gfxU.ripple; sh.uniforms.uSky = gfxU.sky; sh.uniforms.uGlare = gfxU.glare;
   sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos;')
     .replace('#include <project_vertex>', '#include <project_vertex>\nvWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;');
-  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos; uniform float uTime, uRipple; uniform vec3 uSky;')
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec3 vWPos; uniform float uTime, uRipple, uGlare; uniform vec3 uSky;')
     .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
       #ifdef XQ_WATER
         vec2 wp = vWPos.xz; float wt = uTime;
@@ -115,7 +115,7 @@ waterMat.onBeforeCompile = sh => {
     .replace('#include <tonemapping_fragment>', `
       #ifdef XQ_WATER
         float wf = pow(1.0 - clamp(dot(normalize(vViewPosition), normal), 0.0, 1.0), 3.0);
-        gl_FragColor.rgb = mix(gl_FragColor.rgb, uSky, wf * .55);
+        gl_FragColor.rgb = mix(gl_FragColor.rgb, uSky, wf * .55 * (1.0 - .55 * uGlare));      /* less mirror-like sky at dusk */
       #endif
       #include <tonemapping_fragment>`);
 };
@@ -207,6 +207,51 @@ function gfxDetail(m, fine, s1, s2, gain){
   /* everything else registered as ground that is green is grass */
   for (const [m] of wetMats) if (m.color.g > m.color.r * 1.08 && m.color.g > m.color.b) gfxDetail(m, gfxTex.grass, 1 / 3.2, 1 / 47, 1);
 })();
+
+/* ---------- shine control: no glare at dusk, some relief by day ----------
+   Dusk: the low sun skims every glossy surface (wet road, water, glass, painted metal) and the highlight is blinding. glare = how "dusk" the
+   time of day is (the sky halo grows from 0.9 by day to 1.5 at dusk, so it peaks at dusk and fades both ways). While it is up, every standard
+   material gets rougher and less metallic, so the sun's highlight spreads out and softens; by day and night the original values come back.
+   Day (标准 / 高清): the roof tiles and the facades get a bump map from the textures they already have, so tile ridges, mouldings, sills and window
+   reveals catch the light from the side instead of reading as flat colour. 流畅 skips the bump (an extra texture read per pixel) and keeps only the dusk part, which is free.
+   Materials are found by walking the scene (a few times early on, since other files add theirs later); each remembers its own base values. */
+const gfxShine = {mats:new Set(), g:-1, wet:-1, scans:0, frame:0, bump:null};
+const gfxRoughBase = new Map(wetMats.map(([m, c, r0, r1]) => [m, [r0, r1]]));
+function gfxShineScan(){
+  const found = gfxShine.mats, before = found.size;
+  scene.traverse(o => {
+    if (!o.material) return;
+    for (const m of [].concat(o.material)) if (m.isMeshStandardMaterial && !found.has(m)){ m.userData.xq0 = [m.roughness, m.metalness]; found.add(m); }
+  });
+  if (found.size !== before) gfxShine.g = -1;
+}
+function gfxShineApply(){
+  const g = gfxU.glare.value, wet = typeof lastWet === 'number' ? lastWet : 0;
+  for (const m of gfxShine.mats){
+    const w = gfxRoughBase.get(m), r = w ? w[0] + (w[1] - w[0]) * wet : m.userData.xq0[0], me = m.userData.xq0[1];
+    m.roughness = r + (Math.max(r, .66) - r) * g; m.metalness = me * (1 - .6 * g);
+  }
+  gfxShine.g = g; gfxShine.wet = wet;
+}
+/* bump on the roof tiles and facades (标准 / 高清 only) */
+function gfxRelief(on){
+  const set = (m, tex, k) => { const b = on ? tex : null; if (m.bumpMap === b) return; m.bumpMap = b; m.bumpScale = k; m.needsUpdate = true; };
+  for (const m of gfxShine.mats){
+    if (m.map === tileTex) set(m, tileTex, .35);
+    else if (wallMats.indexOf(m) >= 0) set(m, m.map, .06);
+  }
+  gfxShine.bump = on;
+}
+function gfxShineTick(){
+  /* scan a few times: right away, after the other files have added their models, and once things have settled */
+  const f = ++gfxShine.frame;
+  if (f === 2 || f === 90 || f === 600 || f === 3000){ gfxShineScan(); gfxShine.bump = null; }
+  const k = Math.min(1, Math.max(0, (cur.glow - .95) / .5)) * (1 - wx.rain * .6);
+  gfxU.glare.value += (k - gfxU.glare.value) * .2;
+  if (Math.abs(gfxU.glare.value - gfxShine.g) > .004 || (typeof lastWet === 'number' && lastWet !== gfxShine.wet)) gfxShineApply();
+  const want = !!XQ.cfg.detail;
+  if (gfxShine.bump !== want) gfxRelief(want);
+}
 
 /* ---------- the far distance: two ranges of hazy hills round the horizon, and clusters of apartment towers beyond the estate ----------
    The hills are plain silhouettes tinted toward the sky colour every frame (no fog on them: they sit past the fog). 3 draw calls in all. */
@@ -350,6 +395,7 @@ function gfxRender(dt, T){
   const lamp = bulbMat.emissiveIntensity, rain = wx.rain;
   gfxU.time.value = T; gfxU.wind.value = .035 + rain * .05; gfxU.ripple.value = .1 + rain * .12;
   gfxU.sky.value.copy(skyU.hor.value).lerp(skyU.top.value, .35);
+  gfxShineTick();
   updateLod(); gfxNpcDetail(); gfxCarDetail(lamp); gfxShadowTick();
   const glow = XQ.cfg.glow && lamp > .04;
   glowMat.opacity = Math.min(1, lamp) * .5; beamMat.opacity = Math.min(1, lamp) * .42;
@@ -357,7 +403,7 @@ function gfxRender(dt, T){
   /* facade lighting (washMat, js/00-core.js) comes up with the lamps; 流畅 leaves it off */
   { const k = XQ.cfg.glow ? Math.min(1, lamp) : 0, won = k > .03; washMat.color.setScalar(k * .8); if (won !== gfxWashOn){ gfxWashOn = won; for (const m of washMeshes) m.visible = won; } }
   gfxAviTick(lamp, T);
-  if (typeof gateNight === 'function') gateNight(lamp);   /* js/42-gate.js: booth windows, lawn bollards, hotel sign */
+  if (typeof gateNight === 'function') gateNight(lamp);   /* js/42-gate.js: booth windows, lawn bollards, stair lanterns */
   if (typeof NW !== 'undefined'){
     if (!gfxNwBlob){ gfxNwBlob = gfxBlob(2.2, 2.2); NW.root.add(gfxNwBlob); }
     gfxNwBlob.visible = !renderer.shadowMap.enabled; gfxNwBlob.position.y = .07 - NW.root.position.y + (typeof groundAt === 'function' ? Math.max(0, groundAt(NW.root.position.x, NW.root.position.z)) : 0);

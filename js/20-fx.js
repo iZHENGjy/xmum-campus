@@ -76,10 +76,28 @@ function knockAround(x, z, R, fromX, fromZ){
 
 /* ---------- sound (synthesised, starts after the first tap) ---------- */
 let AC = null, soundOn = true, noiseBuf = null;
+/* A noise buffer that loops without a click: the last 50 ms are cross-faded into the first 50 ms (equal-power, since the two stretches are
+   uncorrelated), so the wrap-around is as smooth as the middle. A plain buffer of random samples ticks once per loop at the seam.
+   pink = true gives a softer 1/f noise (rain, wind) instead of white hiss. */
+function loopNoise(a, secs, pink){
+  const sr = a.sampleRate, n = Math.floor(sr * secs), x = Math.floor(sr * .05), raw = new Float32Array(n + x);
+  if (pink){
+    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+    for (let i = 0; i < raw.length; i++){
+      const w = Math.random() * 2 - 1;
+      b0 = .99886 * b0 + w * .0555179; b1 = .99332 * b1 + w * .0750759; b2 = .969 * b2 + w * .153852; b3 = .8665 * b3 + w * .3104856; b4 = .55 * b4 + w * .5329522; b5 = -.7616 * b5 - w * .016898;
+      raw[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * .5362) * .22; b6 = w * .115926;
+    }
+  } else for (let i = 0; i < raw.length; i++) raw[i] = Math.random() * 2 - 1;
+  const buf = a.createBuffer(1, n, sr), d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = raw[i];
+  for (let i = 0; i < x; i++){ const t = i / x * Math.PI / 2; d[i] = raw[i] * Math.sin(t) + raw[n + i] * Math.cos(t); }
+  return buf;
+}
 function ac(){
   if (!AC){ try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ AC = null; } }
   if (AC && AC.state === 'suspended') AC.resume();
-  if (AC && !noiseBuf){ noiseBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+  if (AC && !noiseBuf) noiseBuf = loopNoise(AC, 1, false);
   if (AC && !laughClip.tried) loadLaugh(AC);
   return soundOn ? AC : null;
 }
@@ -137,7 +155,7 @@ function engineStart(kind){
   o.connect(f); o2.connect(f); f.connect(g).connect(a.destination); o.start(); o2.start();
   const sk = a.createBufferSource(); sk.buffer = noiseBuf; sk.loop = true; const sf = a.createBiquadFilter(); sf.type = 'bandpass'; sf.frequency.value = 1800; sf.Q.value = 3;
   const sg = a.createGain(); sg.gain.value = 0; sk.connect(sf).connect(sg).connect(a.destination); sk.start();
-  engine = {o, o2, g, sk, sg, base:({bus:38, cart:90, patrol:85, rr:40, mase:58, p911:66, lambo:72, myvi:62})[kind] || 55};
+  engine = {o, o2, g, sk, sg, base:({bus:38, cart:90, patrol:85, rr:40, mase:58, p911:66, lambo:72, myvi:62, gwag:44, moto:96})[kind] || 55};
 }
 function engineStop(){ if (!engine) return; try { engine.o.stop(); engine.o2.stop(); engine.sk.stop(); } catch(e){} engine = null; }
 function engineUpdate(speed, slip, on){

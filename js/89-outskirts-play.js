@@ -283,7 +283,10 @@ function dtUpdate(dt, px, pz, sp, free){
     const pay = (40 + j.route * .035 + j.t) * j.mult * (.4 + .6 * j.intact) * outCred() + (j.perfect ? 8 : 0), n = opAdd('o_dt');
     sess.deliv++; prog.life.deliv++; earn(pay); sfx.ding(); gxCallout(j.night ? '夜宵送达！' : '送达！', `+RM ${Math.round(pay)}`, '#ffc72c'); if (j.intact > .95) opFanfare(); if (j.recovered) unlock('back');
     for (let i = 0; i < 8; i++) spawnPart('heart', j.to.x + (rnd() - .5) * 4, 2 + rnd() * 2, j.to.z + (rnd() - .5) * 4, .9, {vy:2.5, life:1.4, op:1, color:'#ff6fa3'});
-    toast((j.night ? '夜宵送达 ' : '得来速送达 ') + j.to.name, `+RM ${pay.toFixed(2)} · 餐品 ${Math.round(j.intact * 100)}%${j.intact > .95 ? '，一滴没洒' : ''}${j.perfect ? ' · 含窗口小费' : ''}`, 3400);
+    /* 改装零件 (js/93-tuning-ui.js): a perfect run is the top grade; a night order adds a 霓虹灯管 */
+    const loot = window.XParts ? XParts.reward('drive', j.perfect && j.intact > .95 ? 0 : j.intact > .8 ? 1 : 2, j.night ? '送夜宵' : '得来速') : [];
+    if (j.night && window.XParts && XParts.grant('neon', 1, '送夜宵')) loot.push({id:'neon', n:1});
+    toast((j.night ? '夜宵送达 ' : '得来速送达 ') + j.to.name, `+RM ${pay.toFixed(2)} · 餐品 ${Math.round(j.intact * 100)}%${j.intact > .95 ? '，一滴没洒' : ''}${j.perfect ? ' · 含窗口小费' : ''}${loot.length ? ' · 改装：' + XParts.text(loot) : ''}`, 3400);
     unlock('deliv1'); if (prog.life.deliv >= 25) unlock('deliv25'); if (n >= 5) unlock('dthru'); if (j.night) unlock('supper');
     dtEnd();
   } else if (j.t <= 0){ sfx.fail(); toast(j.m.name + '凉透了', '超时了，这单没拿到钱。回得来速可以再点', 2800); dtEnd(); }
@@ -404,7 +407,8 @@ function teaEnd(quit){
   let pay = (medal < 3 ? TEA_PAY[medal] : 8) + score; if (rec && prev != null) pay += 15;
   sess.acts++; if (medal < 3) sess.medals++;
   earn(pay); saveGame();
-  toast(medal < 3 ? `${GX_MEDAL[medal]} · 蜜雪冰橙打工` : '下班了', `做了 ${g.cups} 杯（${g.perfect} 杯完美）· ${score} 分${rec ? (prev != null ? ' · 新纪录！' : '') : ` · 纪录 ${prev} 分`} · 工钱 +RM ${pay}`, 3800);
+  const loot = window.XParts ? XParts.reward('tea', medal, '打工' + (GX_MEDAL[medal] || '')) : [];   /* 改装零件, js/93-tuning-ui.js */
+  toast(medal < 3 ? `${GX_MEDAL[medal]} · 蜜雪冰橙打工` : '下班了', `做了 ${g.cups} 杯（${g.perfect} 杯完美）· ${score} 分${rec ? (prev != null ? ' · 新纪录！' : '') : ` · 纪录 ${prev} 分`} · 工钱 +RM ${pay}${loot.length ? ' · 改装：' + XParts.text(loot) : ''}`, 3800);
   if (medal < 3){ gxCallout(GX_MEDAL[medal], score + ' 分', OP_MEDAL_C[medal]); opFanfare(); } else sfx.ding();
   if (medal === 0){ unlock('gold'); unlock('tea'); }
 }
@@ -448,8 +452,36 @@ const NM = {k:0, eaten:new Set(), cols:[], lbls:{}, done:false, g:new THREE.Grou
   NM.g.visible = false; NM.g.scale.y = .001; scene.add(NM.g);
 }
 NM.S = gxMarker('#ff8a3d', .3);
+/* 大胃王争霸赛: the red ring by the empty stall in the middle; the contest itself is js/minigames/bigeat.js on the mini-game platform (js/91-arcade.js) */
+const BE = {near:false, door:{x:300, z:NM_Z - 7.5, h:Math.PI, name:'夜市'}};
+BE.S = opSpot('#ff3d5a', .45, 300, NM_Z - 3.6, '大胃王争霸赛 · 开吃'); opHide(BE.S);
+function beOpen(){
+  if (!window.XMini || !XMini.startAt || !window.XBigEat) return;
+  const X = XBigEat, go = i => { if (!X.open(i)) return; opClose(true); XMini.startAt('bigeat_' + X.OPS[i].id, BE.door); };
+  let next = 0; X.OPS.forEach((o, i) => { if (X.open(i)) next = i; });
+  const rows = X.OPS.map((o, i) => {
+    const id = 'bigeat_' + o.id, g = XMini.games.find(x => x.id === id), best = XMini.best(id), md = g && best != null ? g.medals.findIndex(m => best <= m) : -1, on = X.open(i);
+    return `<button type="button" class="op-card" data-i="${i}"${on ? '' : ' disabled style="opacity:.5;cursor:default"'}><kbd>${i + 1}</kbd><b>${on ? '' : '🔒 '}${o.name} · ${o.who}</b>
+      <span>${on ? o.line : '先吃赢' + X.OPS[i - 1].name + '才能挑战'}</span>
+      <span>${best != null ? `最好 <em>${(best / 10).toFixed(1)} 秒</em>${md >= 0 ? ' ' + ['🥇', '🥈', '🥉'][md] : ''} · ` : ''}${o.menu.length} 盘 · 金牌 ${(o.medals[0] / 10).toFixed(0)} 秒内吃完</span></button>`;
+  }).join('');
+  opOpen('🍢 大胃王争霸赛', `<p class="op-note">站到长桌一头，和对手比吃夜市小吃，谁先吃完谁赢。<b>狂点「吃」</b>，点太快会噎住；椰浆饭、叻沙越吃越辣，<b>辣了喝水</b>（一局 3 杯）。赢一位解锁下一位。</p>${rows}`,
+    code => { if (code === 'KeyF' || code === 'Enter' || code === 'Space') go(next); else if (/^Digit[1-3]$/.test(code)) go(+code.slice(5) - 1); });
+  for (const b of document.querySelectorAll('#opBody .op-card')) b.addEventListener('click', () => go(+b.dataset.i));
+}
+function beUpdate(px, pz, free){
+  const was = BE.near; BE.near = false;
+  const other = mission.on || !!gxA.act || gxTaxi.on || (typeof EX !== 'undefined' && EX.on) || (typeof ROOM !== 'undefined' && ROOM.in);
+  if (opRing(BE.S, NM.k > .9 && free && !other && !!window.XBigEat && Math.abs(px - BE.S.x) < 300 && Math.abs(pz - BE.S.z) < 300, px, pz)){
+    if (driving) opMsg = '下车走进圈里，参加大胃王争霸赛';
+    else if (nw.state !== 'fly'){ BE.near = true; opMsg = TOUCH ? '点「开吃」参加大胃王争霸赛' : '按 F 参加大胃王争霸赛'; opSetF('开吃'); }
+  }
+  if (was && !BE.near && opFBtn === '开吃') opSetF('');
+}
+if (typeof roomTryF === 'function'){ const base = roomTryF; roomTryF = function(){ if (BE.near && !driving && nw.state !== 'fly'){ beOpen(); return true; } return base(); }; }
 /* the stalls are there in every mode (walking, bird's-eye), so they run on their own frame callback */
 (function nmFrame(){
+  if (mode !== 'naiwa' && BE.S.mark.visible){ opHide(BE.S); BE.near = false; }
   const want = opNight() && Math.abs(camera.position.x - 270) < 700 && Math.abs(camera.position.z - 370) < 700 ? 1 : 0;
   if (NM.k !== want){
     NM.k = Math.abs(want - NM.k) < .02 ? want : NM.k + (want - NM.k) * .06;
@@ -460,6 +492,7 @@ NM.S = gxMarker('#ff8a3d', .3);
   requestAnimationFrame(nmFrame);
 })();
 function nmUpdate(px, pz, free){
+  beUpdate(px, pz, free);
   const open = NM.k > .9 && free;
   let best = -1, bd = 1e9;
   for (const i in NM_SNACK){
@@ -622,7 +655,9 @@ function thCatch(){
   const n = opAdd('o_thief'), who = TH.who, o = TH.own, quick = !o && TH.carry && TH.t > TH.t0 * .6, pay = TH.bounty + (quick ? 15 : 0), done = n % TH_LIST.length;
   earn(pay); opFanfare(); camShake = Math.max(camShake, .5); if (!REDUCED) gxSlow = .35; addStunt('抓住小偷', 300);
   for (let i = 0; i < 8; i++) spawnPart('heart', TH.x + (rnd() - .5) * 4, 2 + rnd() * 2, TH.z + (rnd() - .5) * 4, .9, {vy:2.5, life:1.4, op:1, color:'#ff6fa3'});
-  const board = done ? `通缉榜 ${done} / ${TH_LIST.length}` : '通缉榜清空了，下一轮的小偷跑得更快';
+  /* 改装零件 (js/93-tuning-ui.js): a 涡轮 for every thief, clearing the whole board adds a 图纸 and a 赛道引擎核心 */
+  const loot = window.XParts ? XParts.reward('thief', done ? 1 : 0, done ? '抓住小偷' : '清空 Bell 通缉榜') : [];
+  const board = (done ? `通缉榜 ${done} / ${TH_LIST.length}` : '通缉榜清空了，下一轮的小偷跑得更快') + (loot.length ? ' · 改装：' + XParts.text(loot) : '');
   if (o){
     TH.own = null; o.stolen = false; o.recovered = true; o.t += 10;
     toastEl.classList.remove('show'); gxCallout('外卖拿回来了！', '接着送，顾客多等你 10 秒', '#55d08a'); opLater('抓住了 ' + who.name, `外卖拿回来了，接着送 · 悬赏 +RM ${pay} · ${board}`, 3800);

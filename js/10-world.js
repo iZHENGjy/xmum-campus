@@ -27,7 +27,8 @@ const gateLawnMat = regWet(flatMat('#4f7436', 3), .55);
 GATE_LAWNS.forEach(L => flatPoly(L, gateLawnMat, .035, true));
 
 /* ---------- roads ---------- */
-const asphalt = regWet(flatMat('#605e5a', 4), .28), paving = regWet(flatMat('#8b8170', 5), .32), pathMat = regWet(flatMat('#92886f', 6), .35);
+const asphalt = regWet(flatMat('#605e5a', 4), .28), paving = regWet(flatMat('#8b8170', 5), .32), pathMat = regWet(flatMat('#92886f', 6), .35), ringRoadMat = regWet(flatMat('#a8664f', 5), .3);
+/* the A zone (js/09-azone.js): the promenade now runs along the foot of the stairs, the old back road bends down to the new lake ring road */
 const ROADS = [
   {w:12, m:asphalt, p:[[300,855],[120,815],[45,690],[40,320],[95,140],[240,40],[560,22],[1000,25],[1500,28],[1830,35],[1905,110],[1905,855],[300,855]]},
   {w:10, m:asphalt, p:[[1905,340],[1580,340]]},
@@ -35,15 +36,18 @@ const ROADS = [
   {w:8,  m:asphalt, p:[[770,40],[770,265]]},
   {w:8,  m:asphalt, p:[[1580,340],[1580,830]]},
   {w:8,  m:asphalt, p:[[1580,820],[1500,802],[1300,815],[1180,818],[1050,815],[880,798],[760,762],[600,722],[480,700]]},
-  {w:12, m:paving,  p:[[760,725],[900,702],[1050,675],[1180,665],[1320,668],[1500,675],[1580,700]]},
-  {w:8,  m:asphalt, p:[[700,620],[860,560],[1000,520],[1180,508],[1400,516],[1580,520]]},
+  {w:12, m:paving,  p:AZ_PX.prom},
+  {w:8,  m:asphalt, p:AZ_PX.back},
   {w:7,  m:asphalt, p:[[330,250],[470,330],[580,370]]},
   {w:7,  m:asphalt, p:[[580,370],[700,330],[850,285],[960,265]]},
-  {w:7,  m:asphalt, p:[[580,370],[640,440],[760,470],[900,460],[1000,470],[1100,505]]},
+  {w:7,  m:asphalt, p:AZ_PX.diag},
   {w:7,  m:asphalt, p:[[260,170],[150,230],[110,330],[110,560],[180,680],[300,730],[470,740],[505,640],[480,520],[430,420],[330,300],[260,170]]},
-  {w:16, m:paving,  p:[[1180,800],[1180,665]]},
+  {w:16, m:paving,  p:[[1180,800],AZ_PX.axisEnd]},
   {w:9,  m:paving,  p:[[1140,855],[1140,800]]}, {w:9, m:paving, p:[[1220,855],[1220,800]]},
-  {w:6,  m:pathMat, p:[[1150,508],[1140,420],[1165,372],[1230,346],[1310,322],[1330,290],[1300,262]]},
+  {w:6,  m:pathMat, p:[AZ_PX.bridge,[1165,372],[1230,346],[1310,322],[1330,290],[1300,262]]},
+  {w:7,  m:ringRoadMat, p:AZ_PX.ring},
+  {w:7,  m:asphalt, p:AZ_PX.side}, {w:7, m:asphalt, p:AZ_PX.garage},
+  {w:4.6, m:pathMat, p:AZ_PX.corr},
   {w:6,  m:pathMat, p:[[960,265],[972,305],[1010,335],[1100,352],[1150,368]]},
   {w:6,  m:pathMat, p:[[780,150],[1560,145]]},
   {w:6,  m:pathMat, p:[[1520,295],[1600,250],[1700,258]]},
@@ -54,11 +58,17 @@ const kerbMat = regWet(flatMat('#a39a8b', 3), .4);
 const KERBS = ROADS_W.filter(r => r.m === asphalt).map(r => ({w:r.w + 2.6, m:kerbMat, p:r.p}));
 (function buildRoads(){
   const byMat = new Map();
+  /* pieces that touch the A zone are cut into 3 m lengths so they follow its slopes (every vertex takes the ground height; black-hole mode swaps in a flat copy) */
+  const B = AZ.BOX, inA = (x0, z0, x1, z1, h) => Math.max(x0, x1) + h > B.x0 && Math.min(x0, x1) - h < B.x1 && Math.max(z0, z1) + h > B.z0 && Math.min(z0, z1) - h < B.z1;
   for (const r of KERBS.concat(ROADS_W)){
     const pos = byMat.get(r.m) || []; byMat.set(r.m, pos); const h = r.w / 2;
     for (let i = 0; i < r.p.length - 1; i++){
       const [x0, z0] = r.p[i], [x1, z1] = r.p[i + 1], dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, nx = -dz / l * h, nz = dx / l * h;
-      pos.push(x0 + nx, 0, z0 + nz, x1 - nx, 0, z1 - nz, x0 - nx, 0, z0 - nz, x0 + nx, 0, z0 + nz, x1 + nx, 0, z1 + nz, x1 - nx, 0, z1 - nz);
+      const n = inA(x0, z0, x1, z1, h) ? Math.max(1, Math.ceil(l / 3)) : 1;
+      for (let k = 0; k < n; k++){
+        const ax = x0 + dx * k / n, az = z0 + dz * k / n, bx = x0 + dx * (k + 1) / n, bz = z0 + dz * (k + 1) / n;
+        pos.push(ax + nx, 0, az + nz, bx - nx, 0, bz - nz, ax - nx, 0, az - nz, ax + nx, 0, az + nz, bx + nx, 0, bz + nz, bx - nx, 0, bz - nz);
+      }
       roadSegs.push({a:r.p[i], b:r.p[i + 1], h});
     }
     for (const [x, z] of r.p) for (let k = 0; k < 12; k++){
@@ -67,8 +77,11 @@ const KERBS = ROADS_W.filter(r => r.m === asphalt).map(r => ({w:r.w + 2.6, m:ker
     }
   }
   byMat.forEach((pos, mat) => {
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    const flat = Float32Array.from(pos), lift = Float32Array.from(pos); let any = false;
+    for (let i = 0; i < lift.length; i += 3){ const y = AZ.raw(lift[i], lift[i + 2]); if (y){ lift[i + 1] = y; any = true; } }
+    const g = new THREE.BufferGeometry(), attr = new THREE.Float32BufferAttribute(lift, 3); g.setAttribute('position', attr);
     const n = new Float32Array(pos.length); for (let i = 1; i < n.length; i += 3) n[i] = 1; g.setAttribute('normal', new THREE.BufferAttribute(n, 3));
+    if (any){ g.computeVertexNormals(); const nn = g.attributes.normal.array; for (let i = 0; i < nn.length; i += 3) if (nn[i + 1] < 0){ nn[i] = -nn[i]; nn[i + 1] = -nn[i + 1]; nn[i + 2] = -nn[i + 2]; } AZ.roads.push({attr, flat, lift}); }   /* the strips are drawn both ways round: keep every normal pointing up */
     const m = new THREE.Mesh(g, mat); m.position.y = .045; m.receiveShadow = true; scene.add(m);
   });
 })();
@@ -121,16 +134,17 @@ function arcStep(list, cx, cz, r0, r1, a0, a1, y0, y1, top, riser, seg){
   }
 }
 
-/* 芙蓉桥: the red-framed, timber-decked bridge where the strip of land between the two lakes used to be.
+/* 芙蓉桥: an arched footbridge (cars fit too) where the strip of land between the two lakes used to be, as in the photographs: a pale deck that rises
+   3 m in the middle, red lattice balustrades on both sides and nothing overhead, red fascia beams, stone abutments.
    The strip is now water (two more polygons in `lakes`, so walking, driving, spawning and the minimap all treat it as lake), and the bridge carries the old path across.
-   People and cars cross it: bridgeY() gives the deck height to groundAt (js/40-vehicles.js) and to the students (js/60-details.js), and the railings are colliders.
-   The deck rises 1.5 m in the middle (8 % at the steepest, at the ends), so a car rolls over without leaving the ground. */
+   People and cars cross it: bridgeY() gives the deck height to groundAt (js/40-vehicles.js) and to the students (js/60-details.js), and the balustrades are colliders.
+   The deck is a sine-squared arch: level where it meets the bank, 13 % at the steepest, so a car rolls over without leaving the ground. */
 const FUR = (() => {
   const A = P(1188, 363), B = P(1302, 324.5), L = Math.hypot(B[0] - A[0], B[1] - A[1]), dx = (B[0] - A[0]) / L, dz = (B[1] - A[1]) / L;
-  return {ax:A[0], az:A[1], dx, dz, nx:-dz, nz:dx, L, hw:3.3, rise:1.5, ry:Math.atan2(-dz, dx)};   /* (nx, nz): across the deck, toward the south lake */
+  return {ax:A[0], az:A[1], dx, dz, nx:-dz, nz:dx, L, hw:3.3, rise:3, ry:Math.atan2(-dz, dx)};   /* (nx, nz): across the deck, toward the south lake */
 })();
-const furDeck = t => .14 + FUR.rise * (1 - (2 * t - 1) * (2 * t - 1));
-const furLampMat = new THREE.MeshStandardMaterial({color:'#fff3da', emissive:'#ffcf8f', emissiveIntensity:0});   /* lanterns on the uprights, lit with the street lamps (applyTime) */
+const furDeck = t => .14 + FUR.rise * Math.pow(Math.sin(Math.PI * t), 2);
+const furLampMat = new THREE.MeshStandardMaterial({color:'#fff3da', emissive:'#ffcf8f', emissiveIntensity:0});   /* lanterns on the end posts, lit with the street lamps (applyTime) */
 /* deck height at a world position, or 0 when it is not on the bridge */
 function bridgeY(x, z){
   const px = x - FUR.ax, pz = z - FUR.az, u = px * FUR.dx + pz * FUR.dz, v = px * FUR.nx + pz * FUR.nz;
@@ -138,62 +152,63 @@ function bridgeY(x, z){
 }
 (function(){
   const {ax, az, dx, dz, nx, nz, L, hw, ry} = FUR, S2 = hw / SC;   /* S2: half the deck width in map pixels */
-  const info = {name:'芙蓉桥', tag:'景观', desc:'芙蓉湖中间的红桥：红色的钢架和栏杆，木板桥面，把两片湖之间连起来。人和车都能过，桥面中间微微拱起。', spawn:[ax - dx * 9, az - dz * 9, Math.atan2(dx, dz)]};
+  const info = {name:'芙蓉桥', tag:'景观', desc:'芙蓉湖中间的拱桥：浅色桥面，两边是红色格子栏杆，上面不封顶。人和车都能过，桥中间拱起三米。', spawn:[ax - dx * 9, az - dz * 9, Math.atan2(dx, dz)]};
   /* ---- the strip between the lakes becomes water: one sheet to look at, two polygons (north and south of the deck) that count as lake ---- */
   const An = [1188 - nx * S2, 363 - nz * S2], As = [1188 + nx * S2, 363 + nz * S2], Bn = [1302 - nx * S2, 324.5 - nz * S2], Bs = [1302 + nx * S2, 324.5 + nz * S2];
   const north = [An, [1165, 332], [1200, 322], [1270, 300], [1297, 306], Bn], south = [As, Bs, [1330, 345], [1262, 364], [1200, 398], [1186, 385]];
   const sheet = flatPoly(pxPts([An, [1165, 332], [1200, 322], [1270, 300], [1297, 306], Bn, Bs, [1330, 345], [1262, 364], [1200, 398], [1186, 385], As]), waterMat, .1, false);
   sheet.mesh.userData.info = lakeInfo; pickables.push(sheet.mesh);
   lakes.push(pxPts(north), pxPts(south));
-  /* ---- the bridge, in its own frame: u along it, y up, v across; everything goes into one vertex-coloured mesh ---- */
+  /* ---- the bridge, in its own frame: u along it, y up, v across; everything but the lattice goes into one vertex-coloured mesh ---- */
   const W3 = (u, y, v) => [ax + dx * u + nx * v, y, az + dz * u + nz * v], dk = u => furDeck(u / L), parts = [], rr = mkRng(5251);
-  const RED = '#ad2a20', RED2 = '#8f2019', WOOD = ['#70492c', '#644027', '#7b5334', '#6b462d'], DARK = '#3d2c1e', PILE = '#4a3a2a';
+  const RED = '#b0281f', RED2 = '#8f2019', DECK = ['#d8ccb3', '#cfc2a7', '#d3c6ac', '#c8bb9f'], DARK = '#5a5249';
   const quad = (a, b2, c, e, col) => parts.push(quadGeo(a, b2, c, e, col));
   const rod = (r, a, b2, col) => parts.push(geoTint(rodGeo(r, r, a, b2, 6).toNonIndexed(), col));
   const boxAt = (w, h, d, u, y, v, col) => { const p = W3(u, y, v); parts.push(geoTint(geoAt(new THREE.BoxGeometry(w, h, d), p[0], p[1], p[2], 0, ry, 0), col)); };
-  /* planks across the deck, each its own shade, with a dark sub-deck showing through the gaps and from below */
-  for (let u = 0; u < L; u += .56){ const u1 = Math.min(L, u + .5), y0 = dk(u), y1 = dk(u1); quad(W3(u, y0, -hw), W3(u, y0, hw), W3(u1, y1, hw), W3(u1, y1, -hw), WOOD[(rr() * WOOD.length) | 0]); }
-  const NS = 24;
+  /* pale planks across the deck, each its own shade; a dark underside */
+  for (let u = 0; u < L; u += .56){ const u1 = Math.min(L, u + .5), y0 = dk(u), y1 = dk(u1); quad(W3(u, y0, -hw), W3(u, y0, hw), W3(u1, y1, hw), W3(u1, y1, -hw), DECK[(rr() * DECK.length) | 0]); }
+  const NS = 48, lat = [];
   for (let i = 0; i < NS; i++){
     const u0 = L * i / NS, u1 = L * (i + 1) / NS, y0 = dk(u0), y1 = dk(u1);
     quad(W3(u0, y0 - .06, -hw), W3(u0, y0 - .06, hw), W3(u1, y1 - .06, hw), W3(u1, y1 - .06, -hw), DARK);
-    quad(W3(u0, y0 - .5, hw), W3(u0, y0 - .5, -hw), W3(u1, y1 - .5, -hw), W3(u1, y1 - .5, hw), DARK);
+    quad(W3(u0, y0 - .7, hw), W3(u0, y0 - .7, -hw), W3(u1, y1 - .7, -hw), W3(u1, y1 - .7, hw), DARK);
     for (const s of [-1, 1]){
-      /* red edge girder: outer face and top; then the handrail and two lower rails */
-      const vo = s * (hw + .3), vi = s * hw, g0 = [W3(u0, y0 - .5, vo), W3(u0, y0 + .08, vo), W3(u1, y1 + .08, vo), W3(u1, y1 - .5, vo)];
+      /* red fascia beam along the edge: outer face and top; then the lattice panel and its handrail */
+      const vo = s * (hw + .3), vi = s * hw, g0 = [W3(u0, y0 - .7, vo), W3(u0, y0 + .1, vo), W3(u1, y1 + .1, vo), W3(u1, y1 - .7, vo)];
       if (s > 0) quad(g0[3], g0[2], g0[1], g0[0], RED2); else quad(g0[0], g0[1], g0[2], g0[3], RED2);
-      if (s > 0) quad(W3(u0, y0 + .08, vi), W3(u0, y0 + .08, vo), W3(u1, y1 + .08, vo), W3(u1, y1 + .08, vi), RED); else quad(W3(u0, y0 + .08, vo), W3(u0, y0 + .08, vi), W3(u1, y1 + .08, vi), W3(u1, y1 + .08, vo), RED);
-      rod(.075, W3(u0, y0 + 1.15, s * (hw + .15)), W3(u1, y1 + 1.15, s * (hw + .15)), RED);
-      rod(.035, W3(u0, y0 + .78, s * (hw + .15)), W3(u1, y1 + .78, s * (hw + .15)), RED); rod(.035, W3(u0, y0 + .44, s * (hw + .15)), W3(u1, y1 + .44, s * (hw + .15)), RED);
+      if (s > 0) quad(W3(u0, y0 + .1, vi), W3(u0, y0 + .1, vo), W3(u1, y1 + .1, vo), W3(u1, y1 + .1, vi), RED); else quad(W3(u0, y0 + .1, vo), W3(u0, y0 + .1, vi), W3(u1, y1 + .1, vi), W3(u1, y1 + .1, vo), RED);
+      const v = s * (hw + .15), a0 = W3(u0, y0 + .1, v), a1 = W3(u1, y1 + .1, v), b0 = W3(u0, y0 + 1.2, v), b1 = W3(u1, y1 + 1.2, v);
+      lat.push(a0[0], a0[1], a0[2], a1[0], a1[1], a1[2], b1[0], b1[1], b1[2], a0[0], a0[1], a0[2], b1[0], b1[1], b1[2], b0[0], b0[1], b0[2]);
+      rod(.07, W3(u0, y0 + 1.22, v), W3(u1, y1 + 1.22, v), RED);
     }
   }
-  /* railing posts, and every fourth one a tall upright of the frame; top chords and diagonals between the uprights; a cross-beam over the deck at every second upright */
-  const NP = 30, TOP = 4.7, lamps = [];
-  for (let i = 0; i <= NP; i++){
-    const u = Math.min(L - .25, Math.max(.25, L * i / NP)), y = dk(u), tall = i % 5 === 0;
-    for (const s of [-1, 1]) boxAt(tall ? .3 : .12, tall ? TOP + .2 : 1.15, tall ? .3 : .12, u, y + (tall ? TOP + .2 : 1.15) / 2, s * (hw + .15), tall ? RED2 : RED);
-    if (tall && i < NP){
-      const un = Math.min(L - .25, L * (i + 5) / NP), yn = dk(un);
-      for (const s of [-1, 1]){
-        const v = s * (hw + .15);
-        rod(.13, W3(u, y + TOP, v), W3(un, yn + TOP, v), RED);
-        rod(.06, (i / 5) % 2 ? W3(u, y + TOP, v) : W3(u, y + 1.15, v), (i / 5) % 2 ? W3(un, yn + 1.15, v) : W3(un, yn + TOP, v), RED);
-      }
-    }
-    if (tall){
-      for (const s of [-1, 1]){ const p = W3(u, y + 1.62, s * (hw + .15)); lamps.push(new THREE.BoxGeometry(.5, .42, .5).translate(p[0], p[1], p[2])); boxAt(.62, .08, .62, u, y + 1.87, s * (hw + .15), RED2); }
-      boxAt(.34, .34, hw * 2 + .7, u, y + TOP + .05, 0, RED2);
-      if (i === 0 || i === NP){ boxAt(.4, .46, hw * 2 + 2.2, u, y + TOP + .75, 0, RED); boxAt(.26, .5, .26, u, y + TOP + .4, -hw * .5, RED2); boxAt(.26, .5, .26, u, y + TOP + .4, hw * .5, RED2); }   /* bridge-head gate: a longer beam on top */
+  /* lattice: one strip per side, a square red grid with a heavier frame, repeating every 1.2 m along the deck */
+  { const c = document.createElement('canvas'); c.width = 128; c.height = 128; const g = c.getContext('2d');
+    g.fillStyle = '#b0281f'; g.fillRect(0, 0, 128, 10); g.fillRect(0, 118, 128, 10); g.fillRect(0, 0, 8, 128);
+    for (let k = 1; k < 6; k++){ g.fillRect(k * 128 / 6 - 2, 0, 4, 128); g.fillRect(0, 10 + k * 108 / 6 - 2, 128, 4); }
+    const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; t.anisotropy = ANISO;
+    const uv = [], per = 1.2;
+    for (let i = 0; i < NS; i++) for (let s = 0; s < 2; s++){ const u0 = L * i / NS / per, u1 = L * (i + 1) / NS / per; uv.push(u0, 0, u1, 0, u1, 1, u0, 0, u1, 1, u0, 1); }
+    const gl = new THREE.BufferGeometry(); gl.setAttribute('position', new THREE.Float32BufferAttribute(lat, 3)); gl.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); gl.computeVertexNormals();
+    const lm = new THREE.Mesh(gl, new THREE.MeshStandardMaterial({map:t, alphaTest:.5, side:THREE.DoubleSide, roughness:.55})); lm.castShadow = true; lm.userData.info = info; pickables.push(lm); scene.add(lm); }
+  /* posts every 2.4 m, taller ones with lanterns at the four ends */
+  const lamps = [], np = Math.round((L - .5) / 2.4);
+  for (let k = 0; k <= np; k++){
+    const u = .25 + (L - .5) * k / np, y = dk(u), end = k === 0 || k === np;
+    for (const s of [-1, 1]){
+      boxAt(end ? .34 : .16, end ? 1.9 : 1.34, end ? .34 : .16, u, y + (end ? .95 : .67), s * (hw + .15), end ? RED2 : RED);
+      if (end){ const p = W3(u, y + 2.1, s * (hw + .15)); lamps.push(new THREE.BoxGeometry(.36, .34, .36).translate(p[0], p[1], p[2])); boxAt(.5, .08, .5, u, y + 2.32, s * (hw + .15), RED2); }
+      else boxAt(.24, .07, .24, u, y + 1.36, s * (hw + .15), RED2);
     }
   }
-  /* timber piles under the deck, stone footings at both ends */
-  for (let u = 6; u < L - 3; u += 6) for (const s of [-1, 1]){ const p = W3(u, 0, s * (hw - .7)), h = dk(u) + .6; parts.push(geoTint(new THREE.CylinderGeometry(.2, .24, h, 6).translate(p[0], h / 2 - 1, p[2]).toNonIndexed(), PILE)); }
-  for (const u of [-.6, L + .6]) boxAt(1.6, .5, hw * 2 + 1.6, u, .05, 0, '#b9b1a2');
+  /* piers under the deck, stone abutments at both ends */
+  for (const t of [.2, .4, .6, .8]){ const u = L * t, h = dk(u) + .4; for (const s of [-1, 1]){ const p = W3(u, 0, s * (hw - .9)); parts.push(geoTint(new THREE.BoxGeometry(.8, h, .8).translate(p[0], h / 2 - .9, p[2]), '#a39b8e')); } boxAt(.6, .5, hw * 2 - 1, u, dk(u) - .75, 0, '#a39b8e'); }
+  for (const u of [-.8, L + .8]) boxAt(2, .55, hw * 2 + 2, u, .05, 0, '#b9b1a2');
   const m = new THREE.Mesh(geoMerge(parts), decoMat); m.castShadow = m.receiveShadow = true; m.userData.info = info; pickables.push(m); scene.add(m);
   scene.add(new THREE.Mesh(geoMerge(lamps), furLampMat));
-  /* the railings stop people and cars from going over the side */
+  /* the balustrades stop people and cars from going over the side */
   for (const s of [-1, 1]) addBox(ax + dx * L / 2 + nx * s * (hw + .2), az + dz * L / 2 + nz * s * (hw + .2), L / 2, .22, ry);
-  addLabel('芙蓉桥', ax + dx * L / 2, 9, az + dz * L / 2, true);
+  addLabel('芙蓉桥', ax + dx * L / 2, 10, az + dz * L / 2, true);
 })();
 
 /* Musical Island: a ribbed red-and-white shell, with a fan of grass steps beside it */
@@ -229,9 +244,9 @@ const sideDesc = '"一主四从"里的"从"楼之一：讲堂、课室、电脑�
 /* The four side blocks stand on an arc that opens toward the lawn, each one turned to face its centre (the plan's angles had been applied the wrong way round:
    the west blocks were swung away from A3, which left them overlapping at the corners). placeRot keeps the scenery where it was (see LATE_COLS in js/00-core.js).
    grand: a deep ground-floor arcade to walk along, an open porch under the entrance tower, a lookout storey on top; waist: a skirt of eaves under the top floor. */
-building({arcade:true, bay:true, gable:true, eaveLight:true, grand:true, waist:[5], wash:{accent:WASH_VIOLET}, name:'A1', tag:'教学', desc:sideDesc + '它在最西端，紧挨礼堂。', floors:6, px:900, py:640, wp:95, dp:85, rot:-18, placeRot:18, variant:1, plaque:{text:'A1'}});
+building({arcade:true, bay:true, mill:true, eaveLight:true, grand:true, waist:[5], wash:{accent:WASH_VIOLET}, name:'A1', tag:'教学', desc:sideDesc + '它在最西端，紧挨陈华春音乐厅。', floors:6, px:900, py:640, wp:95, dp:85, rot:-18, placeRot:18, variant:1, plaque:{text:'A1'}});
 const A_ST = [structures[structures.length - 1]];
-building({arcade:true, bay:true, gable:true, eaveLight:true, grand:true, waist:[5], wash:{}, name:'A2', tag:'教学', desc:sideDesc, floors:6, px:1015, py:602, wp:100, dp:85, rot:-8, placeRot:8, plaque:{text:'A2'}});
+building({arcade:true, bay:true, mill:true, eaveLight:true, grand:true, waist:[5], wash:{}, name:'A2', tag:'教学', desc:sideDesc, floors:6, px:1015, py:602, wp:100, dp:85, rot:-8, placeRot:8, plaque:{text:'A2'}});
 A_ST.push(structures[structures.length - 1]);
 const a3Info = {name:'A3 百姓大楼', tag:'主楼', floors:9,
   desc:'九层的百姓大楼，是"一主四从"主楼群正中间的主楼，正对正门。图书馆就在这里，2023 年 5 月试开放，可藏书 100 多万册，座位 2000 多个。上面几层是招生、财务等办公室。'};
@@ -240,50 +255,18 @@ const a3s = newStruct(a3Info);
    and a deep hipped roof round a flat skylit top (重檐), and in front six tall round columns on a curved porch above the wide steps. Same footprint and colliders as before. */
 building({arcade:'deep', portico:{w:36, h:13.4, curve:3.4, r:2.1, steps:false}, flat:true, wash:{}, struct:a3s, px:1155, py:575, wp:140, dp:115, floors:2, info:a3Info, label:false, variant:1, plaque:{text:'百姓大楼', w:5.6, y:15.15, z:43.32}});
 A_ST.push(a3s);
-const a3t = building({struct:a3s, px:1155, py:585.5, wp:124, dp:92, floors:9, info:a3Info, label:'A3 百姓大楼', variant:0, roofH:8.5, over:3.8, roofCut:.6, noCollide:true, waist:[8], waistOver:3, eaveLight:true, wash:{top:'blue'}});
-building({arcade:true, bay:true, gable:true, eaveLight:true, grand:true, waist:[5], wash:{}, name:'A4', tag:'教学', desc:sideDesc, floors:6, px:1295, py:580, wp:110, dp:85, plaque:{text:'A4'}});
+const a3t = building({struct:a3s, px:1155, py:574.5, wp:124, dp:114, dome:true, floors:9, info:a3Info, label:'A3 百姓大楼', variant:0, roofH:8.5, over:3.8, roofCut:.6, noCollide:true, waist:[8], waistOver:3, eaveLight:true, wash:{top:'blue'}});
+building({arcade:true, bay:true, mill:true, eaveLight:true, grand:true, waist:[5], wash:{}, name:'A4', tag:'教学', desc:sideDesc, floors:6, px:1295, py:580, wp:110, dp:85, plaque:{text:'A4'}});
 A_ST.push(structures[structures.length - 1]);
-building({arcade:true, bay:true, gable:true, eaveLight:true, grand:true, waist:[5], wash:{accent:WASH_VIOLET}, name:'A5', tag:'教学', desc:sideDesc + '再往东走就是 B1 和运动场。', floors:6, px:1425, py:585, wp:110, dp:85, rot:3, placeRot:-3, variant:1, plaque:{text:'A5'}});
+building({arcade:true, bay:true, mill:true, eaveLight:true, grand:true, waist:[5], wash:{accent:WASH_VIOLET}, name:'A5', tag:'教学', desc:sideDesc + '再往东走就是 B1 和运动场。', floors:6, px:1425, py:585, wp:110, dp:85, rot:3, placeRot:-3, variant:1, plaque:{text:'A5'}});
 A_ST.push(structures[structures.length - 1]);
-building({name:'礼堂', tag:'教学', desc:'A1 旁边的礼堂（Auditorium）。', floors:2, px:815, py:680, wp:75, dp:42, rot:-18, placeRot:18, roof:'#b9b2a6', roofH:4, minor:true, canopy:'front', plaque:{text:'礼堂', w:4, y:5.2, z:12.65}});
+/* 陈华春音乐厅 (Tan Hua Choon Auditorium) is built in js/45-auditorium.js, after the scenery is placed. Until then this box stands where the old
+   two-storey 礼堂 stood while the trees and props were scattered, so their layout (and the shared rnd() sequence) stays exactly as it was. */
+const AUDI_GHOST = addBox(...P(815, 680), S(75) / 2 + .7, S(42) / 2 + .7, -18 * D2R);
 const iaec = {name:'国际学术交流中心', tag:'交流', desc:'International Academic Exchange Centre。教学区西边一排两层的小楼。'};
 [[565,650],[612,650],[660,648],[706,645]].forEach(([px, py], i) => building({px, py, wp:38, dp:24, floors:2, rot:-3, info:iaec, label:i === 1 ? '国际学术交流中心' : false, minor:true, canopy:'front'}));
 
-/* 连廊: what joins the five blocks of the A row into one front (each link hangs off the block to its west, so it goes when that one is swallowed).
-   - at ground level the arcades are carried across each gap by a colonnade of the same height, depth and arches, so you can walk the whole row under cover;
-   - above, a two-storey enclosed bridge crosses the gap at the second and third floors, with windows down both sides and a tiled roof.
-   Both are built in the link's own frame (x along it) and attached to the western block. No colliders: people and cars pass between the columns and under the bridge. */
-(function(){
-  /* px, py, width, depth (map pixels), rotation, half width of the wall the bridge meets (A3's tall block is narrower than its base) */
-  const A = [[900, 640, 95, 85, -18, 28.5], [1015, 602, 100, 85, -8, 30], [1155, 575, 140, 115, 0, 37.2], [1295, 580, 110, 85, 0, 33], [1425, 585, 110, 85, 3, 33]];
-  const at = ([px, py, wp, dp, rot], lx, lz) => { const [x, z] = P(px, py), r = -rot * D2R; return [x + lx * Math.cos(r) + lz * Math.sin(r), z - lx * Math.sin(r) + lz * Math.cos(r)]; };
-  const M4 = new THREE.Matrix4(), inv = new THREE.Matrix4(), GLASS = '#3d5361';
-  for (let i = 0; i < A.length - 1; i++){
-    const st = A_ST[i], g = st.groups[0]; g.updateMatrixWorld(true); inv.copy(g.matrixWorld).invert();
-    const place = (a, b, parts, roofs) => {
-      const dx = b[0] - a[0], dz = b[1] - a[1];
-      M4.compose(_cp.set((a[0] + b[0]) / 2, 0, (a[1] + b[1]) / 2), _cq.setFromAxisAngle(UP, Math.atan2(-dz, dx)), _cs.set(1, 1, 1)).premultiply(inv);
-      const ms = [new THREE.Mesh(geoMerge(parts), decoMat)]; ms[0].castShadow = ms[0].receiveShadow = true; g.add(ms[0]);
-      if (roofs) ms.push(...roofMeshes(roofs, roofMat('#c4502a'), g));
-      for (const m of ms){ m.geometry.applyMatrix4(M4); m.userData.info = st.info; pickables.push(m); }
-    };
-    /* ground level: from the middle of one arcade's end to the middle of the next one's */
-    { const a = at(A[i], S(A[i][2]) / 2 - .6, S(A[i][3]) / 2 + 2.55), b = at(A[i + 1], -S(A[i + 1][2]) / 2 + .6, S(A[i + 1][3]) / 2 + 2.55), L = Math.hypot(b[0] - a[0], b[1] - a[1]), parts = [], yP = 5.6, n = Math.max(1, Math.round(L / 4.3));
-      tbox(parts, L + 3, .5, 5.3, 0, yP + .25, 0, TRIM); tbox(parts, L + 3.3, .18, 5.6, 0, yP + .59, 0, TRIM2); tbox(parts, L + 2, .12, 5.6, 0, .06, 0, '#8a8377');
-      for (const s of [-1, 1]){
-        tbox(parts, L + 3, .5, .14, 0, yP + .93, s * 2.6, BALC2);
-        for (let k = 0; k <= n; k++){ const u = -L / 2 + L * k / n; parts.push(geoTint(new THREE.CylinderGeometry(.5, .58, yP, 12).translate(u, yP / 2, s * 2.2).toNonIndexed(), '#f5f0e6'));
-          if (k < n) parts.push(geoTint(archGeo(u, u + L / n, yP).translate(0, 0, s * 2.2), TRIM)); }
-      }
-      place(a, b, parts); ROW_LINKS.push([a, b]); }
-    /* above: the bridge between the side walls */
-    { const a = at(A[i], A[i][5] - .5, 5), b = at(A[i + 1], -A[i + 1][5] + .5, 5), L = Math.hypot(b[0] - a[0], b[1] - a[1]), parts = [], y0b = 8.2, Hb = 7.2, Wb = 3.9;
-      tbox(parts, L, Hb, Wb, 0, y0b + Hb / 2, 0, PIL); tbox(parts, L, .3, Wb + .3, 0, y0b + .15, 0, TRIM2); tbox(parts, L, .25, Wb + .3, 0, y0b + 3.6, 0, TRIM2); tbox(parts, L, .5, Wb + .5, 0, y0b + Hb + .25, 0, TRIM);
-      for (const s of [-1, 1]) for (const fl of [0, 1]){ tbox(parts, L - 1.4, 1.9, .1, 0, y0b + fl * 3.6 + 1.85, s * (Wb / 2 + .02), GLASS);
-        for (let k = 1; k * 2.4 < L - 1.4; k++) tbox(parts, .14, 1.9, .14, -L / 2 + .7 + k * 2.4, y0b + fl * 3.6 + 1.85, s * (Wb / 2 + .04), '#e9e2d4'); }
-      place(a, b, parts, roofParts(L + .4, Wb + .5, 1.5, .8, 0, y0b + Hb + .5, 0)); }
-  }
-})();
+/* The A row has no links between its blocks: the one covered walk (连廊) runs from the back of A3 down to the lake, see js/09-azone.js. ROW_LINKS stays empty. */
 
 /* Phase 2 */
 const p2 = {name:'研究生研究中心（二期）', tag:'二期', desc:'平面图上用红色虚线圈出的二期项目，标注为研究生研究中心（Postgraduate Research Centre）。', spawn:[-408, 70, 0]};
@@ -386,12 +369,14 @@ const fieldInfo = {name:'田径场', tag:'运动', desc:'Field & Track：红色�
   addLabel('田径场', FIELD.x, 8, FIELD.z);
 })();
 
-/* ---------- south gate: granite name wall + pool + iron fence ---------- */
+/* ---------- south gate: the name stone outside the gate (in a small plaza let into the hedge west of the opening, a fountain in front of it) + iron fence ---------- */
 const [GX] = P(1180, 0), FENCE_Z = 214;
+const GATE_PLAZA = {x0:GX - 52, x1:GX - 17.2, z0:254, z1:263.5, sx:GX - 34, sz:257, fz:260.8};   /* outside the boundary: js/42-gate.js opens it in MAP.wall */
 const gateInfo = {name:'南门（正门）', tag:'正门', spawn:[96, 238, 0],
-  desc:'学校正门。黑色花岗岩名墙上刻着中英文校名，前面是一池水。走进来先经过陈嘉庚像，再沿中轴线走到 A3。'};
+  desc:'学校正门。出门右手边是黑色花岗岩校碑，刻着中英文校名，碑前有个小喷泉。进门先经过陈嘉庚像，再沿中轴线走上大台阶到 A3。'};
 structBlock(function(){
-  const wall = box(36, 3.6, 1.8, darkStone, GX, 1.8, 223); const cap = box(37, .4, 2.4, granite, GX, 3.8, 223);
+  const {sx, sz, fz} = GATE_PLAZA;
+  const wall = box(28, 3.4, 1.6, darkStone, sx, 2.2, sz); const cap = box(29, .4, 2.2, granite, sx, 4.1, sz); box(31, .5, 4.6, granite, sx, .25, sz + .9);
   const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 112; const g = cv.getContext('2d');
   const paint = () => {
     g.fillStyle = '#2f3337'; g.fillRect(0, 0, 1024, 112); g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -400,13 +385,19 @@ structBlock(function(){
   };
   paint();
   const t = new THREE.CanvasTexture(cv); t.anisotropy = ANISO;
-  const plaque = new THREE.Mesh(new THREE.PlaneGeometry(33, 3.6), new THREE.MeshStandardMaterial({map:t, roughness:.4}));
-  plaque.position.set(GX, 1.85, 223.92); scene.add(plaque);
+  const plaque = new THREE.Mesh(new THREE.PlaneGeometry(26, 2.9), new THREE.MeshStandardMaterial({map:t, roughness:.4}));
+  plaque.position.set(sx, 2.25, sz + .82); scene.add(plaque);
   document.fonts && document.fonts.ready.then(() => { paint(); t.needsUpdate = true; });
-  box(36, .7, 8, granite, GX, .35, 230.2);
-  const pool = new THREE.Mesh(new THREE.PlaneGeometry(34.4, 6.6), waterMat); pool.rotation.x = -Math.PI / 2; pool.position.set(GX, .62, 230.2); scene.add(pool);
-  [wall, cap, plaque].forEach(m => { m.userData.info = gateInfo; pickables.push(m); });
-  addBox(GX, 226.6, 18.3, 5.2, 0);
+  /* the little fountain: a round stone basin, a pedestal bowl, a jet (spray: js/09-azone.js) */
+  const basin = new THREE.Mesh(geoMerge([geoTint(new THREE.CylinderGeometry(2.5, 2.6, .55, 32, 1, true).translate(0, .27, 0).toNonIndexed(), '#b7b0a4'), geoTint(new THREE.TorusGeometry(2.5, .16, 6, 32).rotateX(Math.PI / 2).translate(0, .56, 0).toNonIndexed(), '#cfc8bb'),
+    geoTint(new THREE.CylinderGeometry(.22, .35, 1.3, 12).translate(0, .65, 0).toNonIndexed(), '#b7b0a4'), geoTint(new THREE.CylinderGeometry(.8, .35, .3, 16).translate(0, 1.35, 0).toNonIndexed(), '#cfc8bb')]), decoMat);
+  basin.position.set(sx, 0, fz); scene.add(basin);
+  const pool = new THREE.Mesh(new THREE.CircleGeometry(2.45, 32), waterMat); pool.rotation.x = -Math.PI / 2; pool.position.set(sx, .45, fz); scene.add(pool);
+  const jet = new THREE.Mesh(new THREE.ConeGeometry(.45, 2.6, 12, 1, true), new THREE.MeshBasicMaterial({color:'#e6f6ff', transparent:true, opacity:.45, depthWrite:false, side:THREE.DoubleSide}));
+  jet.position.set(sx, 2.75, fz); jet.rotation.x = Math.PI; scene.add(jet);
+  [wall, cap, plaque, basin].forEach(m => { m.userData.info = gateInfo; pickables.push(m); });
+  addBox(sx, sz + .4, 14.6, 1.4, 0); addCircle(sx, fz, 2.7);
+  addLabel('校碑', sx, 7.5, sz, true);
   const fc = document.createElement('canvas'); fc.width = 64; fc.height = 64; const f = fc.getContext('2d');
   /* black bars between two rails, each ending in a gilded spear tip (the same railing as at the gate, js/42-gate.js) */
   f.fillStyle = '#17191c'; f.fillRect(0, 14, 64, 4); f.fillRect(0, 52, 64, 4); for (let i = 0; i < 8; i++) f.fillRect(i * 8 + 3, 10, 2.5, 54);
@@ -420,7 +411,7 @@ structBlock(function(){
     addBox((x0 + x1) / 2, FENCE_Z, len / 2, .4, 0);
     for (const px of [x0, x1]) box(1.2, 2.8, 1.2, darkStone, px, 1.4, FENCE_Z);
   }
-  addLabel('南门（正门）', GX, 9, 223);
+  addLabel('南门（正门）', GX, 9, 258);
 })();
 /* Tan Kah Kee statue */
 structBlock(function(){
@@ -448,9 +439,9 @@ structBlock(function(){
 })();
 
 /* ---------- the stepped lawns in front of the A row: bands of lighter and darker turf following the curve of the promenade, each edged with a low stone kerb ---------- */
-const LAWN_ARC = {};   /* the smoothed curve of the promenade, shared with js/42-gate.js (stone tiers, lawn lights) */
+const LAWN_ARC = {};   /* the smoothed curve of the promenade, shared with js/42-gate.js (lawn lights) */
 (function(){
-  const line = pxPts([[760,725],[900,702],[1050,675],[1180,665],[1320,668],[1500,675],[1580,700]]), pts = [];
+  const line = pxPts(AZ_PX.prom), pts = [];
   for (let i = 0; i < line.length - 1; i++){ const [x0, z0] = line[i], [x1, z1] = line[i + 1], n = Math.ceil(Math.hypot(x1 - x0, z1 - z0) / 5); for (let k = 0; k < n; k++) pts.push([x0 + (x1 - x0) * k / n, z0 + (z1 - z0) * k / n]); }
   pts.push(line[line.length - 1]);
   /* smooth the polyline a little, then offset it toward the gate (south = +z) */
@@ -459,24 +450,25 @@ const LAWN_ARC = {};   /* the smoothed curve of the promenade, shared with js/42
   const off = (i, D) => [pts[i][0] + nor[i][0] * D, pts[i][1] + nor[i][1] * D];
   const ok = (x, z) => x > P(905, 0)[0] && x < P(1495, 0)[0] && Math.abs(x - GX) > 11.5;
   Object.assign(LAWN_ARC, {pts, off, ok});
-  const turf = [], kerb = [], D0 = 8.5, BW = 6.2;
+  /* the lawn below the stairs: strips of lighter and darker turf following the curve, with narrow paved walks between them (flat: the steps are the granite ones above) */
+  const turf = [], walk = [], D0 = 8.5, BW = 6.2;
   for (let b = 0; b < 4; b++) for (let i = 0; i < pts.length - 1; i++){
     const a0 = off(i, D0 + b * BW), a1 = off(i + 1, D0 + b * BW), c0 = off(i, D0 + (b + 1) * BW), c1 = off(i + 1, D0 + (b + 1) * BW);
     if (!ok(a0[0], a0[1]) || !ok(a1[0], a1[1])) continue;
     if (b % 2 === 0) turf.push(quadGeo([a0[0], 0, a0[1]], [c0[0], 0, c0[1]], [c1[0], 0, c1[1]], [a1[0], 0, a1[1]], '#ffffff'));
-    /* kerb along the upper edge of the band: top and the face toward the gate */
-    const k0 = off(i, D0 + b * BW + .55), k1 = off(i + 1, D0 + b * BW + .55), h = .3;
-    kerb.push(quadGeo([a0[0], h, a0[1]], [k0[0], h, k0[1]], [k1[0], h, k1[1]], [a1[0], h, a1[1]], '#ded8ca'), quadGeo([k0[0], h, k0[1]], [k0[0], 0, k0[1]], [k1[0], 0, k1[1]], [k1[0], h, k1[1]], '#bfb8a8'),
-      quadGeo([a0[0], 0, a0[1]], [a0[0], h, a0[1]], [a1[0], h, a1[1]], [a1[0], 0, a1[1]], '#bfb8a8'));
+    const k0 = off(i, D0 + b * BW + .9), k1 = off(i + 1, D0 + b * BW + .9);
+    walk.push(quadGeo([a0[0], 0, a0[1]], [k0[0], 0, k0[1]], [k1[0], 0, k1[1]], [a1[0], 0, a1[1]], '#ffffff'));
   }
   const tm = new THREE.Mesh(geoMerge(turf), regWet(flatMat('#42622e', 4), .55)); tm.position.y = .04; tm.receiveShadow = true; scene.add(tm);
-  const km = new THREE.Mesh(geoMerge(kerb), decoMat); km.receiveShadow = true; scene.add(km);
+  const km = new THREE.Mesh(geoMerge(walk), regWet(flatMat('#b4ab99', 5), .35)); km.position.y = .042; km.receiveShadow = true; scene.add(km);
 })();
 
 /* ---------- campus boundary hedge (visible, so the edge never feels like an invisible wall) ---------- */
 (function(){
   const hedge = M('#3f6f34', {roughness:.95});
-  for (const [x, z, w, d] of [[0, -276.5, 1206, 3], [(GX - 619) / 2, 263.5, GX + 587, 3], [(GX + 619) / 2, 263.5, 587 - GX, 3], [-601.5, -6.5, 3, 540], [601.5, -6.5, 3, 540]]){ const m = box(w, 1.8, d, hedge, x, .9, z); m.castShadow = false; }
+  const G = GATE_PLAZA;   /* west of the gate the hedge steps back round the plaza with the name stone */
+  for (const [x, z, w, d] of [[0, -276.5, 1206, 3], [(G.x0 - 603) / 2, 263.5, G.x0 + 603, 3], [(GX + 619) / 2, 263.5, 587 - GX, 3], [-601.5, -6.5, 3, 540], [601.5, -6.5, 3, 540],
+    [(G.x0 + G.x1) / 2, G.z0, G.x1 - G.x0 + 2, 2], [G.x0, (G.z0 + G.z1) / 2, 3, G.z1 - G.z0 + 1.5], [G.x1, (G.z0 + G.z1) / 2, 2, G.z1 - G.z0]]){ const m = box(w, 1.8, d, hedge, x, .9, z); m.castShadow = false; }
 })();
 
 /* ---------- vegetation ---------- */
@@ -566,7 +558,7 @@ function alongPath(pxLine, step, offsets, out, pad){
     }
   }
 }
-alongPath([[760,725],[900,702],[1050,675],[1180,665],[1320,668],[1500,675],[1580,700]], 14, [-11, 11], palms);
+alongPath(AZ_PX.prom, 14, [11], palms);   /* the lawn side only: the other side is the stair bank */
 alongPath([[1580,340],[1580,830]], 16, [-8, 8], palms);
 alongPath([[760,265],[1000,258],[1250,262],[1420,262],[1520,295],[1580,340]], 15, [-8, 8], palms);
 alongPath([[300,855],[120,815],[45,690],[40,320],[95,140],[240,40],[560,22],[1000,25],[1500,28],[1830,35],[1905,110],[1905,855],[300,855]], 22, [-10], trees, 2);
@@ -605,7 +597,7 @@ const knockSets = [
 const lampSpots = [];
 for (let z = 140; z <= 206; z += 16) for (const sx of [-1, 1]) lampSpots.push({x:GX + sx * 8.5, z, r:0, s:1});
 (function(){
-  const out = []; alongPath([[760,725],[900,702],[1050,675],[1180,665],[1320,668],[1500,675],[1580,700]], 24, [-7.5, 7.5], out, .2);
+  const out = []; alongPath(AZ_PX.prom, 24, [7.5], out, .2);
   out.forEach(o => lampSpots.push({x:o.x, z:o.z, r:0, s:1}));
   lakeRims.forEach(rim => { for (let i = 0; i < rim.length; i += 4) lampSpots.push({x:rim[i][0], z:rim[i][1], r:0, s:1}); });
 })();
@@ -668,7 +660,7 @@ const clouds = [];
 
 /* ---------- checkpoints ---------- */
 const CPW = [
-  ['南门', 96, 222], ['A3 百姓大楼', ...P(1180, 668)], ['音乐岛', ...P(975, 330)], ['中心湖', ...P(1360, 505)],
+  ['南门', 96, 222], ['A3 百姓大楼', 105, 126.5], ['音乐岛', ...P(975, 330)], ['中心湖', ...P(1360, 505)],
   ['LY3 食堂', ...P(1075, 222)], ['D6 食堂', ...P(1545, 175)], ['田径场', FX, FZ], ['研究生中心', ...P(300, 555)]
 ];
 const CPS = CPW.map(([name, x, z]) => ({name, x, z}));
