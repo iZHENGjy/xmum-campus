@@ -1,4 +1,5 @@
-# Publishes the site: main at the root (the live game), dev at /preview/ (test build).
+# Publishes the site: main at the root (the live game), dev at /preview/ (test build),
+# and the classic v1.0 game (tag v1.0) at /v1/: offline, with its own save.
 # Replaces the old "deploy from branch" setting; Settings > Pages > Source must be "GitHub Actions".
 #
 # The preview is kept away from live data:
@@ -43,6 +44,10 @@ jobs:
         with:
           ref: dev
           path: dev
+      - uses: actions/checkout@v4
+        with:
+          ref: v1.0
+          path: classic
 
       - name: Assemble main + dev/preview
         run: |
@@ -53,7 +58,21 @@ jobs:
           rm -rf site/.git dev/.git dev/.github
           cp -r dev/. site/preview/
           cp "$GUARD" site/preview/preview-guard.js
+          cp site/.github/classic/guard.js classic-guard.js
           rm -rf site/.github
+
+          # classic v1.0 at /v1/: offline, its own save (seeded once from the live save), out of search engines
+          mkdir -p site/v1
+          rm -rf classic/.git classic/.github
+          cp -r classic/. site/v1/
+          cp classic-guard.js site/v1/classic-guard.js
+          echo 'window.XMUM_FIREBASE = null;  /* classic v1.0: offline, see .github/workflows/pages.yml */' > site/v1/js/firebase-config.js
+          for f in site/v1/*.html; do
+            sed -i '0,/<head>/s##<head>
+<meta name="robots" content="noindex,nofollow">
+<script src="classic-guard.js"></script>#' "$f"
+          done
+          grep -c 'classic-guard.js' site/v1/index.html
 
           # preview: offline unless dev ships a test-project config; never the live database
           if [ -f site/preview/js/firebase-config.preview.js ]; then
