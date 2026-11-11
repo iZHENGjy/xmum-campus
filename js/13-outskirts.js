@@ -233,7 +233,8 @@ for (const r of OUT_ROADS){
   ribbon(K, r, hw - .55, hw - .4, .075, YEL, sideKeep(mk, hw)); ribbon(K, r, -hw + .4, -hw + .55, .075, YEL, sideKeep(mk, -hw));
 }
 /* zebra crossings: over Jalan Sunsuria in front of the gate, and over the frontage lane */
-for (const zc of [270, 289]) for (let k = -3; k <= 3; k++) gRect(markNear, GX + 9 + k * 1.1 - .32, zc - 3.6, GX + 9 + k * 1.1 + .32, zc + 3.6, .075, LINE);
+/* stripes run with the traffic (east-west), stacked across each carriageway, in a band 4 m wide where you walk across */
+for (const zc of [270, 289]) for (let k = -3; k <= 3; k++) gRect(markNear, GX + 7, zc + k * 1.1 - .32, GX + 11, zc + k * 1.1 + .32, .075, LINE);
 for (const xc of [GX + 9, 264, 299]) for (let k = -2; k <= 2; k++) gRect(markNear, xc - 2, 307 + k * 1.1 - .32, xc + 2, 307 + k * 1.1 + .32, .075, LINE);
 
 /* ---------- Bell Avenue block, Bell Suites tower, Taman Warisan Megah terraces behind ---------- */
@@ -332,8 +333,8 @@ const tTri = (b, A, B, C, col) => {
     addBox(X0 + t / 2, (Z0 + Z1) / 2, t / 2 + .05, (Z1 - Z0) / 2, 0); addBox(X1 - t / 2, (Z0 + Z1) / 2, t / 2 + .05, (Z1 - Z0) / 2, 0); addBox((X0 + X1) / 2, Z1 - t / 2, (X1 - X0) / 2, t / 2 + .05, 0);
     addFp({t:0, x:(X0 + X1) / 2, z:(Z0 + Z1) / 2, w:X1 - X0, d:Z1 - Z0, rot:0, color:'#7d858d'});
     window.XSPRAY = {x:(X0 + X1) / 2, z:326.5, h:0, r:4.5, door:{x:(X0 + X1) / 2, z:Z0, h:0, w:X1 - X0 - 2 * t, d:Z1 - Z0 - t, top:H - 1.5}}; }
-  /* gate pillars at the opening in the hedge */
-  for (const s of [-1, 1]){ const px = GX + s * 16.8; tBox(bellB, px - 1, 0, 262.2, px + 1, 3.2, 264.8, '#a4553a'); tBox(bellB, px - 1.25, 3.2, 261.9, px + 1.25, 3.6, 265.1, '#e6dece'); addBox(px, 263.5, 1.1, 1.4, 0); }
+  /* gate pillars at the ends of the gateway, just past the porches (GATE_FRONT, js/10-world.js) */
+  for (const s of [-1, 1]){ const px = GX + s * (GATE_FRONT.porch + 5.6); tBox(bellB, px - 1, 0, 262.2, px + 1, 3.2, 264.8, '#a4553a'); tBox(bellB, px - 1.25, 3.2, 261.9, px + 1.25, 3.6, 265.1, '#e6dece'); addBox(px, 263.5, 1.1, 1.4, 0); }
   OUT_DESTS.push({name:'Bell Avenue 后巷', x:250, z:BELL.zB});
   /* road-closed barriers where Jalan Sunsuria runs off the map */
   for (const xe of [MAP.x0 + 2, MAP.x1 - 2]) for (const zc of [270, 289]) for (let k = -2; k <= 2; k++) tBox(bellB, xe - .3, 0, zc + k * 1.8 - .8, xe + .3, 1.1, zc + k * 1.8 + .8, k % 2 ? '#d63a2f' : '#f4f1ea', 'ny');
