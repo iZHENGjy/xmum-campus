@@ -634,9 +634,10 @@ body.wd-open #socStat,body.wd-open #socMenu,body.wd-open #socCard,body.wd-open #
     const peers = XNet.peers();
     for (const [uid, root] of attached){
       const r = peers.get(uid), d = r && r.d, host = d && d.ride ? hostCar(uid, d) : null;
-      if (!r || !r.g || r.g.n.root !== root || !host){
-        if (root.parent && root.parent !== scene){ root.parent.remove(root); if (r && r.g && r.g.n.root === root) scene.add(root); }
-        if (r && r.g){ r.g.socSeatW = null; restPose(r.g.n); }
+      const cur = r && r.g && r.g.n ? r.g.n.root : null;       // 远处的影子没有模型（js/net.js 分级显示），换级时模型也会换
+      if (!r || !cur || cur !== root || !host){
+        if (root.parent && root.parent !== scene){ root.parent.remove(root); if (cur === root) scene.add(root); }
+        if (r && r.g){ r.g.socSeatW = null; if (r.g.n) restPose(r.g.n); }
         attached.delete(uid);
       }
     }
