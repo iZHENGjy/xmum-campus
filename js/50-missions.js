@@ -95,7 +95,8 @@ function updateMission(dt, px, pz){
   /* a thief can snatch the order on the way (js/89-outskirts-play.js sets mission.stolen): the clock keeps running, and it cannot be handed over until it is won back */
   missionEl.textContent = mission.stolen ? `被抢了 ${Math.max(0, Math.ceil(mission.t))} 秒 · 追上小偷拿回来` : `${mission.from.name} → ${mission.to.name} · ${Math.max(0, Math.ceil(mission.t))} 秒 · ${Math.round(d)} 米`;
   missionEl.classList.toggle('urgent', mission.t < 10 || !!mission.stolen);
-  if (d < 5.5 && !mission.stolen){
+  /* out of time is out of time, even when you are standing at the door (e.g. won it back from a thief or a monkey right there) */
+  if (d < 5.5 && !mission.stolen && mission.t > 0){
     const pay = (25 + (mission.fee || 0) + Math.max(0, mission.t - (mission.grace || 0)) * 1.2) * (mission.hot ? 2 : 1) * (mission.cross ? mission.cross.mult : 1) * (mission.mult || 1) * (typeof outCred === 'function' ? outCred() : 1); deliveries++; sess.deliv++; prog.life.deliv++;
     if (mission.hot) prog.daily = dayKey();
     earn(pay);

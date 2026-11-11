@@ -569,7 +569,7 @@ function updateHole(dt, T){
     if (HS.cd <= 0){ HS.cd = 0; HH.cd.hidden = true; hsfx.beep(true); holeCallout('开始！', `难度 ${holeDiff().name} · 150 秒`, 'go', 2); }
     else if (n !== HS.cdN){ HS.cdN = n; HH.cdN.textContent = n; HH.cdN.classList.remove('pop'); void HH.cdN.offsetWidth; HH.cdN.classList.add('pop'); hsfx.beep(false); }
   }
-  const live = holeLive();
+  let live = holeLive();
   if (live){
     const before = HS.t; HS.t -= dt;
     if (HS.t <= 10 && before > 10){ holeCallout('最后 10 秒！', '能吞多少吞多少', 'bad', 2); $('#htime').classList.add('hurry'); HH.cd.classList.add('late'); }
@@ -580,7 +580,8 @@ function updateHole(dt, T){
       if (!HH.cd.classList.contains('late')){ HH.cd.classList.add('late'); $('#htime').classList.add('hurry'); }
       if (HS.t <= 5){ const n = Math.ceil(HS.t); if (HH.cdN.textContent !== String(n)){ HH.cdN.textContent = n; HH.cd.hidden = false; HH.cdN.classList.remove('pop'); void HH.cdN.offsetWidth; HH.cdN.classList.add('pop'); } }
     }
-    if (HS.t <= 0){ HS.t = 0; endHole(); }
+    /* time's up: the result panel is written now, so the rest of this frame must not move, eat or score any more */
+    if (HS.t <= 0){ HS.t = 0; endHole(); live = false; }
   }
   if (live && HCOMBO.n > 0){ HCOMBO.t -= dt; if (HCOMBO.t <= 0){ if (HCOMBO.n >= 8) holeFeed(`连吞 ${HCOMBO.n} 个`, '#ffd34d'); HCOMBO.n = 0; HCOMBO.mult = 1; } }
   for (const h of HOLES){
