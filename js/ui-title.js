@@ -249,6 +249,54 @@ if (acctBtn) acctBtn.addEventListener('click', async () => {
   if (err) acctText.textContent = uiLoginError(err);
 });
 
+/* ---------- before the first game of this visit: recommend saving progress ----------
+   Most players open the link inside WeChat and start right away, as guests. So the first tap on a game mode in each visit
+   shows one clear card first: in an app, how to open in the browser; in a browser, a solid 「用 Google 登录」. Either way
+   a second button carries straight on into the game, so nobody is stuck. */
+(() => {
+  const GO = '#title [data-go="naiwa"], #title [data-go="hole"]', KEY = 'xmum-login-gate';
+  let shown = false; try { shown = !!sessionStorage.getItem(KEY); } catch(e){}
+  const want = () => {
+    if (shown) return false;
+    const N = window.XNet;
+    if (UI_EMBEDDED) return true;                                   // in WeChat: always worth one card
+    return !!(N && N.online && N.account && !N.account.google);    // browser guest (only when sign-in can actually work)
+  };
+  const card = document.createElement('div'); card.id = 'loginGate'; card.hidden = true; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+  card.innerHTML = '<div class="lg-box"><b class="lg-t"></b><p class="lg-p"></p><div class="lg-btns"><button type="button" class="lg-main"></button><button type="button" class="lg-skip">先玩，以后再说</button></div><p class="lg-tip" hidden></p></div>';
+  document.body.appendChild(card);
+  const $c = q => card.querySelector(q);
+  let go = null;
+  const close = () => { card.hidden = true; };
+  const carryOn = () => { close(); shown = true; try { sessionStorage.setItem(KEY, '1'); } catch(e){} const b = go; go = null; if (b) b.click(); };
+  $c('.lg-skip').addEventListener('click', carryOn);
+  $c('.lg-main').addEventListener('click', () => {
+    if (UI_EMBEDDED){
+      const tip = $c('.lg-tip'); tip.hidden = false;
+      tip.textContent = '点屏幕右上角的「···」（三个点），选「在浏览器打开」。打开后点「用 Google 登录」，进度就会存到云端。';
+      $c('.lg-main').textContent = '知道了，我去浏览器打开'; return;
+    }
+    close(); shown = true; try { sessionStorage.setItem(KEY, '1'); } catch(e){}
+    if (acctBtn && !acctBtn.hidden && acctBtn.dataset.act === 'in'){ acctEl.scrollIntoView({block:'center', behavior:'smooth'}); acctBtn.click(); }
+  });
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest(GO);
+    if (!b || !want()) return;
+    e.preventDefault(); e.stopImmediatePropagation(); go = b;
+    const app = /MicroMessenger/i.test(navigator.userAgent) ? '微信' : /QQ\//i.test(navigator.userAgent) ? 'QQ' : 'App';
+    if (UI_EMBEDDED){
+      $c('.lg-t').textContent = '建议先用浏览器打开，再用 Google 登录';
+      $c('.lg-p').textContent = '在' + app + '里玩，进度只存在' + app + '里，随时可能被清掉，也不能登录。用浏览器打开并登录 Google，进度会存到云端，换手机也不丢。';
+      $c('.lg-main').textContent = '怎么用浏览器打开？';
+    } else {
+      $c('.lg-t').textContent = '推荐先用 Google 登录';
+      $c('.lg-p').textContent = '现在是游客身份，进度只存在这台设备，换手机、清缓存就没了。用 Google 登录，进度存到云端，换设备也能接着玩。';
+      $c('.lg-main').textContent = '用 Google 登录';
+    }
+    $c('.lg-tip').hidden = true; card.hidden = false;
+  }, true);
+})();
+
 window.XUI = {
   playerName: () => uiName,
   setName: n => { const v = uiClean(n); if (v && v !== uiName){ uiName = v; uiNameIn.value = v; uiSet('xmum-name', v); } },
