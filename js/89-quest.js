@@ -80,9 +80,10 @@
     driving:() => mode === 'naiwa' && !!g(() => driving, null),
     night:() => g(() => cur.lamp > .5, false),
     ward:slot => g(() => wardSave.look[slot], null),
-    mini:id => g(() => { const r = JSON.parse(localStorage.getItem('xmum-mini-v1') || 'null'); return !!(r && r[id]); }, false) || g(() => !!(window.XMini && XMini.best && XMini.best(id)), false),
-    house:() => g(() => window.XHouse && XHouse.owned ? XHouse.owned().length : 0, 0),
-    deco:() => g(() => window.XHouse && XHouse.decoMax ? XHouse.decoMax() : 0, 0),
+    /* B1 arcade mini-games (js/91-arcade.js mgSave): played at least once, or a best under that id or 'id_…' */
+    mini:id => g(() => (mgSave.plays[id] | 0) > 0 || Object.keys(mgSave.best).some(k => k === id || k.indexOf(id + '_') === 0), false),
+    house:() => g(() => Object.keys(XHouse.save.own).length, 0),
+    deco:() => g(() => Math.max(0, ...Object.values(XHouse.save.own).map(o => Object.values(o.s || {}).filter(Boolean).length)), 0),
     parts:id => g(() => XParts.count(id), 0),
     unlocked:k => unlocked(k),
     ch:() => S.ch, today:dayKey
@@ -211,7 +212,7 @@
     g(() => nwDress(N, Object.assign(wdLook(null), n.look || {})));
     N.root.traverse(o => { if (o.isMesh){ o.castShadow = !TOUCH && !(typeof XQ !== 'undefined' && XQ.level === 'low'); o.receiveShadow = false; } });
     scene.add(N.root);
-    const lbl = addLabel(n.short || n.name, at[0], 3.3, at[1], true); lbl.el.classList.add('q-npc');
+    const gy = g(() => groundAt(at[0], at[1]), 0), lbl = addLabel(n.short || n.name, at[0], gy + 3.3, at[1], true); lbl.el.classList.add('q-npc');
     lbl.el.addEventListener('click', e => { e.stopPropagation(); if (npcNearId() === id) talk(id); });
     const o = {id, N, x:at[0], z:at[1], h:at[2] || 0, lbl, vis:true, t:Math.random() * 6, wave:0, mark:null};
     N.root.position.set(o.x, g(() => groundAt(o.x, o.z), 0), o.z); N.root.rotation.y = o.h;
@@ -232,7 +233,7 @@
       const at = npcAt(id); if (!at){ if (o) npcRemove(id); continue; }
       const far = Math.hypot(at[0] - px, at[1] - pz) > 60 || inside;
       if (!o){ if (far) continue; o = npcBuild(id); if (!o) continue; }
-      if (o.x !== at[0] || o.z !== at[1]){ o.x = at[0]; o.z = at[1]; o.h = at[2] || 0; o.N.root.position.set(o.x, g(() => groundAt(o.x, o.z), 0), o.z); o.lbl.pos.set(o.x, 3.3, o.z); }
+      if (o.x !== at[0] || o.z !== at[1]){ o.x = at[0]; o.z = at[1]; o.h = at[2] || 0; o.N.root.position.set(o.x, g(() => groundAt(o.x, o.z), 0), o.z); o.lbl.pos.set(o.x, g(() => groundAt(o.x, o.z), 0) + 3.3, o.z); }
       o.vis = !far; o.N.root.visible = o.vis && !(talking && talking.hideNpc === id);
       const mk = npcMark(id), n = D.npcs[id], txt = (mk ? mk + ' ' : '') + (n.short || n.name);
       o.lbl.dead = !o.vis; if (o.lbl.el.textContent !== txt) o.lbl.el.textContent = txt;
