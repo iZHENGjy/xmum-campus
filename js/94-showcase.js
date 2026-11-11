@@ -626,7 +626,8 @@ const scCard = scPanel('scCard', '展位详情'), scMyEl = scPanel('scMy', '我�
 /* phones: sit just above the action buttons, whatever their size */
 function scPlace(p){
   const acts = document.getElementById('acts'), r = acts && !acts.hidden ? acts.getBoundingClientRect() : null;
-  p.style.bottom = innerWidth <= 760 && r && r.height ? Math.round(innerHeight - r.top + 8) + 'px' : '';
+  /* phones held sideways get the side panel from css/style.css (手机横屏 2.0) instead */
+  p.style.bottom = innerWidth <= 760 && !matchMedia('(max-height:520px) and (min-width:561px)').matches && r && r.height ? Math.round(innerHeight - r.top + 8) + 'px' : '';
 }
 function scClose(){ scCard.hidden = true; SCX.open = -1; scMyEl.hidden = true; SCX.my = false; }
 const scWearNames = wear => { const l = wdLookParse(wear); return Object.keys(WD_DEFAULT).map(s => l[s]).filter(id => id && id !== 'classic' && id !== 'std').map(id => WD.byId[id]).filter(Boolean); };

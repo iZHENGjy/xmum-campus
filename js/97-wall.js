@@ -469,13 +469,15 @@ for (const t of ['keydown', 'keyup', 'keypress']) wlEl.addEventListener(t, e => 
 });
 function wlPlace(){
   wlEl.classList.remove('kb');
-  if (innerWidth > 760){ wlEl.style.bottom = ''; return; }
+  const flat = matchMedia('(max-height:520px) and (min-width:561px)').matches;   /* phone held sideways: a side panel (css/style.css 手机横屏 2.0), but still dodge the keyboard */
+  if (innerWidth > 760 && !flat){ wlEl.style.bottom = ''; return; }
   const vv = window.visualViewport, ta = wlEl.querySelector('textarea');
   /* phone keyboard up: sit at the top of what is still visible, so the box you type in is never under the keyboard */
   if (vv && ta && document.activeElement === ta && vv.height < innerHeight * .86){
     wlEl.classList.add('kb'); wlEl.style.setProperty('--wl-top', Math.round(vv.offsetTop + 8) + 'px'); wlEl.style.setProperty('--wl-h', Math.round(vv.height - 16) + 'px'); wlEl.style.bottom = '';
     return;
   }
+  if (flat){ wlEl.style.bottom = ''; return; }
   const acts = document.getElementById('acts'), r = acts && !acts.hidden ? acts.getBoundingClientRect() : null;
   wlEl.style.bottom = r && r.height ? Math.round(innerHeight - r.top + 8) + 'px' : '';
 }
