@@ -1,10 +1,10 @@
 /* XMUM 校园漫游 · ERL 小火车：Salak Tinggi 站、坐车过场、「坐车去远处独立场景」的框架 XTrain
  *
  * 车站：真实的 Salak Tinggi 站（ERL KLIA Transit）在校门东南约 1.06 km（OSM way 165373122，换算到游戏里 x≈1130, z≈700，在地图东边界外）。
- *   像 KIP 商场一样压缩着放进地图东南角：站中心 x 705、轨道中线 z 1060，站台面在一块 y = 13 的平地上（原地本来就是 11–13 m 高的台地）。
- *   占地：车站平台 x 590–815、z 985–1095；进站路从油棕园公路（js/12-terrain.js 的 estate，约 540, 825）往东南拐下来；
- *   轨道往东一直出地图（x 820），往西转个弯往南出地图（z 1180）。避开了 Kota Warisan 商业区、小学、庆典中心、Le Park、Airport City 商业街。
- *   地形是等山上的树都种好以后才压平的（和 js/92-bigjump.js 一样的做法），压平的地方的树清掉，其他地方的树、路灯、碰撞体一个都不动。
+ *   位置还没最终定（东南角给了汽车游乐园二园，地图边界也还在商量），所以整座车站是一个能整体平移、转向的组：只改下面的 PLACE 一处，
+ *   地形压平、清树、碰撞体、小地图、列车轨道、过场里的走位和镜头都跟着走。现在暂放在游乐园北边、油棕园公路东边的窄长条（站中心 x 765, z 575）。
+ *   轨道是一条直线，两头自动找隧道口：地面比站台高出 7 m 的地方（东边的小山），或者离别的路 18 m 的地方（西边的油棕园公路）；车开进隧道就看不见了。
+ *   地形是等山上的树都种好以后才压平的（和 js/92-bigjump.js 的 TG.flattenLate 同一个思路），压平的地方的树清掉，已有马路底下的地面一点不动。
  * 外观：地面站，两个岛式站台、四条轨道（中间两条停 KLIA Transit，外侧两条给不停站的 KLIA Ekspres 通过），站台上是波浪形雨棚，
  *   站厅（售票柜台、售票机、闸机，2025–26 翻新后的紫色标识）在北边，人行天桥跨过轨道下到两个站台，西边 5 层 Park & Ride 停车楼，有带顶的天桥连站厅。
  *   列车：4 节编组（照 Siemens Desiro ET 425 M 的样子），白车身；KLIA Transit 配青蓝和紫色，KLIA Ekspres 配紫色和黄色（车身颜色是自己定的）。
@@ -123,58 +123,84 @@
   const kGlass = () => new THREE.MeshStandardMaterial({color:'#a8c8d8', transparent:true, opacity:.32, roughness:.08, metalness:.3, side:THREE.DoubleSide, depthWrite:false});
 
   /* ================= the station on the main map ================= */
-  const SX = 705, SZ = 1060, SY = 13, RT = SY + .35, PY = SY + 1.4;
+  /* WHERE IT STANDS: the one place to change when the site is final. x, z: the middle of the platforms on the track centre line;
+     y: platform-area ground height (the land round it is levelled to this); rot: turns the whole station (0 = tracks run east–west,
+     hall on the north side); road: the access road's points from its junction up to the forecourt (the forecourt part is added below).
+     Provisional site (2026-11): the narrow strip north of the 汽车游乐园二园, east of the 油棕园公路 at x ≈ 650. The map's east edge
+     (MAP.x1 820) cuts through the east end of the platforms for now; the tracks run into a tunnel under the hill to the east, and
+     into a tunnel just short of the 油棕园公路 to the west. */
+  const PLACE = {x:765, z:575, y:11, rot:0, road:[[650, 521]]};
+  /* Everything below is drawn in the station's own frame (the old layout: platform middle at 705, 1060) inside one group,
+     which PLACE moves and turns; T / TI convert between that frame and the world. */
+  const SX = 705, SZ = 1060, SY = PLACE.y, RT = SY + .35, PY = SY + 1.4;
+  const _cr = Math.cos(PLACE.rot), _sr = Math.sin(PLACE.rot);
+  const T = (x, z) => [PLACE.x + (x - SX) * _cr + (z - SZ) * _sr, PLACE.z - (x - SX) * _sr + (z - SZ) * _cr];
+  const TI = (x, z) => { const dx = x - PLACE.x, dz = z - PLACE.z; return [SX + dx * _cr - dz * _sr, SZ + dx * _sr + dz * _cr]; };
+  const TH = h => h + PLACE.rot;
+  const P3 = (x, y, z) => { const [a, c] = T(x, z); return [a, y, c]; };
+  const ST_G = new THREE.Group(), ST_IN = new THREE.Group(); ST_G.position.set(PLACE.x, 0, PLACE.z); ST_G.rotation.y = PLACE.rot; ST_IN.position.set(-SX, 0, -SZ); ST_G.add(ST_IN); scene.add(ST_G);
+  const addBoxD = (cx, cz, hx, hz, rot) => { const [x, z] = T(cx, cz); return addBox(x, z, hx, hz, (rot || 0) + PLACE.rot); };
   const TZ = [-13.65, -2.25, 2.25, 13.65];                     /* tracks north to south: Ekspres, Transit (to KL), Transit (to KLIA), Ekspres */
   const PLAT = [[SZ - 11.95, SZ - 3.95], [SZ + 3.95, SZ + 11.95]], PX0 = SX - 55, PX1 = SX + 55;
   const CONC = {x0:SX - 24, x1:SX + 26, z0:1020, z1:1042, h:11};
   const BR = {x0:SX + 18, x1:SX + 24, z0:1036, z1:SZ + 12.5, y:SY + 7.4};
   const PR = {x0:SX - 82, x1:SX - 32, z0:1014, z1:1042, n:5, h:3.1};
-  const DOOR = {x:SX, z:1015};                                   /* the purple ring outside the front doors */
-  const ROADP = [[540, 825], [552, 858], [566, 900], [582, 945], [600, 980], [622, 1000], [650, 1006], [800, 1006]];
-  const PADS = [{x0:590, x1:815, z0:985, z1:1095, fall:36}];
-  const ARC = {cx:620, cz:SZ + 120, r:120};
-  /* the track alignment: in from the east, through the station, round to the south and off the map (toward KLIA) */
-  function alignPts(off){
-    const pts = [[1150, SZ + off], [ARC.cx, SZ + off]], r = ARC.r - off;
-    for (let k = 1; k <= 24; k++){ const th = k / 24 * Math.PI / 2; pts.push([ARC.cx - r * Math.sin(th), ARC.cz - r * Math.cos(th)]); }
-    pts.push([ARC.cx - r, 1430]); return pts;
-  }
+  const DOOR_D = [SX, 1015], [DX, DZ] = T(SX, 1015), DOOR = {x:DX, z:DZ};   /* the purple ring outside the front doors */
+  const PAD_D = {x0:600, x1:815, z0:985, z1:1095, fall:36};                  /* levelled ground, in the station's frame */
+  const ROADW = PLACE.road.concat([T(600, 1006), T(800, 1006)]);            /* access road, world */
+  /* how far the tracks run each way before they go into a tunnel: up to where the land rises 7 m above the station, or 18 m short of
+     another road (they would have to pass under it), at most 420 m; the trains run on out of sight beyond */
+  const nearRoad = (x, z, m) => OUT_ROADS.some(r => r.p.some((p, q) => q < r.p.length - 1 && segDist(x, z, p, r.p[q + 1]) < r.w / 2 + (m == null ? 18 : m)));
+  const reach = dir => { for (let d = 70; d < 420; d += 4){ const [x, z] = T(SX + dir * d, SZ); if (terrainY(x, z) > SY + 7 || nearRoad(x, z)) return d; } return 420; };
+  const END = {e:reach(1), w:reach(-1)}, RUN = 320;
+  /* the track alignment in the station's frame: a straight line, west (toward KLIA) is -x */
+  const alignD = (off, a, b) => [[SX + (a == null ? END.e + RUN : a), SZ + off], [SX - (b == null ? END.w + RUN : b), SZ + off]];
   /* a path along points (x, z): length and position / direction at a distance s */
   function kPath(pts, y){
     const s = [0]; for (let i = 1; i < pts.length; i++) s.push(s[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
-    return {pts, s, L:s[s.length - 1], y:y || 0, at(d){
+    return {pts, s, L:s[s.length - 1], y:y || 0, vis:null, at(d){
       let i = 1; while (i < s.length - 1 && s[i] < d) i++;
       const a = pts[i - 1], b = pts[i], l = s[i] - s[i - 1] || 1, t = (d - s[i - 1]) / l;
       return {x:a[0] + (b[0] - a[0]) * t, z:a[1] + (b[1] - a[1]) * t, fx:(b[0] - a[0]) / l, fz:(b[1] - a[1]) / l};
-    }, sAtX(x){ for (let i = 1; i < pts.length; i++){ const a = pts[i - 1], b = pts[i]; if ((x - a[0]) * (x - b[0]) <= 0 && a[0] !== b[0]) return s[i - 1] + (s[i] - s[i - 1]) * (x - a[0]) / (b[0] - a[0]); } return 0; }};
+    }, sAtX(x){ for (let i = 1; i < pts.length; i++){ const a = pts[i - 1], b = pts[i]; if ((x - a[0]) * (x - b[0]) <= 0 && a[0] !== b[0]) return s[i - 1] + (s[i] - s[i - 1]) * (x - a[0]) / (b[0] - a[0]); } return 0; },
+    /* distance along the path of the point on it nearest to (x, z) */
+    sAt(x, z){ let best = 0, bd = 1e18; for (let i = 1; i < pts.length; i++){ const a = pts[i - 1], b = pts[i], dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1;
+      const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / l2)), d = Math.hypot(x - a[0] - t * dx, z - a[1] - t * dz); if (d < bd){ bd = d; best = s[i - 1] + t * (s[i] - s[i - 1]); } } return best; }};
   }
-  const PATH_W = TZ.map(o => kPath(alignPts(o), RT));                             /* toward KLIA (west, then south) */
-  const PATH_E = TZ.map(o => kPath(alignPts(o).slice().reverse(), RT));           /* toward KL (in from the south, then east) */
+  /* world paths for the trains; cars are hidden once they are inside a tunnel */
+  const trackPath = (off, west) => { const pts = alignD(off).map(([x, z]) => T(x, z)); if (!west) pts.reverse(); const P = kPath(pts, RT);
+    const a = P.sAt(...T(SX + END.e, SZ + off)), b = P.sAt(...T(SX - END.w, SZ + off)); P.vis = [Math.min(a, b), Math.max(a, b)]; return P; };
+  const PATH_W = TZ.map(o => trackPath(o, true));                /* toward KLIA (west) */
+  const PATH_E = TZ.map(o => trackPath(o, false));               /* toward KL (east) */
 
   /* ---------- level the ground (after the hill trees are planted, so nothing else on the map moves) ---------- */
   const segD = (x, z, a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], l2 = dx * dx + dz * dz || 1, t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[1]) * dz) / l2)); return [Math.hypot(x - a[0] - t * dx, z - a[1] - t * dz), t]; };
+  const padDist = (x, z) => rectDist(...TI(x, z), PAD_D);
   const CORR = [
-    {pts:[[990, SZ]].concat(alignPts(0).slice(1).filter(([x, z]) => z < 1340), [[ARC.cx - ARC.r, 1340]]), hw:19, fall:34, y:() => SY},
-    {pts:ROADP, hw:5, fall:26, y:null}
+    {pts:[T(SX + END.e, SZ), T(SX - END.w, SZ)], hw:19, fall:34, y:() => SY},
+    {pts:ROADW, hw:5, fall:26, y:null}
   ];
   (function level(){
-    const {nx, nz, C, x0, z0, Y} = TG, N = nx * nz, W = new Float32Array(N), T = new Float32Array(N);
+    const {nx, nz, C, x0, z0, Y} = TG, N = nx * nz, W = new Float32Array(N), Tg = new Float32Array(N);
     /* the road eases from the hill road's height at the junction to the station's */
     const r = CORR[1], prof = []; let acc = 0;
     r.pts.forEach((p, i) => { if (i) acc += Math.hypot(p[0] - r.pts[i - 1][0], p[1] - r.pts[i - 1][1]); prof.push(terrainY(p[0], p[1]) + (SY - terrainY(p[0], p[1])) * smooth01(0, 45, acc)); });
     r.y = (i, t) => prof[i] + (prof[i + 1] - prof[i]) * t;
-    const put = (k, w, y) => { if (w > W[k]){ W[k] = w; T[k] = y; } };
+    const put = (k, w, y) => { if (w > W[k]){ W[k] = w; Tg[k] = y; } };
     const box = (bx0, bz0, bx1, bz1, f) => {
       const i0 = Math.max(0, Math.ceil((bx0 - x0) / C)), i1 = Math.min(nx - 1, Math.floor((bx1 - x0) / C)), j0 = Math.max(0, Math.ceil((bz0 - z0) / C)), j1 = Math.min(nz - 1, Math.floor((bz1 - z0) / C));
       for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) f(j * nx + i, x0 + i * C, z0 + j * C);
     };
-    for (const p of PADS){ const R = p.fall + 4; box(p.x0 - R, p.z0 - R, p.x1 + R, p.z1 + R, (k, x, z) => put(k, 1 - smooth01(4, R, rectDist(x, z, p)), SY)); }
+    { const R = PAD_D.fall + 4, cs = [[PAD_D.x0, PAD_D.z0], [PAD_D.x1, PAD_D.z0], [PAD_D.x1, PAD_D.z1], [PAD_D.x0, PAD_D.z1]].map(([x, z]) => T(x, z));
+      box(Math.min(...cs.map(c => c[0])) - R, Math.min(...cs.map(c => c[1])) - R, Math.max(...cs.map(c => c[0])) + R, Math.max(...cs.map(c => c[1])) + R, (k, x, z) => put(k, 1 - smooth01(4, R, padDist(x, z)), SY)); }
     for (const c of CORR) for (let q = 0; q < c.pts.length - 1; q++){
       const a = c.pts[q], b = c.pts[q + 1], R = c.hw + c.fall;
       box(Math.min(a[0], b[0]) - R, Math.min(a[1], b[1]) - R, Math.max(a[0], b[0]) + R, Math.max(a[1], b[1]) + R, (k, x, z) => { const [d, t] = segD(x, z, a, b); if (d < R) put(k, 1 - smooth01(c.hw + 3, R, d), c.y(q, t)); });
     }
+    /* never move the ground under the roads that are already there (their asphalt was laid on it) */
+    for (let k = 0; k < N; k++) if (W[k] > 0) W[k] *= smooth01(8, 22, TG.RD[k]);
     const hit = new Uint8Array(N);
-    for (let k = 0; k < N; k++) if (W[k] > 0){ const ny = Y[k] * (1 - W[k]) + T[k] * W[k]; if (Math.abs(ny - Y[k]) > 1e-4){ Y[k] = ny; hit[k] = 1; } }
+    for (let k = 0; k < N; k++) if (W[k] > 0){ const ny = Y[k] * (1 - W[k]) + Tg[k] * W[k]; if (Math.abs(ny - Y[k]) > 1e-4){ Y[k] = ny; hit[k] = 1; } }
     /* redraw the hill vertices that moved (and their neighbours' normals), with the same shading as js/12-terrain.js */
     const at = (i, j) => Y[Math.max(0, Math.min(nz - 1, j)) * nx + Math.max(0, Math.min(nx - 1, i))];
     const cLow = new THREE.Color('#4f7a3b'), cMid = new THREE.Color('#3f6f2f'), cHigh = new THREE.Color('#2b5124'), cSoil = new THREE.Color('#9c6440'), cc = new THREE.Color();
@@ -194,7 +220,7 @@
     }
   })();
   /* hill trees: clear the ones on the station, the tracks and the road; stand the rest of those nearby on the new ground */
-  const onSite = (x, z, pad) => PADS.some(p => rectDist(x, z, p) < pad) || CORR.some(c => c.pts.some((a, q) => q < c.pts.length - 1 && segD(x, z, a, c.pts[q + 1])[0] < c.hw + pad));
+  const onSite = (x, z, pad) => padDist(x, z) < pad || CORR.some(c => c.pts.some((a, q) => q < c.pts.length - 1 && segD(x, z, a, c.pts[q + 1])[0] < c.hw + pad));
   for (const set of OUT_SETS) set.spots.forEach((o, i) => {
     if (o.hidden) return;
     if (onSite(o.x, o.z, 4)){ o.down = true; o.hidden = true; o.s = 0; o.x = o.z = 1e6; setKnock(set, i, false, 0, 0); return; }
@@ -286,65 +312,56 @@
         if (f > 0) kQuad(b, A, B, C, D, '#e9e7e2'); else kQuad(b, B, A, D, C, '#e9e7e2'); }
       waveRoof(b, PX0 + 2, PX1 - 2, z0 - .7, z1 + .7, PY + 4.6, .7, 12, [[SX + 5, SX + 25]], '#f1f0ec', '#d9d4e6', PURP, inB);
     });
-    /* ---- tracks: ballast with sleepers (its own textured strip), two rails; walls of the trough where the tracks pass the platforms ---- */
+    /* ---- tracks between the two tunnel mouths: ballast with sleepers (its own textured strip), two rails ---- */
+    const XE = SX + END.e, XW = SX - END.w, gyD = (x, z) => terrainY(...T(x, z));
     const balB = {p:[], n:[], c:[], u:[]}, railB = KB();
-    for (const P of PATH_W){
-      const pts = P.pts; let s = 0;
-      for (let i = 0; i < pts.length - 1; i++){
-        const a = pts[i], c = pts[i + 1], L = Math.hypot(c[0] - a[0], c[1] - a[1]), ux = (c[0] - a[0]) / L, uz = (c[1] - a[1]) / L, nx_ = -uz, nz_ = ux;
-        const corner = (p, o, y) => [p[0] + nx_ * o, y, p[1] + nz_ * o];
-        const A1 = corner(a, -1.7, SY + .12), B1 = corner(c, -1.7, SY + .12), C1 = corner(c, 1.7, SY + .12), D1 = corner(a, 1.7, SY + .12);
-        const v0 = s / .65, v1 = (s + L) / .65;
-        /* uv: across 0..1, along by sleeper spacing */
-        const quad = [[A1, [0, v0]], [B1, [0, v1]], [C1, [1, v1]], [D1, [1, v0]]];
-        const up = (nx_ * uz - nz_ * ux) > 0;
-        for (const q of up ? [0, 1, 2, 0, 2, 3] : [0, 2, 1, 0, 3, 2]){ const [P3, uv] = quad[q]; balB.p.push(P3[0], P3[1], P3[2]); balB.n.push(0, 1, 0); balB.c.push(1, 1, 1); balB.u.push(uv[0], uv[1]); }
-        for (const o of [-.72, .72]){
-          const r0 = corner(a, o - .04, RT - .16), r1 = corner(c, o - .04, RT - .16);
-          const t0 = corner(a, o - .04, RT), t1 = corner(c, o - .04, RT), t2 = corner(c, o + .04, RT), t3 = corner(a, o + .04, RT);
-          const q0 = corner(a, o + .04, RT - .16), q1 = corner(c, o + .04, RT - .16);
-          kUp(railB, t0, t1, t2, t3, '#c9cdd2');
-          kQuad(railB, r0, r1, t1, t0, '#5f5a55'); kQuad(railB, q1, q0, t3, t2, '#5f5a55'); kQuad(railB, r1, r0, t0, t1, '#5f5a55'); kQuad(railB, q0, q1, t2, t3, '#5f5a55');
-        }
-        s += L;
-      }
+    for (const off of TZ){
+      const z = SZ + off, v0 = 0, v1 = (XE - XW) / .65;
+      const quad = [[[XW, SY + .12, z + 1.7], [0, v0]], [[XE, SY + .12, z + 1.7], [0, v1]], [[XE, SY + .12, z - 1.7], [1, v1]], [[XW, SY + .12, z - 1.7], [1, v0]]];
+      for (const q of [0, 1, 2, 0, 2, 3]){ const [P, uv] = quad[q]; balB.p.push(P[0], P[1], P[2]); balB.n.push(0, 1, 0); balB.c.push(1, 1, 1); balB.u.push(uv[0], uv[1]); }
+      for (const o of [-.72, .72]){ const zz = z + o; kBox(railB, XW, RT - .16, zz - .04, XE, RT, zz + .04, '#5f5a55', 'ny px nx'); kFlat(railB, XW, zz - .035, XE, zz + .035, RT + .002, '#c9cdd2'); }
     }
     /* trackbed under all four tracks (gravel between them) */
-    { const P = kPath(alignPts(0)); for (let i = 0; i < P.pts.length - 1; i++){ const a = P.pts[i], c = P.pts[i + 1], L = Math.hypot(c[0] - a[0], c[1] - a[1]), nx_ = -(c[1] - a[1]) / L, nz_ = (c[0] - a[0]) / L;
-      const k = o => [[a[0] + nx_ * o, SY + .05, a[1] + nz_ * o], [c[0] + nx_ * o, SY + .05, c[1] + nz_ * o]];
-      const [A1, B1] = k(-16.2), [D1, C1] = k(16.2); kUp(rd, A1, B1, C1, D1, '#8a8378'); } }
+    kFlat(rd, XW, SZ - 16.2, XE, SZ + 16.2, SY + .05, '#8a8378');
     const sleeper = (() => { const cv = document.createElement('canvas'); cv.width = 32; cv.height = 32; const c = cv.getContext('2d');
       c.fillStyle = '#7c766c'; c.fillRect(0, 0, 32, 32); const R = mkRng(41); for (let i = 0; i < 90; i++){ c.fillStyle = R() < .5 ? '#958e83' : '#625d55'; c.fillRect(R() * 32, R() * 32, 2, 2); }
       c.fillStyle = '#b9b3a8'; c.fillRect(2, 11, 28, 10); c.fillStyle = '#9a948a'; c.fillRect(2, 19, 28, 2);
       const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = ANISO; return t; })();
     const balMat = new THREE.MeshStandardMaterial({map:sleeper, roughness:.95, polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-8});
-    const bal = kMesh(balB, balMat, null, false); bal.castShadow = false;
-    ST.rail = kMesh(railB, new THREE.MeshStandardMaterial({vertexColors:true, roughness:.4, metalness:.55}), null, false);
+    const bal = kMesh(balB, balMat, ST_IN, false); bal.castShadow = false;
+    ST.rail = kMesh(railB, new THREE.MeshStandardMaterial({vertexColors:true, roughness:.4, metalness:.55}), ST_IN, false);
     ST.all.push(bal, ST.rail);
-    /* viaduct piers and deck wherever the land falls away under the tracks (out past both ends of the map) */
-    { const P = kPath(alignPts(0));
-      for (let d = 0; d < P.L; d += 22){ const p = P.at(d), gy = terrainY(p.x, p.z); if (gy > SY - 1.2) continue;
-        const nx_ = -p.fz, nz_ = p.fx;
-        for (const o of [-10, 0, 10]) kBox(b, p.x + nx_ * o - 1, gy - .5, p.z + nz_ * o - 1, p.x + nx_ * o + 1, SY - .6, p.z + nz_ * o + 1, CON2, 'ny');
-        const q = P.at(Math.min(P.L, d + 22)); kUp(b, [p.x - nx_ * 16.5, SY - .05, p.z - nz_ * 16.5], [q.x - nx_ * 16.5, SY - .05, q.z - nz_ * 16.5], [q.x + nx_ * 16.5, SY - .05, q.z + nz_ * 16.5], [p.x + nx_ * 16.5, SY - .05, p.z + nz_ * 16.5], CON2); } }
+    /* piers and a deck wherever the land falls away under the tracks */
+    for (let x = XW; x < XE; x += 22){ const gy = gyD(x, SZ); if (gy > SY - 1.2) continue;
+      for (const o of [-10, 0, 10]) kBox(b, x - 1, gy - .5, SZ + o - 1, x + 1, SY - .6, SZ + o + 1, CON2, 'ny');
+      kFlat(b, x, SZ - 16.5, Math.min(XE, x + 22), SZ + 16.5, SY - .05, CON2); }
+    /* tunnel mouths at both ends: a concrete portal with four dark bores, wing walls, and a grassy cover over the first stretch */
+    for (const [x, dir] of [[XE, 1], [XW, -1]]){
+      const xf = x + dir * .6, H = RT + 8.5;
+      kBox(b, Math.min(x, xf), SY - .5, SZ - 19, Math.max(x, xf), H, SZ + 19, '#a9a397');
+      for (const off of TZ) kSign(b, 'x', x - dir * .01, SZ + off - 2.1, SZ + off + 2.1, SY + .1, RT + 5.4, -dir, null, '#0b0c0e');
+      kBox(b, Math.min(x, x + dir * 1.2), H, SZ - 19.4, Math.max(x, x + dir * 1.2), H + .6, SZ + 19.4, '#8f897d');
+      for (const s of [-1, 1]) kBox(b, Math.min(x, x - dir * 8), SY - .5, SZ + s * 19 - (s > 0 ? 0 : 1.2), Math.max(x, x - dir * 8), SY + 4, SZ + s * 19 + (s > 0 ? 1.2 : 0), '#a9a397');
+      /* the cover: how far it can run before another road or the land itself takes over */
+      let len = 0; for (let d = 4; d <= 40; d += 4){ if ([-19, 0, 19].some(o => nearRoad(...T(x + dir * d, SZ + o), 4))) break; len = d; }
+      if (len){ const x2 = x + dir * len; kBox(b, Math.min(x, x2), SY - .5, SZ - 19, Math.max(x, x2), H - .2, SZ + 19, '#4a7a3a', 'ny'); }
+    }
     /* fences along the corridor */
-    for (const off of [-16.8, 16.8]){ const P = kPath(alignPts(off)); for (let d = 0; d < P.L; d += 6){ const p = P.at(d); if (terrainY(p.x, p.z) < SY - 1.2) continue;
-      if (off < 0 && p.x > CONC.x0 - 1 && p.x < CONC.x1 + 1 && p.z < 1050) continue;
-      kBox(b, p.x - .05, SY, p.z - .05, p.x + .05, SY + 1.9, p.z + .05, '#3c4a40'); const q = P.at(Math.min(P.L, d + 6)), nx_ = -p.fz * .02, nz_ = p.fx * .02;
-      kQuad(b, [p.x - nx_, SY + .1, p.z - nz_], [q.x - nx_, SY + .1, q.z - nz_], [q.x - nx_, SY + 1.8, q.z - nz_], [p.x - nx_, SY + 1.8, p.z - nz_], '#4c6152');
-      kQuad(b, [q.x + nx_, SY + .1, q.z + nz_], [p.x + nx_, SY + .1, p.z + nz_], [p.x + nx_, SY + 1.8, p.z + nz_], [q.x + nx_, SY + 1.8, q.z + nz_], '#4c6152'); } }
-    /* overhead line: portals every ~55 m and the contact wires (one line mesh) */
-    { const P = kPath(alignPts(0)), wire = [];
-      for (let d = 10; d < P.L; d += 55){ const p = P.at(d), nx_ = -p.fz, nz_ = p.fx;
-        if (Math.abs(p.x - SX) < 60 && Math.abs(p.z - SZ) < 30) continue;
-        const gy = Math.min(SY, terrainY(p.x, p.z)) - .3;
-        for (const o of [-17.6, 17.6]) kBox(b, p.x + nx_ * o - .18, gy, p.z + nz_ * o - .18, p.x + nx_ * o + .18, RT + 7.1, p.z + nz_ * o + .18, '#8e959b');
-        const e0 = [p.x - nx_ * 17.8, p.z - nz_ * 17.8], e1 = [p.x + nx_ * 17.8, p.z + nz_ * 17.8], tx = p.fx * .2, tz = p.fz * .2;
-        kQuad(b, [e0[0] - tx, RT + 6.7, e0[1] - tz], [e1[0] - tx, RT + 6.7, e1[1] - tz], [e1[0] - tx, RT + 7.1, e1[1] - tz], [e0[0] - tx, RT + 7.1, e0[1] - tz], '#8e959b');
-        kQuad(b, [e1[0] + tx, RT + 6.7, e1[1] + tz], [e0[0] + tx, RT + 6.7, e0[1] + tz], [e0[0] + tx, RT + 7.1, e0[1] + tz], [e1[0] + tx, RT + 7.1, e1[1] + tz], '#8e959b'); }
-      for (const T of PATH_W) for (let i = 0; i < T.pts.length - 1; i++) wire.push(T.pts[i][0], RT + 5.5, T.pts[i][1], T.pts[i + 1][0], RT + 5.5, T.pts[i + 1][1]);
+    for (const off of [-16.8, 16.8]) for (let x = XW + 1; x < XE - 1; x += 6){ const z = SZ + off; if (gyD(x, z) < SY - 1.2) continue;
+      if (off < 0 && x > CONC.x0 - 1 && x < CONC.x1 + 1) continue;
+      const x2 = Math.min(XE - 1, x + 6);
+      kBox(b, x - .05, SY, z - .05, x + .05, SY + 1.9, z + .05, '#3c4a40');
+      kQuad(b, [x, SY + .1, z - .02], [x2, SY + .1, z - .02], [x2, SY + 1.8, z - .02], [x, SY + 1.8, z - .02], '#4c6152');
+      kQuad(b, [x2, SY + .1, z + .02], [x, SY + .1, z + .02], [x, SY + 1.8, z + .02], [x2, SY + 1.8, z + .02], '#4c6152'); }
+    /* overhead line: portals every ~55 m clear of the platforms, and the contact wires (one line mesh) */
+    { const wire = [];
+      for (let x = XW + 12; x < XE - 6; x += 55){ if (x > PX0 - 4 && x < PX1 + 4) continue;
+        const gy = Math.min(SY, gyD(x, SZ)) - .3;
+        for (const o of [-17.6, 17.6]) kBox(b, x - .18, gy, SZ + o - .18, x + .18, RT + 7.1, SZ + o + .18, '#8e959b');
+        kBox(b, x - .2, RT + 6.7, SZ - 17.8, x + .2, RT + 7.1, SZ + 17.8, '#8e959b', ''); }
+      for (const off of TZ) wire.push(XW, RT + 5.5, SZ + off, XE, RT + 5.5, SZ + off);
       const wg = new THREE.BufferGeometry(); wg.setAttribute('position', new THREE.Float32BufferAttribute(wire, 3));
-      ST.wires = new THREE.LineSegments(wg, new THREE.LineBasicMaterial({color:'#2e3236'})); scene.add(ST.wires); ST.all.push(ST.wires); }
+      ST.wires = new THREE.LineSegments(wg, new THREE.LineBasicMaterial({color:'#2e3236'})); ST_IN.add(ST.wires); ST.all.push(ST.wires); }
 
     /* ---- the station hall: glass front, purple fascia, wavy roof; inside: ticket counter, machines, fare gates, stairs up to the bridge ---- */
     const C = CONC, H = C.h;
@@ -398,47 +415,49 @@
       kSign(b, 'z', P.z0 - .02, P.x0 + 14, P.x0 + 34, SY + P.n * P.h - 2.6, SY + P.n * P.h - .4, -1, S_PARK, '#ffffff');
       kBox(b, P.x1, SY + 2 * P.h, 1026, C.x0, SY + 2 * P.h + .35, 1030, '#d6d1c7', ''); kBox(b, P.x1, SY + 2 * P.h + 2.7, 1025.6, C.x0, SY + 2 * P.h + 3, 1030.4, PURP, '');
       kBox(gl, P.x1, SY + 2 * P.h + .35, 1025.98, C.x0, SY + 2 * P.h + 2.7, 1026.02, '#ffffff', ''); kBox(gl, P.x1, SY + 2 * P.h + .35, 1029.98, C.x0, SY + 2 * P.h + 2.7, 1030.02, '#ffffff', ''); }
-    /* ---- forecourt: paved plaza, taxi bay, surface car park; the access road with a centre line ---- */
+    /* ---- forecourt: paved plaza, taxi bay, surface car park ---- */
     kFlat(rd, 640, 1010, 776, CONC.z0, SY + .03, '#bdb3a2'); kFlat(rd, 742, 1021, 800, 1041, SY + .025, '#74716b');
     for (let x = 744; x < 799; x += 2.7) kFlat(mk, x, 1022, x + .12, 1027, SY + .04, '#f1ede4'), kFlat(mk, x, 1035, x + .12, 1040, SY + .04, '#f1ede4');
-    { const P = kPath(ROADP); let prev = null;
+    /* the access road (world coordinates, from its junction to the forecourt), with kerbs and a centre line */
+    const rdW = KB(), mkW = KB();
+    { const P = kPath(ROADW); let prev = null;
       for (let d = 0; d <= P.L; d += 4){ const p = P.at(Math.min(d, P.L - .01)), nx_ = -p.fz, nz_ = p.fx;
         const cur = [[p.x - nx_ * 4, p.z - nz_ * 4], [p.x + nx_ * 4, p.z + nz_ * 4], [p.x - nx_ * 5.1, p.z - nz_ * 5.1], [p.x + nx_ * 5.1, p.z + nz_ * 5.1]];
         const y = (q, dy) => [q[0], terrainY(q[0], q[1]) + dy, q[1]];
         if (prev && d > 6){
-          kUp(rd, y(prev[0], .05), y(cur[0], .05), y(cur[1], .05), y(prev[1], .05), '#74716b');
-          kUp(rd, y(prev[2], .07), y(cur[2], .07), y(cur[0], .07), y(prev[0], .07), '#bdb4a4'); kUp(rd, y(prev[1], .07), y(cur[1], .07), y(cur[3], .07), y(prev[3], .07), '#bdb4a4');
+          kUp(rdW, y(prev[0], .05), y(cur[0], .05), y(cur[1], .05), y(prev[1], .05), '#74716b');
+          kUp(rdW, y(prev[2], .07), y(cur[2], .07), y(cur[0], .07), y(prev[0], .07), '#bdb4a4'); kUp(rdW, y(prev[1], .07), y(cur[1], .07), y(cur[3], .07), y(prev[3], .07), '#bdb4a4');
           if ((d / 4) % 3 === 0){ const m0 = [(prev[0][0] + prev[1][0]) / 2, (prev[0][1] + prev[1][1]) / 2], m1 = [(cur[0][0] + cur[1][0]) / 2, (cur[0][1] + cur[1][1]) / 2], o = [nx_ * .1, nz_ * .1];
-            kUp(mk, y([m0[0] - o[0], m0[1] - o[1]], .075), y([m1[0] - o[0], m1[1] - o[1]], .075), y([m1[0] + o[0], m1[1] + o[1]], .075), y([m0[0] + o[0], m0[1] + o[1]], .075), '#f1ede4'); }
+            kUp(mkW, y([m0[0] - o[0], m0[1] - o[1]], .075), y([m1[0] - o[0], m1[1] - o[1]], .075), y([m1[0] + o[0], m1[1] + o[1]], .075), y([m0[0] + o[0], m0[1] + o[1]], .075), '#f1ede4'); }
         }
         prev = cur;
       } }
     /* taxi / drop-off lay-by in front of the doors */
     kFlat(rd, SX - 20, 1010.5, SX + 20, 1013.5, SY + .055, '#66635e'); kFlat(mk, SX - 20, 1013.3, SX + 20, 1013.5, SY + .07, '#f2c230');
-    ST.mesh = kMesh(b, stMat, null, !TOUCH); ST.inner = kMesh(inB, new THREE.MeshStandardMaterial({vertexColors:true, roughness:.7, emissive:'#5a5650'}), null, false); ST.all.push(ST.inner); ST.glass = kMesh(gl, glassMat, null, false); ST.glass.renderOrder = 1;
-    ST.road = kMesh(rd, groundMat, null, false); ST.marks = kMesh(mk, markMat, null, false);
+    ST.mesh = kMesh(b, stMat, ST_IN, !TOUCH); ST.inner = kMesh(inB, new THREE.MeshStandardMaterial({vertexColors:true, roughness:.7, emissive:'#5a5650'}), ST_IN, false); ST.all.push(ST.inner); ST.glass = kMesh(gl, glassMat, ST_IN, false); ST.glass.renderOrder = 1;
+    ST.road = kMesh(rd, groundMat, ST_IN, false); ST.marks = kMesh(mk, markMat, ST_IN, false);
+    ST.all.push(kMesh(rdW, groundMat, null, false), kMesh(mkW, markMat, null, false));
     ST.mesh.userData.info = {name:'Salak Tinggi ERL 站', tag:'车站',
-      desc:'ERL KLIA Transit 的 Salak Tinggi 站（沙叻丁宜），真实位置在校门东南约 1 公里，这里压缩进地图东南角。地面站，两个岛式站台四条轨道，中间两条停 KLIA Transit，外侧两条是不停站呼啸而过的 KLIA Ekspres。站厅门口的紫圈按 F 坐车，一站 7 分钟到 KLIA。', spawn:[DOOR.x, DOOR.z - 4, Math.PI]};
+      desc:'ERL KLIA Transit 的 Salak Tinggi 站（沙叻丁宜），真实位置在校门东南约 1 公里，这里压缩进地图里。地面站，两个岛式站台四条轨道，中间两条停 KLIA Transit，外侧两条是不停站呼啸而过的 KLIA Ekspres。站厅门口的紫圈按 F 坐车，一站 7 分钟到 KLIA。', spawn:[...T(SX, 1011), TH(Math.PI)]};
     pickables.push(ST.mesh);
     ST.all.push(ST.mesh, ST.glass, ST.road, ST.marks);
     /* the one fare gate that opens in the cutscene */
     { const gg = new THREE.Group(), fl = new THREE.BoxGeometry(.9, .55, .06), fm = new THREE.MeshStandardMaterial({color:'#b48cf0', transparent:true, opacity:.75, roughness:.2});
       const L = new THREE.Mesh(fl, fm), R = new THREE.Mesh(fl, fm); L.position.set(-.55, 0, 0); R.position.set(.55, 0, 0); gg.add(L, R);
-      gg.position.set(SX + 1.15, SY + 1.25, GZ); scene.add(gg); ST.gate = {g:gg, L, R}; ST.all.push(gg); }
-    /* colliders: the tracks (fenced), the hall, the car park building; walking the rails is not allowed */
-    addBox((598 + 822) / 2, SZ, (822 - 598) / 2, 16.9, 0);
-    for (let k = 0; k < 6; k++){ const th = (k + .5) / 6 * Math.PI / 2; addBox(ARC.cx - ARC.r * Math.sin(th), ARC.cz - ARC.r * Math.cos(th), 17.5, 17.2, th); }
-    addBox((C.x0 + C.x1) / 2, (C.z0 + C.z1) / 2, (C.x1 - C.x0) / 2, (C.z1 - C.z0) / 2, 0);
-    addBox((PR.x0 + PR.x1) / 2, (PR.z0 + PR.z1) / 2, (PR.x1 - PR.x0) / 2, (PR.z1 - PR.z0) / 2, 0);
-    addFp({t:0, x:(C.x0 + C.x1) / 2, z:(C.z0 + C.z1) / 2, w:C.x1 - C.x0, d:C.z1 - C.z0, rot:0, color:'#7b3fb0'});
-    addFp({t:0, x:(PR.x0 + PR.x1) / 2, z:(PR.z0 + PR.z1) / 2, w:PR.x1 - PR.x0, d:PR.z1 - PR.z0, rot:0, color:'#9c948a'});
-    addLabel('Salak Tinggi ERL 站', SX, SY + 16, 1031);
+      gg.position.set(SX + 1.15, SY + 1.25, GZ); ST_IN.add(gg); ST.gate = {g:gg, L, R}; ST.all.push(gg); }
+    /* colliders: the tracks (fenced, between the tunnel mouths), the hall, the car park building; walking the rails is not allowed */
+    addBoxD((XE + XW) / 2, SZ, (XE - XW) / 2 + 1, 16.9, 0);
+    addBoxD((C.x0 + C.x1) / 2, (C.z0 + C.z1) / 2, (C.x1 - C.x0) / 2, (C.z1 - C.z0) / 2, 0);
+    addBoxD((PR.x0 + PR.x1) / 2, (PR.z0 + PR.z1) / 2, (PR.x1 - PR.x0) / 2, (PR.z1 - PR.z0) / 2, 0);
+    { const [x, z] = T((C.x0 + C.x1) / 2, (C.z0 + C.z1) / 2); addFp({t:0, x, z, w:C.x1 - C.x0, d:C.z1 - C.z0, rot:PLACE.rot, color:'#7b3fb0'}); }
+    { const [x, z] = T((PR.x0 + PR.x1) / 2, (PR.z0 + PR.z1) / 2); addFp({t:0, x, z, w:PR.x1 - PR.x0, d:PR.z1 - PR.z0, rot:PLACE.rot, color:'#9c948a'}); }
+    { const [x, z] = T(SX, 1031); addLabel('Salak Tinggi ERL 站', x, SY + 16, z); }
     /* street lamps along the access road and coconut palms on the forecourt, as knock-down sets like the rest outside the gate */
     if (typeof outSet === 'function' && typeof outPostGeo !== 'undefined'){
-      const P = kPath(ROADP), lamps = [];
+      const P = kPath(ROADW), lamps = [];
       for (let d = 30; d < P.L - 10; d += TOUCH ? 52 : 38){ const p = P.at(d), o = 6.2; lamps.push(outSpot(p.x - p.fz * o, p.z + p.fx * o, Math.atan2(p.fz, -p.fx), 1)); }
       outSet('lamp', lamps, [[outPostGeo, M('#3b3f44', {metalness:.4, roughness:.5})], [outBulbGeo, bulbMat]], !TOUCH);
-      if (typeof trunkGeo !== 'undefined'){ const palms = [], rr = mkRng(7071); for (let x = 684; x < 772; x += 14) if (Math.abs(x - SX) > 8) palms.push(outSpot(x, 1017.6, rr() * 6.28, .85 + rr() * .3));
+      if (typeof trunkGeo !== 'undefined'){ const palms = [], rr = mkRng(7071); for (let x = 684; x < 772; x += 14) if (Math.abs(x - SX) > 8) palms.push(outSpot(...T(x, 1017.6), rr() * 6.28, .85 + rr() * .3));
         outSet('tree', palms, [[trunkGeo, M('#ffffff', {vertexColors:true, roughness:.95})], [crownGeo, M('#ffffff', {side:THREE.DoubleSide, roughness:.8, vertexColors:true})]], true); }
     }
     ST.built = true;
@@ -502,8 +521,9 @@
   function placeTrain(tr, path, sFront){
     tr.path = path; tr.s = sFront;
     tr.cars.forEach((m, k) => {
-      const p = path.at(Math.max(0, Math.min(path.L, sFront - CAR_L / 2 - k * SPAN))), th = Math.atan2(-p.fz, p.fx);
+      const d = sFront - CAR_L / 2 - k * SPAN, p = path.at(Math.max(0, Math.min(path.L, d))), th = Math.atan2(-p.fz, p.fx);
       m.position.set(p.x, path.y, p.z); m.rotation.set(0, th + (k === 3 ? Math.PI : 0), 0);
+      m.visible = !path.vis || (d > path.vis[0] - CAR_L * .3 && d < path.vis[1] + CAR_L * .3);   /* inside a tunnel: out of sight */
     });
     tr.root.visible = true;
   }
@@ -523,14 +543,14 @@
   const AMB = {tr:{}, cur:null, next:8, rumble:0};
   const ambTrain = lv => AMB.tr[lv] || (AMB.tr[lv] = makeTrain(lv));
   function ambUpdate(dt, px, pz){
-    const near = Math.hypot(px - SX, pz - SZ) < 520 && !CS.on && !XT.inside;
+    const near = Math.hypot(px - PLACE.x, pz - PLACE.z) < 520 && !CS.on && !XT.inside;
     const a = AMB.cur;
     if (!near){ if (a){ a.tr.root.visible = false; AMB.cur = null; } AMB.next = Math.min(AMB.next, 10); return; }
     if (!a){
       if ((AMB.next -= dt) > 0) return;
       const ek = Math.random() < .5, west = Math.random() < .5;
       const tr = ambTrain(ek ? 'ekspres' : 'transit'), path = (west ? PATH_W : PATH_E)[ek ? (west ? 3 : 0) : (west ? 2 : 1)];
-      const stop = ek ? null : frontFor(path.sAtX(SX - 6) + (west ? 0 : 0));
+      const stop = ek ? null : frontFor(path.sAt(...T(SX - 6, SZ)));
       AMB.cur = {tr, path, stop, s:ek ? 0 : stop - 260, v:ek ? 38 : 26, dwell:0, ph:'run', horn:false};
       placeTrain(tr, path, AMB.cur.s); return;
     }
@@ -593,20 +613,26 @@
   /* A station: out [x, y, z, h] where you stand outside; gate [x, y, z]; go: path from out through the gate to the waiting spot;
      back: path from the train door to out; dep / arr: {path, stop (front s), side (sign of the platform as seen from the train)};
      cams: fixed shots [[camera], [look at]]; pass: a path an Ekspres can thunder along while you wait; gate(): animate a gate (k 0..1). */
-  const HOME = {
+  /* written in the station's own frame, turned into world coordinates by spec() */
+  const HOME_D = {
     id:'home', name:'Salak Tinggi', zh:'沙叻丁宜', out:[SX - 7, SY, 1011.6, Math.PI],
     gate:[SX + 1.15, SY + .6, 1030],
     go:[[SX + 1.15, SY + .6, 1026.6], [SX + 1.15, SY + .6, 1029.3], [SX + 1.15, SY + .6, 1033], [SX + 5, SY + .6, 1038], [SX + 8, SY + .6, 1038], [SX + 18, BR.y, 1038], [SX + 21, BR.y, 1039.5],
       [SX + 21, BR.y, SZ + 8], [SX + 18, BR.y, SZ + 8], [SX + 6, PY, SZ + 8], [SX + 2, PY, SZ + 6.2], [SX - 6, PY, SZ + 5.2]],
     back:[[SX - 6, PY, SZ - 4.6], [SX + 2, PY, SZ - 7], [SX + 6, PY, SZ - 8], [SX + 18, BR.y, SZ - 8], [SX + 21, BR.y, SZ - 8], [SX + 21, BR.y, 1039.5], [SX + 18, BR.y, 1038],
       [SX + 8, SY + .6, 1038], [SX + 4, SY + .6, 1035], [SX + 1.15, SY + .6, 1032], [SX + 1.15, SY + .6, 1027], [SX, SY + .6, 1019.5], [SX, SY, 1016], [SX - 7, SY, 1011.6]],
-    dep:{path:PATH_W[2], at:SX - 6}, arr:{path:PATH_E[1], at:SX - 6},
+    dep:{path:PATH_W[2], at:T(SX - 6, SZ)}, arr:{path:PATH_E[1], at:T(SX - 6, SZ)},
     waitH:Math.PI,
     cams:{gate:[[SX - 5.5, SY + 3.6, 1024.5], [SX + 1.5, SY + 1.2, 1031]], wait:[[SX - 31.5, PY + 2.1, SZ + 10.4], [SX - 2, PY + 1.4, SZ + 3.5]],
       door:[[SX - 10.4, PY + 2.3, SZ + 9.5], [SX - 5.4, PY + 1.5, SZ + 3.2]], arrive:[[SX - 18, PY + 2.6, SZ - 9.5], [SX - 6, PY + 1.6, SZ - 3]]},
     pass:PATH_W[3],
     gateFx(k){ const G = ST.gate; if (!G) return; G.L.position.x = -.55 - .5 * k; G.R.position.x = .55 + .5 * k; G.L.rotation.y = -k * 1.2; G.R.rotation.y = k * 1.2; }
   };
+  const HOME = Object.assign({}, HOME_D, {
+    out:[...P3(HOME_D.out[0], HOME_D.out[1], HOME_D.out[2]), TH(HOME_D.out[3])], gate:P3(...HOME_D.gate), waitH:TH(HOME_D.waitH),
+    go:HOME_D.go.map(p => P3(...p)), back:HOME_D.back.map(p => P3(...p)),
+    cams:Object.fromEntries(Object.entries(HOME_D.cams).map(([k, [a, c]]) => [k, [P3(...a), P3(...c)]]))
+  });
 
   /* ================= XTrain: destinations, the cutscene director, being away ================= */
   const XT = {dests:[], inside:null, keep:null};
@@ -736,7 +762,7 @@ body.tr-on .topbar{visibility:hidden}
   }
   function stationTrain(S, which, lv){
     const D = S[which], tr = CS.tr || (CS.tr = makeTrain(lv || 'transit'));
-    const path = D.path, stop = frontFor(path.sAtX(D.at));
+    const path = D.path, stop = frontFor(Array.isArray(D.at) ? path.sAt(D.at[0], D.at[1]) : path.sAtX(D.at));
     return {tr, path, stop};
   }
   function hud(on){
@@ -839,7 +865,7 @@ body.tr-on .topbar{visibility:hidden}
         nw.h += Math.atan2(Math.sin(A.waitH - nw.h), Math.cos(A.waitH - nw.h)) * Math.min(1, dt * 6);
         puppet(nw.x, nw.y, nw.z, null, false, dt); shot(A.cams.wait, dt);
         const left = Math.max(0, PH.wait + PH.arrive * .6 - t); bar(barEl.querySelector('span').textContent, `下一班 ${LIVERY.transit.name} · 0:${String(Math.ceil(left)).padStart(2, '0')}`);
-        if (A.pass && CS.passS == null && !CS.passDone && t > .2){ CS.pass = makeTrainOnce('ekspres'); CS.passS = A.pass.sAtX(nw.x) - 46 * 3.4; CS.passEnd = A.pass.sAtX(nw.x) + 420; }
+        if (A.pass && CS.passS == null && !CS.passDone && t > .2){ CS.pass = makeTrainOnce('ekspres'); CS.passS = A.pass.sAt(nw.x, nw.z) - 46 * 3.4; CS.passEnd = A.pass.sAt(nw.x, nw.z) + 420; }
         if (CS.pass && CS.passS != null){ CS.passS += 46 * dt; placeTrain(CS.pass, A.pass, Math.min(A.pass.L, CS.passS));
           const p = A.pass.at(Math.min(A.pass.L, CS.passS)); if (!CS.honk && Math.hypot(p.x - nw.x, p.z - nw.z) < 160){ CS.honk = true; tone('square', 494, 490, .45, .06); tone('square', 392, 388, .6, .06, .5); noise(1.4, .12, 420); }
           if (CS.passS > CS.passEnd){ CS.pass.root.visible = false; CS.passS = null; CS.passDone = true; } }
@@ -964,11 +990,14 @@ body.tr-on .topbar{visibility:hidden}
   if (typeof roomTryF === 'function'){ const base = roomTryF; roomTryF = function(){ return trTryF() || base(); }; }
   /* minimap: the tracks, platforms and the road on the main map; the destination's own plan while away */
   if (typeof drawOutMini === 'function'){ const base = drawOutMini; drawOutMini = function(mg, X, Z, k){ base(mg, X, Z, k);
-    mg.strokeStyle = '#cfcac0'; mg.lineWidth = Math.max(1.5, 8 * k); mg.beginPath(); ROADP.forEach(([x, z], i) => i ? mg.lineTo(X(x), Z(z)) : mg.moveTo(X(x), Z(z))); mg.stroke();
-    mg.strokeStyle = '#8a8378'; mg.lineWidth = Math.max(2, 32 * k); mg.beginPath(); alignPts(0).forEach(([x, z], i) => i ? mg.lineTo(X(x), Z(z)) : mg.moveTo(X(x), Z(z))); mg.stroke();
-    mg.strokeStyle = '#4b4640'; mg.lineWidth = Math.max(1, 1.2 * k); for (const o of TZ){ mg.beginPath(); alignPts(o).forEach(([x, z], i) => i ? mg.lineTo(X(x), Z(z)) : mg.moveTo(X(x), Z(z))); mg.stroke(); }
-    mg.fillStyle = '#d8d2c6'; for (const [z0, z1] of PLAT) mg.fillRect(X(PX0), Z(z0), (PX1 - PX0) * k, (z1 - z0) * k);
-    mg.fillStyle = '#bdb3a2'; mg.fillRect(X(640), Z(1010), 136 * k, 10 * k); }; }
+    const line = (pts, col, w) => { mg.strokeStyle = col; mg.lineWidth = w; mg.beginPath(); pts.forEach(([x, z], i) => i ? mg.lineTo(X(x), Z(z)) : mg.moveTo(X(x), Z(z))); mg.stroke(); };
+    const rect = (x0, z0, x1, z1, col) => { mg.fillStyle = col; mg.beginPath(); [[x0, z0], [x1, z0], [x1, z1], [x0, z1]].forEach(([x, z], i) => { const [a, c] = T(x, z); i ? mg.lineTo(X(a), Z(c)) : mg.moveTo(X(a), Z(c)); }); mg.fill(); };
+    const XE = SX + END.e, XW = SX - END.w;
+    line(ROADW, '#cfcac0', Math.max(1.5, 8 * k));
+    rect(XW, SZ - 16, XE, SZ + 16, '#8a8378');
+    for (const o of TZ) line([T(XW, SZ + o), T(XE, SZ + o)], '#4b4640', Math.max(1, 1.2 * k));
+    for (const [z0, z1] of PLAT) rect(PX0, z0, PX1, z1, '#d8d2c6');
+    rect(640, 1010, 776, 1020, '#bdb3a2'); }; }
   { const base = drawMini; drawMini = function(cx, cz, yaw, o){ const d = XT.inside; if (d && d.mini && mode === 'naiwa' && !(o && o.g)){ g(() => d.mini(mg, mini.width)); return; } base(cx, cz, yaw, o); }; }
   /* game hooks */
   { const base = Object.assign({}, gx);
@@ -987,7 +1016,7 @@ body.tr-on .topbar{visibility:hidden}
 
   const KIT = {KB, kTri, kQuad, kPoly, kBox, kRoom, kSign, kFlat, kUp, kGeo, kMesh, kAtlas, kBoard, kDispose, kMat, kGlass, kPath, FONT, PURP, PURP2, TEAL, makeTrain, frontFor, LIVERY};
   window.XTrain = {
-    register, kit:KIT, HOME, station:{x:SX, z:SZ, y:SY, door:DOOR},
+    register, kit:KIT, HOME, station:{x:PLACE.x, z:PLACE.z, y:SY, rot:PLACE.rot, door:DOOR, tunnels:END},
     get inside(){ return XT.inside ? XT.inside.id : null; }, get on(){ return CS.on; }, get phase(){ return CS.ph; }, get dests(){ return XT.dests.map(d => d.id); },
     /* tests and the console */
     go(id){ const d = destOf(id || 'klia'); if (!d || d.soon) return false; if (XT.inside) return false; if (mode !== 'naiwa') setMode('naiwa'); if (driving) leaveCar(); nw.x = DOOR.x; nw.z = DOOR.z - 1; nw.y = SY; start(d, true); return true; },
