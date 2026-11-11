@@ -637,7 +637,8 @@ rcBtns.querySelector('#rcQuit').addEventListener('click', () => { ac(); rcAbort(
 function rcHudShow(on){ rcHudEl.hidden = !on; rcBtns.hidden = !on; rcItemBtn.hidden = !(on && RC.mode === 'items'); rcHudCache = ''; if (on) rcHudItem(); }
 function rcHudItem(){ const it = RC.me && RC.me.item; rcItemBtn.disabled = !it; rcItemBtn.firstChild.textContent = it ? RC_ITEMS[it][1] + ' ' + RC_ITEMS[it][0] : '道具'; }
 function rcResetCar(){
-  if (RC.st !== 'run' || !RC.me || driving !== RC.me.car) return;
+  if (RC.st !== 'run' || !RC.me) return;
+  if (driving !== RC.me.car){ if (RC.me.car.wrecked || nw.state === 'fly') return; if (driving) leaveCar(); enterCar(RC.me.car); }   /* on foot: 回赛道 puts you back in too */
   const T = RC.T, me = RC.me, s = Math.max(me.next > 0 ? T.cps[me.next - 1] : me.d - 6, me.d - 6);
   me.d = s; const ss = T.closed ? ((s % T.P.L) + T.P.L) % T.P.L : s, [x, z, tx, tz] = rcAt(T.P, ss);
   rcPlace(me.car, x, z, Math.atan2(tx, tz)); me.hint = rcNear(T.P, x, z).i; me.s = rcNear(T.P, x, z, me.hint).s; me.spin = 0;
@@ -777,6 +778,28 @@ window.addEventListener('keydown', e => {
 }
 
 /* ---------- for testing without animation frames (a hidden tab): XRace.sim.step(sec, each) ---------- */
+/* ---------- in a race you stay in your own car ----------
+   A hard bump (80 km/h and up, easy against the AI) or F at speed used to throw 奶娃 out; F then got you into whatever car was
+   nearest, often a rival's, and from then on none of your checkpoints counted. Now: no ejecting from the race car, F while in
+   it does nothing (退出比赛 is the way out), and F on foot gets you back into your own race car, never someone else's. */
+const rcLive = () => !!RC.me && (RC.st === 'run' || RC.st === 'count');
+function raceTryF(){
+  if (!rcLive()) return false;
+  const mc = RC.me.car;
+  if (driving === mc){ toast('比赛进行中', '想退出就点「退出比赛」', 1600); return true; }
+  if (driving){ leaveCar(); }
+  if (nw.state === 'fly') return true;
+  if (mc.wrecked){ toast('赛车撞坏了', '点「退出比赛」再来一场', 1800); return true; }
+  if (Math.hypot(mc.x - nw.x, mc.z - nw.z) < 40){ enterCar(mc); return true; }
+  toast('离你的赛车太远了', TOUCH ? '点「回赛道」直接回到车上' : '按 T 直接回到车上', 1800); return true;
+}
+{
+  const baseEject = eject;
+  window.eject = function(impact){
+    if (rcLive() && driving === RC.me.car && !RC.me.car.wrecked){ camShake = Math.max(camShake, Math.min(1.4, impact / 25)); return; }
+    return baseEject.apply(this, arguments);
+  };
+}
 window.XRace = {
   tracks:RC_TRACKS, state:RC, start:rcStart, abort:rcAbort, enc:rcEnc, dec:rcDec, near:rcNear, at:rcAt,
   sim:{

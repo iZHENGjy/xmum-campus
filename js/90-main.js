@@ -48,6 +48,7 @@ function updateActs(){
 }
 function doF(){
   if (mode !== 'naiwa' || gx.paused) return;
+  if (typeof raceTryF === 'function' && raceTryF()) return;   /* in a race F only ever puts you back in your own race car (js/92-racing.js) */
   if (!driving && typeof roomTryF === 'function' && roomTryF()) return;   /* classroom doors (js/87-classroom.js) */
   if (driving){
     const sp = Math.hypot(driving.vx, driving.vz);
