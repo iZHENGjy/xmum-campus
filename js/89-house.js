@@ -4,7 +4,8 @@
  *   走到门口按 F 看房（能先进去转一圈）和买；买下以后门牌写你的昵称（只有你自己看得到，不上传），按 F 回家。
  *   价格按附近同款排屋的真实成交价（约 RM 37–45 万，EdgeProp / list.my 的挂牌和成交记录）除以 50：RM 7,400–9,600，
  *   跟车行最贵的劳斯来斯（RM 3,000）、改装和财富榜前几名（RM 6,000–30,000）比，是个要攒一阵子的大目标。
- *   自己的车（myCar）停进自家车棚下车，下次上线车还停在那里。
+ *   自己的车（myCar）开到自家车棚前下车，自动停进车棚（地上画着停车框），下次上线车还停在那里。
+ *   出生点：第一套买下的房子自动设成出生点，打开游戏就站在家门口；装修面板顶上能改（设成别的房子，或者改回校园）。
  * 室内：搭在地图外（z = -4100，x 0 一楼、x 30 二楼，隔开一点免得两层同时入镜），没有屋顶，镜头从上往下看，跟宿舍一样。进门才生成，出门隐藏、家具释放。
  *   一楼：客厅、楼梯、饭厅、厨房、卫生间、后院；二楼：主卧、次卧、小房间。楼梯口按 F 上下楼。
  *   静态部分合并成一个 mesh（墙、门窗、楼梯、卫生间），地板一个，家具两个（普通 + 发光），换东西时整批重建。
@@ -90,9 +91,10 @@ const hzWallOf = id => HZ_WALLS.find(w => w.id === id) || HZ_WALLS[0];
 const hzFloorOf = id => HZ_FLOORS.find(f => f.id === id) || HZ_FLOORS[0];
 
 /* ---------- save ---------- */
-/* hz.own[houseId] = {t: bought (ms), s: {slot: item id placed}, it: [item ids bought], w / f: wall / floor in use, ow / of: wall / floor ids bought};
+/* hz.home = the house you start the game at (null: on the campus, as before);
+   hz.own[houseId] = {t: bought (ms), s: {slot: item id placed}, it: [item ids bought], w / f: wall / floor in use, ow / of: wall / floor ids bought};
    hz.park = the house whose carport your car was left in; hz.spent = RM spent here in all (for the cloud save's progress score) */
-const hz = {own:{}, park:null, spent:0, seen:false};
+const hz = {own:{}, park:null, home:null, spent:0, seen:false};
 function hzWrite(){ try { localStorage.setItem(HZ_KEY, JSON.stringify(hz)); } catch(e){} }
 (function hzLoad(){
   try {
@@ -105,7 +107,7 @@ function hzWrite(){ try { localStorage.setItem(HZ_KEY, JSON.stringify(hz)); } ca
       hz.own[h.id] = {t:+o.t || Date.now(), s, it:[...new Set(it)], ow:[...new Set(ow)], of:[...new Set(of)],
         w:ow.includes(o.w) ? o.w : 'white', f:of.includes(o.f) ? o.f : 'terr'};
     }
-    hz.park = hz.own[d.park] ? d.park : null; hz.spent = Math.max(0, +d.spent || 0); hz.seen = !!d.seen;
+    hz.park = hz.own[d.park] ? d.park : null; hz.home = hz.own[d.home] ? d.home : null; hz.spent = Math.max(0, +d.spent || 0); hz.seen = !!d.seen;
   } catch(e){}
 })();
 const hzMine = id => hz.own[id] || null;
@@ -192,6 +194,12 @@ function hzBuildSigns(){
       parts.push(geoTint(geoAt(uvq(new THREE.PlaneGeometry(1.6, 1), (sx + 4) / 512, 1 - (sy + 156) / 512, (sx + 252) / 512, 1 - (sy + 4) / 512), bx, by, bz - .04, 0, Math.PI, 0), '#ffffff'));
       parts.push(white(geoAt(new THREE.BoxGeometry(1.7, 1.1, .05), bx, by, bz), '#f2efe8'));
       parts.push(white(geoAt(new THREE.BoxGeometry(.09, by + .5, .09), bx - .7, (by + .5) / 2, bz + .05), '#6d7378'), white(geoAt(new THREE.BoxGeometry(.09, by + .5, .09), bx + .7, (by + .5) / 2, bz + .05), '#6d7378'));
+    }
+    if (hz.own[h.id]){
+      /* your own carport: a white parking box painted on the floor */
+      const px0 = h.park.x, pz0 = h.park.z, line = (w, d, x, z) => parts.push(white(geoAt(new THREE.BoxGeometry(w, .02, d), x, .07, z), '#f4f2ec'));
+      line(2.5, .12, px0, pz0 - 2.45); line(.12, 4.9, px0 - 1.25, pz0); line(.12, 4.9, px0 + 1.25, pz0);
+      line(.12, .9, px0 - .25, pz0 - .9); line(.5, .12, px0 + .02, pz0 - 1.35); line(.5, .12, px0 + .02, pz0 - .9); line(.12, .45, px0 + .27, pz0 - 1.12);
     }
     parts.push(geoTint(geoAt(uvq(new THREE.PlaneGeometry(.95, .3), (px + 4) / 512, 1 - (py + 76) / 512, (px + 252) / 512, 1 - (py + 4) / 512), h.ux + 2.25, 2.3, h.zf - .03, 0, Math.PI, 0), '#ffffff'));
   });
@@ -667,6 +675,7 @@ function hzStairs(s){
 function hzBuy(h){
   if (!h || hz.own[h.id] || money < h.price) return false;
   money -= h.price; hz.spent += h.price; hz.own[h.id] = {t:Date.now(), s:{}, it:[], ow:[], of:[], w:'white', f:'terr'};
+  if (!hz.home) hz.home = h.id;   /* the first house you buy is where you start the game from now on (装修面板 can change it) */
   hzWrite(); moneyChanged(); hzBuildSigns(); if (HZ.in === h) HZ.tour = false;
   sfx.sparkle(); camShake = Math.max(camShake, .2);
   gxCallout('有房了！', `${h.name} · RM ${h.price.toLocaleString()}`, '#38c6d9');
@@ -716,8 +725,9 @@ function hzUpdate(dt, px, pz){
   /* outside: labels near the houses, the F button at a door, your car in your carport */
   const near = Math.abs(px - (TWM.x0 + TWM.x1) / 2) < 90 && Math.abs(pz - TWM.z0) < 70;
   HZ_HOUSES.forEach((h, i) => { const l = hzLbls[i], on = near && Math.hypot(px - h.ux - 3, pz - TWM.z0) < 40; l.dead = !on; if (on){ const t = hzLblText(h); if (l.el.textContent !== t) l.el.textContent = t; } });
-  const d = hzNearDoor();
-  if (d){
+  const d = hzNearDoor(), cp = driving && hzCarportNear(driving);
+  if (cp){ hzSetF('停车'); hzPrompt = `${TOUCH ? '点「停车」' : '按 F '}下车，车自动停进 No. ${cp.no} 的车棚`; }
+  else if (d){
     const why = hzBusyWhy(); hzSetF(hz.own[d.id] ? '回家' : '看房');
     hzPrompt = why ? `${d.name} · ${why}` : hz.own[d.id] ? `${TOUCH ? '点「回家」' : '按 F 回家'} · ${d.name}` : `${TOUCH ? '点「看房」' : '按 F 看房'} · ${d.name} · ${d.tag} · RM ${d.price.toLocaleString()}`;
   } else hzSetF('');
@@ -732,11 +742,31 @@ function hzUpdate(dt, px, pz){
     }
   }
 }
+/* getting out of your own car next to your own carport parks it inside, nose in (no need to thread it in by hand) */
+function hzCarportNear(c){
+  if (!c || c !== myCar || Math.hypot(c.vx, c.vz) > 6) return null;
+  let best = null, bd = 1e9;
+  for (const h of hzOwnedList()){ const dx = Math.abs(c.x - h.park.x), d = dx + Math.abs(c.z - h.park.z); if (dx < 6.5 && c.z > TWM.z0 - 9 && c.z < h.zf && d < bd){ bd = d; best = h; } }
+  return best;
+}
+function hzParkIn(h){
+  const c = myCar; if (!c || driving === c) return;
+  Object.assign(c, {x:h.park.x, z:h.park.z, h:h.park.h, vx:0, vz:0, y:0, vy:0}); c.root.position.set(c.x, 0, c.z); c.root.rotation.set(0, c.h, 0);
+  nw.x = h.door.x; nw.z = h.door.z - 1; nw.h = Math.PI; nw.y = groundAt(nw.x, nw.z); camYaw = nw.h + Math.PI;
+  hz.park = h.id; hzWrite(); tone('triangle', 520, 780, .12, .08);
+  toast('停进车棚了', `${h.name} · 下次上线车还停在这里`, 2400);
+}
+{ const base = leaveCar; leaveCar = function(){ const h = hzCarportNear(driving); base(); if (h && !HZ.in) hzParkIn(h); }; }
 /* your car comes back where you left it, if that was your carport (js/80-gta.js put it by the car park when the save loaded) */
 (function hzParkOnLoad(){
   const h = hz.park && hzById(hz.park); if (!h || !myCar || !hz.own[h.id]) return;
   Object.assign(myCar, {x:h.park.x, z:h.park.z, h:h.park.h, vx:0, vz:0}); myCar.root.position.set(myCar.x, 0, myCar.z); myCar.root.rotation.y = myCar.h;
 })();
+
+/* the game starts at your front door when you have chosen a house as 出生点 */
+/* facing the house, so the camera starts out on the street (behind you would be the carport roof and the front wall) */
+function hzGoHome(h){ nw.x = h.door.x; nw.z = h.door.z - 1.6; nw.y = groundAt(nw.x, nw.z); nw.h = 0; nw.state = 'idle'; camYaw = Math.PI; }
+(function hzSpawnOnLoad(){ const h = hz.home && hzById(hz.home); if (h && hz.own[h.id]) hzGoHome(h); })();
 
 /* ---------- minimap: the floor you are on while inside, the houses on the campus map ---------- */
 function hzMini(){
@@ -780,6 +810,6 @@ hzExitMark.visible = false; for (const m of hzStairMarks) m.visible = false;
 window.XHouse = {
   houses:HZ_HOUSES, items:HZ_ITEMS, slots:HZ_SLOTS, save:hz, state:HZ, worth:hzHouseWorth,
   enter(id, tour){ const h = hzById(id) || HZ_HOUSES[0]; if (HZ.in) hzLeave(true); hzEnter(h, tour != null ? tour : !hz.own[h.id]); return h; },
-  leave(){ hzLeave(); }, buy(id){ return hzBuy(hzById(id)); },
+  leave(){ hzLeave(); }, buy(id){ return hzBuy(hzById(id)); }, parkIn(id){ hzParkIn(hzById(id)); },
   goDoor(id){ const h = hzById(id) || HZ_HOUSES[0]; if (HZ.in) hzLeave(true); if (driving) leaveCar(); nw.x = h.door.x; nw.z = h.door.z - .6; nw.h = 0; camYaw = Math.PI; return h; }
 };

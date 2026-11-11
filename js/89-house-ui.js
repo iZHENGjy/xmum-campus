@@ -10,6 +10,7 @@ const hzEl = document.createElement('div');
 hzEl.className = 'panel'; hzEl.id = 'house'; hzEl.hidden = true; hzEl.setAttribute('role', 'dialog'); hzEl.setAttribute('aria-labelledby', 'houseT');
 hzEl.innerHTML = `<button class="x" id="housex" aria-label="关闭">×</button>
   <div class="shop-h"><h2 id="houseT">装修</h2><span id="houseMoney">RM 0</span></div>
+  <div class="hz-home" id="houseHome" hidden></div>
   <div class="wd-tabs" id="houseTabs" role="tablist"></div>
   <div class="hz-set" id="houseSet" hidden></div>
   <div class="wd-grid" id="houseList" role="listbox"></div>
@@ -110,18 +111,21 @@ function hzRender(){
   const tabs = hzQ('#houseTabs'), list = hzQ('#houseList'), info = hzQ('#houseInfo'), set = hzQ('#houseSet');
   if (hzUi.mode === 'view'){
     hzQ('#houseT').textContent = `No. ${h.no} · 出售`;
-    tabs.hidden = list.hidden = set.hidden = true; info.hidden = false;
+    tabs.hidden = list.hidden = set.hidden = hzQ('#houseHome').hidden = true; info.hidden = false;
     const n = hzOwnedList().length;
     info.innerHTML = `<div class="hz-tags"><b>${h.tag}</b><span>双层排屋</span><span>3 房 2 卫</span><span>约 1,195 平方尺</span><span>带车棚和后院</span></div>
       <p class="hz-lead">${h.desc}</p>
       <dl class="hz-dl"><dt>地址</dt><dd>${h.name}（Taman Warisan Megah，Bell Avenue 后面，离南门约 160 米）</dd>
       <dt>价格</dt><dd><b>${hzFmt(h.price)}</b>。附近同款排屋真实成交价大约 RM 37–45 万，这套按 RM ${h.real} 万算，游戏里除以 50。</dd>
-      <dt>格局</dt><dd>一楼客厅、饭厅、厨房、卫生间、后院；二楼主卧、次卧、小房间。门口车棚停得下你的车，停进去下车，下次上线车还在。</dd>
+      <dt>格局</dt><dd>一楼客厅、饭厅、厨房、卫生间、后院；二楼主卧、次卧、小房间。开着自己的车到门口车棚前下车，车自动停进车棚，下次上线还在。第一套房子买下后自动设成<b>出生点</b>，打开游戏就站在家门口（装修面板里能改）。</dd>
       <dt>装修</dt><dd>五套风格、九个位置，家具一件件买；墙面、地板另外换。电竞房要改装道具，奶娃主题要解锁够多成就。</dd>
       <dt>总资产</dt><dd>房价和装修全部按原价算进总资产，财富排行榜上一分不少。${n ? `你已经有 ${n} 套了。` : ''}</dd></dl>`;
     hzRenderFoot(); return;
   }
   info.hidden = true; tabs.hidden = list.hidden = false;
+  /* 出生点: where the game starts. One line on top, one button */
+  { const home = hz.home && hzById(hz.home), here = hz.home === h.id, el = hzQ('#houseHome'); el.hidden = false;
+    el.innerHTML = `<span>🏠 出生点：<b>${here ? '就在这套房子门口' : home ? 'No. ' + home.no + ' 门口' : '校园里（车行旁边）'}</b></span><button type="button" class="btn" data-home="${here ? '' : h.id}">${here ? '改回校园' : '设成这里'}</button>`; }
   hzQ('#houseT').textContent = `装修 · No. ${h.no}`;
   const o = hz.own[h.id];
   tabs.innerHTML = HZ_STYLES.map(s => { const n = HZ_ITEMS.filter(it => it.st === s.id && o.it.includes(it.id)).length;
@@ -191,6 +195,12 @@ hzQ('#houseSet').addEventListener('click', e => {
   hzUi.look.s = Object.assign({}, o.s); hzUi.sel = null;
   hzWrite(); moneyChanged(); hzDress(hzUi.look); sfx.sparkle(); hzCheckAch(h.id); hzRender();
 });
+hzQ('#houseHome').addEventListener('click', e => {
+  const b = e.target.closest('[data-home]'); if (!b) return; ac();
+  hz.home = b.dataset.home && hz.own[b.dataset.home] ? b.dataset.home : null; hzWrite(); tone('triangle', 660, 880, .1, .07);
+  hzDone(hz.home ? '出生点设好了' : '出生点改回校园了', hz.home ? '下次打开游戏就站在这套房子门口' : '下次打开游戏在车行旁边');
+  hzRender();
+});
 hzQ('#houseAlt').addEventListener('click', () => {
   ac(); if (hzUi.mode !== 'view' || HZ.in) return;
   const h = hzUi.h; hzUiClose(true); hzEnter(h, true);
@@ -201,7 +211,7 @@ hzQ('#houseGo').addEventListener('click', () => {
     if (!hzBuy(h)){ hzRender(); return; }
     const inside = HZ.in === h; hzUiClose(true);
     if (!inside) hzEnter(h); else hzUiOpen('deco', h);
-    toast('房子是你的了', `${TOUCH ? '点「装修」' : '按 F'}挑风格买家具，门口车棚能停你的车`, 3600);
+    toast('房子是你的了', `${hz.home === h.id ? '出生点设在这里了，' : ''}${TOUCH ? '点「装修」' : '按 F'}挑风格买家具；开车到车棚前下车，车自动停好`, 4200);
     return;
   }
   const s = hzSelInfo(); if (!s) return;
