@@ -1,6 +1,7 @@
 /* 仅供本地测试：一个内存里的假 firebase，同一个浏览器里开的几个标签页共用一份数据（BroadcastChannel），
  * 所以两个窗口能互相看到、互发邀请，测 js/96-social.js 的搭车和挑战。不检查数据库规则（下面两个开关除外）。
  * 由 test/social.html 注入，代替 js/firebase-config.js。每个标签页的 uid 是 'mock-' + ?p= 的值。
+ * db.goOffline() / goOnline()：像真的一样断开、重连（见下面）。
  * ?oldrules：模拟还没发布新规则的数据库：拒绝带互动字段的 presence，也拒绝新的 /pres 和 /on（js/net.js 应该退回旧的 /presence）。
  *
  * 流量计：按真实 Firebase 的线上格式估算每条推送的字节数（{"t":"d","d":{"a":"d|m","b":{"p":路径,"d":数据}}}，
@@ -39,7 +40,42 @@
     if (v == null) delete o[last]; else o[last] = v;
   }
   /* 一批写入（set 一条，或 update 的多条路径）：先记下每个监听的旧值，全部写完再按差别发事件，每个孩子最多一个事件 */
+  /* goOffline / goOnline：断开时服务器替我们执行 onDisconnect；断开期间收不到别人的写入（数据照样记下，只是不发事件）；
+     自己的写入先在本地生效、连上以后再发出去；连上时每个监听按「断开前看到的」和「现在」的差别补发事件（像真的重新同步一样） */
+  let online = true, frozen = null;
+  const infoL = [], outQ = [];
+  function goOffline(){
+    if (!online) return;
+    online = false; frozen = new Map(listeners.map(L => [L, clone(get(L.path))]));
+    const w = [...disc.keys()].map(p => [p, null]); disc.clear();
+    for (const [p, v] of w) setRaw(p, v);
+    if (bc && w.length) bc.postMessage({op:'w', writes:w, wire:null});
+    for (const cb of infoL) try { cb(snap('.info/connected', false)); } catch(e){ console.error('[MOCK]', e); }
+  }
+  function goOnline(){
+    if (online) return;
+    online = true;
+    for (const q of outQ.splice(0)){ tx(bytes(q.wire)); if (bc) bc.postMessage({op:'w', writes:q.writes, wire:q.wire}); }
+    const fz = frozen; frozen = null; const paths = new Set();
+    for (const L of [...listeners]){
+      if (!paths.has(L.path)){ paths.add(L.path); rx(bytes(msg('d', L.path, clone(get(L.path))))); }
+      if (!fz || !fz.has(L)) continue;
+      const was = fz.get(L), now = get(L.path);
+      try {
+        if (L.ev === 'value'){ if (JSON.stringify(was) !== JSON.stringify(now == null ? null : now)) L.cb(snap(L.path, now)); continue; }
+        const a = was && typeof was === 'object' ? was : {}, b = now && typeof now === 'object' ? now : {};
+        for (const k of new Set([...Object.keys(a), ...Object.keys(b)])){
+          const cp = L.path + '/' + k;
+          if (!(k in b)){ if (L.ev === 'child_removed') L.cb(snap(cp, a[k])); }
+          else if (!(k in a)){ if (L.ev === 'child_added') L.cb(snap(cp, b[k])); }
+          else if (L.ev === 'child_changed' && JSON.stringify(a[k]) !== JSON.stringify(b[k])) L.cb(snap(cp, b[k]));
+        }
+      } catch(e){ console.error('[MOCK] listener', e); }
+    }
+    for (const cb of infoL) try { cb(snap('.info/connected', true)); } catch(e){ console.error('[MOCK]', e); }
+  }
   function apply(writes, remote, wire){
+    if (remote && !online){ for (const [p, v] of writes) setRaw(p, v); return; }
     const paths = writes.map(w => w[0]);
     const rel = listeners.filter(L => paths.some(p => related(p, L.path)));
     const before = rel.map(L => clone(get(L.path)));
@@ -66,6 +102,11 @@
     if (kind === 'update') writes = Object.keys(data).map(k => [split(base + '/' + k).join('/'), data[k] == null ? null : resolve(data[k])]);
     else writes = [[base, data == null ? null : resolve(data)]];
     const wire = msg(kind === 'update' ? 'm' : 'd', base, kind === 'update' ? Object.fromEntries(writes.map(([p, v]) => [p.slice(base.length).replace(/^\//, ''), v])) : writes[0][1]);
+    if (!online){                                       // 断开时：本地先生效，连上再发
+      apply(writes, false); outQ.push({writes, wire});
+      if (frozen) for (const L of frozen.keys()) if (writes.some(w => related(w[0], L.path))) frozen.set(L, clone(get(L.path)));
+      return;
+    }
     tx(bytes(wire)); const t = T(); t.rx += ACK; t.rxN++;
     apply(writes, false);
     if (bc) bc.postMessage({op:'w', writes, wire});
@@ -83,7 +124,7 @@
     };
     bc.postMessage({op:'hello'});
   }
-  const info = p => (p === '.info/connected' ? true : p === '.info/serverTimeOffset' ? 0 : undefined);
+  const info = p => (p === '.info/connected' ? online : p === '.info/serverTimeOffset' ? 0 : undefined);
   function ref(path){
     path = split(path).join('/');
     const oldDeny = v => OLD && ((/^presence\//.test(path) && v && ['fx', 'ride', 'rs', 'duel', 'ds', 'dnd'].some(k => k in v)) || newRule(path));
@@ -106,7 +147,7 @@
         if (OLD && newRule(path)){ setTimeout(() => { if (cancel) cancel(Object.assign(new Error('PERMISSION_DENIED'), {code:'PERMISSION_DENIED'})); }, 0); return cb; }
         const i = info(path);
         if (i === undefined && !listeners.some(L => L.path === path)) rx(bytes(msg('d', path, clone(get(path)))));   // 开始监听：服务器先推一次整份
-        if (ev === 'value'){ if (i === undefined) listeners.push({path, ev, cb}); setTimeout(() => cb(snap(path, i !== undefined ? i : get(path))), 0); return cb; }
+        if (ev === 'value'){ if (i === undefined) listeners.push({path, ev, cb}); else if (path === '.info/connected') infoL.push(cb); setTimeout(() => cb(snap(path, i !== undefined ? i : get(path))), 0); return cb; }
         listeners.push({path, ev, cb});
         if (ev === 'child_added'){ setTimeout(() => { const o = get(path) || {}; Object.keys(o).forEach(k => { if (get(path + '/' + k) != null && listeners.some(L => L.cb === cb)) cb(snap(path + '/' + k, o[k])); }); }, 0); }
         return cb;
@@ -126,13 +167,15 @@
     return r;
   }
   const user = {uid:'mock-' + P, isAnonymous:true, providerData:[]};
-  const app = {auth:() => ({signInAnonymously:() => Promise.resolve({user}), currentUser:user, onAuthStateChanged(cb){ setTimeout(() => cb(user), 0); return () => {}; }, signOut:() => Promise.resolve()}), database:() => ({ref})};
+  const app = {auth:() => ({signInAnonymously:() => Promise.resolve({user}), currentUser:user, onAuthStateChanged(cb){ setTimeout(() => cb(user), 0); return () => {}; }, signOut:() => Promise.resolve()}), database:() => ({ref, goOffline, goOnline})};
   window.firebase = {apps:[], initializeApp(){ this.apps.push(app); return app; }, app:() => app, auth:() => app.auth(), database:Object.assign(() => app.database(), {ServerValue:{TIMESTAMP:TS}})};
   /* put / update：给 test/social-bots.js、test/crowd-bots.js 的假玩家直接写；listeners 给测试看订阅了哪些路径 */
   /* 假玩家的写入对这个标签页来说是「别人写的」：监听着就算下载 */
   const put = (path, v) => { const w = [[split(path).join('/'), v == null ? null : resolve(v)]], wire = msg('d', w[0][0], w[0][1]); apply(w, true, wire); if (bc) bc.postMessage({op:'w', writes:w, wire}); };
   const update = (base, o) => { const w = Object.keys(o).map(k => [split(base + '/' + k).join('/'), o[k] == null ? null : resolve(o[k])]), wire = msg('m', split(base).join('/'), resolve(o)); apply(w, true, wire); if (bc) bc.postMessage({op:'w', writes:w, wire}); };
-  window.__mock = {get, put, update, root, uid:user.uid, ref, listeners, disc};
-  const bye = () => { const w = [...disc.keys()].map(p => [p, null]); disc.clear(); if (w.length){ apply(w, false); if (bc) bc.postMessage({op:'w', writes:w, wire:null}); } };
+  /* botDisc：同一个标签页里的假玩家「下线时删掉」的路径。和本页的 disc 分开：本页 goOffline 不会把假玩家也删掉，关页面时才删 */
+  const botDisc = new Map();
+  window.__mock = {get, put, update, root, uid:user.uid, ref, listeners, disc, botDisc, get online(){ return online; }, goOffline, goOnline};
+  const bye = () => { const w = [...disc.keys(), ...botDisc.keys()].map(p => [p, null]); disc.clear(); botDisc.clear(); if (w.length){ apply(w, false); if (bc) bc.postMessage({op:'w', writes:w, wire:null}); } };
   window.addEventListener('pagehide', bye); window.addEventListener('beforeunload', bye);
 })();

@@ -31,7 +31,7 @@
     if (b.fx && Date.now() - b.fxAt < 8000) o.fx = b.fx;
     if (b.ride){ o.ride = b.ride; o.rs = b.rs; }
     if (b.duel && b.duel.run){ o.duel = b.duel.opp; if (b.duel.g === 'stunt') o.ds = Math.round(b.duel.ds); }
-    if (!XNet.netInfo || !XNet.netInfo().gridOK){ M().put('presence/' + b.uid, o); M().disc.set('presence/' + b.uid, 1); return; }
+    if (!XNet.netInfo || !XNet.netInfo().gridOK){ M().put('presence/' + b.uid, o); M().botDisc.set('presence/' + b.uid, 1); return; }
     XCrowdModel.write(b, o);
   }
   /* ---- messages ---- */
