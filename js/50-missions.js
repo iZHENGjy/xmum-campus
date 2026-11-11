@@ -33,15 +33,17 @@ const DESTS = infos.filter(i => ['宿舍', '教学', '主楼', '二期', '交流
   .concat(typeof OUT_DESTS !== 'undefined' ? OUT_DESTS : []);   /* outside the gate: js/13-outskirts.js */
 let money = 0, deliveries = 0;
 const mission = {on:false, from:null, to:null, t:0, limit:0};
+const DELIV_EASE = 1.35;   /* delivery time limits are 35% longer than before (players found them too tight); pay is unchanged */
 const missionEl = $('#mission'), moneyEl = $('#money');
 /* one order from this pick-up: rush = less time, more pay; far ones carry a distance fee (RM 4 per 100 m), so the three on the card are really worth different money.
    est is what it pays if you drive it at an ordinary pace */
 function missionOrder(pk, to, rush){
   const dist = Math.hypot(to.x - pk.x, to.z - pk.z), hot = pk === hotPk && prog.daily !== dayKey();
   const cross = typeof outCross === 'function' ? outCross(pk, to) : null;   /* through the gate: longer limit, better pay (js/89-outskirts-play.js) */
-  const limit = Math.round((cross ? cross.limit : dist / 13 + 14) * (rush ? .72 : 1)), mult = rush ? 1.5 : 1, route = cross ? cross.route : dist;
-  const fee = route * .04, est = (25 + fee + Math.max(0, limit - route / 16) * 1.2) * (hot ? 2 : 1) * (cross ? cross.mult : 1) * mult * (typeof outCred === 'function' ? outCred() : 1);
-  return {to, dist, route, limit, hot, cross, rush:!!rush, mult, fee, est};
+  /* DELIV_EASE: 35% more time than the pay is worked out from; the extra seconds are a cushion, not money (grace below) */
+  const base = Math.round((cross ? cross.limit : dist / 13 + 14) * (rush ? .72 : 1)), limit = Math.round(base * DELIV_EASE), grace = limit - base, mult = rush ? 1.5 : 1, route = cross ? cross.route : dist;
+  const fee = route * .04, est = (25 + fee + Math.max(0, base - route / 16) * 1.2) * (hot ? 2 : 1) * (cross ? cross.mult : 1) * mult * (typeof outCred === 'function' ? outCred() : 1);
+  return {to, dist, route, limit, grace, hot, cross, rush:!!rush, mult, fee, est};
 }
 /* what a pick-up has on the counter right now: a short one, a long one (through the gate when there is one), and a rush order */
 function missionOrders(pk){
@@ -57,7 +59,7 @@ function missionOrders(pk){
 function startMission(pk, o){
   o = o || missionOrders(pk)[0]; if (!o) return;
   const {to, hot, cross} = o;
-  Object.assign(mission, {on:true, from:pk, to, limit:o.limit, t:0, hot, cross, mult:o.mult, fee:o.fee, rush:o.rush, stolen:false, recovered:false}); mission.t = mission.limit;
+  Object.assign(mission, {on:true, from:pk, to, limit:o.limit, grace:o.grace || 0, t:0, hot, cross, mult:o.mult, fee:o.fee, rush:o.rush, stolen:false, recovered:false}); mission.t = mission.limit;
   destMark.position.set(to.x, .1, to.z); destMark.visible = true;
   sfx.ding(); toast((hot ? '今日加急：' : o.rush ? '加急单：' : '接单：') + pk.name + ' → ' + to.name, `限时 ${mission.limit} 秒` + (hot ? ' · 今天第一单报酬翻倍' : o.rush ? ' · 时间紧，报酬 ×1.5' : cross ? ` · 跨区远单报酬 ×${cross.mult}` : '，找辆车会快很多'), 3000);
 }
@@ -94,7 +96,7 @@ function updateMission(dt, px, pz){
   missionEl.textContent = mission.stolen ? `被抢了 ${Math.max(0, Math.ceil(mission.t))} 秒 · 追上小偷拿回来` : `${mission.from.name} → ${mission.to.name} · ${Math.max(0, Math.ceil(mission.t))} 秒 · ${Math.round(d)} 米`;
   missionEl.classList.toggle('urgent', mission.t < 10 || !!mission.stolen);
   if (d < 5.5 && !mission.stolen){
-    const pay = (25 + (mission.fee || 0) + mission.t * 1.2) * (mission.hot ? 2 : 1) * (mission.cross ? mission.cross.mult : 1) * (mission.mult || 1) * (typeof outCred === 'function' ? outCred() : 1); deliveries++; sess.deliv++; prog.life.deliv++;
+    const pay = (25 + (mission.fee || 0) + Math.max(0, mission.t - (mission.grace || 0)) * 1.2) * (mission.hot ? 2 : 1) * (mission.cross ? mission.cross.mult : 1) * (mission.mult || 1) * (typeof outCred === 'function' ? outCred() : 1); deliveries++; sess.deliv++; prog.life.deliv++;
     if (mission.hot) prog.daily = dayKey();
     earn(pay);
     sfx.ding(); toast((mission.hot || mission.rush ? '加急送达 ' : '送达 ') + mission.to.name, `+RM ${pay.toFixed(2)} · 已送 ${deliveries} 单`, 2600);
