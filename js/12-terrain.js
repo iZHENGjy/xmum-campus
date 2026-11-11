@@ -5,7 +5,7 @@
 /* ---------- map bounds: the campus hedge ring stays a wall, open only where the road leaves the main gate ---------- */
 Object.assign(MAP, {x0:-1080, x1:820, z0:-560, z1:1180});
 const CAMPUS_R = {x0:-603, x1:603, z0:-278, z1:265};
-const GATE_GAP = [GX - GATE_FRONT.lane - GATE_FRONT.lw / 2, GX + GATE_FRONT.lane + GATE_FRONT.lw / 2];   /* the gate and its two lanes: the closed gate, the porches and the stone stop you by their own colliders (js/42-gate.js) */
+const GATE_GAP = [GX - GATE_FRONT.porch - 4, GX + GATE_FRONT.porch + 4];   /* the gate, its two lanes and the porches: the closed gate, the stone and the porches stop you by their own colliders (js/42-gate.js) */
 MAP.wall = (x, z, r) => {
   if (x + r > -603 && x - r < 603){
     if (z + r > -278 && z - r < -275) return true;

@@ -550,14 +550,14 @@ function stadPt(r, u){
 /* GX: the axis (AXIS_PX, js/09-azone.js); GXW: where it used to run, 15 m east (the scenery's stand-ins stay there until the first frame).
    FENCE_Z: where the old inner fence ran; scenery is still kept back from it, so the layout stays put */
 const [GX] = P(AXIS_PX, 0), [GXW] = P(AXIS_WAS_PX, 0), FENCE_Z = 214;
-/* the gateway (js/42-gate.js): the iron gate is closed and stands back between the two porches (z = gz); in front of it, on the axis, the black name stone
-   (sz) on the back of a long granite pool with a row of jets (pz0..pz1, half-width hw), then paving down to Jalan Sunsuria. Cars go in and out by the two
-   lanes beyond the porches (centre GX ± lane, width lw: IN on the west, OUT on the east), as at the real gate. */
-const GATE_FRONT = {gz:255.6, sz:258.3, pz0:259.15, pz1:261.9, hw:5.9, lane:21.6, lw:7.6};
+/* the gateway (js/42-gate.js), as at the real gate, from the axis outward: the iron gate, closed (z = gz), with the black name stone in front of it (sz) on the back
+   of a long granite pool with a row of jets (pz0..pz1, half-width hw); a lane each side of it (centre GX ± lane, width lw: IN on the west, OUT on the east),
+   each with a boom; beyond the lanes the two porches (centre GX ± porch): the guard booth under the east one, the way in on foot through the west one. */
+const GATE_FRONT = {gz:255.6, sz:258.3, pz0:259.15, pz1:261.9, hw:5.9, lane:11.2, lw:7, porch:21.6};
 /* the south boundary (z = 263.5): wrought-iron railing on a granite plinth either side of the gate, the hedge everywhere else, and gaps in the hedge
    where you can drive straight out onto Jalan Sunsuria (opposite the KIP turn-off and the Bell Avenue driveway, and a few more). js/42-gate.js draws
    the railing and the gaps and opens the gaps in MAP.wall. */
-const SOUTH_RAIL = [[GX - 100, GX - 26.2], [GX + 26.2, GX + 66]];   /* up to the outer side of the two gate lanes */
+const SOUTH_RAIL = [[GX - 100, GX - 28.4], [GX + 28.4, GX + 66]];   /* up to the brick gate pillars at the outer ends of the porches (js/13-outskirts.js) */
 const SOUTH_OPEN = [-470, -265, -62, 264, 455].map(x => ({x, w:12}));
 /* the iron fence that used to run 50 m inside the hedge (it cut across the road at both ends and was in the way everywhere): gone. Its colliders stay
    while the trees and props are scattered, so they land exactly where they did, and js/42-gate.js takes them out afterwards. The same goes for the

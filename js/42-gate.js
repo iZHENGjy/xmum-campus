@@ -88,15 +88,15 @@ function ironRail(list, xa, xb, z, y0, h, sp){
 })();
 
 /* ---------- the gate: black wrought iron with gilded spear tips under one gilded arch, closed; a flat-roofed porch on white Roman columns each side; the two lanes ----------
-   As at the real gate: the iron gate stands back between the porches (z = GATE_FRONT.gz) and the name stone with its pool is in front of it, on the axis (js/10-world.js).
-   Cars come in by the west lane and leave by the east one (Malaysia drives on the left), past a raised boom, with the brick gate pillars (js/13-outskirts.js)
-   between lane and porch. The east porch shelters the guard booth, whose big windows are lit at night; the west one is the way in on foot.
+   As at the real gate, from the axis outward (GATE_FRONT, js/10-world.js): the iron gate, closed, with the name stone and its pool in front of it; a lane each side,
+   cars coming in by the west one and leaving by the east one (Malaysia drives on the left), each past a raised boom on its outer side; then the porches
+   (the brick gate pillars, js/13-outskirts.js, stand at their outer ends): the east one shelters the guard booth beside the OUT lane, whose big windows are lit at night; the west one is the way in on foot.
    Nothing here reaches the perimeter road (z < 252), so the race line is clear. */
 (function(){
   const GF = GATE_FRONT, GZ = GF.gz, IN = 6.6, P2 = [], glass = [], WHITE = '#eee8dc', IRON = '#17191c', GOLD = '#c9982e';
   const iron = [];
   /* the two leaves meet on the axis under one arch, highest in the middle: a heavy frame, a middle rail, bars up to the arch with gilded tips, a band of gilded
-     rings under the arch, a gilded roundel on each leaf; an iron post with a gilded ball each side, and a short run of railing to the porch's first column */
+     rings under the arch, a gilded roundel on each leaf; an iron post with a gilded ball each side, the lanes going past it */
   const top = x => 2.6 + .9 * Math.cos(Math.PI / 2 * Math.min(1, Math.abs(x - GX) / (IN - .3)));
   for (const s of [-1, 1]){
     const lx0 = GX + s * (IN - .3), lx1 = GX + s * .03, LX = t => lx0 + (lx1 - lx0) * t;
@@ -107,9 +107,8 @@ function ironRail(list, xa, xb, z, y0, h, sp){
     for (let i = 0; i < 9; i++){ const x = LX((i + .5) / 9); iron.push(geoTint(new THREE.TorusGeometry(.17, .032, 4, 14).translate(x, top(x) - .62, GZ).toNonIndexed(), GOLD)); }
     for (const r of [.42, .17]) iron.push(geoTint(new THREE.TorusGeometry(r, .04, 4, 22).translate(LX(.5), .82, GZ).toNonIndexed(), GOLD));
     tbox(P2, .55, 3.9, .55, GX + s * IN, 1.95, GZ, IRON); P2.push(geoTint(new THREE.SphereGeometry(.28, 10, 8).translate(GX + s * IN, 4.14, GZ).toNonIndexed(), GOLD));
-    tbox(P2, 1.1, .35, .5, GX + s * 7.42, .175, GZ, '#b9b1a2'); ironRail(iron, GX + s * 6.9, GX + s * 7.92, GZ, .35, 2.3);
   }
-  gateLate.push(() => addBox(GX, GZ, 7.95, .35, 0));
+  gateLate.push(() => addBox(GX, GZ, IN + .3, .35, 0));
   { const fm = new THREE.Mesh(geoMerge(iron), decoMat); fm.castShadow = XQ.tier > 1; ironMeshes.push(fm); scene.add(fm); }
 
   /* a Roman column: square plinth, moulded base, tapering shaft, flared capital under a square abacus (4.8 m in all) */
@@ -120,28 +119,30 @@ function ironRail(list, xa, xb, z, y0, h, sp){
     addCircle(x, z, .62);
   };
   for (const s of [-1, 1]){
-    const xc = GX + s * 12, zc = 257.8;
+    const xc = GX + s * GF.porch, zc = 257.8;
     for (const dx of [-3.6, 0, 3.6]) for (const dz of [-2.6, 2.6]) column(xc + dx, zc + dz);
     tbox(P2, 9.4, .3, 7.4, xc, 4.95, zc, '#e4ddd0'); tbox(P2, 9.9, .5, 7.9, xc, 5.35, zc, WHITE); tbox(P2, 10.3, .16, 8.3, xc, 5.68, zc, '#f6f2ea');   /* frieze, flat roof, cornice */
     for (const dx of [-2.2, 2.2]) glass.push(new THREE.BoxGeometry(1.5, .06, 1.5).translate(xc + dx, 4.78, zc));                                              /* down-lights under the roof */
     gatePools.push([xc, .1, zc, 8.5]);
     gateClear.push([xc - 5.4, zc - 4.4, xc + 5.4, zc + 4.2]);
   }
-  /* guard booth under the east porch: a low wall, a band of big windows all round, a solid top */
-  { const bx = GX + 12, bz = 257.8, bw = 4.6, bd = 3.2;
+  /* guard booth under the east porch, on the side of the OUT lane: a low wall, a band of big windows all round, a solid top */
+  { const bx = GX + GF.porch - 1.2, bz = 257.8, bw = 4.6, bd = 3.2;
     tbox(P2, bw, 1, bd, bx, .5, bz, WHITE); tbox(P2, bw, 1.3, bd, bx, 3.75, bz, WHITE); tbox(P2, bw + .3, .12, bd + .3, bx, 1.04, bz, '#d9d2c4');
     for (const sx of [-1, 1]) for (const sz2 of [-1, 1]) tbox(P2, .22, 2.1, .22, bx + sx * (bw / 2 - .11), 2.05, bz + sz2 * (bd / 2 - .11), '#3a3d42');
     tbox(P2, .1, 2.1, .1, bx, 2.05, bz - bd / 2 + .05, '#3a3d42'); tbox(P2, .1, 2.1, .1, bx, 2.05, bz + bd / 2 - .05, '#3a3d42');
     glass.push(new THREE.BoxGeometry(bw - .3, 2.05, bd - .3).translate(bx, 2.07, bz));
     addBox(bx, bz, bw / 2 + .2, bd / 2 + .2, 0); }
   /* west porch: the pedestrian way in, three low turnstile posts and a notice board */
-  { const bx = GX - 12, bz = 257.8;
+  { const bx = GX - GF.porch, bz = 257.8;
     for (const dx of [-1.6, 0, 1.6]){ tbox(P2, .28, 1.05, .28, bx + dx, .525, bz, '#8f959b'); tbox(P2, .9, .07, .07, bx + dx + .45, .9, bz, '#c9ced3'); }
     tbox(P2, 2.2, 1.5, .1, bx - 2.6, 1.55, bz + 2.2, '#26323c'); tbox(P2, .1, .8, .1, bx - 3.5, .4, bz + 2.2, '#3a3d42'); tbox(P2, .1, .8, .1, bx - 1.7, .4, bz + 2.2, '#3a3d42'); }
-  /* granite paving under the porches and in front of the gate, down to the edge of Jalan Sunsuria (its kerb stops in front of the stone, where the road
-     across the median to Bell Avenue starts; the lanes are asphalt: js/12-terrain.js) */
-  { const x0 = GF.lane - GF.lw / 2 - .2, ap = new THREE.Mesh(new THREE.PlaneGeometry(x0 * 2, 14).rotateX(-Math.PI / 2), regWet(flatMat('#77726a', 6), .35)); ap.position.set(GX, .05, 259); ap.receiveShadow = true; scene.add(ap); }
-  /* the lanes: a boom on the outer side of each, raised (red and white bands); IN by the west lane for traffic coming in, OUT by the east one */
+  /* granite paving in front of the gate and under the porches, down to the edge of Jalan Sunsuria (its kerb stops across the gateway, where the road
+     across the median to Bell Avenue starts; the lanes between are asphalt: js/12-terrain.js) */
+  { const xi = GF.lane - GF.lw / 2 - .1, xo = GF.lane + GF.lw / 2 + .1, xe = GF.porch + 5.2, ap = [new THREE.PlaneGeometry(xi * 2, 14).rotateX(-Math.PI / 2).translate(GX, 0, 259)];
+    for (const s of [-1, 1]) ap.push(new THREE.PlaneGeometry(xe - xo, 14).rotateX(-Math.PI / 2).translate(GX + s * (xo + xe) / 2, 0, 259));
+    const m = new THREE.Mesh(geoMergeUV(ap), regWet(flatMat('#77726a', 6), .35)); m.position.y = .05; m.receiveShadow = true; scene.add(m); }
+  /* the lanes: a boom on the outer side of each (by the booth on the east), raised (red and white bands); IN by the west lane for traffic coming in, OUT by the east one */
   for (const s of [-1, 1]){
     const px = GX + s * (GF.lane + GF.lw / 2 - .45), pz = 257.6, A = 1.22, seg = .9;
     tbox(P2, .5, 1.1, .5, px, .55, pz, '#d9d6cf'); tbox(P2, .56, .14, .56, px, 1.1, pz, '#c4502a');
@@ -158,7 +159,8 @@ function ironRail(list, xa, xb, z, y0, h, sp){
     g.fillStyle = '#1d4f9a'; g.fillRect(0, 0, 128, 64); g.fillStyle = '#b3261e'; g.fillRect(128, 0, 128, 64); g.strokeStyle = '#ffffff'; g.lineWidth = 4; g.strokeRect(4, 4, 120, 56); g.strokeRect(132, 4, 120, 56);
     g.fillStyle = '#ffffff'; g.font = '900 40px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('IN', 64, 34); g.fillText('OUT', 192, 34);
     const quads = [], bz = 262.4;
-    for (const [x, u0, face] of [[GX - 18.4, 0, 1], [GX + 18.4, .5, -1]]){
+    const bx = GF.lane + GF.lw / 2 + .3;   /* on the outer edge of each lane, in front of the porch */
+    for (const [x, u0, face] of [[GX - bx, 0, 1], [GX + bx, .5, -1]]){
       tbox(P2, .1, 2.2, .1, x, 1.1, bz, '#c9ced3');
       for (const f2 of [1, -1]){ const q = new THREE.PlaneGeometry(1.1, .55), uv = q.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setX(i, u0 + uv.getX(i) * .5); if (f2 * face < 0) q.rotateY(Math.PI); quads.push(q.translate(x, 2.45, bz + f2 * face * .06).toNonIndexed()); }
     }

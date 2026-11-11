@@ -258,7 +258,7 @@ const umbSpots = [];
 /* ---------- bollards at the gate entrances, trimmed hedges along the axis, flowering shrubs at building fronts ---------- */
 const bollardSpots = [], hedgeSpots = [], shrubSpots = [];
 (function(){
-  for (const s of [-1, 1]){ const xc = GX + s * GATE_FRONT.lane; for (let x = xc - 4.6; x <= xc + 4.61; x += 1.53) bollardSpots.push({x, z:209.5, r:0, s:1}); }   /* across the two walks in from the gate lanes */
+  for (const s of [-1, 1]){ const xc = GX + s * GATE_FRONT.porch; for (let x = xc - 4.6; x <= xc + 4.61; x += 1.53) bollardSpots.push({x, z:209.5, r:0, s:1}); }   /* across the two walks in from the gate porches */
   const bGeo = geoMerge([geoTint(new THREE.CylinderGeometry(.14, .16, .85, 10).translate(0, .43, 0), '#d9d6cf'), geoTint(new THREE.CylinderGeometry(.165, .165, .1, 10).translate(0, .7, 0), '#c4502a'),
     geoTint(new THREE.SphereGeometry(.14, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, .855, 0), '#d9d6cf')]);
   const bol = instanced(bGeo, M('#ffffff', {vertexColors:true, roughness:.6}), bollardSpots); bol.castShadow = false;
