@@ -1,5 +1,5 @@
 /* XMUM 校园漫游 · A 区台地：A1–A5 坐在一块高 6.5 m 的台地上（底下是地下停车场）。
-   前面：花岗岩大台阶和草坡落到长廊和大草坪；后面：缓坡一直落到环湖路；两头是挡土墙，东头墙脚开着停车场入口。
+   前面：花岗岩大台阶和草坡落到长廊和大草坪；后面：缓坡一直落到环湖路，A5 后面切进坡里的是停车场入口；西头是挡土墙，东头是草坡加一段台阶。
    这个文件在 js/10-world.js 之前加载，只放形状和高度（azY），路、长廊和湖边的线也在这里定，10-world 直接用。
    画台地、台阶、挡土墙、楼底座、连廊、亭子，把楼抬上去，都在 azBuild() 里，由 js/42-gate.js 在树和小物件摆完以后调用。 */
 'use strict';
@@ -12,9 +12,11 @@ const AZ = (() => {
   const BL = [[-83, 107.5], [-27, 90], [-10, 86], [47, 74], [63, 44.5], [112, 44.5], [147, 57], [156, 66], [222, 66], [232, 62], [302, 72], [324, 72]];
   /* the top: TL, the east wall, BL backwards, the west wall (along A1's west face, beside the auditorium) */
   const R = TL.concat(BL.slice().reverse());
-  /* garage: a drive-in bay at ground level cut into the east wall */
-  const NOTCH = {x0:313, x1:324, z0:94, z1:106};
-  const BOX = {x0:-100, x1:328, z0:14, z1:182};
+  /* the east side is a grass slope like the front bank (same run, SD), with a flight of steps in the middle (it used to be a sheer wall with the garage
+     cut into it). E: its top edge, north to south. The garage is now a sunken drive cut into the back slope behind A5, opening onto the lake ring road */
+  const E = [[324, 72], [324, 126.2]];
+  const NOTCH = {x0:259, x1:271, z0:40, z1:54};   /* the garage cut: mouth at z0 (north, the ring road), the portal at z1 */
+  const BOX = {x0:-100, x1:324 + FB + 2, z0:14, z1:182};   /* east: room for the back slope as it rounds the north-east corner (FB > SD) */
   const near = (x, z, L) => {
     let best = 1e9, bi = 0, bt = 0;
     for (let i = 0; i < L.length - 1; i++){
@@ -22,26 +24,31 @@ const AZ = (() => {
       const d = Math.hypot(x - a[0] - t * dx, z - a[1] - t * dz);
       if (d < best){ best = d; bi = i; bt = tr; }
     }
-    return {d:best, past:(bi === 0 && bt < 0) || (bi === L.length - 2 && bt > 1)};
+    /* east: past the east end, where the line now rounds the corner instead of stopping at a wall */
+    return {d:best, past:(bi === 0 && bt < 0) || (bi === L.length - 2 && bt > 1), east:bi === L.length - 2 && bt > 1};
   };
   /* back slope: straight in the middle, eased over its first and last quarter (steepest about 1 in 3.2) */
   const fall = t => t <= 0 ? 1 : t >= 1 ? 0 : t < .25 ? 1 - t * t / .375 : t > .75 ? (1 - t) * (1 - t) / .375 : 1 - (t - .125) / .75;
-  const inNotch = (x, z) => x > NOTCH.x0 && x < NOTCH.x1 + 3 && z > NOTCH.z0 && z < NOTCH.z1;
+  const inNotch = (x, z) => x > NOTCH.x0 && x < NOTCH.x1 && z > NOTCH.z0 && z < NOTCH.z1;
+  /* distance outside the east edge (0 on it); far away when the point is west of it */
+  const eastD = (x, z) => { const dz = z < E[0][1] ? E[0][1] - z : z > E[1][1] ? z - E[1][1] : 0; return dz ? Math.hypot(x - E[0][0], dz) : x >= E[0][0] ? x - E[0][0] : 1e9; };
   function raw(x, z){
     if (x < BOX.x0 || x > BOX.x1 || z < BOX.z0 || z > BOX.z1) return 0;
     if (inNotch(x, z)) return 0;
     if (inPoly(x, z, R)) return H;
     let y = 0;
     const f = near(x, z, TL); if (!f.past && f.d < SD) y = H * (1 - f.d / SD);
-    const b = near(x, z, BL); if (!b.past && b.d < FB) y = Math.max(y, H * fall(b.d / FB));
+    const b = near(x, z, BL); if ((!b.past || b.east) && b.d < FB) y = Math.max(y, H * fall(b.d / FB));
+    const e = eastD(x, z); if (e < SD) y = Math.max(y, H * (1 - e / SD));
     return y;
   }
-  /* which part of the ground a point is on: 'top', 'bank' (the front slope, where the stairs are), 'back', or '' */
+  /* which part of the ground a point is on: 'top', 'bank' (the front and east slopes, where the stairs are), 'back', or '' */
   function part(x, z){
     if (x < BOX.x0 || x > BOX.x1 || z < BOX.z0 || z > BOX.z1 || inNotch(x, z)) return '';
     if (inPoly(x, z, R)) return 'top';
     const f = near(x, z, TL); if (!f.past && f.d < SD) return 'bank';
-    const b = near(x, z, BL); if (!b.past && b.d < FB) return 'back';
+    if (eastD(x, z) < SD) return 'bank';
+    const b = near(x, z, BL); if ((!b.past || b.east) && b.d < FB) return 'back';
     return '';
   }
   /* outward normal of a polyline segment: TL faces south (+z), BL north */
@@ -62,11 +69,10 @@ const AZ = (() => {
   for (let i = prom.length - 1; i > 0; i--) if (Math.hypot(prom[i][0] - prom[i - 1][0], prom[i][1] - prom[i - 1][1]) < 2) prom.splice(i, 1);
   prom.unshift([-132, 168.6]); prom.push([360, 153.6]);
   const promZ = x => { for (let i = 0; i < prom.length - 1; i++){ const a = prom[i], b = prom[i + 1]; if (x >= a[0] && x <= b[0]) return a[1] + (b[1] - a[1]) * (x - a[0]) / (b[0] - a[0] || 1); } return prom[prom.length - 1][1]; };
-  /* the walls at both ends, as polylines with the side the ground is on: west (bank cut, A1's west face, back cut), east (one straight run, garage in the middle) */
-  const nT0 = segN(TL, 0, true), nB0 = segN(BL, 0, false), nTe = segN(TL, TL.length - 2, true), nBe = segN(BL, BL.length - 2, false);
+  /* the wall at the west end, as a polyline with the side the ground is on (bank cut, A1's west face, back cut). The east end is a slope now */
+  const nT0 = segN(TL, 0, true), nB0 = segN(BL, 0, false);
   const WALLS = [
-    {pts:[[TL[0][0] + nT0[0] * SD, TL[0][1] + nT0[1] * SD], TL[0], BL[0], [BL[0][0] + nB0[0] * FB, BL[0][1] + nB0[1] * FB]], inside:1},
-    {pts:[[TL[TL.length - 1][0] + nTe[0] * SD, TL[TL.length - 1][1] + nTe[1] * SD], TL[TL.length - 1], BL[BL.length - 1], [BL[BL.length - 1][0] + nBe[0] * FB, BL[BL.length - 1][1] + nBe[1] * FB]], inside:-1}
+    {pts:[[TL[0][0] + nT0[0] * SD, TL[0][1] + nT0[1] * SD], TL[0], BL[0], [BL[0][0] + nB0[0] * FB, BL[0][1] + nB0[1] * FB]], inside:1}
   ];
   /* one flight of steps per block, centred on its porch; A3's is the grand one */
   const FLIGHTS = [[0, .5, 16], [2, .5, 16], [4, .5, 46], [6, .5, 16], [8, .5, 16]].map(([i, t, W]) => {
@@ -75,11 +81,13 @@ const AZ = (() => {
   });
   /* A3's grand stair: centred on the block, not on the middle of its piece of TL */
   FLIGHTS[2].x = 105;
+  /* and one down the east slope, where the garage used to be (facing east: normal +x, along the edge toward -z) */
+  FLIGHTS.push({x:E[0][0], z:100, nx:1, nz:0, tx:0, tz:-1, W:12, grand:false});
   /* the lake ring road (环湖路), clockwise from the east road: along the south shore behind the A row, past the bridge head, round the west end of the
      north lake outside 音乐岛, up to the road along the north shore (which, with the east road, closes the ring) */
   const RING = [[360, 38], [340, 40], [300, 40], [262, 34], [240, 30], [205, 35], [186, 34], [160, 26], [132, 17], [110, 4], [100, -18], [96, -34], [86, -46], [60, -50], [35, -52], [10, -58], [-8, -72], [-14, -92], [-14, -110]];
   const CORR = {x:105, z0:44.6, z1:10.5, w:5.2};   /* the one covered walk: from the back of A3 down the slope to the ring road, toward the bridge */
-  return {H, SD, FB, TL, BL, R, NOTCH, BOX, raw, part, near, prom, promZ, WALLS, FLIGHTS, RING, CORR, flat:false, built:false, lifted:[], roads:[], meshes:[], cols:[]};
+  return {H, SD, FB, TL, BL, R, E, NOTCH, BOX, raw, part, near, prom, promZ, WALLS, FLIGHTS, RING, CORR, flat:false, built:false, lifted:[], roads:[], meshes:[], cols:[], cheeks:[]};
 })();
 /* ground height of the A zone at (x, z); 0 elsewhere, and 0 everywhere in black-hole mode (the campus is flat there) */
 function azY(x, z){ return AZ.flat ? 0 : AZ.raw(x, z); }
@@ -90,7 +98,7 @@ const AZ_PX = {
   back:[[700, 620], [860, 560], [1000, 520], [1072, 477], [1147, 454], [1163, 450.7]],
   diag:[[580, 370], [640, 440], [760, 470], [900, 460], [1000, 470], [1072, 477]],
   side:[[307, 119], [307, 74], [303, 52], [300, 40]].map(([x, z]) => PX(x, z)),
-  garage:[[358, 100], [326, 100]].map(([x, z]) => PX(x, z)),
+  garage:[[(AZ.NOTCH.x0 + AZ.NOTCH.x1) / 2, 34.5], [(AZ.NOTCH.x0 + AZ.NOTCH.x1) / 2, AZ.NOTCH.z0 + 1]].map(([x, z]) => PX(x, z)),   /* from the ring road into the cut */
   corr:[[AZ.CORR.x, AZ.CORR.z0 - .4], [AZ.CORR.x, 4]].map(([x, z]) => PX(x, z)),
   bridge:PX(96.5, -38),   /* where the path to the bridge leaves the ring road */
   axisEnd:PX(GX_AZ(), AZ.promZ(GX_AZ()) + 2.5)   /* the axis road stops at the promenade (its round end stays off the bank) */
@@ -101,9 +109,9 @@ function GX_AZ(){ return (1180 - CX) * SC; }   /* the gate axis (GX in js/10-wor
 function azClears(kind, x, z){
   const p = AZ.part(x, z);
   if (p === 'bank') return true;
-  if (p === 'top' && kind === 'tree' && AZ.near(x, z, AZ.TL).d < 14) return true;
+  if (p === 'top' && kind === 'tree' && (AZ.near(x, z, AZ.TL).d < 14 || AZ.near(x, z, AZ.E).d < 6)) return true;   /* keep the heads of the stairs clear */
   for (const w of AZ.WALLS) for (let i = 0; i < w.pts.length - 1; i++) if (segDist(x, z, w.pts[i], w.pts[i + 1]) < 3.2) return true;
-  const N = AZ.NOTCH; if (x > N.x0 - 2 && x < 362 && z > N.z0 - 3 && z < N.z1 + 3) return true;
+  const N = AZ.NOTCH; if (x > N.x0 - 3 && x < N.x1 + 3 && z > 32 && z < N.z1 + 3) return true;   /* the garage cut and its drive from the ring road */
   const C = AZ.CORR; if (Math.abs(x - C.x) < C.w / 2 + 1.5 && z < C.z0 + 1 && z > C.z1 - 1) return true;
   for (const p2 of AZ_PAVS) if (Math.hypot(x - p2[0], z - p2[1]) < 6) return true;
   return false;
@@ -125,7 +133,7 @@ function azBuild(){
     const Y = new Float32Array(nx * nz), T = new Uint8Array(nx * nz);
     for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++){ const x = x0 + i * C, z = z0 + j * C, k = j * nx + i; Y[k] = AZ.raw(x, z); T[k] = inPoly(x, z, R) ? 1 : 0; }
     const pos = [], col = [], idx = [], map = new Int32Array(nx * nz).fill(-1), cPave = new THREE.Color('#a39b8b'), cPave2 = new THREE.Color('#968e7e'), cGrass = new THREE.Color('#4c7334'), cGrass2 = new THREE.Color('#567d3a'), c = new THREE.Color();
-    const N = NOTCH, hole = (x, z) => x > N.x0 && x < N.x1 + 2 && z > N.z0 && z < N.z1;
+    const N = NOTCH, hole = (x, z) => x > N.x0 && x < N.x1 && z > N.z0 && z < N.z1;   /* the garage cut */
     const v = k => {
       if (map[k] >= 0) return map[k];
       const i = k % nx, j = (k - i) / nx, x = x0 + i * C, z = z0 + j * C;
@@ -182,7 +190,9 @@ function azBuild(){
         for (const [ua, sd] of [[wa, -1], [wb, 1]]) q(at(ua, s0, -.2), at(ua, s1, -.2), at(ua, s1, top(s1)), at(ua, s0, Math.min(H + .55, top(s0))), '#9a9284', [f.tx * sd, 0, f.tz * sd]);
         q(at(wa, s1, -.2), at(wb, s1, -.2), at(wb, s1, top(s1)), at(wa, s1, top(s1)), '#9a9284', [f.nx, 0, f.nz]);
       }
-      const mid = at(u, SD / 2 - .15, 0), c = addBox(mid[0], mid[2], .5, SD / 2 + .45, Math.atan2(-f.tz, f.tx)); AZ.cols.push(c);
+      /* the cheek walls stand only ~.55 m above the steps and the bank either side, so you walk or drive over them (people kept running into them).
+         Their box stays while the rest of the props are placed (a row of them skips it), then js/42-gate.js drops it on the first frame */
+      const mid = at(u, SD / 2 - .15, 0); AZ.cheeks.push(addBox(mid[0], mid[2], .5, SD / 2 + .45, Math.atan2(-f.tz, f.tx)));
       if (f.grand){
         /* lantern pier: a moulded granite pier, an iron lantern with corner posts under a pyramid hood */
         const pp = at(u, SD + 1.1, 0), X = pp[0], Z = pp[2];
@@ -196,9 +206,10 @@ function azBuild(){
       }
     }
   }
-  /* ---- a stone coping along the top of the bank (between the flights), and a low kerb along its foot ---- */
-  for (let i = 0; i < TL.length - 1; i++){
-    const a = TL[i], b = TL[i + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1]), tx = (b[0] - a[0]) / l, tz = (b[1] - a[1]) / l, nx = -tz, nz = tx;
+  /* ---- a stone coping along the top of the bank (between the flights), and a low kerb along its foot; the east slope's top edge (E, run south to
+     north so it faces east) gets the same ---- */
+  for (const L of [TL, [AZ.E[1], AZ.E[0]]]) for (let i = 0; i < L.length - 1; i++){
+    const a = L[i], b = L[i + 1], l = Math.hypot(b[0] - a[0], b[1] - a[1]), tx = (b[0] - a[0]) / l, tz = (b[1] - a[1]) / l, nx = -tz, nz = tx;
     for (let s = 0; s < l - .01; s += 2){
       const s1 = Math.min(l, s + 2), mx = a[0] + tx * (s + s1) / 2, mz = a[1] + tz * (s + s1) / 2;
       if (FLIGHTS.some(f => Math.abs((mx - f.x) * f.tx + (mz - f.z) * f.tz) < f.W / 2 + .9 && Math.abs((mx - f.x) * f.nx + (mz - f.z) * f.nz) < 2)) continue;
@@ -224,39 +235,39 @@ function azBuild(){
       }
     }
   };
-  const N = NOTCH, inOpening = pt => pt[2] > N.z0 && pt[2] < N.z1;
-  for (const w of WALLS) for (let i = 0; i < w.pts.length - 1; i++){
-    const a = w.pts[i], b = w.pts[i + 1];
-    wallRun(a, b, w.inside, pt => AZ.raw(pt[0], pt[2]), w.inside < 0 ? inOpening : null);
-    /* colliders: the whole run, but not across the garage opening */
-    const cut = w.inside < 0 && Math.abs(a[0] - b[0]) < 1 && Math.min(a[1], b[1]) < N.z0 && Math.max(a[1], b[1]) > N.z1;
-    const spans = cut ? [[a, [a[0], N.z1]], [[b[0], N.z0], b]] : [[a, b]];
-    for (const [p0, p1] of spans){ const l = Math.hypot(p1[0] - p0[0], p1[1] - p0[1]), tx = (p1[0] - p0[0]) / l, tz = (p1[1] - p0[1]) / l, o = -.1 * w.inside;
-      AZ.cols.push(addBox((p0[0] + p1[0]) / 2 - tz * o, (p0[1] + p1[1]) / 2 + tx * o, l / 2 + .3, .75, Math.atan2(-tz, tx))); }
-  }
-  /* ---- the garage: a bay at ground level under a deck, side and back walls, ceiling lights, a raised barrier, signs; three parked cars ---- */
-  { const xa = N.x0, xb = N.x1, za = N.z0, zb = N.z1, zm = (za + zb) / 2;
-    tbox(P2, xb + 2.2 - (xa - 3.4), .76, zb - za + 6.4, (xa - 3.4 + xb + 2.2) / 2, H - .32, zm, '#a39b8b');   /* the deck (its top is the paving above, covering the hole left in the ground mesh) */
-    tbox(P2, xb - xa + .4, .06, zb - za, (xa + xb) / 2, H - .7, zm, '#d9d6cf');
-    for (const z of [za - .6, zb + .6]){ tbox(P2, xb - xa + 1.2, H - .2, 1.2, (xa + xb) / 2 - .6, (H - .2) / 2 - .1, z, '#8f887c'); AZ.cols.push(addBox((xa + xb) / 2 - .6, z, (xb - xa) / 2 + .6, .6, 0)); }
-    tbox(P2, 1.2, H - .2, zb - za + 2.4, xa - .6, (H - .2) / 2 - .1, zm, '#8f887c'); AZ.cols.push(addBox(xa - .6, zm, .6, (zb - za) / 2 + 1.2, 0));
-    tbox(P2, xb - xa + 2, .05, zb - za, (xa + xb) / 2 + 1, .045, zm, '#3f3e3c');
-    for (let k = 0; k < 4; k++) tbox(P2, .14, .03, 5, xa + 1.5 + k * 2.8, .08, zb - 2.6, '#f0ece2');
-    for (let k = 0; k < 3; k++) lamps.push(new THREE.BoxGeometry(.25, .08, 3).translate(xa + 2.2 + k * 3.6, H - .76, zm));
-    /* "P" on the back wall, the barrier at the mouth (arm raised), the sign over the portal */
-    tbox(P2, .1, 2.2, 2.2, xa + .02, 2.1, zm, '#1d4f9a');
-    tbox(P2, .5, 1.1, .5, xb + 1.4, .55, za + 1.2, '#e2b52d'); P2.push(geoTint(new THREE.BoxGeometry(.12, 4.6, .12).translate(xb + 1.4, 3.4, za + 1.2), '#e8e2d6'));
-    for (let k = 0; k < 5; k++) tbox(P2, .14, .6, .14, xb + 1.4, 1.6 + k * .9, za + 1.2, k % 2 ? '#c0392b' : '#f4f1ea');
+  /* a wall run and its collider (the whole run) */
+  const wallWithCol = (a, b, inside) => {
+    wallRun(a, b, inside, pt => AZ.raw(pt[0], pt[2]), null);
+    const l = Math.hypot(b[0] - a[0], b[1] - a[1]), tx = (b[0] - a[0]) / l, tz = (b[1] - a[1]) / l, o = -.1 * inside;
+    AZ.cols.push(addBox((a[0] + b[0]) / 2 - tz * o, (a[1] + b[1]) / 2 + tx * o, l / 2 + .3, .75, Math.atan2(-tz, tx)));
+  };
+  for (const w of WALLS) for (let i = 0; i < w.pts.length - 1; i++) wallWithCol(w.pts[i], w.pts[i + 1], w.inside);
+  /* ---- the garage: a sunken drive cut into the back slope behind A5, off the lake ring road. Granite walls either side and at the back (they rise with the
+     slope, with a parapet where the drop is over a metre); in the back wall the portal to the car park under the blocks, a light strip, the sign over it;
+     a raised barrier; three bays along the west wall with two cars in them; a sign by the road ---- */
+  { const N = NOTCH, xa = N.x0, xb = N.x1, za = N.z0, zb = N.z1, zm = (za + zb) / 2, px = (xa + xb) / 2 + 2;   /* px: the portal sits right of centre, the bays are on the left */
+    wallWithCol([xa, za], [xa, zb], 1); wallWithCol([xb, za], [xb, zb], -1); wallWithCol([xa, zb], [xb, zb], 1);
+    tbox(P2, xb - xa, .05, zb - za, (xa + xb) / 2, .045, zm, '#3f3e3c');
+    for (let k = 0; k < 4; k++) tbox(P2, 5, .03, .14, xa + 3.1, .08, za + 3.4 + k * 2.9, '#f0ece2');   /* bay lines, cars nose to the drive */
+    /* the portal: a dark opening in the back wall's face (z = zb - .6), a granite frame, a light strip under the lintel */
+    const fz = zb - .6;
+    tbox(P2, 6, 2.7, .1, px, 1.35, fz - .02, '#141518');
+    tbox(P2, 6.8, .4, .34, px, 2.9, fz - .14, '#77726a'); for (const s of [-1, 1]) tbox(P2, .4, 2.7, .34, px + s * 3.2, 1.35, fz - .14, '#77726a');
+    lamps.push(new THREE.BoxGeometry(5.4, .06, .12).translate(px, 2.62, fz - .2));
+    /* the barrier just inside the mouth, arm raised */
+    tbox(P2, .5, 1.1, .5, xb - 1.3, .55, za + 2, '#e2b52d'); P2.push(geoTint(new THREE.BoxGeometry(.12, 4.6, .12).translate(xb - 1.3, 3.4, za + 2), '#e8e2d6'));
+    for (let k = 0; k < 5; k++) tbox(P2, .14, .6, .14, xb - 1.3, 1.6 + k * .9, za + 2, k % 2 ? '#c0392b' : '#f4f1ea');
     const sc = document.createElement('canvas'); sc.width = 512; sc.height = 128; const g = sc.getContext('2d'), st = new THREE.CanvasTexture(sc); st.anisotropy = ANISO;
     const paint = () => { g.fillStyle = '#16365f'; g.fillRect(0, 0, 512, 128); g.fillStyle = '#fff'; g.fillRect(14, 14, 100, 100); g.fillStyle = '#16365f'; g.font = '900 92px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('P', 64, 68);
       g.fillStyle = '#fff'; g.font = '700 46px "Noto Sans SC","Microsoft YaHei",sans-serif'; g.textAlign = 'left'; g.fillText('地下停车场', 136, 50); g.font = '600 26px Arial, sans-serif'; g.fillStyle = '#bcd3f0'; g.fillText('CAR PARK · A1–A5', 138, 98); st.needsUpdate = true; };
     paint(); document.fonts && document.fonts.ready.then(paint);
-    const sm = new THREE.MeshBasicMaterial({map:st}), sign = new THREE.PlaneGeometry(9, 2.25).rotateY(Math.PI / 2).translate(xb + .7, 4.95, zm);
-    const post = new THREE.PlaneGeometry(3.2, .8).rotateY(Math.PI / 2).translate(342, 3.3, za - 3.2);
+    /* both signs face north (-z), toward the ring road and the lake */
+    const sm = new THREE.MeshBasicMaterial({map:st}), sign = new THREE.PlaneGeometry(6, 1.5).rotateY(Math.PI).translate(px, 3.9, fz - .2);
+    const post = new THREE.PlaneGeometry(3.2, .8).rotateY(Math.PI).translate(xb + 1.8, 3.3, za + .5);
     const sgm = new THREE.Mesh(geoMergeUV([sign.toNonIndexed(), post.toNonIndexed()]), sm); scene.add(sgm); AZ.meshes.push(sgm);
-    tbox(P2, .16, 3.6, .16, 342, 1.8, za - 3.2, '#3a3d42');
-    makeCar('sedan', '#7f8c8d', xa + 3.6, zb - 2.6, Math.PI / 2); makeCar('myvi', '#c0392b', xa + 6.4, zb - 2.6, Math.PI / 2);
-    addLabel('地下停车场', xb + 3, 9, zm, true);
+    tbox(P2, .16, 3.6, .16, xb + 1.8, 1.8, za + .6, '#3a3d42');
+    makeCar('sedan', '#7f8c8d', xa + 3.1, za + 4.85, Math.PI / 2); makeCar('myvi', '#c0392b', xa + 3.1, za + 7.75, Math.PI / 2);
+    addLabel('地下停车场', px, 7.5, za + 2, true);
   }
   /* ---- podiums under the lifted blocks (where the back slope falls away from them), with vents along the back ---- */
   const liftSt = [];

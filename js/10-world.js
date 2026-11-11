@@ -709,13 +709,36 @@ const LAWN_ARC = {};   /* the smoothed curve of the promenade, shared with js/42
 
 /* ---------- campus boundary hedge (visible, so the edge never feels like an invisible wall) ---------- */
 (function(){
-  const hedge = M('#3f6f34', {roughness:.95});
   const G = GATE_PLAZA;   /* west of the gate the hedge steps back round the plaza with the name stone */
   /* the south side: hedge from corner to corner, except the railing either side of the gate, the plaza and the gate, and the gaps you can drive through */
   const cuts = SOUTH_RAIL.concat([[G.x0, SOUTH_RAIL[1][0]]],SOUTH_OPEN.map(o => [o.x - o.w / 2, o.x + o.w / 2])).sort((a, b) => a[0] - b[0]), south = [];
   let sx0 = -603; for (const [a, b] of cuts){ if (a > sx0 + .5) south.push([(sx0 + a) / 2, 263.5, a - sx0, 3]); sx0 = Math.max(sx0, b); } south.push([(sx0 + 603) / 2, 263.5, 603 - sx0, 3]);
+  /* a flat dark-green box got lost against the lawn, so: a leafy texture laid in world space (so it doesn't stretch along 1.2 km), darker at the foot
+     and brighter on the clipped top, and a pale stone kerb along both sides that draws a clear line on the ground. Two draw calls, no shadows cast */
+  const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'), r = mkRng(4417);
+  g.fillStyle = '#3c7431'; g.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 650; i++){
+    const v = r(), x = r() * 128, y = r() * 128, s = 2 + r() * 4, a = r() * 3;
+    g.fillStyle = v < .4 ? '#2a5724' : v < .8 ? '#4f8c3c' : '#73b351';
+    for (const ox of [-128, 0, 128]) for (const oy of [-128, 0, 128]){ g.beginPath(); g.ellipse(x + ox, y + oy, s, s * .7, a, 0, 7); g.fill(); }   /* wrapped, so it tiles */
+  }
+  const tex = new THREE.CanvasTexture(c); tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.anisotropy = ANISO;
+  const parts = [], kerb = [], TILE = 2.4, HH = 1.8;
   for (const [x, z, w, d] of [[0, -276.5, 1206, 3], ...south, [-601.5, -6.5, 3, 540], [601.5, -6.5, 3, 540],
-    [(G.x0 + G.x1) / 2, G.z0, G.x1 - G.x0 + 2, 2], [G.x0, (G.z0 + G.z1) / 2, 3, G.z1 - G.z0 + 1.5], [G.x1, (G.z0 + G.z1) / 2, 2, G.z1 - G.z0]]){ const m = box(w, 1.8, d, hedge, x, .9, z); m.castShadow = false; }
+    [(G.x0 + G.x1) / 2, G.z0, G.x1 - G.x0 + 2, 2], [G.x0, (G.z0 + G.z1) / 2, 3, G.z1 - G.z0 + 1.5], [G.x1, (G.z0 + G.z1) / 2, 2, G.z1 - G.z0]]){
+    const geo = new THREE.BoxGeometry(w, HH, d).translate(x, HH / 2, z).toNonIndexed(), p = geo.attributes.position, n = geo.attributes.normal;
+    const uv = new Float32Array(p.count * 2), col = new Float32Array(p.count * 3);
+    for (let i = 0; i < p.count; i++){
+      const X = p.getX(i), Y = p.getY(i), Z = p.getZ(i), up = Math.abs(n.getY(i)) > .5, side = Math.abs(n.getX(i)) > .5;
+      uv[i * 2] = (up ? X : side ? Z : X) / TILE; uv[i * 2 + 1] = (up ? Z : Y) / TILE;
+      const k = up ? 1.35 : .6 + .5 * Y / HH;
+      col[i * 3] = k * (up ? 1.08 : 1); col[i * 3 + 1] = k; col[i * 3 + 2] = k * (up ? .85 : 1);
+    }
+    geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); parts.push(geo);
+    for (const s of [-1, 1]){ if (w >= d) tbox(kerb, w, .14, .5, x, .07, z + s * (d / 2 + .25), '#d9d3c5'); else tbox(kerb, .5, .14, d, x + s * (w / 2 + .25), .07, z, '#d9d3c5'); }
+  }
+  const hm = new THREE.Mesh(geoMergeUV(parts), M('#ffffff', {map:tex, vertexColors:true, roughness:.95})); hm.receiveShadow = true; scene.add(hm);
+  const km = new THREE.Mesh(geoMerge(kerb), M('#ffffff', {vertexColors:true, roughness:.9})); km.receiveShadow = true; scene.add(km);
 })();
 
 /* ---------- vegetation ---------- */

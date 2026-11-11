@@ -503,8 +503,9 @@ function dmFinish(how){
     if (left < 15) add(`压哨撤离，只剩 ${Math.ceil(left)} 秒`, .15);
     if (!run.seen) add('全程没被宿管发现', .2);
   }
-  /* pay: what the things sold for with the bonuses. income: everything this run put in the wallet (the thief's bounty was paid when you caught him) */
-  const pay = value + bonus.reduce((s, b) => s + b.rm, 0), income = pay + run.bounty, prev = prog.best.dorm, rec = pay > 0 && (prev == null || income > prev);
+  /* pay: what the things sold for with the bonuses. income: everything this run put in the wallet (the thief's bounty was paid when you caught him).
+     The record is income, so a run that only caught the thief and came out empty-handed still counts */
+  const pay = value + bonus.reduce((s, b) => s + b.rm, 0), income = pay + run.bounty, prev = prog.best.dorm, rec = income > 0 && (prev == null || income > prev);
   if (rec) prog.best.dorm = income;
   if (items.length) prog.life.dormOut++; prog.life.dormTok += tok; sess.acts++;
   dmLeaveWorld();
