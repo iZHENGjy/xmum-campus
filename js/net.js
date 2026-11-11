@@ -453,6 +453,9 @@
   const TS = () => firebase.database.ServerValue.TIMESTAMP;
   const liveMode = m => m === 'naiwa' || m === 'walk';
   const isTitle = () => g(() => titleOpen, false) === true;
+  /* inside a room built off the map (dorm, classroom, B1 arcade and its mini-games): you are not on the campus. Others must not see you there
+     (everyone's dorm is laid out differently, so you would walk through their walls), and you do not need their positions either */
+  const inRoom = () => g(() => indoorNow(), false) === true;
 
   /* 旧协议：整条写进 /presence/{uid}，每秒最多 5 次。只在数据库还没发布新规则时用（和改版前一模一样，旧页面也看得见） */
   function sendLegacy(){
@@ -526,7 +529,7 @@
   }
   function gridTick(){
     if (!XNet.online || !connected || hiddenPage || !gridOK || !db || quitting) return;
-    if (!liveMode(g(() => mode, 'orbit')) || isTitle() || seat !== 'in'){ leaveCell(); return; }
+    if (!liveMode(g(() => mode, 'orbit')) || isTitle() || inRoom() || seat !== 'in'){ leaveCell(); return; }
     const t = performance.now(), s = snd.sample(myState(), t), meta = metaOf(s), cell = PR.cellKeep(myCell, s.x, s.z);
     let crowd = 0; for (const r of remotes.values()) if (r.cell && liveMode(r.d.mode) && fresh(r)) crowd++;
     s.crowd = crowd;
@@ -546,7 +549,7 @@
   const onSet = new Set();                              // /on 里的 uid：在线人数
   let legacyRef = null, onListen = null;
   function viewCenter(){
-    if (!XNet.online || !connected || hiddenPage || sleeping || isTitle() || seat !== 'in') return null;
+    if (!XNet.online || !connected || hiddenPage || sleeping || isTitle() || inRoom() || seat !== 'in') return null;
     const m = g(() => mode, 'orbit');
     if (liveMode(m)){ if (myCell) return myCell; const s = myState(); return PR.cellOf(s.x, s.z); }
     if (m === 'orbit'){ const tg = g(() => controls.target, null); if (tg) return (viewCell = PR.cellKeep(viewCell, tg.x, tg.z)); }
