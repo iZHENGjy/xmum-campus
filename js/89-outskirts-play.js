@@ -309,6 +309,54 @@ carGeoCache.trolley = (() => {
   return {chrome:geoMerge(wire), paint:geoMerge(red), trim:geoMerge(dark)};
 })();
 const OP_CARTS = [0, 1, 2].map(i => { const c = makeCar('trolley', '#d7262d', -620 + i * 1.5, 930.4, Math.PI); c.out = true; if (TOUCH) c.root.traverse(o => { o.castShadow = false; }); return c; });
+/* KIP supermarket trolleys at the back door and loose in the south car park: one instanced set (3 draw calls for all of them), pushed out of
+   the way by a car or by 奶娃 on foot instead of falling over like the lamps (js/13-outskirts.js leaves kind 'cart' to this) */
+const KCART = (() => {
+  const spots = [];
+  for (let i = 0; i < 8; i++) spots.push(outSpot(-645.6 + i * .36, 1023.6, -Math.PI / 2, 1));
+  for (const [x, z, r] of [[-655.8, 1040.5, 2.4], [-621, 1035.2, .5], [-703.7, 1041.3, 4.1], [-588.4, 1039.6, 1.3], [-675.2, 1024.3, 3.6], [-640.6, 1036.4, 5.2]]) spots.push(outSpot(x, z, r, 1));
+  const g = carGeoCache.trolley;
+  return outSet('cart', spots, [[g.chrome, M('#c9ccd0', {metalness:.6, roughness:.35})], [g.paint, M('#128a3c', {roughness:.5})], [g.trim, M('#2b2d30', {roughness:.7})]], !TOUCH);
+})();
+const _kc = new THREE.Matrix4(), _kq = new THREE.Quaternion(), _kp = new THREE.Vector3(), _ks = new THREE.Vector3(1, 1, 1);
+function kcartPush(px, pz){
+  const S = KCART; if (!S || Math.abs(px - S.c.x) > S.R + 10 || Math.abs(pz - S.c.z) > S.R + 10) return;
+  const c = driving, sp = c ? Math.hypot(c.vx, c.vz) : 0, hit = c ? carCircles(c, c.x, c.z, c.h).map(([x, z]) => [x, z, c.T.W / 2 + .15]) : [[nw.x, nw.z, .45]];
+  let bumped = false;
+  S.spots.forEach((o, i) => {
+    for (const [hx, hz, r] of hit){
+      const dx = o.x - hx, dz = o.z - hz, d = Math.hypot(dx, dz) || .01, need = r + .5;
+      if (d >= need) continue;
+      /* out along the line from whatever hit it, plus a share of the car's own speed; spun a little; never into a wall */
+      let nx = dx / d, nz = dz / d, push = need - d;
+      if (c && sp > 1){ const ux = c.vx / sp, uz = c.vz / sp; nx = nx * .5 + ux * .5; nz = nz * .5 + uz * .5; const l = Math.hypot(nx, nz) || 1; nx /= l; nz /= l; push += Math.min(1.2, sp * .04); }
+      const x = o.x + nx * push, z = o.z + nz * push; if (hitsBuilding(x, z, .45) || outOfMap(x, z, .45)) continue;
+      o.x = x; o.z = z; o.y = o.ty = terrainY(x, z); o.r += (c ? Math.min(.5, sp * .03) : .05) * (i % 2 ? 1 : -1);
+      _kc.compose(_kp.set(o.x, o.y, o.z), _kq.setFromAxisAngle(UP, o.r), _ks); for (const im of S.ims){ im.setMatrixAt(i, _kc); im.instanceMatrix.needsUpdate = true; }
+      if (c && sp > 5) bumped = true;
+    }
+  });
+  if (bumped && !(kcartPush.cd > performance.now())){ kcartPush.cd = performance.now() + 400; tone('triangle', 900, 600, .08, .05); c.vx *= .97; c.vz *= .97; }
+}
+/* two ride-hailing cars waiting in the drop-off bay outside the supermarket door (a white Myvi and a silver saloon) with a green
+   roof sign and door strip. The name is a pun (抓抓 Grap), like every other brand outside the gate. */
+const KGRAB = (() => {
+  const green = M('#00a651', {roughness:.5, emissive:'#00a651', emissiveIntensity:.15}), roofG = carGeoCache.grapRoof || (carGeoCache.grapRoof = roundBox(.7, .24, .34, .06));
+  const tex = carTextTex('grap', 256, 56, (g, w, h) => { g.fillStyle = '#00a651'; g.fillRect(0, 0, w, h); g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = `900 34px ${OUT_FONT}`; g.fillText('Grap 抓抓车', w / 2, h / 2 + 2); });
+  const decal = new THREE.MeshBasicMaterial({map:tex});
+  return [['myvi', '#f4f4f2', -642.5, 1029.3, -Math.PI / 2], ['sedan', '#c7c9cc', -635, 1029.3, -Math.PI / 2]].map(([kind, col, x, z, h]) => {
+    const c = makeCar(kind, col, x, z, h); c.out = true; c.grap = true;
+    const body = c.root.children[0], T = c.T;
+    const roof = new THREE.Mesh(roofG, green); roof.position.set(0, T.H + .1, -.15); body.add(roof);
+    /* door strips and the two faces of the roof sign in one mesh (one draw call per car) */
+    const dg = carGeoCache['grapDecal_' + kind] || (carGeoCache['grapDecal_' + kind] = geoMergeUV([-1, 1].flatMap(s => [
+      new THREE.PlaneGeometry(1.5, .33).rotateY(s * Math.PI / 2).translate(s * (T.W / 2 + .025), .72, -.1),
+      new THREE.PlaneGeometry(.66, .15).rotateY(s > 0 ? 0 : Math.PI).translate(0, T.H + .1, -.15 + s * .175)])));
+    body.add(new THREE.Mesh(dg, decal));
+    return c;
+  });
+})();
 /* two more parked cars, so the KIP car park has something to weave around (and to drive home in) */
 for (const [kind, col, x, z, h] of [['myvi', '#2d5d8a', -740.4, 875.7, Math.PI], ['sedan', '#6d4c8f', -580.8, 905.6, 0]]) makeCar(kind, col, x, z, h).out = true;
 
@@ -831,6 +879,7 @@ function opUpdate(dt, px, pz){
   if (mission.on && mission.stolen && Math.hypot(px - mission.to.x, pz - mission.to.z) < 9) opMsg = '外卖还在小偷手里，先追回来';
   dtUpdate(dt, px, pz, sp, free);
   kmUpdate(px, pz, free);
+  kcartPush(px, pz);
   teaUpdate(px, pz, free);
   nmUpdate(px, pz, !mine);
   thUpdate(dt, px, pz, sp, free);

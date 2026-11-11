@@ -17,7 +17,7 @@ const BELL_S = [[146, '嘛嘛档 Nasi Kandar'], [164, '123 便利店'], [172, '�
   [348, '乐器行'], [352, '聚饺'], [360, '寿司 Sushi'], [369, '新疆炒米粉'], [405, '娘惹糕 Kueh']];
 const SIGN_STYLE = {'星爸爸咖啡':['#1f6b4b', '#ffffff', 1, 'cup'], '31 冰淇淋':['#f07aa6', '#ffffff', 0, 'cone'], '蜜雪冰橙':['#d7262d', '#ffffff', 0, 'snow'],
   '店铺出租 To Let':['#f4f1ea', '#c0392b', 2], '麦当当 24h':['#c8102e', '#ffc72c', 0], 'Bell 喷漆 Spray':['#1d1f24', '#ffcf3a', 2],
-  '上校炸鸡':['#b5121b', '#ffffff', 3], 'DIY 五金百货':['#f6d23a', '#c8102e', 0], '酒店 Hotel':['#2a3f8f', '#ffffff', 2]};
+  '宜省超市':['#128a3c', '#ffffff', 0], '上校炸鸡':['#b5121b', '#ffffff', 3], 'DIY 五金百货':['#f6d23a', '#c8102e', 0], '酒店 Hotel':['#2a3f8f', '#ffffff', 2]};
 const SIGN_PAIRS = [['#1b5aa6', '#ffffff'], ['#2f6f3e', '#fff4d6'], ['#7a3b1d', '#ffe8b0'], ['#f08a1c', '#ffffff'], ['#2b9a8f', '#ffffff'], ['#3d3d3d', '#ffd84a'],
   ['#c0392b', '#ffffff'], ['#2a3f8f', '#ffffff'], ['#8a5a3c', '#fff1dc'], ['#b3261e', '#ffd84a'], ['#d98a1c', '#3a1d0a'], ['#ffffff', '#c0392b'], ['#3c6e9f', '#ffffff'],
   ['#e48aa8', '#ffffff'], ['#4e342e', '#ffd54f'], ['#00838f', '#ffffff'], ['#6a1b9a', '#ffffff'], ['#9e9d24', '#ffffff']];
@@ -30,12 +30,12 @@ function signOf(name){
   const shop = /咖啡|奶茶|甜品|冰淇淋|蛋糕|Kueh|冰雪/.test(name) ? 1 : /饭|面|粉|锅|餐|烧|鸡|鱼|饺|烫|Kandar|料理|小吃|食|快餐|寿司|小馆|哈密|菜/.test(name) ? 3 : /洗衣|租|学校|Pilates|瑜伽|Snooker|场地|乐器|汽车|出租/.test(name) ? 2 : 0;
   OUT_SIGNS.push(st ? [name, st[0], st[1], st[2], st[3]] : [name, pr[0], pr[1], shop]); signIdx.set(name, OUT_SIGNS.length - 1); return OUT_SIGNS.length - 1;
 }
-['店铺出租 To Let', '超市 Hypermarket', '亲子乐园 Kids Park', '美食广场 Food Court', '麦当当 24h', 'Bell 喷漆 Spray'].forEach(signOf);
+['店铺出租 To Let', '宜省超市', '亲子乐园 Kids Park', '美食广场 Food Court', '麦当当 24h', 'Bell 喷漆 Spray'].forEach(signOf);
 /* Bell Avenue: one ~270 m block of back-to-back three-storey shophouses (north row faces Jalan Sunsuria, south row the back lane),
    split by two walk-through lanes; frontage lane, angled parking and a covered five-foot way on both sides */
 const BELL = {zF:307, zB:363, zMid:335.1, park:5.5, arc:2.6, unit:7.5, n:11, blocks:[142, 234.5, 327]};
 const BELL_UNITS = []; BELL.blocks.forEach(b0 => { for (let u = 0; u < BELL.n; u++) BELL_UNITS.push(b0 + (u + .5) * BELL.unit); });
-const SIGN_TOLET = 0, SIGN_KIP0 = 1, SIGN_MCD = 4, SIGN_SPRAY = 5;   /* KIP: 1 超市, 2 亲子乐园, 3 美食广场 */
+const SIGN_TOLET = 0, SIGN_KIP0 = 1, SIGN_MCD = 4, SIGN_SPRAY = 5;   /* KIP: 1 超市 (宜省超市, a pun on the real anchor Econsave, in its green), 2 亲子乐园, 3 美食广场 */
 /* hand each shop to the nearest free unit of its row (units are filled in by the Bell Avenue builder below) */
 function bellNames(units, pois){
   const out = units.map(() => null);
@@ -432,7 +432,12 @@ const KIP_SB = 4.6;   /* height of the shop band at the foot of the mall walls *
   fX(b, AX1 + .1, 979, 993, 6, 8.2, 1, A_SIGN(SIGN_KIP0 + 1), '#ffffff');
   tBox(b, AX1, 4.4, 977.5, AX1 + 4.6, 4.75, 994.5, MET, ''); for (const z of [977.9, 994.1]) tBox(b, AX1 + 4.2, 0, z - .14, AX1 + 4.5, 4.4, z + .14, WHITE);
   const S = ['z', AZ1, 1];
-  let sx = CX0; for (const x of [-724, -660, -596]){ band(S, sx, x, null); band(S, x, x + 8, A_SHOP[2], 8); sx = x + 8; } band(S, sx, AX1, null);
+  /* the middle opening is the supermarket's back door onto the south car park (it was a third roller shutter): glass sliding doors, a green canopy, the name */
+  let sx = CX0; for (const [x, w, r] of [[-724, 8, A_SHOP[2]], [-662, 12, A_GLASS], [-596, 8, A_SHOP[2]]]){ band(S, sx, x, null); band(S, x, x + w, r, r === A_GLASS ? 6 : 8); sx = x + w; } band(S, sx, AX1, null);
+  fZ(b, AZ1 + .1, -667, -645, 5.25, 8.7, 1, A_SIGN(SIGN_KIP0), '#ffffff');
+  for (const x of [-662, -656, -650]) tBox(b, x - .18, 0, AZ1, x + .18, SB, AZ1 + .14, '#3d4246'); tBox(b, -662.2, 4.25, AZ1, -649.8, SB, AZ1 + .14, '#3d4246');
+  tBox(b, -665, 4.4, AZ1, -647, 4.78, 1025.6, '#128a3c', ''); tBox(b, -665.05, 4.25, 1025.5, -646.95, 4.42, 1025.72, '#f4f1ea', 'ny');
+  for (const x of [-664.5, -647.5]) tBox(b, x - .15, 0, 1025.05, x + .15, 4.4, 1025.35, '#f1f2f0');
   band(['x', AX0, -1], AZ0, BZ0, A_SHOP[1], 8);
   band(['x', BX0, -1], 990, CZ0, null); band(['z', CZ0, -1], CX0, CX1, null); band(['x', CX0, -1], CZ0, CZ1, null);
   /* roofs, a parapet round the whole outline, a raised clerestory, solar panels (they cover much of the real roof), plant */
@@ -501,6 +506,9 @@ const KIP_SB = 4.6;   /* height of the shop band at the foot of the mall walls *
     if (!(x > -649 && x < -631) && !(x > -609 && x < -591)) gLine(markFar, x, 921, x, 926, .12, .075, LINE); }
   for (const z of [878, 885, 890, 895, 903, 908, 913, 921]) gLine(markFar, BX(0), z, BX(NB), z, .12, .075, LINE);
   for (const xc of [-640, -600]) for (let k = -3; k <= 3; k++) gRect(markFar, xc + k * 1.1 - .32, 913.6, xc + k * 1.1 + .32, 920.4, .075, LINE);
+  /* the drop-off bay outside the supermarket's back door (ride-hailing cars wait here, js/89-outskirts-play.js) and a crossing to the bays */
+  for (const [ax, az, bx, bz] of [[-646, 1027.2, -626, 1027.2], [-646, 1031, -626, 1031], [-646, 1027.2, -646, 1031], [-626, 1027.2, -626, 1031]]) gLine(markFar, ax, az, bx, bz, .16, .075, YEL);
+  for (let k = -3; k <= 3; k++) gRect(markFar, -656 + k * 1.1 - .32, 1027, -656 + k * 1.1 + .32, 1033.2, .075, LINE);
   gRect(surfFar, -536, 938, -530, 1020, .055, ASPH2); for (let z = 938; z <= 1020; z += 2.8) gLine(markFar, -536, z, -530, z, .12, .075, LINE);
   for (const [x0, x1] of [[-800, -671], [-663, -512]]){ gRect(surfFar, x0, 1033.5, x1, 1043.5, .055, ASPH2); gLine(markFar, x0, 1038.5, x1, 1038.5, .12, .075, LINE);
     for (let x = x0 + 1.4; x < x1 - 1; x += 2.8) gLine(markFar, x, 1033.6, x, 1043.4, .12, .075, LINE); }
@@ -718,6 +726,7 @@ const oilPalmGeo = (() => {
 function outKnock(x, z, R, fromX, fromZ){
   let n = 0;
   for (const set of OUT_SETS){
+    if (set.kind === 'cart') continue;   /* trolleys get shoved along instead (js/89-outskirts-play.js) */
     const b = set.bb; if (x < b[0] - R || x > b[2] + R || z < b[1] - R || z > b[3] + R) continue;
     set.spots.forEach((o, i) => {
       if (o.down) return; const dx = o.x - x, dz = o.z - z; if (dx * dx + dz * dz >= R * R) return;
