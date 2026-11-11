@@ -284,9 +284,10 @@ function resetWorld(){
   falling.length = 0; eats.forEach(e => { e.fall = null; e.gone = false; });
 }
 const holeArea = h => Math.PI * Math.pow(2.5 + .55 * Math.pow(h.mass, .4), 2);
+/* a random open spot (not in the lake, not next to another hole); Math.random, not the seeded world rnd(), so every round and every respawn differs */
 function placeHole(h){
   for (let k = 0; k < 80; k++){
-    const x = -520 + rnd() * 1040, z = -240 + rnd() * 470;
+    const x = -520 + Math.random() * 1040, z = -240 + Math.random() * 470;
     if (holeInLake(x, z)) continue;
     if (HOLES.some(o => o !== h && o.alive && Math.hypot(o.x - x, o.z - z) < 140 + o.r)) continue;
     h.x = x; h.z = z; return;
@@ -307,7 +308,7 @@ function startHole(){
   Object.assign(HCOMBO, {n:0, t:0, best:0, mult:1});
   HOLES.forEach(h => {
     holeResetHole(h); h.score = 0; h.names = []; h.stuck = 0;
-    if (h.you){ h.x = 110; h.z = 204; } else placeHole(h);
+    placeHole(h);   /* everyone, you included, starts somewhere random (and far apart) */
     h.cx0 = h.x; h.cz0 = h.z; holeShowMeshes(h, true);
   });
   holeClearPUs(); holeSpawnPU(true, 'spd'); holeSpawnPU(false);
