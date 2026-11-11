@@ -40,14 +40,14 @@ window.XQD = (() => {
   });
 
   /* ---------- 人机奶蛙（角色都是虚构的） ---------- */
-  /* 南门：校碑在门外中轴线上（x≈96, z≈258），小满站在碑的东边、靠门这一侧，面朝北（进校的方向）。 */
-  D.npcs.xiaoman = {name:'小满学姐', short:'小满', color:'#3f8fe6', place:'南门校碑旁', at:[104.5, 251, Math.PI],
+  /* 南门：校碑在门外中轴线上（x≈96, z≈258，铁门关着）；小满站在门里中轴线东边一点（新玩家开场后就出生在她旁边，x 96 z 242），面朝南门。 */
+  D.npcs.xiaoman = {name:'小满学姐', short:'小满', color:'#3f8fe6', place:'南门', at:[101, 238.5, 0],
     look:{skin:'classic', outfit:'shirt', neck:'badge', head:'buns'}, shape:'slim',
     chat:['迷路了就按 M 看地图，我画得可清楚了。', '今天的外卖单多不多？D6 那边最旺。', '有事就来南门找我，我天天在这儿。']};
 
   /* ================= 第 1 章 新生报到（核心，js/89-quest.js 的作者负责） ================= */
   D.chapters.push({n:1, id:'c1', title:'新生报到', npc:'xiaoman', place:'南门', unlock:'drive', unlockAt:'end',
-    guide:['keys', 'map', 'hello'], report:'回南门找小满学姐', diaryStart:'c1_start', diaryEnd:'c1_end',
+    guide:['keys', 'map', 'hello'], report:'回南门找小满学姐', diaryStart:'c1_start', diaryEnd:'c1_end', endMsg:'xm_ch1done',
     recap:'（补记）那时候刚来，走路送外卖，跑得腿都软了。',
     intro:[
       ['xiaoman', '欢迎来到 XMUM！大巴一路晃过来累了吧？'],
@@ -121,7 +121,7 @@ window.XQD = (() => {
   D.events.push(
     {id:'ev_late1', when:Q => Q.flag('lateDeliv'), diary:'c1_late'},
     {id:'ev_drive', when:Q => Q.driving() && Q.unlocked('drive'), msg:'mom_car'},
-    {id:'ev_night', when:() => { const h = new Date().getHours(); return h >= 1 && h < 5; }, msg:'mom_late'}
+    {id:'ev_night', when:() => { const h = new Date().getHours(); return h >= 1 && h < 5 && performance.now() > 600000; }, msg:'mom_late'}   /* 凌晨还玩了 10 分钟以上 */
   );
 
   D.homesick = {

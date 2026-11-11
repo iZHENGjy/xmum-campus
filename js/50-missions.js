@@ -57,7 +57,7 @@ function missionOrders(pk){
   const n = opts.length, take = (a, b) => opts.splice(Math.min(opts.length - 1, Math.floor((a + rnd() * (b - a)) * opts.length)), 1)[0];
   const out = [missionOrder(pk, take(0, .35), false)];
   if (n > 1) out.push(missionOrder(pk, take(.6, 1), false));
-  if (n > 2) out.push(missionOrder(pk, take(.2, .8), true));
+  if (n > 2) out.push(missionOrder(pk, take(.2, .8), !q1));   /* chapter 1 is on foot: no rush order, the third one is a normal one */
   return out;
 }
 function startMission(pk, o){

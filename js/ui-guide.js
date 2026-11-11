@@ -280,7 +280,9 @@
     }
     if (MV.follow){ MV.cx = x; MV.cz = z; }
     miniNames.minor = MV.span <= 460;
-    g(() => drawMiniCampus(MV.cx, MV.cz, yaw, {g:cx2d, span:MV.span, u:MV.dpr * 1.15, names:MV.span <= 1500, me:[x, z], noN:true}));
+    const mo = {g:cx2d, span:MV.span, u:MV.dpr * 1.15, names:MV.span <= 1500, me:[x, z], noN:true};
+    g(() => drawMiniCampus(MV.cx, MV.cz, yaw, mo));
+    for (const fn of XGuide.mapLayers) g(() => fn(MV.cx, MV.cz, mo));   /* extra marks on the big map, e.g. the story's star (js/89-quest-ui.js) */
   }
   function loop(t){
     if (!bm.open){ MV.raf = 0; return; }
@@ -427,5 +429,5 @@
   { const b0 = build; build = function(){ b0(); PAGES.forEach((p, i) => { if (p.mount){ const el = track.children[i]; if (el) g(() => p.mount(el)); } }); }; }
   function refresh(){ if (!gd.open) return; const k = cur; build(); go(k, true); requestAnimationFrame(() => { track.style.transition = ''; }); }
   window.XGuide = {open:openGuide, close:closeGuide, map:openMap, closeMap, get on(){ return gd.open || bm.open; }, get guideOn(){ return gd.open; }, get mapOn(){ return bm.open; },
-    get page(){ return gd.open ? cur : -1; }, get pageId(){ return gd.open && PAGES[cur] ? PAGES[cur].id : ''; }, pages:PAGES.map(p => p.id), addPage, refresh, go:i => go(i)};
+    get page(){ return gd.open ? cur : -1; }, get pageId(){ return gd.open && PAGES[cur] ? PAGES[cur].id : ''; }, pages:PAGES.map(p => p.id), addPage, refresh, go:i => go(i), mapLayers:[]};
 })();

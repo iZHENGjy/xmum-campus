@@ -200,11 +200,8 @@
     G.beginPath(); for (let i = 0; i < 10; i++){ const a = i / 10 * Math.PI * 2 - Math.PI / 2, rr = i % 2 ? r * .45 : r; G.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } G.closePath();
     G.fillStyle = col; G.strokeStyle = '#1f2a33'; G.lineWidth = Math.max(1.5, r * .18); G.fill(); G.stroke();
   }
-  if (typeof drawMini === 'function'){
-    const base = drawMini;
-    drawMini = function(cx, cz, yaw, o){
-      base(cx, cz, yaw, o);
-      if (mode !== 'naiwa' || g(() => indoorNow(), false)) return;
+  function overlay(cx, cz, o){
+      if (mode !== 'naiwa' || g(() => indoorNow(), false) || quiet()) return;
       const G = o && o.g || mini.getContext('2d'), Sw = G.canvas.width, Sh = G.canvas.height, u = o && o.u || 1, k = Math.min(Sw, Sh) / (o && o.span || 520);
       const X = x => Sw / 2 + (x - cx) * k, Z = z => Sh / 2 + (z - cz) * k, e = 10 * u, clamp = (v, m) => Math.max(e, Math.min(m - e, v));
       /* npcs with something to give: a yellow "!" */
@@ -217,8 +214,9 @@
       if (g(() => mission.on, false)) return;
       const a = stepAt(XQ.step()); if (!a) return;
       star(G, clamp(X(a[0]), Sw), clamp(Z(a[1]), Sh), 10 * u, '#ffc21a');
-    };
   }
+  if (typeof drawMini === 'function'){ const base = drawMini; drawMini = function(cx, cz, yaw, o){ base(cx, cz, yaw, o); if (!(o && o.g)) overlay(cx, cz, o); }; }
+  g(() => XGuide.mapLayers.push(overlay));
 
   /* ================= the diary: page 1 of the game guide ================= */
   const WEATHER = () => {

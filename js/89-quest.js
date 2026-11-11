@@ -131,7 +131,7 @@
   function diaryAdd(id, v, opt){
     if (!D.diary[id] && !(opt && opt.text)) return;
     if (!(opt && opt.repeat) && S.diary.some(e => e.s === id)) return;
-    const e = {s:id, d:dayNo(), c:opt && opt.c || S.ch}; if (v) e.v = v; if (opt && opt.recap) e.r = 1; if (opt && opt.text) e.x = opt.text;
+    const e = {s:id, d:dayNo(), c:opt && opt.c != null ? opt.c : S.ch}; if (v) e.v = v; if (opt && opt.recap) e.r = 1; if (opt && opt.text) e.x = opt.text;
     S.diary.push(e); if (S.diary.length > 240) S.diary.splice(0, S.diary.length - 240);
     save(); emit('diary', e);
   }
@@ -211,7 +211,7 @@
     g(() => nwDress(N, Object.assign(wdLook(null), n.look || {})));
     N.root.traverse(o => { if (o.isMesh){ o.castShadow = !TOUCH && !(typeof XQ !== 'undefined' && XQ.level === 'low'); o.receiveShadow = false; } });
     scene.add(N.root);
-    const lbl = addLabel(n.short || n.name, at[0], 5.4, at[1], true); lbl.el.classList.add('q-npc');
+    const lbl = addLabel(n.short || n.name, at[0], 3.3, at[1], true); lbl.el.classList.add('q-npc');
     lbl.el.addEventListener('click', e => { e.stopPropagation(); if (npcNearId() === id) talk(id); });
     const o = {id, N, x:at[0], z:at[1], h:at[2] || 0, lbl, vis:true, t:Math.random() * 6, wave:0, mark:null};
     N.root.position.set(o.x, g(() => groundAt(o.x, o.z), 0), o.z); N.root.rotation.y = o.h;
@@ -232,7 +232,7 @@
       const at = npcAt(id); if (!at){ if (o) npcRemove(id); continue; }
       const far = Math.hypot(at[0] - px, at[1] - pz) > 60 || inside;
       if (!o){ if (far) continue; o = npcBuild(id); if (!o) continue; }
-      if (o.x !== at[0] || o.z !== at[1]){ o.x = at[0]; o.z = at[1]; o.h = at[2] || 0; o.N.root.position.set(o.x, g(() => groundAt(o.x, o.z), 0), o.z); o.lbl.pos.set(o.x, 5.4, o.z); }
+      if (o.x !== at[0] || o.z !== at[1]){ o.x = at[0]; o.z = at[1]; o.h = at[2] || 0; o.N.root.position.set(o.x, g(() => groundAt(o.x, o.z), 0), o.z); o.lbl.pos.set(o.x, 3.3, o.z); }
       o.vis = !far; o.N.root.visible = o.vis && !(talking && talking.hideNpc === id);
       const mk = npcMark(id), n = D.npcs[id], txt = (mk ? mk + ' ' : '') + (n.short || n.name);
       o.lbl.dead = !o.vis; if (o.lbl.el.textContent !== txt) o.lbl.el.textContent = txt;
@@ -377,7 +377,7 @@
   const ch1Deliv = () => S.born === 'new' && S.ch === 1;
 
   /* ---------- the intro: the first time a new player goes into 奶娃 mode ---------- */
-  const GATE = {x:100, z:252, h:Math.PI};   /* in front of the name stone, facing into campus */
+  const GATE = {x:96, z:242, h:Math.PI};   /* just inside the main gate (the 南门 spawn of walk mode), facing up the axis toward A3 */
   function placeAtGate(){
     if (g(() => driving, null)) g(() => leaveCar());
     nw.x = GATE.x; nw.z = GATE.z; nw.h = GATE.h; nw.y = g(() => groundAt(nw.x, nw.z), 0); nw.state = 'idle'; nw.air = false;
