@@ -551,7 +551,6 @@ body.be-on #acts kbd{color:rgba(255,255,255,.85)}
     if (!P.chokes && !P.cries) ctx.unlock('mg_bigeat_cool');
     let note = '';
     if (first){
-      if (window.XParts && XParts.grant) XParts.grant('neon', 1, '大胃王争霸赛 · 赢下' + O.name);
       note = idx < OPS.length - 1 ? ` · 解锁下一位对手：${OPS[idx + 1].name}` : ' · 你就是夜市新的大胃王';
     }
     ctx.finish(score, {kicker:'赢了', title:'吃赢了' + O.name, sub:stat + note});
@@ -559,6 +558,7 @@ body.be-on #acts kbd{color:rgba(255,255,255,.85)}
 
   return {
     id:'bigeat', name:'大胃王争霸赛', icon:'🍢', color:'#ff6a3d',
+    parts:'bell',                  // 改装零件掉落表：js/42-tuning.js 的 TN_DROPS.bell，按奖牌发，结算面板显示（js/93-tuning-ui.js）
     desc:'夜市长桌上和对手比吃：狂点吃，别噎着，辣了喝水',
     intro:RULES,
     controls:{a:'吃', b:'喝水', tap:true, help:{touch:'狂点右下「吃」（点画面也算）· 蓝色「喝水」解辣、解噎', key:'狂点鼠标左键或空格：吃 · 右键或 K：喝水 · P 暂停'}},
