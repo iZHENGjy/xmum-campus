@@ -41,13 +41,17 @@ function missionOrder(pk, to, rush){
   const dist = Math.hypot(to.x - pk.x, to.z - pk.z), hot = pk === hotPk && prog.daily !== dayKey();
   const cross = typeof outCross === 'function' ? outCross(pk, to) : null;   /* through the gate: longer limit, better pay (js/89-outskirts-play.js) */
   /* DELIV_EASE: 35% more time than the pay is worked out from; the extra seconds are a cushion, not money (grace below) */
-  const base = Math.round((cross ? cross.limit : dist / 13 + 14) * (rush ? .72 : 1)), limit = Math.round(base * DELIV_EASE), grace = limit - base, mult = rush ? 1.5 : 1, route = cross ? cross.route : dist;
+  /* story chapter 1 (js/89-quest.js): on foot, campus orders only, 1.5× the time; the extra is cushion (grace), not pay */
+  const q1 = window.XQuest && XQuest.ch1Deliv() ? 1.5 : 1;
+  const base = Math.round((cross ? cross.limit : dist / 13 + 14) * (rush ? .72 : 1)), limit = Math.round(base * DELIV_EASE * q1), grace = limit - base, mult = rush ? 1.5 : 1, route = cross ? cross.route : dist;
   const fee = route * .04, est = (25 + fee + Math.max(0, base - route / 16) * 1.2) * (hot ? 2 : 1) * (cross ? cross.mult : 1) * mult * (typeof outCred === 'function' ? outCred() : 1);
   return {to, dist, route, limit, grace, hot, cross, rush:!!rush, mult, fee, est};
 }
 /* what a pick-up has on the counter right now: a short one, a long one (through the gate when there is one), and a rush order */
 function missionOrders(pk){
-  const opts = DESTS.filter(d => { const dd = Math.hypot(d.x - pk.x, d.z - pk.z); return dd > 120 && (dd < 650 || d.far || pk.out); })
+  const q1 = window.XQuest && XQuest.ch1Deliv();   /* story chapter 1: campus orders only */
+  if (q1 && pk.out) return [];
+  const opts = DESTS.filter(d => { const dd = Math.hypot(d.x - pk.x, d.z - pk.z); return dd > 120 && (dd < 650 || d.far || pk.out) && !(q1 && (d.far || d.out || (typeof outCross === 'function' && outCross(pk, d)))); })
     .sort((a, b) => Math.hypot(a.x - pk.x, a.z - pk.z) - Math.hypot(b.x - pk.x, b.z - pk.z));
   if (!opts.length) return [];
   const n = opts.length, take = (a, b) => opts.splice(Math.min(opts.length - 1, Math.floor((a + rnd() * (b - a)) * opts.length)), 1)[0];
