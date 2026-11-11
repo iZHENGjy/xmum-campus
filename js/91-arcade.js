@@ -626,7 +626,7 @@ function mgKeysText(g){
   const c = g.controls, out = [];
   if (c.help) return TOUCH ? c.help.touch : c.help.key;
   if (TOUCH){ if (c.move) out.push('左下摇杆移动'); if (c.a) out.push(c.tap ? `点屏幕或「${c.a}」` : `右下「${c.a}」`); if (c.b) out.push(`右下「${c.b}」`); }
-  else { if (c.move) out.push('WASD 移动，Shift 跑'); if (c.a) out.push(`空格${c.tap ? '或点鼠标' : ''}：${c.a}`); if (c.b) out.push(`K：${c.b}`); out.push('P 暂停'); }
+  else { if (c.move) out.push('WASD 移动，Shift 跑'); if (c.a) out.push(`空格${c.tap ? '或点鼠标' : ''}：${c.a}`); if (c.b) out.push(`K：${c.b}`); out.push('Esc 暂停'); }
   return out.join(' · ');
 }
 /* id: a game id, or the board id of one mode; modeId picks a mode of that game (default: the one played last) */

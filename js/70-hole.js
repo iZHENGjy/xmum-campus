@@ -688,7 +688,7 @@ function updateHole(dt, T){
 function holeMiniPUs(mg, X, Z){
   for (const pu of holePUs){
     if (!pu.on) continue;
-    const px = Math.max(7, Math.min(mini.width - 7, X(pu.x))), pz = Math.max(7, Math.min(mini.height - 7, Z(pu.z)));
+    const px = Math.max(7, Math.min(mg.canvas.width - 7, X(pu.x))), pz = Math.max(7, Math.min(mg.canvas.height - 7, Z(pu.z)));   /* the minimap or the big map (M) */
     mg.fillStyle = HOLE_PU[pu.kind].color; mg.strokeStyle = '#120a22'; mg.lineWidth = 2.5;
     mg.beginPath(); mg.moveTo(px, pz - 8); mg.lineTo(px + 7, pz); mg.lineTo(px, pz + 8); mg.lineTo(px - 7, pz); mg.closePath(); mg.fill(); mg.stroke();
   }

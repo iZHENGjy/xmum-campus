@@ -415,7 +415,7 @@ XMini.register((() => {
     modes:MODES,
     controls:{move:true, a:'投篮', b:'变向', swipe:true, help:{
       touch:'左手摇杆跑位 · 右手在屏幕上往上滑出手（也可以按住「投篮」再松开）·「变向」短冲刺',
-      key:'WASD 跑位 · 按住空格蓄力、松开出手（也可以按住鼠标往上拖）· K 变向 · P 暂停'}},
+      key:'WASD 跑位 · 按住空格蓄力、松开出手（也可以按住鼠标往上拖）· K 变向 · Esc 暂停'}},
     achievements:[['mg_hoops_fire', '火力全开', '奶娃投篮连进三球', 20], ['mg_hoops_100', '百分先生', '奶娃投篮计时赛单局 100 分', 60], ['mg_hoops_duel', '斗牛王', '奶娃投篮斗牛赢一局', 40], ['mg_hoops_block', '钉板大帽', '斗牛里盖掉对手一球', 20]],
     sky:'#1d2229', shadow:20,
     start(ctx){

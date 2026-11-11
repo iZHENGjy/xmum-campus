@@ -1,7 +1,7 @@
 /* XMUM 校园漫游 · 车载电台：三个台、全部浏览器现场合成（没有音频文件），可以外放给附近的人听
  *
  * 玩法：
- *   上车自动开电台，下车淡出。电脑按 M 换台（霓虹夜驾 → 芙蓉湖 Lo-fi → 赛道 EDM → 关），手机点按钮栏里的「电台」，顺序一样。
+ *   上车自动开电台，下车淡出。点按钮栏里的「电台」换台（霓虹夜驾 → 芙蓉湖 Lo-fi → 赛道 EDM → 关）。M 键现在是大地图（js/ui-guide.js），电台没有快捷键了。
  *   左下角（手机在上方）的小条显示台名、曲名、段落；点它打开面板：选台、下一首、单曲循环、收藏到这辆车、外放、音量、自动切 EDM。
  *   每首 32 小节（约 1 到 1 分半），播完自动接下一首；单曲循环打开时一直放这首。
  *   收藏：把这首的编号（种子）记在这款车上，下次坐进同款车接着循环放。
@@ -583,10 +583,7 @@
 
   window.addEventListener('keydown', e => {
     if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
-    if (e.code === 'Escape' && !panel.hidden){ e.stopImmediatePropagation(); e.preventDefault(); panelOpen(false); return; }
-    if (e.code !== 'KeyM' || e.repeat || e.ctrlKey || e.metaKey || e.altKey || document.querySelector('dialog[open]')) return;
-    if (!inCar() || g(() => gx.paused, false)) return;
-    e.preventDefault(); cycle();
+    if (e.code === 'Escape' && !panel.hidden){ e.stopImmediatePropagation(); e.preventDefault(); panelOpen(false); }
   }, true);
 
   /* ---------- HUD: a small head unit strip; tap it for the panel ---------- */
@@ -600,7 +597,7 @@
     <div class="rd-hear" id="rdHear" hidden></div>`;
   const panel = document.createElement('div'); panel.id = 'rdPanel'; panel.className = 'rd-panel'; panel.hidden = true;
   panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', '车载电台');
-  panel.innerHTML = `<div class="rd-ph"><b>车载电台</b><span class="rd-key">M 换台</span><button type="button" class="rd-x" id="rdX" aria-label="收起">×</button></div>
+  panel.innerHTML = `<div class="rd-ph"><b>车载电台</b><button type="button" class="rd-x" id="rdX" aria-label="收起">×</button></div>
     <div class="rd-presets" role="group" aria-label="选台">${STATIONS.map((s, i) => `<button type="button" class="rd-pre" data-i="${i}" style="--pc:${s.acc}" aria-pressed="false"><small>${s.freq}</small><b>${s.name}</b></button>`).join('')}</div>
     <div class="rd-now"><span id="rdNow">—</span><span id="rdSec"></span></div>
     <div class="rd-row">
@@ -619,7 +616,7 @@
   const $r = id => document.getElementById(id);
   /* the 电台 button in the touch button bar, next to 上车 / 漂移 / 喇叭 */
   const actBtn = document.createElement('button'); actBtn.type = 'button'; actBtn.id = 'act-m'; actBtn.hidden = true;
-  actBtn.innerHTML = '<b>电台</b><kbd>M</kbd>'; actBtn.setAttribute('aria-label', '电台：换台，换到最后一个是关');
+  actBtn.innerHTML = '<b>电台</b>'; actBtn.setAttribute('aria-label', '电台：换台，换到最后一个是关');
   { const acts = document.getElementById('acts'); if (acts) acts.appendChild(actBtn); }
   actBtn.addEventListener('pointerdown', e => { e.preventDefault(); cycle(); });
   actBtn.addEventListener('contextmenu', e => e.preventDefault());
@@ -640,8 +637,8 @@
   $r('rdPow').addEventListener('click', () => setPower(!R.on));
   $r('rdVol').addEventListener('input', e => { R.vol = Math.max(0, Math.min(1, e.target.value / 100)); $r('rdVolOut').textContent = Math.round(R.vol * 100) + '%'; save(); });
   $r('rdAuto').addEventListener('change', e => { R.auto = e.target.checked; save(); });
-  /* keep game keys (WASD, space…) from reaching the car while a panel control has focus, but let M and Escape through */
-  panel.addEventListener('keydown', e => { if (e.code !== 'Escape' && e.code !== 'KeyM' && e.code !== 'Tab') e.stopPropagation(); });
+  /* keep game keys (WASD, space…) from reaching the car while a panel control has focus, but let Escape through */
+  panel.addEventListener('keydown', e => { if (e.code !== 'Escape' && e.code !== 'Tab') e.stopPropagation(); });
   document.addEventListener('pointerdown', e => { if (!panel.hidden && !panel.contains(e.target) && !hudEl.contains(e.target) && e.target !== actBtn && !actBtn.contains(e.target)) panelOpen(false); }, true);
 
   let flashT = 0;
@@ -652,7 +649,7 @@
     hudEl.style.setProperty('--rd', R.on ? st.acc : '#8a93a3'); panel.style.setProperty('--rd', st.acc);
     $r('rdFq').textContent = R.on ? st.freq : 'OFF';
     $r('rdSt').textContent = R.on ? st.name : '电台关了';
-    $r('rdTr').textContent = R.on ? (S ? '♪ ' + S.title + ' #' + String(S.k % 1000).padStart(3, '0') : '—') : (TOUCH ? '点「电台」打开' : '按 M 打开');
+    $r('rdTr').textContent = R.on ? (S ? '♪ ' + S.title + ' #' + String(S.k % 1000).padStart(3, '0') : '—') : (TOUCH ? '点「电台」打开' : '点这里打开');
     $r('rdLoopTag').hidden = !(R.on && R.loop); $r('rdAirTag').hidden = !(R.on && R.air);
     hudEl.classList.toggle('rd-off', !R.on); hudEl.classList.toggle('rd-onair', R.on && R.air);
     actBtn.querySelector('b').textContent = R.on ? st.short : '电台';
