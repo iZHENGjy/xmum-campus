@@ -3,9 +3,9 @@
 /* Everything placed here uses private generators or pure noise, never rnd(), so the campus layout that later files place stays put. */
 
 /* ---------- map bounds: the campus hedge ring stays a wall, open only where the road leaves the main gate ---------- */
-Object.assign(MAP, {x0:-1080, x1:820, z0:-560, z1:1180});
+Object.assign(MAP, {x0:-1080, x1:1150, z0:-560, z1:1260});
 const CAMPUS_R = {x0:-603, x1:603, z0:-278, z1:265};
-const GATE_GAP = [GX - 16, GX + 16];
+const GATE_GAP = [GX - GATE_FRONT.porch - 4, GX + GATE_FRONT.porch + 4];   /* the gate, its two lanes and the porches: the closed gate, the stone and the porches stop you by their own colliders (js/42-gate.js) */
 MAP.wall = (x, z, r) => {
   if (x + r > -603 && x - r < 603){
     if (z + r > -278 && z - r < -275) return true;
@@ -25,14 +25,25 @@ const OUT_PADS = [
   {id:'bell', x0:-45, x1:545, z0:288, z1:470, fall:55},
   {id:'kip',  x0:-822, x1:-490, z0:864, z1:1180, fall:70},
   {id:'prima', x0:-490, x1:-274, z0:888, z1:1012, fall:45},
+  /* 汽车游乐园二园 (js/92-f1park.js): the Sepang-style circuit and the stunt zone, south-east of Bell Avenue. The oil-palm estate road
+     crosses it and becomes the circuit's back straight: its profile is sampled after this pad is levelled, so it comes down to the floor too.
+     The map edge is x 1150 / z 1260 (the line above); online positions reach z 1300 (js/net.js). */
+  {id:'park2', x0:-230, x1:1070, z0:675, z1:1195, fall:45}
 ];
+/* 汽车游乐园 (js/92-stuntpark.js): a level block west of the campus, from Jalan Sunsuria north toward the map edge (big jump on x = -920).
+   Not in OUT_PADS: it is levelled later by TG.flattenLate (below), after js/13-outskirts.js has planted the hill trees on the
+   untouched land, so every tree on the map stays exactly where it was; js/92-stuntpark.js clears the few standing in the park. */
+const PARK_PAD = {id:'park', x0:-1002, x1:-798, z0:-470, z1:262, fall:45};
 const OUT_ROADS = [
   {id:'artN', kind:'main', w:8, line:[[-1400, 270], [1160, 270]]},
   {id:'artS', kind:'main', w:8, line:[[-1400, 289], [1160, 289]]},
-  {id:'gate', kind:'gate', w:10, line:[[GX, 246.6], [GX, 307]]},
-  {id:'bellF', kind:'lane', w:6, line:[[GX - 16, 307], [520, 307], [530, 316], [530, 348]]},
-  {id:'bellB', kind:'lane', w:6, line:[[GX - 16, 363], [424, 363]]},
-  {id:'bellW', kind:'lane', w:6, line:[[GX - 16, 307], [GX - 16, 363]]},
+  {id:'gate', kind:'gate', w:10, line:[[GX, 272], [GX, 307]]},   /* from Jalan Sunsuria across the median to Bell Avenue: the gate itself is closed, with the name stone in front */
+  {id:'gateW', kind:'lane', w:GATE_FRONT.lw, line:[[GX - GATE_FRONT.lane, 246.6], [GX - GATE_FRONT.lane, 270]]},   /* the two lanes beside the gate: in (west) and out (east) */
+  {id:'gateE', kind:'lane', w:GATE_FRONT.lw, line:[[GX + GATE_FRONT.lane, 246.6], [GX + GATE_FRONT.lane, 270]]},
+  /* Bell Avenue's lanes: its west end lines up with the gate axis (x = 104), as on the real street */
+  {id:'bellF', kind:'lane', w:6, line:[[104, 307], [520, 307], [530, 316], [530, 348]]},
+  {id:'bellB', kind:'lane', w:6, line:[[104, 363], [424, 363]]},
+  {id:'bellW', kind:'lane', w:6, line:[[104, 307], [104, 363]]},
   /* round the back of Bell Suites to the back lane: the frontage lane used to stop dead on the grass at z 348
      (the Bell street race in js/92-racing.js already ran this way, over the grass) */
   {id:'bellE', kind:'lane', w:6, line:[[530, 348], [519, 366], [440, 366.5], [424, 363]]},
@@ -225,7 +236,8 @@ const terrMat = regWet(M('#b4b4b4', {vertexColors:true, roughness:.95}), .62);  
   const cLow = new THREE.Color('#4f7a3b'), cMid = new THREE.Color('#3f6f2f'), cHigh = new THREE.Color('#2b5124'), cSoil = new THREE.Color('#9c6440'),
     fLow = new THREE.Color('#4d8a3e'), fHigh = new THREE.Color('#3f7a35'), c = new THREE.Color();
   const at = (i, j) => Y[Math.max(0, Math.min(nz - 1, j)) * nx + Math.max(0, Math.min(nx - 1, i))];
-  for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++){
+  /* normal and colour of one grid vertex (TG.flattenLate below runs it again on the vertices it moves) */
+  const shade = (i, j) => {
     const k = j * nx + i, gx = (at(i + 1, j) - at(i - 1, j)) / (2 * C), gz = (at(i, j + 1) - at(i, j - 1)) / (2 * C), l = Math.hypot(gx, 1, gz);
     nor[k * 3] = -gx / l; nor[k * 3 + 1] = 1 / l; nor[k * 3 + 2] = -gz / l;
     const x = x0 + i * C, z = z0 + j * C, h = Y[k], slope = Math.hypot(gx, gz), jit = (hash2(i * 7 + 3, j * 5 + 1) - .5) * .08;
@@ -234,7 +246,8 @@ const terrMat = regWet(M('#b4b4b4', {vertexColors:true, roughness:.95}), .62);  
     else { c.copy(cLow).lerp(cMid, smooth01(.5, 6, h)).lerp(cHigh, smooth01(6, 32, h) * .8 + smooth01(.2, .45, slope) * .2); c.lerp(cSoil, smooth01(.45, .75, slope) * .55);
       c.multiplyScalar(.82 + .32 * vnoise(x / 95 + 9.1, z / 95 - 4.7)); }
     c.multiplyScalar(1 + jit); col[k * 3] = c.r; col[k * 3 + 1] = c.g; col[k * 3 + 2] = c.b;
-  }
+  };
+  for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) shade(i, j);
   const groups = new Map(), cw = (nx - 1) / 3, ch = (nz - 1) / 3;
   for (let j = 0; j < nz - 1; j++) for (let i = 0; i < nx - 1; i++){
     const a = j * nx + i, b = a + 1, cc = a + nx, d = cc + 1;
@@ -253,4 +266,22 @@ const terrMat = regWet(M('#b4b4b4', {vertexColors:true, roughness:.95}), .62);  
     const m = new THREE.Mesh(geo, terrMat); m.receiveShadow = true; scene.add(m); TG.meshes.push(m);
     if (key === 'campus') TG.campusMesh = m;
   });
+  /* level a pad ({x0, x1, z0, z1, fall}, same easing as OUT_PADS) after the fact: the height grid, and the drawn hills' vertices,
+     normals and colours. groundAt / terrainY read the grid live, so everything placed from here on sits on the new ground.
+     Cells that end up all at or under 0 keep their triangles, a few cm under the flat ground that hides them. */
+  TG.flattenLate = p => {
+    const R = p.fall + 4, i0 = Math.max(0, Math.ceil((p.x0 - R - x0) / C)), i1 = Math.min(nx - 1, Math.floor((p.x1 + R - x0) / C));
+    const j0 = Math.max(0, Math.ceil((p.z0 - R - z0) / C)), j1 = Math.min(nz - 1, Math.floor((p.z1 + R - z0) / C));
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++){ const k = j * nx + i; Y[k] = (Y[k] + .06) * smooth01(4, R, rectDist(x0 + i * C, z0 + j * C, p)) - .06; }
+    for (let j = j0 - 1; j <= j1 + 1; j++) for (let i = i0 - 1; i <= i1 + 1; i++) if (i >= 0 && j >= 0 && i < nx && j < nz) shade(i, j);
+    for (const m of TG.meshes){
+      const g = m.geometry, P = g.attributes.position, Nn = g.attributes.normal, Cc = g.attributes.color; let hit = false;
+      for (let q = 0; q < P.count; q++){
+        const i = Math.round((P.getX(q) - x0) / C), j = Math.round((P.getZ(q) - z0) / C);
+        if (i < i0 - 1 || i > i1 + 1 || j < j0 - 1 || j > j1 + 1) continue;
+        const k = j * nx + i; P.setY(q, Y[k]); Nn.setXYZ(q, nor[k * 3], nor[k * 3 + 1], nor[k * 3 + 2]); Cc.setXYZ(q, col[k * 3], col[k * 3 + 1], col[k * 3 + 2]); hit = true;
+      }
+      if (hit){ P.needsUpdate = Nn.needsUpdate = Cc.needsUpdate = true; g.computeBoundingSphere(); }
+    }
+  };
 })();

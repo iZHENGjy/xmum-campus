@@ -64,6 +64,13 @@
       <g font-family="var(--display)" font-weight="900" font-size="13" text-anchor="middle" fill="#fff">${[['毂', '#7f93a8'], ['漆', '#e2714c'], ['碳', '#3b3f46'], ['涡', '#c39a3a'], ['氮', '#2aa9de']].map(([c, col], i) => `<rect x="${44 + i * 32}" y="10" width="24" height="24" rx="6" fill="${col}"/><text x="${56 + i * 32}" y="27">${c}</text>`).join('')}</g></svg>`,
     parts:`<svg viewBox="0 0 240 120" aria-hidden="true"><rect x="34" y="14" width="150" height="96" rx="6" fill="var(--card-bg)" stroke="var(--ink)" stroke-width="2"/><path d="M48 34 H150 M48 52 H170 M48 70 H140 M48 88 H160" stroke="var(--line)" stroke-width="6" stroke-linecap="round"/>
       <circle cx="176" cy="74" r="24" fill="none" stroke="var(--tile)" stroke-width="5"/><path d="M193 91 L214 112" stroke="var(--tile)" stroke-width="7" stroke-linecap="round"/><rect x="164" y="64" width="22" height="22" rx="5" fill="#8e9bc0"/><text x="175" y="80" text-anchor="middle" font-size="13" font-weight="900" fill="#fff" font-family="var(--display)">钛</text></svg>`,
+    house:`<svg viewBox="0 0 240 120" aria-hidden="true"><rect x="0" y="100" width="240" height="20" fill="#74a955" opacity=".55"/>
+      <path d="M40 46 L100 18 L160 46 Z" fill="#c4502a" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/><rect x="50" y="46" width="100" height="56" fill="var(--card-bg)" stroke="var(--ink)" stroke-width="2"/>
+      <rect x="62" y="54" width="30" height="16" fill="#9cc3d9" stroke="var(--ink)" stroke-width="1.5"/><rect x="108" y="54" width="30" height="16" fill="#9cc3d9" stroke="var(--ink)" stroke-width="1.5"/>
+      <rect x="60" y="80" width="14" height="22" fill="#6b4a33" stroke="var(--ink)" stroke-width="1.5"/><path d="M84 78 H150" stroke="var(--ink)" stroke-width="3"/><path d="M146 78 V102" stroke="var(--ink)" stroke-width="2"/>
+      <rect x="92" y="88" width="38" height="12" rx="4" fill="var(--tile)" stroke="var(--ink)" stroke-width="1.5"/><circle cx="100" cy="101" r="3.5" fill="#2a3138"/><circle cx="122" cy="101" r="3.5" fill="#2a3138"/>
+      <path d="M186 102 V60" stroke="var(--muted)" stroke-width="3"/><rect x="166" y="44" width="44" height="28" fill="#fff" stroke="#c62f27" stroke-width="3"/><rect x="166" y="44" width="44" height="10" fill="#c62f27"/>
+      <text x="188" y="52.5" text-anchor="middle" font-size="7.5" font-weight="900" fill="#fff" font-family="Arial,sans-serif">FOR SALE</text><text x="188" y="66" text-anchor="middle" font-size="9" font-weight="800" fill="var(--ink)" font-family="Arial,sans-serif">RM 8,800</text></svg>`,
     map:`<svg viewBox="0 0 240 120" aria-hidden="true"><path d="M30 20 L80 10 L130 20 L180 10 V100 L130 110 L80 100 L30 110 Z" fill="#74a955" stroke="var(--ink)" stroke-width="2"/><path d="M80 10 V100 M130 20 V110" stroke="var(--ink)" stroke-width="1" opacity=".3"/>
       <path d="M36 70 C70 60 100 74 130 58 S170 40 178 46" stroke="#e6dcc8" stroke-width="7" fill="none"/><ellipse cx="104" cy="36" rx="18" ry="10" fill="#3f8fb0"/><rect x="140" y="70" width="22" height="14" fill="#b9563d"/><rect x="50" y="34" width="16" height="12" fill="#b9563d"/>
       <circle cx="60" cy="86" r="6" fill="#ff8a3d" stroke="var(--ink)" stroke-width="1.5"/><circle cx="150" cy="40" r="6" fill="#ffd24a" stroke="var(--ink)" stroke-width="1.5"/><circle cx="160" cy="94" r="6" fill="#e84d8a" stroke="var(--ink)" stroke-width="1.5"/><circle cx="96" cy="88" r="6" fill="#4fd18b" stroke="var(--ink)" stroke-width="1.5"/>
@@ -94,7 +101,7 @@
     {id:'hello', t:'欢迎来到 XMUM 校园', art:'hello', body:() => `
       <p class="gd-lead">这是一座照平面图搭出来的雪邦校园。主玩法是<b>「开车 · 奶娃」</b>：你是奶娃，在校园里走路、开车、到处找事做。</p>
       ${li(['做各种事攒 <b>RM</b> 和<b>改装道具</b>：送外卖、挑战赛、校门外打工、抓小偷、宿舍撤离、教学楼潜入、B1 游戏厅小游戏……',
-        '钱拿去买车、改装、升级水枪、买衣服和喷漆，<b>总资产</b>（钱加上买过的东西）越滚越大。',
+        '钱拿去买车、改装、升级水枪、买衣服和喷漆，攒够了去校门外<b>买房装修</b>，<b>总资产</b>（钱加上买过的东西）越滚越大。',
         '冲<b>「总资产」排行榜</b>：全服前七名还会站上陈华春音乐厅门前的展台。',
         '不知道下一步干嘛？就去右上角小地图上的<b>橙色点</b>接一单外卖。'])}
       <p class="gd-hint">${K('← → 翻页 · P 或 Esc 关', '左右滑动翻页')}</p>`},
@@ -103,13 +110,14 @@
         <dt>送外卖</dt><dd>D6 食堂、LY3 食堂、B1 餐厅门口的<b>橙色光圈</b>挑一单${K('（F 或 1 2 3 接，X 跳过，J 关掉接单）', '')}，限时送到绿点。每天有一家「加急」，第一单双倍；校门外还有两个取餐点，出入校门的单按路程加钱。</dd>
         <dt>挑战赛和竞速</dt><dd>环湖赛、早八冲刺、田径场漂移、飞跃挑战按成绩给奖牌和钱；带格子旗的赛事点开车进圈，选人机赛、道具赛或影线 1v1。</dd>
         <dt>特技分</dt><dd>漂移、飞跃、撞车连成一串，连击结束换成钱（50 分 = RM 1）。</dd>
-        <dt>校门外</dt><dd>麦当当得来速、蜜雪冰橙打工、KIP 超市大乱斗、山梁拉力；夜晚 Bell 后巷有夜市。</dd>
+        <dt>校门外</dt><dd>麦当当得来速、蜜雪冰橙打工、KIP 超市大乱斗、山梁拉力；夜晚 Bell 后巷有夜市；傍晚起排屋南边的 Kota Warisan 大夜市开市，榴莲摊有猫山王挑战。</dd>
+        <dt>坐小火车</dt><dd>开到 Salak Tinggi ERL 站（地图上的紫色点），站厅门口紫圈${K('按 F', '点「上车」')}坐车，一站到 KLIA 机场：问讯台接「送机赶时间」跑腿单，还有 24 小时的すき家。</dd>
         <dt>抓小偷</dt><dd>送单时有人抢外卖：追上去用水枪淋或开车撞倒，走到身边${K('按 F', '点「上车」')}拿回来。Bell 路口的通缉榜能直接接悬赏。</dd>
         <dt>大活</dt><dd>LY 宿舍门口紫圈「宿舍撤离」、A3 门口红圈蓝圈「教学楼潜入」、猴山山顶「猴子大战」、B1 游戏厅的小游戏（得分换钱），掉的改装道具最好。</dd>
         <dt>成就</dt><dd>解锁就给钱，还送一张改装图纸。暂停面板里能看全部成就。</dd>
       </dl>`},
     {id:'rich', t:'总资产和排行榜', art:'rich', body:() => `
-      ${li(['<b>总资产</b> = 现金 + 买过的车、改装、水枪升级、衣橱、喷漆和宿舍周边，按原价算；改装道具和配方也有估值。',
+      ${li(['<b>总资产</b> = 现金 + 买过的车、改装、水枪升级、衣橱、喷漆、宿舍周边、房子和装修，按原价算；改装道具和配方也有估值。',
         '所以花钱不会让总资产变少，现金只是换成了同样值钱的东西。<b>被保安抓到</b>才会真的少：罚走身上现金的 30%。',
         '标题页「排行榜」→「总资产」看全服排名；另外还有黑洞、特技和每个小游戏自己的榜。',
         '上榜要联网，并在标题页填好<b>昵称</b>：昵称先到先得，注册后只有你能用。'])}`},
@@ -130,6 +138,11 @@
         '下单后按真实时间施工（轻改几分钟，顶级要跨天），车照样能开，完工后回车行提车。'])}
       <p class="gd-hint">下一页是全部道具和配方的来源速查。</p>`},
     {id:'parts', t:'零件和配方去哪儿拿', art:'parts', body:partsHTML},
+    {id:'house', t:'买房装修', art:'house', body:() => `
+      ${li(['出南门往南走，Bell Avenue 后面那排带车棚的排屋（Taman Warisan Megah）有四户挂着<b>「出售」</b>牌子，小地图上是<span class="gd-dot" style="--c:#38c6d9"></span>青色点。',
+        `走到门口${K('按 F', '点「看房」')}看房：能先进去转一圈，买下要 RM 7,400–9,600（按附近真实成交价 ÷ 50）。买下后门牌写你的昵称，${K('按 F', '点「回家」')}进门。`,
+        `家里${K('按 F', '点「装修」')}：先选风格（学生宿舍风、北欧原木、中式红木、电竞房、奶娃主题），九个位置的家具一件件买，墙面和地板另外换。走到沙发、椅子、床、灶台旁边${K('按 F', '点按钮')}能<b>坐下、躺下、做饭</b>。电竞房有几件要<b>改装道具</b>，奶娃主题要解锁够多<b>成就</b>。`,
+        '房子、家具、墙面地板都按原价算进<b>总资产</b>。开着自己的车到车棚前下车，车自动停进车棚，下次上线还在。第一套房子自动设成<b>出生点</b>，打开游戏就在家门口（装修面板顶上能改）。'])}`},
     {id:'map', t:'看地图', art:'map', body:() => `
       ${li([`${K('按 <kbd>M</kbd> 打开大地图', '点右上角的小地图打开大地图')}：拖动平移，${K('滚轮或', '双指或')}「＋ −」缩放，「回到我」重新跟着你。${K('再按 M 或 Esc 关。', '')}`,
         '屏幕上方的<b>指南针</b>指着现在的目标，旁边写着还有多远。',
@@ -168,7 +181,7 @@
         <dt>电台</dt><dd>点左下角的电台小条</dd>
       </dl>`}
   ];
-  const LEGEND = [['#1f2a33', '你（箭头）'], ['#ff8a3d', '外卖取餐'], ['#4fd18b', '送达点'], ['#ffd24a', '打卡点'], ['#e84d8a', '喷漆车间'], ['#e74c3c', '巡逻车', 1], ['#c9a0ff', '宿舍门口'], ['#ffd27a', '教学楼门口'], ['#ff6f61', '抢救期末卷'], ['#ff5fa2', 'B1 游戏厅']];
+  const LEGEND = [['#1f2a33', '你（箭头）'], ['#ff8a3d', '外卖取餐'], ['#4fd18b', '送达点'], ['#ffd24a', '打卡点'], ['#e84d8a', '喷漆车间'], ['#e74c3c', '巡逻车', 1], ['#c9a0ff', '宿舍门口'], ['#ffd27a', '教学楼门口'], ['#ff6f61', '抢救期末卷'], ['#ff5fa2', 'B1 游戏厅'], ['#38c6d9', '出售的房子'], ['#a774ff', 'ERL 火车站']];
 
   /* ---------- the guide sheet ---------- */
   const gd = document.createElement('dialog'); gd.id = 'guide'; gd.className = 'panel sheet gd'; gd.setAttribute('aria-labelledby', 'gdT');
@@ -243,7 +256,7 @@
   const $m = id => bm.querySelector('#' + id), cv = $m('bmCv'), view = $m('bmView'), cx2d = cv.getContext('2d');
   const MV = {span:720, cx:0, cz:0, follow:true, raf:0, last:0, dpr:1, ptr:new Map(), pinch:0, drag:null};
   const SPAN_MIN = 160, SPAN_MAX = 2600;
-  const indoor = () => g(() => ROOM.in, false) || g(() => DORM.in, false);
+  const indoor = () => g(() => ROOM.in, false) || g(() => DORM.in, false) || !!g(() => XTrain.inside, null);
   function meNow(){
     if (mode === 'walk') return [player.x, player.z, player.yaw];
     if (mode === 'hole') return [hole.x, hole.z, camYaw];
