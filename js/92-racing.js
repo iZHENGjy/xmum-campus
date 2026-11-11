@@ -71,7 +71,7 @@ const RC_TRACKS = [
     desc:'离开公路翻山越岭跑两圈，沿着土路走，坡顶冲快了会飞起来。',
     pts:[[-130, 335], [-260, 330], [-400, 350], [-520, 420], [-580, 520], [-540, 620], [-450, 680], [-360, 640], [-330, 560], [-260, 470], [-180, 420]]},
   {id:'estate', name:'油棕园公路冲刺', icon:'🌴', color:'#f2c230', laps:0, w:10, closed:false,
-    desc:'从 KIP 出发，经过麦当当，穿过南边山里的油棕园，冲回 Jalan Sunsuria。',
+    desc:'从 KIP 出发，顺着山路往南，穿过南边山里的油棕园，冲回 Jalan Sunsuria。',
     pts:() => rcEvery(rcRoad('kip').p.filter(p => p[1] > 935), 6).concat(rcEvery(rcRoad('estate').p, 6).slice(1), [[630, 300]])}
 ];
 for (const T of RC_TRACKS){
