@@ -3,7 +3,7 @@
 /* Everything placed here uses private generators or pure noise, never rnd(), so the campus layout that later files place stays put. */
 
 /* ---------- map bounds: the campus hedge ring stays a wall, open only where the road leaves the main gate ---------- */
-Object.assign(MAP, {x0:-1080, x1:820, z0:-560, z1:1180});
+Object.assign(MAP, {x0:-1080, x1:1150, z0:-560, z1:1260});
 const CAMPUS_R = {x0:-603, x1:603, z0:-278, z1:265};
 const GATE_GAP = [GX - GATE_FRONT.porch - 4, GX + GATE_FRONT.porch + 4];   /* the gate, its two lanes and the porches: the closed gate, the stone and the porches stop you by their own colliders (js/42-gate.js) */
 MAP.wall = (x, z, r) => {
@@ -25,8 +25,16 @@ const OUT_PADS = [
   {id:'bell', x0:-45, x1:545, z0:288, z1:470, fall:55},
   {id:'kip',  x0:-822, x1:-490, z0:864, z1:1160, fall:70},
   {id:'prima', x0:-490, x1:-274, z0:888, z1:1012, fall:45},
-  {id:'mcd',  x0:-503, x1:-406, z0:1065, z1:1137, fall:45}
+  {id:'mcd',  x0:-503, x1:-406, z0:1065, z1:1137, fall:45},
+  /* 汽车游乐园二园 (js/92-f1park.js): the Sepang-style circuit and the stunt zone, south-east of Bell Avenue. The oil-palm estate road
+     crosses it and becomes the circuit's back straight: its profile is sampled after this pad is levelled, so it comes down to the floor too.
+     The map edge is x 1150 / z 1260 (the line above); online positions reach z 1300 (js/net.js). */
+  {id:'park2', x0:-230, x1:1070, z0:675, z1:1195, fall:45}
 ];
+/* 汽车游乐园 (js/92-stuntpark.js): a level block west of the campus, from Jalan Sunsuria north toward the map edge (big jump on x = -920).
+   Not in OUT_PADS: it is levelled later by TG.flattenLate (below), after js/13-outskirts.js has planted the hill trees on the
+   untouched land, so every tree on the map stays exactly where it was; js/92-stuntpark.js clears the few standing in the park. */
+const PARK_PAD = {id:'park', x0:-1002, x1:-798, z0:-470, z1:262, fall:45};
 const OUT_ROADS = [
   {id:'artN', kind:'main', w:8, line:[[-1400, 270], [1160, 270]]},
   {id:'artS', kind:'main', w:8, line:[[-1400, 289], [1160, 289]]},
