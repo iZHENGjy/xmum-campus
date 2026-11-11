@@ -7,8 +7,32 @@ const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 let renderer;
 /* 画质档位在 js/quality.js（window.XQ）；像素比和阴影在下面的 applyQuality 里按档位设 */
-try { renderer = new THREE.WebGLRenderer({canvas, antialias:XQ.aa}); }
-catch(e){ $('#err').hidden = false; throw e; }
+/* phones short on graphics memory (many tabs open, or right after the browser dropped a 3D context) can refuse the first try:
+   retry without antialiasing on the low-power GPU before giving up */
+for (const opt of [{antialias:XQ.aa}, {antialias:false, powerPreference:'low-power'}, {antialias:false, powerPreference:'low-power', precision:'mediump', depth:true, stencil:false}]){
+  try { renderer = new THREE.WebGLRenderer(Object.assign({canvas}, opt)); break; } catch(e){ renderer = null; }
+}
+if (!renderer){ $('#err').hidden = false; throw new Error('WebGL unavailable'); }
+/* the browser can also drop the 3D context later (low memory): everything 3D vanishes but the buttons stay. Ask for it back; if it
+   does not come back in a few seconds, offer a reload (progress is saved as you play) */
+(() => {
+  let lostT = 0, box = null;
+  const show = on => {
+    if (!box){
+      box = document.createElement('div'); box.id = 'glLost'; box.className = 'panel'; box.setAttribute('role', 'alert');
+      box.innerHTML = '<b>3D 画面被手机收回了</b><span>多半是开的网页太多、内存不够。关掉其他标签页，再点下面重新载入（进度已经自动保存）。</span><button type="button">重新载入</button>';
+      box.querySelector('button').addEventListener('click', () => location.reload());
+      document.body.appendChild(box);
+    }
+    box.hidden = !on;
+  };
+  canvas.addEventListener('webglcontextlost', e => {
+    e.preventDefault();
+    clearTimeout(lostT);
+    lostT = setTimeout(() => { try { renderer.forceContextRestore(); } catch(err){} setTimeout(() => { if (renderer.getContext().isContextLost()) show(true); }, 2500); }, 800);
+  }, false);
+  canvas.addEventListener('webglcontextrestored', () => { clearTimeout(lostT); show(false); }, false);
+})();
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, XQ.cfg.pr));
 const ANISO = Math.min(4, renderer.capabilities.getMaxAnisotropy());
 
