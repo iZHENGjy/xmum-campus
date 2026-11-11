@@ -226,7 +226,8 @@ const terrMat = regWet(M('#b4b4b4', {vertexColors:true, roughness:.95}), .62);  
   const cLow = new THREE.Color('#4f7a3b'), cMid = new THREE.Color('#3f6f2f'), cHigh = new THREE.Color('#2b5124'), cSoil = new THREE.Color('#9c6440'),
     fLow = new THREE.Color('#4d8a3e'), fHigh = new THREE.Color('#3f7a35'), c = new THREE.Color();
   const at = (i, j) => Y[Math.max(0, Math.min(nz - 1, j)) * nx + Math.max(0, Math.min(nx - 1, i))];
-  for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++){
+  /* normal and colour of one grid vertex (TG.flattenLate below runs it again on the vertices it moves) */
+  const shade = (i, j) => {
     const k = j * nx + i, gx = (at(i + 1, j) - at(i - 1, j)) / (2 * C), gz = (at(i, j + 1) - at(i, j - 1)) / (2 * C), l = Math.hypot(gx, 1, gz);
     nor[k * 3] = -gx / l; nor[k * 3 + 1] = 1 / l; nor[k * 3 + 2] = -gz / l;
     const x = x0 + i * C, z = z0 + j * C, h = Y[k], slope = Math.hypot(gx, gz), jit = (hash2(i * 7 + 3, j * 5 + 1) - .5) * .08;
@@ -235,7 +236,8 @@ const terrMat = regWet(M('#b4b4b4', {vertexColors:true, roughness:.95}), .62);  
     else { c.copy(cLow).lerp(cMid, smooth01(.5, 6, h)).lerp(cHigh, smooth01(6, 32, h) * .8 + smooth01(.2, .45, slope) * .2); c.lerp(cSoil, smooth01(.45, .75, slope) * .55);
       c.multiplyScalar(.82 + .32 * vnoise(x / 95 + 9.1, z / 95 - 4.7)); }
     c.multiplyScalar(1 + jit); col[k * 3] = c.r; col[k * 3 + 1] = c.g; col[k * 3 + 2] = c.b;
-  }
+  };
+  for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) shade(i, j);
   const groups = new Map(), cw = (nx - 1) / 3, ch = (nz - 1) / 3;
   for (let j = 0; j < nz - 1; j++) for (let i = 0; i < nx - 1; i++){
     const a = j * nx + i, b = a + 1, cc = a + nx, d = cc + 1;
@@ -254,4 +256,22 @@ const terrMat = regWet(M('#b4b4b4', {vertexColors:true, roughness:.95}), .62);  
     const m = new THREE.Mesh(geo, terrMat); m.receiveShadow = true; scene.add(m); TG.meshes.push(m);
     if (key === 'campus') TG.campusMesh = m;
   });
+  /* level a pad ({x0, x1, z0, z1, fall}, same easing as OUT_PADS) after the fact: the height grid, and the drawn hills' vertices,
+     normals and colours. groundAt / terrainY read the grid live, so everything placed from here on sits on the new ground.
+     Cells that end up all at or under 0 keep their triangles, a few cm under the flat ground that hides them. */
+  TG.flattenLate = p => {
+    const R = p.fall + 4, i0 = Math.max(0, Math.ceil((p.x0 - R - x0) / C)), i1 = Math.min(nx - 1, Math.floor((p.x1 + R - x0) / C));
+    const j0 = Math.max(0, Math.ceil((p.z0 - R - z0) / C)), j1 = Math.min(nz - 1, Math.floor((p.z1 + R - z0) / C));
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++){ const k = j * nx + i; Y[k] = (Y[k] + .06) * smooth01(4, R, rectDist(x0 + i * C, z0 + j * C, p)) - .06; }
+    for (let j = j0 - 1; j <= j1 + 1; j++) for (let i = i0 - 1; i <= i1 + 1; i++) if (i >= 0 && j >= 0 && i < nx && j < nz) shade(i, j);
+    for (const m of TG.meshes){
+      const g = m.geometry, P = g.attributes.position, Nn = g.attributes.normal, Cc = g.attributes.color; let hit = false;
+      for (let q = 0; q < P.count; q++){
+        const i = Math.round((P.getX(q) - x0) / C), j = Math.round((P.getZ(q) - z0) / C);
+        if (i < i0 - 1 || i > i1 + 1 || j < j0 - 1 || j > j1 + 1) continue;
+        const k = j * nx + i; P.setY(q, Y[k]); Nn.setXYZ(q, nor[k * 3], nor[k * 3 + 1], nor[k * 3 + 2]); Cc.setXYZ(q, col[k * 3], col[k * 3 + 1], col[k * 3 + 2]); hit = true;
+      }
+      if (hit){ P.needsUpdate = Nn.needsUpdate = Cc.needsUpdate = true; g.computeBoundingSphere(); }
+    }
+  };
 })();
