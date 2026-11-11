@@ -138,7 +138,7 @@
   const T = (x, z) => [PLACE.x + (x - SX) * _cr + (z - SZ) * _sr, PLACE.z - (x - SX) * _sr + (z - SZ) * _cr];
   const TI = (x, z) => { const dx = x - PLACE.x, dz = z - PLACE.z; return [SX + dx * _cr - dz * _sr, SZ + dx * _sr + dz * _cr]; };
   const TH = h => h + PLACE.rot;
-  const P3 = (x, y, z) => { const [a, c] = T(x, z); return [a, y, c]; };
+  const PW = (x, y, z) => { const [a, c] = T(x, z); return [a, y, c]; };
   const ST_G = new THREE.Group(), ST_IN = new THREE.Group(); ST_G.position.set(PLACE.x, 0, PLACE.z); ST_G.rotation.y = PLACE.rot; ST_IN.position.set(-SX, 0, -SZ); ST_G.add(ST_IN); scene.add(ST_G);
   const addBoxD = (cx, cz, hx, hz, rot) => { const [x, z] = T(cx, cz); return addBox(x, z, hx, hz, (rot || 0) + PLACE.rot); };
   const TZ = [-13.65, -2.25, 2.25, 13.65];                     /* tracks north to south: Ekspres, Transit (to KL), Transit (to KLIA), Ekspres */
@@ -584,7 +584,7 @@
       for (let x = X - L2 + 2; x < X + L2; x += 4) kBox(b, x - .03, 0, z - s * .7, x + .03, Hc, z - s * .64, '#c9ced3', ''); }
     for (const x of [X - L2, X + L2]) kSign(b, 'x', x, Z - W2, Z + W2, 0, Hc, x < X ? 1 : -1, null, '#d5d8dc');
     kBox(b, X - L2, Hc - .06, Z - .2, X + L2, Hc - .02, Z + .2, '#fffbe6', '');
-    gr.add(new THREE.Mesh(kGeo(b), new THREE.MeshStandardMaterial({vertexColors:true, roughness:.6, emissive:'#6a6a6a'})));
+    gr.add(new THREE.Mesh(kGeo(b), new THREE.MeshStandardMaterial({vertexColors:true, roughness:.6, emissive:'#3c3c3c'})));
     /* the "next station" strip over the doors */
     const cv = document.createElement('canvas'); cv.width = 512; cv.height = 64; const c = cv.getContext('2d');
     c.fillStyle = '#111418'; c.fillRect(0, 0, 512, 64); c.fillStyle = '#ff9a3d'; c.font = `700 30px ${FONT}`; c.textBaseline = 'middle'; c.fillText('下一站 Next: ' + nextName, 14, 33);
@@ -630,10 +630,18 @@
     pass:PATH_W[3],
     gateFx(k){ const G = ST.gate; if (!G) return; G.L.position.x = -.55 - .5 * k; G.R.position.x = .55 + .5 * k; G.L.rotation.y = -k * 1.2; G.R.rotation.y = k * 1.2; }
   };
-  const HOME = Object.assign({}, HOME_D, {
-    out:[...P3(HOME_D.out[0], HOME_D.out[1], HOME_D.out[2]), TH(HOME_D.out[3])], gate:P3(...HOME_D.gate), waitH:TH(HOME_D.waitH),
-    go:HOME_D.go.map(p => P3(...p)), back:HOME_D.back.map(p => P3(...p)),
-    cams:Object.fromEntries(Object.entries(HOME_D.cams).map(([k, [a, c]]) => [k, [P3(...a), P3(...c)]]))
+  /* the lowest roof over a world spot at the station (hall ceiling, footbridge roof, platform canopies), for the walk-through camera */
+  function homeCeil(x, z){
+    const [dx, dz] = TI(x, z), C = CONC;
+    if (dx > C.x0 && dx < C.x1 && dz > C.z0 && dz < C.z1) return SY + C.h - .5;
+    if (dx > BR.x0 - .5 && dx < BR.x1 + .5 && dz >= C.z1 && dz < BR.z1) return BR.y + 2.9;
+    if (dx > PX0 && dx < PX1 && !(dx > SX + 5 && dx < SX + 25) && PLAT.some(([a, c]) => dz > a - 1 && dz < c + 1)) return PY + 3.8;
+    return Infinity;
+  }
+  const HOME = Object.assign({}, HOME_D, {ceil:homeCeil,
+    out:[...PW(HOME_D.out[0], HOME_D.out[1], HOME_D.out[2]), TH(HOME_D.out[3])], gate:PW(...HOME_D.gate), waitH:TH(HOME_D.waitH),
+    go:HOME_D.go.map(p => PW(...p)), back:HOME_D.back.map(p => PW(...p)),
+    cams:Object.fromEntries(Object.entries(HOME_D.cams).map(([k, [a, c]]) => [k, [PW(...a), PW(...c)]]))
   });
 
   /* ================= XTrain: destinations, the cutscene director, being away ================= */
@@ -730,6 +738,28 @@ body.tr-on .topbar{visibility:hidden}
     camera.updateProjectionMatrix();
   }
 
+  /* ---------- indoor light: the carriage and the destinations (KLIA is a hall under a roof) keep one fixed, even light whatever the time
+     and weather on the campus, as the B1 arcade does (js/91-arcade.js): no dusk glare, no night bloom on white walls, no rain indoors.
+     Leaving puts back the sky of the time button that is pressed, and the rain as it was ---------- */
+  const ERL_LIGHT = (() => {
+    const p = Object.assign({}, P3.day); for (const f of P3_COL) p[f] = P3.day[f].clone();
+    p.d = new THREE.Vector3(.25, .95, .3).normalize(); p.bg.set('#bcd6e8'); p.top.set('#5d9ade'); p.hs.set('#e9e6df'); p.hg.set('#7d776c'); p.sc.set('#fff1dc');
+    return Object.assign(p, {hi:.6, si:.4, glow:.6, win:0, lamp:0, stars:0, moon:0, cloud:.6});
+  })();
+  const LIT = {on:false, rain:0};
+  function indoorLight(on){
+    if (on === LIT.on) return; LIT.on = on;
+    if (on){ LIT.rain = wx.target; wx.target = 0; wx.rain = 0; tgt = ERL_LIGHT; }
+    else { const b = document.querySelector('[data-t][aria-pressed="true"]'); tgt = (b && P3[b.dataset.t]) || P3.day; wx.target = LIT.rain; }
+    applyTime(1);
+  }
+  /* every frame while indoors: a time button or a shower started meanwhile only takes effect on the way out */
+  function indoorHold(){
+    if (!LIT.on) return;
+    if (tgt !== ERL_LIGHT){ tgt = ERL_LIGHT; applyTime(1); }
+    if (wx.target > 0){ LIT.rain = wx.target; wx.target = 0; } wx.rain = 0;
+  }
+
   /* ---------- the cutscene ---------- */
   const PH = {gate:2.4, wait:4.8, arrive:6, open:.8, board:1.2, close:1.9, depart:3.4, ride:4.6, black:1.1};
   let NW_VIS = true;
@@ -744,9 +774,13 @@ body.tr-on .topbar{visibility:hidden}
     CS.camP.lerp(_v.set(p[0], p[1], p[2]), k); CS.camT.lerp(_v.set(t[0], t[1], t[2]), k);
   }
   const _v = new THREE.Vector3();
+  /* the walk-through camera: close behind and only a little above 奶娃, and never higher than the roof over the spot it is in
+     (it used to ride 3.6 m up, which put it on top of the footbridge roof, looking down at it, once 奶娃 was up on the 7.4 m bridge) */
   function follow(dt, snap){
     const h = nw.h, k = snap || CS.camP.distanceTo(_v.set(nw.x, nw.y, nw.z)) > 40 ? 1 : 1 - Math.exp(-dt * 3);
-    CS.camP.lerp(_v.set(nw.x - Math.sin(h) * 6.5, nw.y + 3.6, nw.z - Math.cos(h) * 6.5), k); CS.camT.lerp(_v.set(nw.x, nw.y + 1.3, nw.z), k);
+    const S = CS.ph === 'out' ? CS.B : CS.A, x = nw.x - Math.sin(h) * 4.2, z = nw.z - Math.cos(h) * 4.2;
+    const ceil = S && S.ceil ? S.ceil(x, z) : Infinity, y = Math.min(nw.y + 1.9, ceil - .35);
+    CS.camP.lerp(_v.set(x, y, z), k); CS.camP.y = Math.min(CS.camP.y, ceil - .35); CS.camT.lerp(_v.set(nw.x, nw.y + 1.15, nw.z), k);
   }
   /* walk along a path at speed v; true once at the end */
   function walk(path, dt, v){
@@ -813,12 +847,12 @@ body.tr-on .topbar{visibility:hidden}
     if (CS.out){
       const d = CS.dest;
       if (!d.built){ d.station = d.build(KIT) || d.station; d.built = true; }
-      XT.inside = d; CS.B = d.station; farClip(true);
+      XT.inside = d; CS.B = d.station; farClip(true); indoorLight(true);
       g(() => d.onArrive && d.onArrive());
     } else {
       const d = XT.inside; XT.inside = null;
       if (d){ g(() => d.onLeave && d.onLeave()); if (d.release) g(() => d.release()); d.built = false; d.station = null; }
-      CS.B = HOME; farClip(false);
+      CS.B = HOME; farClip(false); indoorLight(false);
     }
     const B = CS.B, T = stationTrain(B, 'arr');
     placeTrain(T.tr, T.path, T.stop); const side = sideTo(T.tr, B.back[0][0], B.back[0][2]);
@@ -923,7 +957,7 @@ body.tr-on .topbar{visibility:hidden}
   const passTr = {};
   function makeTrainOnce(lv){ const tr = passTr[lv] || (passTr[lv] = makeTrain(lv)); tr.root.visible = true; return tr; }
   function startRide(){
-    rideBuild(CS.out ? CS.dest.station0 || CS.dest.name : 'Salak Tinggi'); farClip(true);
+    rideBuild(CS.out ? CS.dest.station0 || CS.dest.name : 'Salak Tinggi'); farClip(true); indoorLight(true);
     /* returning: let the far scene go already, the ride hides the switch */
     NW.root.visible = true; tone('sine', 120, 90, 2.2, .05); noise(2.4, .05, 300);
   }
@@ -932,7 +966,7 @@ body.tr-on .topbar{visibility:hidden}
     CS.on = false; CS.ph = ''; hud(false); fadeTo(0); rideFree(); if (CS.tr) CS.tr.root.visible = false; if (CS.pass) CS.pass.root.visible = false;
     NW.root.visible = true; gx.paused = false;
     if (XT.inside){ const d = XT.inside; XT.inside = null; g(() => d.onLeave && d.onLeave()); g(() => d.release && d.release()); d.built = false; d.station = null; }
-    window.XINDOOR = null; window.XINDOOR_AT = null; farClip(false);
+    window.XINDOOR = null; window.XINDOOR_AT = null; farClip(false); indoorLight(false);
     const [x, y, z, h] = HOME.out; nw.x = x; nw.z = z; nw.y = groundAt(x, z); nw.h = h; nw.state = 'idle';
     if (XT.keep){ camDist = XT.keep.dist; camPitch = XT.keep.pitch; } XT.keep = null;
   }
@@ -941,7 +975,7 @@ body.tr-on .topbar{visibility:hidden}
     if (CS.on){ abort(); return; }
     if (!XT.inside) return;
     const d = XT.inside; XT.inside = null; g(() => d.onLeave && d.onLeave()); g(() => d.release && d.release()); d.built = false; d.station = null;
-    window.XINDOOR = null; window.XINDOOR_AT = null; farClip(false);
+    window.XINDOOR = null; window.XINDOOR_AT = null; farClip(false); indoorLight(false);
     const [x, , z, h] = HOME.out; nw.x = x; nw.z = z; nw.y = groundAt(x, z); nw.h = h; nw.state = 'idle';
     if (XT.keep){ camDist = XT.keep.dist; camPitch = XT.keep.pitch; } XT.keep = null;
   }
@@ -1010,7 +1044,7 @@ body.tr-on .topbar{visibility:hidden}
       prompt(){ return promptMsg || base.prompt(); },
       target(){ const d = XT.inside; if (!d) return base.target(); const t = g(() => d.target && d.target(), null); if (t) return t; const o = d.station && d.station.ring; return o ? {x:o[0], z:o[1], label:'ERL 回程'} : null; },
       mini(dot){ base.mini(dot); if (!XT.inside) dot(DOOR.x, DOOR.z, '#a774ff', 6); },
-      frame(dt, T){ if (base.frame) base.frame(dt, T); trFrame(dt); stMat.emissiveIntensity = g(() => Math.max(cur.win, wx.rain * .6), 0); },
+      frame(dt, T){ if (base.frame) base.frame(dt, T); trFrame(dt); indoorHold(); stMat.emissiveIntensity = g(() => Math.max(cur.win, wx.rain * .6), 0); },
       leave(){ panelClose(); bailHome(); homeMark.visible = false; homeLbl.dead = true; base.leave(); }
     }); }
   achAdd([['erl1', '搭上小火车', '第一次坐 ERL 去别的地方', 20]]);
