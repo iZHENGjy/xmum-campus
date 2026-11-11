@@ -9,6 +9,7 @@ function gxMarker(color, s){
 }
 const gxPx = arr => arr.map(p => P(p[0], p[1]));
 const GX_MEDAL = ['金牌', '银牌', '铜牌'];
+const GX_MORE = [];   /* extra records for the pause panel: {id, name, fmt} (js/87-classroom.js adds 抢救期末卷) */
 /* par times come from an autopilot run: a stock sedan lands around bronze/silver, a tuned sports car can take gold */
 const GX_ACTS = [
   {id:'lake', type:'race', name:'环湖赛', color:'#4aa3ff', start:P(1180, 508),
@@ -77,18 +78,18 @@ function gxQuip(text){ if (gxTaxi.quipT > 0 || gxTaxi.say) return; gxTaxi.say = 
 const gxStarsTxt = () => { const r = gxTaxi.rating; return '评价 ' + '★'.repeat(Math.floor(r)) + (r % 1 ? '½' : '') + '☆'.repeat(5 - Math.ceil(r)); };
 function gxRate(d, quip){ if (!gxTaxi.on) return; gxTaxi.rating = Math.max(1, Math.min(5, gxTaxi.rating + d)); gxTaxi.quipT = 0; gxQuip(quip); }
 function gxTaxiEnd(ok, title, sub){
-  gxTaxi.on = false; gxTaxi.pk = null; gxTaxi.spawnCd = 6; gxDestMark.visible = false;
+  gxTaxi.on = false; gxTaxi.pk = null; gxTaxi.ask = null; gxTaxi.spawnCd = 6; gxDestMark.visible = false; if (!ok) gxTaxi.five = 0;
   if (!ok){ sfx.fail(); toast(title, sub, 2600); }
 }
 function gxUpdateTaxi(dt, px, pz, sp){
   const T = gxTaxi; T.quipT -= dt;
   if (T.say){ T.sayT -= dt; if (T.sayT <= 0){ if (T.on) toast(T.type.name + '：' + T.say, gxStarsTxt(), 1900); T.say = ''; T.quipT = 2.5; } }
-  const blocked2 = mission.on || gxA.act;
+  const blocked2 = mission.on || gxA.act || gx.extBusy();
   if (!T.on){
     gxDestMark.visible = false;
     if (!T.pk){
       T.spawnCd -= dt; gxPaxFig.visible = gxPaxMark.visible = false; gxPaxLbl.dead = true;
-      if (T.spawnCd <= 0){ T.spawnCd = 4; const s = gxPaxSpot(px, pz); if (s){ T.pk = s; T.type = GX_PAX[(rnd() * GX_PAX.length) | 0]; } }
+      if (T.spawnCd <= 0){ T.spawnCd = 4; const s = gxPaxSpot(px, pz); if (s){ T.pk = s; T.ask = null; T.type = GX_PAX[(rnd() * GX_PAX.length) | 0]; } }
       return;
     }
     const [x, z] = T.pk, d = Math.hypot(px - x, pz - z);
@@ -102,13 +103,20 @@ function gxUpdateTaxi(dt, px, pz, sp){
     if (d < 6.5){
       if (!driving){ gxPromptMsg = '顺风车要开车来接，找辆车再过来'; return; }
       if (sp > 5){ gxPromptMsg = '慢下来停稳，让同学上车'; return; }
-      const opts = DESTS.filter(o => { const dd = Math.hypot(o.x - x, o.z - z); return dd > 150 && dd < 600; });
-      const to = opts[(rnd() * opts.length) | 0]; if (!to){ T.pk = null; return; }
-      Object.assign(T, {on:true, to, dist:Math.hypot(to.x - x, to.z - z), rating:T.type.rate, driftT:0});
-      T.limit = T.t = Math.round(T.dist / 11 + 15);
-      gxPaxFig.visible = gxPaxMark.visible = false; gxPaxLbl.dead = true;
-      gxDestMark.position.set(to.x, .1, to.z); sfx.ding();
-      toast(T.type.name + '上车了：去 ' + to.name, T.type.hello + ` · 限时 ${T.limit} 秒`, 3000);
+      /* where to: decided when the passenger is first asked, so the card can say it (js/89-offers.js); skipping sends this one away */
+      if (!T.ask){ const opts = DESTS.filter(o => { const dd = Math.hypot(o.x - x, o.z - z); return dd > 150 && dd < 600; }); T.ask = opts[(rnd() * opts.length) | 0]; if (!T.ask){ T.pk = null; return; } }
+      const to = T.ask, dist = Math.hypot(to.x - x, to.z - z), limit = Math.round(dist / 11 + 15);
+      const board = () => {
+        if (T.on || !T.pk) return;
+        Object.assign(T, {on:true, to, dist, rating:T.type.rate, driftT:0, ask:null});
+        T.limit = T.t = limit;
+        gxPaxFig.visible = gxPaxMark.visible = false; gxPaxLbl.dead = true;
+        gxDestMark.position.set(to.x, .1, to.z); sfx.ding();
+        toast(T.type.name + '上车了：去 ' + to.name, T.type.hello + ` · 限时 ${T.limit} 秒`, 3000);
+      };
+      if (typeof offerJob !== 'function') board();
+      else offerJob('taxi', () => ({icon:'🙋', title:'顺风车 · ' + T.type.name, desc:'「' + T.type.hello + '」', accept:'载上，去 ' + to.name, time:limit, dist, pay:'按评价给钱',
+        risk:{hurry:'赶时间：越快到越好', sick:'晕车：别急刹、别漂移、别撞', vlog:'想看特技：飞跃和漂移加分'}[T.type.k] || '', onAccept:board, onDecline:() => { T.pk = null; T.ask = null; T.spawnCd = 5; }}));
     }
     return;
   }
@@ -130,7 +138,11 @@ function gxUpdateTaxi(dt, px, pz, sp){
       T.on = false; T.pk = null; T.spawnCd = 3; gxDestMark.visible = false; sess.taxi++; prog.life.taxi++;
       earn(pay); sfx.ding();
       for (let i = 0; i < 8; i++) spawnPart('heart', T.to.x + (rnd() - .5) * 4, 2 + rnd() * 2, T.to.z + (rnd() - .5) * 4, .9, {vy:2.5, life:1.4, op:1, color:'#ff6fa3'});
-      toast(`送到了 · ${'★'.repeat(Math.round(r))}${'☆'.repeat(5 - Math.round(r))}`, `+RM ${pay.toFixed(2)} · ${r >= 5 ? '五星好评，还给了小费' : r >= 4 ? '同学说谢谢' : '同学下车腿有点软'}`, 2600);
+      /* 改装零件（js/93-tuning-ui.js）：按评价给；连续三单五星有几率出弹射起步配方 */
+      T.five = r >= 5 ? (T.five || 0) + 1 : 0;
+      const loot = window.XParts ? XParts.reward('taxi', r >= 5 ? 0 : r >= 4 ? 1 : r >= 3 ? 2 : 3, '顺风车') : [];
+      if (window.XParts && T.five >= 3 && XParts.ready('taxi')) loot.push(...XParts.roll('bp_launch', 1, .2, `顺风车 ${T.five} 连五星`));
+      toast(`送到了 · ${'★'.repeat(Math.round(r))}${'☆'.repeat(5 - Math.round(r))}`, `+RM ${pay.toFixed(2)} · ${r >= 5 ? '五星好评，还给了小费' : r >= 4 ? '同学说谢谢' : '同学下车腿有点软'}${loot.length ? ' · 改装：' + XParts.text(loot) : ''}`, 2600);
       if (r >= 5) unlock('taxi5');
     } else gxPromptMsg = '到了，停稳让同学下车';
   } else if (T.t <= 0) gxTaxiEnd(false, '同学自己走路去了', '太慢了，这单没拿到钱');
@@ -157,7 +169,8 @@ function gxFinish(score){
   sess.acts++; if (medal < 3) sess.medals++;
   earn(pay); saveGame();
   const head = medal < 3 ? `${GX_MEDAL[medal]} · ${a.name}` : `${a.name} · 完成`;
-  const sub = `${gxScoreTxt(a, score)}${rec ? (prev != null ? ' · 新纪录！' : ' · 首次完成') : ` · 纪录 ${gxScoreTxt(a, prev)}`} · +RM ${pay}`;
+  const loot = window.XParts ? XParts.reward('activity', medal, a.name + (GX_MEDAL[medal] || '')) : [];   /* 改装零件, js/93-tuning-ui.js */
+  const sub = `${gxScoreTxt(a, score)}${rec ? (prev != null ? ' · 新纪录！' : ' · 首次完成') : ` · 纪录 ${gxScoreTxt(a, prev)}`} · +RM ${pay}${loot.length ? ' · 改装：' + XParts.text(loot) : ''}`;
   toast(head, sub, 3600);
   if (medal < 3){ gxCallout(GX_MEDAL[medal], gxScoreTxt(a, score), ['#e3b95a', '#b8c2cc', '#c98a55'][medal]); for (let i = 0; i < 5; i++) tone('triangle', 523 * Math.pow(1.19, i), 523 * Math.pow(1.19, i), .18, .13, i * .09); }
   else sfx.ding();
@@ -170,7 +183,7 @@ function gxUpdateAct(dt, px, pz, sp){
   const a = gxA.act;
   if (!a){
     /* idle: show start rings; drive into one to begin */
-    const hide = mission.on || gxTaxi.on;
+    const hide = mission.on || gxTaxi.on || gx.extBusy();
     for (const b of GX_ACTS){
       b.mark.visible = !hide; b.lbl.dead = hide;
       if (hide) continue;
@@ -179,7 +192,9 @@ function gxUpdateAct(dt, px, pz, sp){
       if (gxA.rearm === b){ if (d > 14) gxA.rearm = null; continue; }
       if (d < 6.5){
         if (!driving) gxPromptMsg = `开车进圈开始「${b.name}」` + (prog.best[b.id] != null ? ` · 纪录 ${gxScoreTxt(b, prog.best[b.id])}` : '');
-        else { gxStart(b); break; }
+        else if (typeof offerJob !== 'function'){ gxStart(b); break; }
+        else if (offerJob('act:' + b.id, () => ({icon:b.type === 'race' ? '🏁' : '🎯', title:b.name, desc:b.intro, accept:'开始', time:b.limit, pay:b.pay ? '金牌 RM ' + b.pay[0] : null,
+          risk:prog.best[b.id] != null ? '纪录 ' + gxScoreTxt(b, prog.best[b.id]) : '', onAccept:() => { if (!gxA.act && driving) gxStart(b); }}))) break;
       }
     }
     return;
@@ -243,6 +258,7 @@ function gxWatchCar(dt, sp){
       if (air > .6){
         if (gxA.act && gxA.act.type === 'jump' && gxA.phase === 'run' && dist > gxA.score){ gxA.score = dist; gxCallout(`${Math.round(dist)} 米`, '本轮最远', gxA.act.color); }
         else if (air > 1) gxCallout(`飞了 ${Math.round(dist)} 米`, `滞空 ${air.toFixed(1)} 秒`);
+        if (air > 1.2 && window.XParts) XParts.reward('nearmiss', 0, '大跳慢动作');   /* 和惊险擦车共用冷却 */
         if (gxTaxi.on){ if (gxTaxi.type.k === 'sick') gxRate(-.5, '我、我的胃……'); else if (gxTaxi.type.k === 'vlog' && air > .8) gxRate(.5, '哇！！这段要火！'); else if (air > 1.2) gxQuip('啊啊啊啊——'); }
       }
     }
@@ -252,7 +268,7 @@ function gxWatchCar(dt, sp){
   for (const o of cars){
     if (o === c || !o.root.visible || (o.gxNm || 0) > now) continue;
     const gap = Math.hypot(o.x - c.x, o.z - c.z) - o.R - c.R;
-    if (gap > .1 && gap < 1.3 && Math.hypot(o.vx - c.vx, o.vz - c.vz) > 12){ o.gxNm = now + 3; addStunt('惊险擦车', 80); gxCallout('惊险擦车', '+80 × 连击'); tone('sawtooth', 900, 300, .25, .06); }
+    if (gap > .1 && gap < 1.3 && Math.hypot(o.vx - c.vx, o.vz - c.vz) > 12){ o.gxNm = now + 3; addStunt('惊险擦车', 80); gxCallout('惊险擦车', '+80 × 连击'); tone('sawtooth', 900, 300, .25, .06); if (window.XParts) XParts.reward('nearmiss', 0, '惊险擦车'); }
   }
 }
 
@@ -267,7 +283,7 @@ function gxRenderPause(){
     const b = prog.best[a.id]; let medal = '';
     if (b != null){ const low = a.type === 'race'; for (let i = 0; i < 3; i++) if (low ? b <= a.medal[i] : b >= a.medal[i]){ medal = `<em class="m${i}">${GX_MEDAL[i]}</em>`; break; } }
     return `<li><span>${a.name}</span><b>${b != null ? gxScoreTxt(a, b) : '—'}</b>${medal}</li>`;
-  }).join('');
+  }).join('') + GX_MORE.map(a => { const b = prog.best[a.id]; return `<li><span>${a.name}</span><b>${b != null ? a.fmt(b) : '—'}</b></li>`; }).join('');
   const got = ACH.filter(a => prog.ach[a[0]]).length;
   const achs = ACH.map(a => `<li class="${prog.ach[a[0]] ? 'on' : ''}" title="${a[2]}"><b>${a[1]}</b><span>${a[2]}</span></li>`).join('');
   $('#gxpBody').innerHTML = `

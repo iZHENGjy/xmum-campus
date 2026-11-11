@@ -19,9 +19,12 @@ const benchGeo = (() => {
   }
   return geoMerge(P);
 })();
-const binGeo = geoMerge([geoTint(new THREE.CylinderGeometry(.27, .24, .82, 10, 1, true).translate(0, .43, 0), '#2f6b4f'),
-  geoTint(geoAt(new THREE.TorusGeometry(.27, .03, 4, 10), 0, .84, 0, Math.PI / 2), '#24563f'),
-  geoTint(new THREE.CylinderGeometry(.2, .29, .1, 10).translate(0, .9, 0), '#1f2a26')]);
+/* the campus bins are tall and blue (see the night photos): a tapered body with a raised base, a darker hinged lid with a handle */
+const binGeo = geoMerge([geoTint(new THREE.CylinderGeometry(.28, .25, .9, 12, 1, true).translate(0, .53, 0), '#2a5ea8'),
+  geoTint(new THREE.CylinderGeometry(.26, .26, .08, 12).translate(0, .04, 0), '#1d2a3a'),
+  geoTint(geoAt(new THREE.TorusGeometry(.28, .03, 4, 12), 0, .98, 0, Math.PI / 2), '#1f477f'),
+  geoTint(new THREE.CylinderGeometry(.27, .3, .1, 12).translate(0, 1.04, 0), '#1f3f6e'), geoTint(new THREE.BoxGeometry(.2, .04, .06).translate(0, 1.11, .12), '#dfe3e6'),
+  geoTint(new THREE.BoxGeometry(.2, .14, .01).translate(0, .78, .275), '#f2f2ee')]);
 const benches = [], bins = [];
 function sampleLine(pxLine, step, off, cb){
   const pts = pxPts(pxLine);
@@ -50,23 +53,40 @@ function clearArea(cx, cz, hw, hd){
     if (Math.abs(o.x - cx) < hw && Math.abs(o.z - cz) < hd){ o.down = true; o.hidden = true; o.s = 0; setKnock(set, i, false, 0, 0); }
   });
 }
-function lot(cx, cz, w, d, lines){
+/* a lot: asphalt, painted bays, a low kerb all round with a gap where the driveway (dx0..dx1 or dz0..dz1 on side 'n'/'s'/'e'/'w') meets it,
+   concrete wheel stops at the head of each bay ([x, z, ry] in stops); the driveway itself is asphalt out to the road */
+const lotDeco = [];
+function lot(cx, cz, w, d, lines, o){
+  o = o || {};
   clearArea(cx, cz, w / 2 + 2, d / 2 + 2);
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), flatMat('#6e6b66', 4)); m.rotation.x = -Math.PI / 2; m.position.set(cx, .046, cz); m.receiveShadow = true; scene.add(m);
   const im = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), flatMat('#f1ede4', 8), lines.length);
   lines.forEach(([x, z, lw, ld], i) => { _cm.compose(_cp.set(x, .052, z), _cq.identity(), _cs.set(lw, 1, ld)); im.setMatrixAt(i, _cm); });
   im.frustumCulled = false; scene.add(im);
+  const K = '#b9b2a6', kb = (x0, z0, x1, z1) => { if (x1 - x0 > .05 || z1 - z0 > .05) tbox(lotDeco, Math.max(.3, x1 - x0), .16, Math.max(.3, z1 - z0), (x0 + x1) / 2, .08, (z0 + z1) / 2, K); };
+  const x0 = cx - w / 2, x1 = cx + w / 2, z0 = cz - d / 2, z1 = cz + d / 2, g = o.gap || [0, 0], side = o.side;
+  for (const [sd, a, b, fixed, alongX] of [['n', x0, x1, z0, true], ['s', x0, x1, z1, true], ['w', z0, z1, x0, false], ['e', z0, z1, x1, false]]){
+    const segs = sd === side ? [[a, g[0]], [g[1], b]] : [[a, b]];
+    for (const [p, q] of segs) alongX ? kb(p, fixed - .15, q, fixed + .15) : kb(fixed - .15, p, fixed + .15, q);
+  }
+  for (const [x, z, ry] of o.stops || []) lotDeco.push(geoTint(geoAt(new THREE.BoxGeometry(1.7, .14, .22), x, .07, z, 0, ry, 0), '#cfc9bd'), geoTint(geoAt(new THREE.BoxGeometry(.3, .145, .225), x, .07, z, 0, ry, 0), '#e0b23c'));
+  if (o.drive){ const [ax, az, bx, bz] = o.drive, dm = new THREE.Mesh(new THREE.PlaneGeometry(bx - ax, bz - az), flatMat('#6e6b66', 4)); dm.rotation.x = -Math.PI / 2; dm.position.set((ax + bx) / 2, .046, (az + bz) / 2); dm.receiveShadow = true; scene.add(dm); clearArea((ax + bx) / 2, (az + bz) / 2, (bx - ax) / 2 + 1, (bz - az) / 2 + 1); }
 }
 const PALETTE = ['#c0392b', '#2d5d8a', '#1f1f22', '#f0eee8', '#7f8c8d', '#d4a017', '#2e7d5b', '#8e44ad'];
 (function(){
   const L1 = [];
   for (let k = 0; k <= 16; k++){ const zz = -18 + k * 3.2; L1.push([502, zz, 6, .14], [536, zz, 6, .14]); }
-  lot(519, 8, 46, 60, L1);
-  [[502, -11], [502, -1.4], [502, 14.6], [536, -14.2], [536, 1.8], [536, 24.2]].forEach(([x, z], i) => makeCar('sedan', PALETTE[i % PALETTE.length], x, z, x < 519 ? -Math.PI / 2 : Math.PI / 2));
+  /* east lot: the driveway leaves its east side for the ring road (it used to sit in the grass with no way in) */
+  const S1 = []; for (let k = 0; k < 16; k++){ const zz = -18 + k * 3.2 + 1.6; S1.push([499.4, zz, Math.PI / 2], [538.6, zz, Math.PI / 2]); }
+  lot(519, 8, 46, 60, L1, {side:'e', gap:[3.5, 12.5], stops:S1, drive:[541.8, 3.5, 549.6, 12.5]});
+  [[502, -10], [502, -.4], [502, 15.6], [536, -13.2], [536, 2.8], [536, 25.2]].forEach(([x, z], i) => makeCar('sedan', PALETTE[i % PALETTE.length], x, z, x < 519 ? -Math.PI / 2 : Math.PI / 2));
   const L2 = [];
   for (let k = 0; k <= 10; k++) L2.push([-220 + k * 3.2, 200, .14, 6]);
-  lot(-204, 200, 38, 14, L2);
-  [[-216.8, 200], [-210.4, 200], [-197.6, 200], [-191.2, 200]].forEach(([x, z], i) => makeCar('sedan', PALETTE[(i + 3) % PALETTE.length], x, z, Math.PI));
+  /* west lot: a driveway north to the road past the auditorium */
+  const S2 = []; for (let k = 0; k < 10; k++) S2.push([-218.4 + k * 3.2, 202.6, 0]);
+  lot(-204, 200, 38, 14, L2, {side:'n', gap:[-207.5, -200.5], stops:S2.filter((p, i) => i !== 4 && i !== 5), drive:[-207.5, 174.5, -200.5, 193.2]});
+  { const k = new THREE.Mesh(geoMerge(lotDeco), decoMat); k.receiveShadow = true; k.castShadow = true; scene.add(k); }
+  [[-218.4, 200], [-212, 200], [-199.2, 200], [-192.8, 200]].forEach(([x, z], i) => makeCar('sedan', PALETTE[(i + 3) % PALETTE.length], x, z, Math.PI));
   addLabel('停车场', 519, 5, 8, true); addLabel('停车场', -204, 5, 200, true);
 })();
 
@@ -76,8 +96,15 @@ const FOUNT = P(1385, 405);
   const [x, z] = FOUNT;
   const ring = new THREE.Mesh(new THREE.TorusGeometry(4.6, .35, 8, 40), granite); ring.rotation.x = Math.PI / 2; ring.position.set(x, .15, z); scene.add(ring);
   const spout = new THREE.Mesh(new THREE.CylinderGeometry(.35, .6, 1.6, 12), granite); spout.position.set(x, .7, z); scene.add(spout);
-  const jet = new THREE.Mesh(new THREE.ConeGeometry(.9, 7, 16, 1, true), new THREE.MeshBasicMaterial({color:'#e6f6ff', transparent:true, opacity:.45, depthWrite:false, side:THREE.DoubleSide}));
-  jet.position.set(x, 4.6, z); jet.rotation.x = Math.PI; scene.add(jet);
+  /* water: a tall central jet that thins as it rises and opens at the top, and eight jets arching in from the ring */
+  const W = [new THREE.CylinderGeometry(.1, .32, 5.6, 10, 1, true).translate(0, 4.2, 0), new THREE.CylinderGeometry(.75, .12, .9, 12, 1, true).translate(0, 7.3, 0)];
+  for (let k = 0; k < 8; k++){
+    const a = k / 8 * Math.PI * 2, c = Math.cos(a), s = Math.sin(a), pts = [];
+    for (let i = 0; i <= 8; i++){ const t = i / 8, r = 4.2 - 3.2 * t; pts.push(new THREE.Vector3(c * r, .3 + 2.6 * 4 * t * (1 - t), s * r)); }
+    W.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 10, .06, 4, false));
+  }
+  const jet = new THREE.Mesh(geoMerge(W), new THREE.MeshBasicMaterial({color:'#e6f6ff', transparent:true, opacity:.45, depthWrite:false, side:THREE.DoubleSide}));
+  jet.position.set(x, 0, z); scene.add(jet);
 })();
 let fountAcc = 0;
 function updateFountain(dt){
@@ -137,20 +164,23 @@ const npcGroups = [];
     for (let j = 0; j < n && npcs.length < NPC_N; j++) npcs.push({grp:g, slot:j, ga:j / n * Math.PI * 2 + rr() * .5, x:gx, z:gz, y:0, h:0, ox:0, oz:0, dodge:0, dvx:0, dvz:0, state:'walk', tilt:0, tdx:0, tdz:0, ph:rr() * 6, sp:0});
   });
 })();
-/* looks: shirt and skin as before for the walkers; every third student wears a skirt (bare legs) and long hair */
+/* looks: shirt and skin as before for the walkers; every third student wears a skirt (bare legs) and long hair.
+   Torso and head are drawn for everyone; limbs, backpack, skirt and hair only for the students near the camera (XQ.cfg.npcDetail),
+   packed into the first slots of their meshes each frame, so the colours are kept per student and written along with the matrices. */
 const npcSkirtIdx = [], npcHairIdx = [];
 npcs.forEach((n, i) => {
   const skin = SKIN[i % SKIN.length], skirt = i % 3 === 1;
-  npcBodyIm.setColorAt(i, _col.set(SHIRTS[i % SHIRTS.length])); npcHeadIm.setColorAt(i, _col.set(skin));
-  for (const s of [0, 1]){ npcSleeveIm.setColorAt(i * 2 + s, _col.set(SHIRTS[i % SHIRTS.length])); npcForeIm.setColorAt(i * 2 + s, _col.set(skin)); npcLegIm.setColorAt(i * 2 + s, _col.set(skirt ? skin : PANTS[i % PANTS.length])); }
-  if (skirt) npcSkirtIdx.push(i);
-  if (skirt || i % 7 === 3) npcHairIdx.push(i);
+  n.cShirt = new THREE.Color(SHIRTS[i % SHIRTS.length]); n.cSkin = new THREE.Color(skin); n.cLeg = new THREE.Color(skirt ? skin : PANTS[i % PANTS.length]);
+  npcBodyIm.setColorAt(i, n.cShirt); npcHeadIm.setColorAt(i, n.cSkin);
+  for (const s of [0, 1]){ npcSleeveIm.setColorAt(i * 2 + s, n.cShirt); npcForeIm.setColorAt(i * 2 + s, n.cSkin); npcLegIm.setColorAt(i * 2 + s, n.cLeg); }
+  if (skirt){ npcSkirtIdx.push(i); n.cSkirt = new THREE.Color(SKIRTS[i % SKIRTS.length]); }
+  if (skirt || i % 7 === 3){ npcHairIdx.push(i); n.cHair = new THREE.Color(HAIRS[i % HAIRS.length]); }
   n.walk = n.ph; n.umb = .05 + (i * 7 % 10) / 13;
 });
 const npcSkirtIm = npcIm(npcSkirtGeo, new THREE.MeshStandardMaterial({roughness:.85, side:THREE.DoubleSide}), npcSkirtIdx.length);
-npcSkirtIdx.forEach((i, k) => npcSkirtIm.setColorAt(k, _col.set(SKIRTS[i % SKIRTS.length])));
+npcSkirtIdx.forEach((i, k) => npcSkirtIm.setColorAt(k, npcs[i].cSkirt));
 const npcHairIm = npcIm(npcHairGeo, new THREE.MeshStandardMaterial({roughness:.75}), npcHairIdx.length);
-npcHairIdx.forEach((i, k) => npcHairIm.setColorAt(k, _col.set(HAIRS[i % HAIRS.length])));
+npcHairIdx.forEach((i, k) => npcHairIm.setColorAt(k, npcs[i].cHair));
 const npcUmbIm = npcIm(npcUmbGeo, new THREE.MeshStandardMaterial({roughness:.7, vertexColors:true, side:THREE.DoubleSide}), NPC_N);
 npcs.forEach((n, i) => npcUmbIm.setColorAt(i, _col.set(UMBS[i % UMBS.length]))); npcUmbIm.count = 0;
 function npcStep(n, dt){
@@ -174,7 +204,8 @@ function updateNPCs(dt, T){
   updateProps(dt, T); updateWeather(dt, T);
   const car = driving, csp = car ? Math.hypot(car.vx, car.vz) : 0, rain = wx.rain;
   for (const g of npcGroups){ g.next -= dt; if (g.next <= 0){ g.talk = (g.talk + 1) % 4; g.next = 1.5 + ((g.x * 13 + T * 7) % 3); } }
-  let sk = 0, hk = 0, uk = 0;
+  let sk = 0, hk = 0, uk = 0, dk = 0;
+  const cam = camera.position, dd = lodOverview ? 0 : XQ.cfg.npcDetail * XQ.cfg.npcDetail;
   for (let i = 0; i < NPC_N; i++){
     const n = npcs[i]; let y = 0, tiltX = 0, sc = 1, swing = 0, gest = 0, sway = 0;
     if (n.state === 'walk'){
@@ -198,24 +229,28 @@ function updateNPCs(dt, T){
       }
     } else if (n.state === 'fall'){ y = n.y; tiltX = n.tilt; sc = Math.max(.01, 1 - n.tilt * .3); }
     else { sc = 0; }
-    _cp.set(n.x, y, n.z); _cq.setFromAxisAngle(UP, n.h + sway);
+    _cp.set(n.x, y + (bridgeY(n.x, n.z) || azY(n.x, n.z)), n.z); _cq.setFromAxisAngle(UP, n.h + sway);   /* students crossing the lake bridge walk on its deck, and up the A zone's stairs (js/09-azone.js) */
     if (tiltX){ _cq2.setFromAxisAngle(_ax.set(n.tdz, 0, -n.tdx).normalize(), tiltX); _cq.premultiply(_cq2); }
     _cs.setScalar(sc); _nb.compose(_cp, _cq, _cs);
-    npcBodyIm.setMatrixAt(i, _nb); npcHeadIm.setMatrixAt(i, _nb); npcGearIm.setMatrixAt(i, _nb);
+    npcBodyIm.setMatrixAt(i, _nb); npcHeadIm.setMatrixAt(i, _nb);
     const umb = sc > 0 && n.state === 'walk' && rain > n.umb;
-    for (const s of [-1, 1]){
-      const j = i * 2 + (s > 0 ? 1 : 0);
-      npcLegIm.setMatrixAt(j, npcLimb(s * .09, .92, 0, swing * s));
-      /* the right arm holds the umbrella up, a talker gestures with the left, otherwise arms swing against the legs */
-      const arm = s > 0 && umb ? -1.2 : s < 0 && gest ? -.5 - gest * .9 : -swing * s * .8;
-      const m = npcLimb(s * .215, 1.39, s * (s > 0 && umb ? .03 : .1), arm);
-      npcSleeveIm.setMatrixAt(j, m); npcForeIm.setMatrixAt(j, m);
+    if (sc > 0 && (n.x - cam.x) * (n.x - cam.x) + (n.z - cam.z) * (n.z - cam.z) < dd){
+      npcGearIm.setMatrixAt(dk, _nb);
+      for (const s of [-1, 1]){
+        const j = dk * 2 + (s > 0 ? 1 : 0);
+        npcLegIm.setMatrixAt(j, npcLimb(s * .09, .92, 0, swing * s)); npcLegIm.setColorAt(j, n.cLeg);
+        /* the right arm holds the umbrella up, a talker gestures with the left, otherwise arms swing against the legs */
+        const arm = s > 0 && umb ? -1.2 : s < 0 && gest ? -.5 - gest * .9 : -swing * s * .8;
+        const m = npcLimb(s * .215, 1.39, s * (s > 0 && umb ? .03 : .1), arm);
+        npcSleeveIm.setMatrixAt(j, m); npcSleeveIm.setColorAt(j, n.cShirt); npcForeIm.setMatrixAt(j, m); npcForeIm.setColorAt(j, n.cSkin);
+      }
+      if (n.cSkirt){ npcSkirtIm.setMatrixAt(sk, _nb); npcSkirtIm.setColorAt(sk++, n.cSkirt); }
+      if (n.cHair){ npcHairIm.setMatrixAt(hk, _nb); npcHairIm.setColorAt(hk++, n.cHair); }
+      dk++;
     }
-    if (npcSkirtIdx[sk] === i) npcSkirtIm.setMatrixAt(sk++, _nb);
-    if (npcHairIdx[hk] === i) npcHairIm.setMatrixAt(hk++, _nb);
     if (umb){ npcUmbIm.setMatrixAt(uk, _nb); npcUmbIm.setColorAt(uk++, _col.set(UMBS[i % UMBS.length])); }
   }
-  /* only open umbrellas are drawn */
-  npcUmbIm.count = uk; if (uk && npcUmbIm.instanceColor) npcUmbIm.instanceColor.needsUpdate = true;
-  for (const im of [npcBodyIm, npcHeadIm, npcGearIm, npcLegIm, npcSleeveIm, npcForeIm, npcSkirtIm, npcHairIm, npcUmbIm]) im.instanceMatrix.needsUpdate = true;
+  /* only open umbrellas, and the limbs and gear of nearby students, are drawn */
+  npcUmbIm.count = uk; npcGearIm.count = dk; npcLegIm.count = npcSleeveIm.count = npcForeIm.count = dk * 2; npcSkirtIm.count = sk; npcHairIm.count = hk;
+  for (const im of [npcBodyIm, npcHeadIm, npcGearIm, npcLegIm, npcSleeveIm, npcForeIm, npcSkirtIm, npcHairIm, npcUmbIm]){ im.instanceMatrix.needsUpdate = true; if (im.instanceColor && im !== npcBodyIm && im !== npcHeadIm) im.instanceColor.needsUpdate = true; }
 }

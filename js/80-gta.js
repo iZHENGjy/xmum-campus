@@ -2,10 +2,10 @@
 'use strict';
 /* hooks filled in by js/85-activities.js; no-ops keep pages that skip that file working */
 const gx = {paused:false, update(){}, mini(){}, target(){ return null; }, prompt(){ return ''; }, busy(){ return false; },
-  onStunt(){}, onCrash(){}, onBust(){}, leave(){}, scale(){ return 1; }, callout(){}, togglePause(){}};
+  onStunt(){}, onCrash(){}, onBust(){}, leave(){}, scale(){ return 1; }, callout(){}, togglePause(){}, extBusy(){ return false; }};
 
 /* ---------- progression: saved upgrades, achievements, records; this session's stats ---------- */
-const prog = {up:{eng:0, grip:0, arm:0}, ach:{}, best:{}, life:{deliv:0, bust:0, taxi:0}, daily:''};
+const prog = {up:{eng:0, grip:0, arm:0, wr:0, wp:0, wt:0, wg:0, wx:0}, ach:{}, best:{}, life:{deliv:0, bust:0, taxi:0}, daily:''};
 const sess = {time:0, earned:0, deliv:0, bestCombo:0, acts:0, medals:0, taxi:0, bust:0, peak:0};
 function earn(v){
   if (!(v > 0)) return; money += v; sess.earned += v; moneyChanged();
@@ -17,9 +17,12 @@ const ACH = [
   ['busted', '进局子', '第一次被保安抓住', 10], ['star5', '五星通缉', '保安警戒拉满五颗星', 50], ['escape4', '溜了溜了', '四星以上甩掉保安', 80],
   ['lake', '飞进湖里', '开着车飞进湖里', 30], ['eject', '人车分离', '车祸把奶娃甩飞出去', 20], ['air2', '空中飞人', '一次飞跃超过 2 秒', 40],
   ['combo5k', '连击大师', '一次连击超过 5,000 分', 60], ['early8', '早八不迟到', '跑完早八冲刺', 30], ['gold', '金牌车手', '任意挑战拿到金牌', 80],
-  ['taxi5', '五星好评', '顺风车拿到五星评价', 40], ['allcars', '集齐五辆车', '车行五辆车全部买下', 200], ['tuned', '改装狂人', '任意一项改装到满级', 60],
-  ['rich', '小富婆', '钱包超过 RM 2,000', 0]
+  ['taxi5', '五星好评', '顺风车拿到五星评价', 40], ['allcars', '集齐车行', '车行里的车全部买下', 200], ['tuned', '改装狂人', '任意一项改装到满级', 60],
+  ['rich', '小富婆', '钱包超过 RM 2,000', 0], ['exam', '期末救星', '成功抢救期末卷', 50], ['soak', '落汤保安', '用水枪淋湿保安', 20]
 ];
+/* later files add their own achievements with achAdd(); achSaved keeps what the save file had, so those are restored too */
+const achSaved = {};
+function achAdd(rows){ for (const a of rows){ if (ACH.some(x => x[0] === a[0])) continue; ACH.push(a); if (achSaved[a[0]]) prog.ach[a[0]] = +achSaved[a[0]] || 1; } }
 const achQ = []; let achT = 0;
 function unlock(id){
   if (prog.ach[id]) return; const a = ACH.find(x => x[0] === id); if (!a) return;
@@ -40,6 +43,21 @@ const UPG = [
   {k:'grip', name:'轮胎', desc:'抓地 +10%、转向 +5% / 级', cost:[120, 320, 750]},
   {k:'arm',  name:'防滚架', desc:'撞车掉血 −18% / 级', cost:[100, 280, 650]}
 ];
+/* water-gun workshop: the numbers are read by wgStat() in js/87-classroom.js */
+const WUPG = [
+  {k:'wr', name:'喷嘴', desc:'射程 +3.5 米 / 级', cost:[80, 200, 450]},
+  {k:'wp', name:'水压', desc:'淋湿、定身的时间 +30% / 级', cost:[120, 300, 650]},
+  {k:'wt', name:'水箱', desc:'容量 +2 发 / 级', cost:[60, 160, 380]},
+  {k:'wg', name:'回水泵', desc:'回水快 25% / 级', cost:[80, 220, 500]},
+  {k:'wx', name:'高压水炮', desc:'1 级散射喷头：一枪淋到前方 3 个目标 · 2 级高压水炮：威力再 ×1.4，还把目标冲退', cost:[400, 900]}
+];
+/* opponents (patrol cars, classroom guards, monkeys) get tougher as the water gun and the trophy shelf grow: 0 .. 3.
+   Nothing bought and few achievements = 0, so the game stays playable without upgrades. */
+function pveLevel(){
+  let w = 0; for (const u of WUPG) w += prog.up[u.k] || 0;
+  return Math.min(3, Math.floor(w / 4 + Object.keys(prog.ach).length / 12));
+}
+const PVE_NAME = ['普通', '警觉', '难缠', '凶猛'];
 function tunedT(kind){
   const b = CAR_T[kind], u = prog.up;
   return Object.assign({}, b, {maxV:b.maxV * (1 + .07 * u.eng), acc:b.acc * (1 + .14 * u.eng), grip:b.grip * (1 + .1 * u.grip), steer:b.steer * (1 + .05 * u.grip), armor:(b.armor || 1) * (1 - .18 * u.arm)});
@@ -87,6 +105,7 @@ function spawnChaser(tx, tz){
 }
 function chaseInput(c, tx, tz, dt){
   const want = Math.atan2(tx - c.x, tz - c.z), da = Math.atan2(Math.sin(want - c.h), Math.cos(want - c.h)), sp = Math.hypot(c.vx, c.vz);
+  if (c.soakT > 0){ c.soakT -= dt; c.inp.thr = 0; c.inp.steer = 0; c.inp.brake = true; return; }   /* soaked by the water gun (js/87-classroom.js) */
   if (c.stuck > 0){ c.stuck -= dt; c.inp.thr = -1; c.inp.steer = -(Math.sign(da) || 1); c.inp.brake = false; return; }
   c.lowT = sp < 1.5 ? c.lowT + dt : 0; if (c.lowT > 1.1){ c.stuck = 1.1; c.lowT = 0; }
   c.inp.thr = Math.abs(da) > 1.9 ? .5 : 1; c.inp.steer = Math.max(-1, Math.min(1, da * 2.2)); c.inp.brake = Math.abs(da) > 1.1 && sp > 14;
@@ -100,8 +119,10 @@ function busted(){
   sfx.fail(); toast('被保安抓住了', fine > .005 ? `罚款 RM ${fine.toFixed(2)}，警戒解除` : '没钱罚，警告一次，警戒解除', 2800);
 }
 function updateChase(dt){
-  const tx = driving ? driving.x : nw.x, tz = driving ? driving.z : nw.z;
-  const stars = Math.min(5, Math.floor(heat));
+  /* hiding indoors (a classroom, the dorm: indoorNow() in js/40-vehicles.js): the patrol cars wait at that building's door and cannot arrest you */
+  const indoor = indoorNow() && indoorDoor();
+  const tx = indoor ? indoor.x : driving ? driving.x : nw.x, tz = indoor ? indoor.z : driving ? driving.z : nw.z;
+  const stars = Math.min(5, Math.floor(heat)), lv = pveLevel();
   const active = patrols.filter(c => c.active && c !== driving);
   if (stars >= 1 && !warned){ warned = true; toast('保安盯上你了', '撞东西、吓到同学都会让警戒升级', 2400); }
   if (stars === 0){ warned = false; forestTold = false; chasePeak = 0; }
@@ -120,19 +141,33 @@ function updateChase(dt){
   if (blockers[0].active){
     blockT += dt; const on = Math.floor(performance.now() / 160) % 2 === 0;
     for (const c of blockers){ if (!c.active) continue; c.lights[0].emissiveIntensity = on ? 2.2 : .1; c.lights[1].emissiveIntensity = on ? .1 : 2.2; }
-    if (stars < 4 || blockT > 35 || Math.hypot(blockers[0].x - tx, blockers[0].z - tz) > 220) for (const c of blockers) if (c.active) hideCop(c);
+    if (stars < (lv >= 1 ? 3 : 4) || blockT > 35 || Math.hypot(blockers[0].x - tx, blockers[0].z - tz) > 220) for (const c of blockers) if (c.active) hideCop(c);
   } else {
     blockCd -= dt;
-    if (stars >= 5 && blockCd <= 0){ const v = driving || {vx:0, vz:0}; if (placeRoadblock(tx, tz, v.vx, v.vz)){ blockT = 0; blockCd = 22; } else blockCd = 3; }
+    /* roadblock: at five stars, or already at four once the opponents have levelled up */
+    if (stars >= (lv >= 1 ? 4 : 5) && blockCd <= 0){ const v = driving || {vx:0, vz:0}; if (placeRoadblock(tx, tz, v.vx, v.vz)){ blockT = 0; blockCd = 22 - 4 * lv; } else blockCd = 3; }
   }
   spawnCd -= dt;
-  if (active.length < Math.min(4, stars) && spawnCd <= 0){ spawnChaser(tx, tz); spawnCd = 2.5; }
+  if (active.length < Math.min(4, stars) && spawnCd <= 0){ spawnChaser(tx, tz); spawnCd = 2.5 - .4 * lv; }
   let minD = 1e9;
-  const boost = stars >= 4 ? 1.22 : 1;
-  for (const c of active){
+  const boost = (stars >= 4 ? 1.22 : 1) + (stars >= 3 ? .04 * lv : 0);
+  const pvx = driving ? driving.vx : 0, pvz = driving ? driving.vz : 0, psp = Math.hypot(pvx, pvz);
+  for (let ci = 0; ci < active.length; ci++){
+    const c = active[ci];
     c.T.maxV = CAR_T.patrol.maxV * boost; c.T.acc = CAR_T.patrol.acc * boost;
-    chaseInput(c, tx, tz, dt);
-    const d = Math.hypot(c.x - tx, c.z - tz); minD = Math.min(minD, d);
+    const d = Math.hypot(c.x - tx, c.z - tz); if (!(c.soakT > 0)) minD = Math.min(minD, d);
+    /* three stars and up: only the first car tails you. The others aim ahead of you and to either side to cut you off,
+       or close in from different sides when you are on foot. They go straight for you again once they are close. */
+    let ax = tx, az = tz;
+    if (stars >= 3 && ci > 0 && !indoor && d > 16){
+      const side = (ci % 2 ? 1 : -1) * (ci > 2 ? 1.7 : 1);
+      if (psp > 8){
+        const lead = Math.min(2.6, d / 28) * (1 + .15 * lv), off = side * Math.min(12, d * .3);
+        ax = tx + pvx * lead - pvz / psp * off; az = tz + pvz * lead + pvx / psp * off;
+      } else { const a = ci * 2.1 + 1; ax = tx + Math.cos(a) * 9; az = tz + Math.sin(a) * 9; }
+      if (hitsBuilding(ax, az, 2) || outOfMap(ax, az, 2) || lakes.some(L => inPoly(ax, az, L))){ ax = tx; az = tz; }
+    }
+    chaseInput(c, ax, az, dt);
     c.farT = d > 100 ? (c.farT || 0) + dt : 0;
     if (c.farT > 7){ c.farT = 0; c.active = false; c.root.visible = false; cars.splice(cars.indexOf(c), 1); spawnChaser(tx, tz); continue; }
     const on = Math.floor(performance.now() / 160) % 2 === 0;
@@ -140,10 +175,11 @@ function updateChase(dt){
   }
   if (active.length){
     const mySp = driving ? Math.hypot(driving.vx, driving.vz) : 0;
-    if (minD < (driving ? 5.5 : 3.2) && mySp < 4) bustT += dt * (driving ? 1 : 1.6); else bustT = Math.max(0, bustT - dt);
+    if (!indoor && minD < (driving ? 5.5 : 3.2) && mySp < 4) bustT += dt * (driving ? 1 : 1.6); else bustT = Math.max(0, bustT - dt);
     if (bustT > 1.5){ busted(); return; }
-    if (minD > (inForest ? 70 : 150)){ calmT += dt * (inForest ? 1.6 : 1); if (calmT > 6){ calmT = 0; heat = Math.floor(heat) - 1 + .5; if (heat < 1){
-      heat = 0; despawnChasers(); toast('甩掉了保安', chasePeak >= 4 ? `从 ${chasePeak} 星警戒里溜了` : '警戒解除'); sfx.ding(); if (chasePeak >= 4) unlock('escape4'); chasePeak = 0; } } }
+    if (indoor || minD > (inForest ? 70 : 150)){ calmT += dt * (inForest ? 1.6 : 1); if (calmT > 6){ calmT = 0; heat = Math.floor(heat) - 1 + .5; if (heat < 1){
+      heat = 0; despawnChasers(); const loot = window.XParts ? XParts.reward('escape', chasePeak >= 4 ? 0 : chasePeak === 3 ? 1 : chasePeak === 2 ? 2 : 3, `甩掉 ${chasePeak} 星保安`) : [];   /* 改装零件, js/93-tuning-ui.js */
+      toast('甩掉了保安', (chasePeak >= 4 ? `从 ${chasePeak} 星警戒里溜了` : '警戒解除') + (loot.length ? ' · 改装：' + XParts.text(loot) : '')); sfx.ding(); if (chasePeak >= 4) unlock('escape4'); chasePeak = 0; } } }
     else calmT = 0;
     sirenT -= dt; if (sirenT <= 0){ sirenT = .42; sirenHi = !sirenHi; tone('triangle', sirenHi ? 900 : 680, sirenHi ? 900 : 680, .38, .035); }
   } else heat = Math.max(0, heat - dt * .05);
@@ -165,7 +201,9 @@ function bankStunt(){
   const pts = Math.round(stunt.pts), raw = pts / 50, pay = raw <= 40 ? raw : 40 + Math.sqrt(raw - 40) * 4; stunt.total += pts; earn(pay);
   sess.bestCombo = Math.max(sess.bestCombo, pts); if (pts >= 5000) unlock('combo5k');
   $('#stunt').textContent = stunt.total.toLocaleString();
-  if (pts >= 300){ toast(`特技 +${pts.toLocaleString()}`, `换成 RM ${pay.toFixed(2)}`, 1600); sfx.ding(); }
+  /* 改装零件（js/93-tuning-ui.js）：连击越高档越好，有冷却和每日上限 */
+  const loot = window.XParts && pts >= 1000 ? XParts.reward('stunt', pts >= 5000 ? 0 : pts >= 2500 ? 1 : 2, `特技 ${pts.toLocaleString()} 分`) : [];
+  if (pts >= 300){ toast(`特技 +${pts.toLocaleString()}`, `换成 RM ${pay.toFixed(2)}${loot.length ? ' · 改装：' + XParts.text(loot) : ''}`, 1600); sfx.ding(); }
   stunt.pts = 0; stunt.mult = 1; stunt.label = '';
 }
 function updateStunt(dt, sp){
@@ -206,7 +244,9 @@ const SHOP = [
   {kind:'myvi',  name:'Perodua Myvi', desc:'大马国民小车，皮实好停', price:60,   color:'#c0392b'},
   {kind:'p911',  name:'保时洁 911',   desc:'后置引擎，过弯很灵',     price:500,  color:'#f0eee8'},
   {kind:'mase',  name:'玛莎拉弟 GT',  desc:'意式长车头，声浪好听',   price:900,  color:'#1f3a6b'},
+  {kind:'moto',  name:'疾风 R 运动摩托', desc:'两个轮子，压着弯过弯，起步最猛，但一撞就飞', price:1100, color:'#e9ecef'},
   {kind:'lambo', name:'兰博鸡尼',     desc:'楔形车身，全校最快',     price:1600, color:'#f2c230'},
+  {kind:'gwag',  name:'铁方越野',     desc:'方盒子硬派越野，高、重、抗撞；能改升高、大轮胎、行李架和绞盘', price:2200, color:'#55604a'},
   {kind:'rr',    name:'劳斯来斯',     desc:'又长又稳又抗撞，奶娃坐进去像老板', price:3000, color:'#2b2b2e'}
 ];
 const owned = new Set(); let myCar = null;
@@ -214,6 +254,25 @@ function saveGame(){ try { localStorage.setItem('xmum-gta-v1', JSON.stringify({m
   up:prog.up, ach:prog.ach, best:prog.best, life:prog.life, daily:prog.daily})); } catch(e){} }
 const fmtRM = v => 'RM ' + (v >= 100 ? Math.floor(v).toLocaleString() : v.toFixed(2));   /* HUD wallet: no decimals once it is 100+ */
 function moneyChanged(){ moneyEl.textContent = fmtRM(money); saveGame(); }
+/* ---------- 总资产 (net worth) = cash + everything bought, at the price it cost new ----------
+   The 总资产 leaderboard (board 'rich' in js/net.js, which used to rank cash only) submits netWorth().
+   Buying never lowers it (cash turns into an asset of the same value), so the "only goes up" rule on the board still holds.
+   To add a new shop from any file, register what it has sold once at load time:
+     assetSource('arcade', () => ARC_SKINS.filter(s => arcOwned.has(s.id)).reduce((sum, s) => sum + s.price, 0));
+   The function returns RM and is called whenever the total is needed, so it should read the live save.
+   Only count things that cannot be sold back for cash (they would count twice); a source that throws counts as 0.
+   netWorth(true) returns {total, parts} with one entry per source, for debugging. */
+const ASSETS = [];
+function assetSource(name, fn){ const i = ASSETS.findIndex(a => a.name === name); if (i >= 0) ASSETS.splice(i, 1); ASSETS.push({name, fn}); }
+function netWorth(detail){
+  const parts = {cash:Math.max(0, +money || 0)}; let total = parts.cash;
+  for (const a of ASSETS){ let v = 0; try { v = Math.max(0, +a.fn() || 0); } catch(e){} parts[a.name] = v; total += v; }
+  return detail ? {total, parts} : total;
+}
+const upgSpent = list => list.reduce((s, u) => s + u.cost.slice(0, prog.up[u.k] || 0).reduce((a, b) => a + b, 0), 0);
+assetSource('cars', () => SHOP.reduce((s, it) => s + (owned.has(it.kind) ? it.price : 0), 0));
+assetSource('tuning', () => upgSpent(UPG));
+assetSource('watergun', () => upgSpent(WUPG));
 function spotNear(px, pz, kind){
   const tmp = {kind, T:CAR_T[kind]};
   for (let r = 6; r < 70; r += 3) for (let a = 0; a < 12; a++){
@@ -251,6 +310,13 @@ function renderShop(){
       : money >= price ? `<button class="btn buy" data-up="${u.k}">升到 ${lv + 1} 级 · RM ${price}</button>`
       : `<button class="btn" disabled>RM ${price} · 还差 ${Math.ceil(price - money)}</button>`;
     return `<div class="car gx-up"><div class="gx-pips" role="img" aria-label="${lv} / ${u.cost.length} 级">${pips}</div><div class="ci"><b>${u.name}</b><span>${u.desc}</span></div>${btn}</div>`;
+  }).join('') + `<div class="gx-uh"><b>水枪工坊</b><span>步行时按 E 开枪 · 对手强度：${PVE_NAME[pveLevel()]}（水枪越强、成就越多，保安和猴子越难缠）</span></div>` + WUPG.map(u => {
+    const lv = prog.up[u.k], max = lv >= u.cost.length, price = max ? 0 : u.cost[lv];
+    const pips = u.cost.map((_, i) => `<i class="${i < lv ? 'on' : ''}"></i>`).join('');
+    const btn = max ? '<button class="btn" disabled>已满级</button>'
+      : money >= price ? `<button class="btn buy" data-up="${u.k}">升到 ${lv + 1} 级 · RM ${price}</button>`
+      : `<button class="btn" disabled>RM ${price} · 还差 ${Math.ceil(price - money)}</button>`;
+    return `<div class="car gx-up gx-wup"><div class="gx-pips" role="img" aria-label="${lv} / ${u.cost.length} 级">${pips}</div><div class="ci"><b>${u.name}</b><span>${u.desc}</span></div>${btn}</div>`;
   }).join('');
 }
 $('#shopList').addEventListener('click', e => {
@@ -261,10 +327,14 @@ $('#shopList').addEventListener('click', e => {
     if (SHOP.every(s => owned.has(s.kind))) unlock('allcars');
   } else if (b.dataset.sum){ closeShop(); summon(b.dataset.sum); }
   else if (b.dataset.up){
-    const u = UPG.find(x => x.k === b.dataset.up), lv = prog.up[u.k]; if (lv >= u.cost.length || money < u.cost[lv]) return;
-    money -= u.cost[lv]; prog.up[u.k]++; if (myCar) myCar.T = tunedT(myCar.kind); moneyChanged(); renderShop();
-    sfx.sparkle(); toast(`${u.name}升到 ${lv + 1} 级`, myCar ? '你的车已经换上了' : '买辆车就能用上', 2000);
-    if (prog.up[u.k] >= u.cost.length) unlock('tuned');
+    const water = WUPG.some(x => x.k === b.dataset.up);
+    const u = (water ? WUPG : UPG).find(x => x.k === b.dataset.up), lv = prog.up[u.k]; if (lv >= u.cost.length || money < u.cost[lv]) return;
+    money -= u.cost[lv]; prog.up[u.k]++; if (myCar) myCar.T = tunedT(myCar.kind); moneyChanged();
+    if (water && typeof wgRefresh === 'function') wgRefresh(true);
+    renderShop();
+    sfx.sparkle(); toast(`${u.name}升到 ${lv + 1} 级`, water ? '水枪已经换上了，下车按 E 试试' : myCar ? '你的车已经换上了' : '买辆车就能用上', 2000);
+    if (!water && prog.up[u.k] >= u.cost.length) unlock('tuned');
+    if (water){ unlock('wg1'); if (WUPG.every(x => prog.up[x.k] >= x.cost.length)) unlock('wgmax'); }
   }
 });
 function openShop(){ if (mode !== 'naiwa') return; renderShop(); $('#shop').hidden = false; }
@@ -286,8 +356,8 @@ const showCar = (() => {
   try {
     const d = JSON.parse(localStorage.getItem('xmum-gta-v1') || 'null'); if (!d) return;
     money = +d.money || 0; (d.owned || []).forEach(k => { if (CAR_T[k]) owned.add(k); }); stunt.total = +d.stunt || 0;
-    if (d.up) for (const u of UPG) prog.up[u.k] = Math.max(0, Math.min(u.cost.length, d.up[u.k] | 0));
-    if (d.ach && typeof d.ach === 'object') for (const k in d.ach) if (ACH.some(a => a[0] === k)) prog.ach[k] = +d.ach[k] || 1;
+    if (d.up) for (const u of UPG.concat(WUPG)) prog.up[u.k] = Math.max(0, Math.min(u.cost.length, d.up[u.k] | 0));
+    if (d.ach && typeof d.ach === 'object'){ Object.assign(achSaved, d.ach); for (const k in d.ach) if (ACH.some(a => a[0] === k)) prog.ach[k] = +d.ach[k] || 1; }
     if (d.best && typeof d.best === 'object') for (const k in d.best) if (isFinite(d.best[k])) prog.best[k] = +d.best[k];
     if (d.life) for (const k in prog.life) prog.life[k] = +d.life[k] || 0;
     if (typeof d.daily === 'string') prog.daily = d.daily;

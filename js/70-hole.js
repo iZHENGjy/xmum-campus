@@ -262,7 +262,7 @@ function buildEats(){
     if (r > 150) continue;
     eats.push({k:'st', st, x:cx, z:cz, r:r * .72, a:a * 1.3, name:st.info && st.info.name});
   }
-  cars.forEach(c => eats.push({k:'car', c, x:c.x, z:c.z, r:c.R * 1.15, a:c.T.L * c.T.W * 1.8, name:c.T.name}));
+  cars.forEach(c => c.out || eats.push({k:'car', c, x:c.x, z:c.z, r:c.R * 1.15, a:c.T.L * c.T.W * 1.8, name:c.T.name}));   /* cars parked outside the gate are out of the hole's reach */
   npcs.forEach((n, i) => eats.push({k:'npc', n, i, x:n.x, z:n.z, r:.45, a:3}));
   eats.forEach(e => { e.fall = null; e.gone = false; });
 }
@@ -284,9 +284,10 @@ function resetWorld(){
   falling.length = 0; eats.forEach(e => { e.fall = null; e.gone = false; });
 }
 const holeArea = h => Math.PI * Math.pow(2.5 + .55 * Math.pow(h.mass, .4), 2);
+/* a random open spot (not in the lake, not next to another hole); Math.random, not the seeded world rnd(), so every round and every respawn differs */
 function placeHole(h){
   for (let k = 0; k < 80; k++){
-    const x = -520 + rnd() * 1040, z = -240 + rnd() * 470;
+    const x = -520 + Math.random() * 1040, z = -240 + Math.random() * 470;
     if (holeInLake(x, z)) continue;
     if (HOLES.some(o => o !== h && o.alive && Math.hypot(o.x - x, o.z - z) < 140 + o.r)) continue;
     h.x = x; h.z = z; return;
@@ -307,7 +308,7 @@ function startHole(){
   Object.assign(HCOMBO, {n:0, t:0, best:0, mult:1});
   HOLES.forEach(h => {
     holeResetHole(h); h.score = 0; h.names = []; h.stuck = 0;
-    if (h.you){ h.x = 110; h.z = 204; } else placeHole(h);
+    placeHole(h);   /* everyone, you included, starts somewhere random (and far apart) */
     h.cx0 = h.x; h.cz0 = h.z; holeShowMeshes(h, true);
   });
   holeClearPUs(); holeSpawnPU(true, 'spd'); holeSpawnPU(false);
@@ -344,6 +345,9 @@ function endHole(){
   $('#hendS').textContent = bits.join(' · ') + '。'
     + (names.length ? ` 吞下了 ${names.slice(0, 5).join('、')}${names.length > 5 ? ' 等 ' + names.length + ' 处' : ''}。` : '')
     + (record ? (best ? ` 之前最好 ${best.toFixed(1)}%。` : '') : best ? ` 最好成绩 ${best.toFixed(1)}%。` : '');
+  /* 改装零件（js/93-tuning-ui.js）：吞掉的东西回收成材料，按名次给 */
+  const oldLoot = $('#hend .tn-loot'); if (oldLoot) oldLoot.remove();
+  if (window.XParts){ const loot = XParts.reward('hole', place - 1, `黑洞第 ${place} 名`); if (loot.length) $('#hendS').insertAdjacentHTML('afterend', XParts.chips(loot)); }
   HH.cd.hidden = HH.bar.hidden = true; HH.call.hidden = true;
   $('#htime').classList.remove('hurry');
   $('#hend').hidden = false; place === 1 ? sfx.ding() : sfx.fail(); if (record) setTimeout(() => sfx.sparkle(), 300);
@@ -374,7 +378,7 @@ function holeSpeed(h){
 }
 const HOLE_FLAVOR = {
   'D6 食堂':'今天的饭吃不成了', 'LY3 食堂':'LY 的同学只能点外卖了', 'B1 学生活动中心':'社团活动全部取消', '田径场':'连跑道一起卷进去了',
-  '礼堂':'毕业典礼改线上', '南门（正门）':'校门都没了，怎么进校', '东门':'东门也没了', '陈嘉庚像':'……对不起', '户外球场':'球赛取消',
+  '陈华春音乐厅':'毕业典礼改线上', '南门（正门）':'校门都没了，怎么进校', '东门':'东门也没了', '陈嘉庚像':'……对不起', '户外球场':'球赛取消',
   '音乐岛':'贝壳屋顶转着圈掉下去了', '国际学术交流中心':'会议改期', '研究生研究中心（二期）':'论文进度清零', 'LY1':'整栋宿舍楼一起吞'
 };
 const HOLE_CAR_LINE = {bus:['校巴连司机一起吞了', '下一班车遥遥无期'], patrol:['保安巡逻车被吞了', '保安：？？？'],

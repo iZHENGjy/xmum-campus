@@ -1,0 +1,52 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>XMUM 互动测试</title>
+<script>
+/* 本地测试玩家互动（js/96-social.js），不连任何服务器：
+ *   读取 ../index.html，把 js/firebase-config.js 换成 test/firebase-shared.js（假的 firebase，同一个浏览器的几个页面共用一份数据）。
+ *   每个页面是一个玩家，存档也分开（localStorage 加了「xmum-mock-{p}:」前缀，不会碰正式存档）。
+ *
+ * 两个人互测：开两个浏览器「窗口」并排（不要用同一个窗口的两个标签页：看不见的标签页会自动下线）
+ *   /test/social.html?p=a        玩家 a（默认叫「阿明」）
+ *   /test/social.html?p=b        玩家 b（默认叫「小红」）
+ * 一个人测：/test/social.html?bots  旁边多两个本地假玩家（陪练小明、司机阿华），控制台 XBots.* 见 test/social-bots.js
+ * 一群假玩家：/test/social.html?crowd=20  走路、开车、站着聊天（test/crowd-bots.js），配合 &netmeter 看每秒收多少字节；
+ *   &scene=tight（默认，A3 广场 100 米内）| campus | map；画面开销：控制台 await XCrowdPerf.run()（test/crowd-perf.js），&perf 不放假人只测
+ *   加 &oldrules 就是改版前的样子（数据库没有新规则：大家都写旧的 /presence，每秒 5 次）
+ * 其他参数：&name=昵称  &awake（标签页切到后台也不下线，只给自动化测试用）  &title（停在开场画面）  &frame=390x844（手机尺寸）
+ *   &mute（静音）  &netmeter（左下角流量计）  &raf（用定时器代替 requestAnimationFrame：浏览器面板藏起来时游戏也照常跑，自动化测试用）
+ *   &run=<js>（加载 1.5 秒后执行，摆截图用）
+ * 预览版上也能用：https://izhengjy.github.io/xmum-campus/preview/test/social.html?p=a
+ */
+const Q = new URLSearchParams(location.search);
+const FR = Q.get('frame');
+if (FR){
+  const [w, h] = FR.split('x').map(Number); Q.delete('frame');
+  document.write(`<body style="margin:0;background:#222"><iframe src="social.html?${Q}" style="width:${w}px;height:${h}px;border:0;display:block"></iframe></body>`);
+} else {
+  const P = (Q.get('p') || 'a').replace(/[^a-z0-9]/gi, '').slice(0, 8) || 'a';
+  const NAME = Q.get('name') || ({a:'阿明', b:'小红', c:'阿华', d:'DDL战士'}[P] || '玩家' + P);
+  const pre = `<script>(() => {
+  const real = window.localStorage, PFX = ${JSON.stringify('xmum-mock-' + P + ':')};
+  const keys = () => { const o = []; for (let i = 0; i < real.length; i++){ const k = real.key(i); if (k && k.startsWith(PFX)) o.push(k.slice(PFX.length)); } return o; };
+  Object.defineProperty(window, 'localStorage', {configurable:true, value:{getItem:k => real.getItem(PFX + k), setItem:(k, v) => real.setItem(PFX + k, String(v)), removeItem:k => real.removeItem(PFX + k),
+    clear:() => keys().forEach(k => real.removeItem(PFX + k)), key:i => keys()[i] ?? null, get length(){ return keys().length; }}});
+  localStorage.setItem('xmum-name', ${JSON.stringify(NAME)});
+  ${Q.has('awake') ? "Object.defineProperty(document, 'visibilityState', {get:() => 'visible'}); Object.defineProperty(document, 'hidden', {get:() => false});" : ''}
+  ${Q.has('raf') ? "(() => { let q = [], tm = 0; window.requestAnimationFrame = cb => { q.push(cb); if (!tm) tm = setTimeout(() => { tm = 0; const l = q, t = performance.now(); q = []; for (const f of l) try { f(t); } catch(e){ console.error(e); } }, 33); return q.length; }; window.cancelAnimationFrame = () => {}; })();" : ''}
+  ${Q.has('mute') ? "for (const n of ['AudioContext', 'webkitAudioContext']){ const AC = window[n]; if (!AC) continue; window[n] = function(o){ const c = new AC(o); c.suspend(); c.resume = () => Promise.resolve(); return c; }; window[n].prototype = AC.prototype; }" : ''}
+})();<\/script>`;
+  fetch('../index.html', {cache:'no-store'}).then(r => r.text()).then(html => {
+    html = html.replace(/<head>/i, '<head><base href="../">' + pre)
+      .replace(/<script src="js\/firebase-config\.js[^"]*"><\/script>/, '<script src="test/firebase-shared.js?nc=' + Date.now() + '"><\/script>')
+      .replace(/<script src="js\/stats\.js[^"]*"><\/script>/, '')
+      .replace(/(src="(?:js|test)\/[^"?]+\.js)\?v=(\d+)"/g, '$1?v=$2&nc=' + Date.now() + '"');
+    const extra = (Q.has('bots') || Q.has('crowd') ? ['crowd-model'] : []).concat(Q.has('bots') ? ['social-bots'] : [], Q.has('crowd') ? ['crowd-bots'] : [], Q.has('crowd') || Q.has('perf') ? ['crowd-perf'] : []);
+    if (extra.length) html = html.replace(/(<script src="js\/96-social\.js[^"]*"><\/script>)/, '$1' + extra.map(f => '<script src="test/' + f + '.js?nc=' + Date.now() + '"><\/script>').join(''));
+    const run = Q.get('run'), go = !Q.has('title');
+    const tail = (go ? 'setTimeout(() => { try { XUI.closeTitle("naiwa"); } catch(e){} }, 900);' : '') + (run ? 'setTimeout(() => { (0, eval)(' + JSON.stringify(run).replace(/</g, '\u003c') + '); }, 1500);' : '');
+    if (tail) html = html.replace(/<\/body>/i, '<script>' + tail + '<\/script></body>');
+    document.open(); document.write(html); document.close();
+  });
+}
+</script>

@@ -53,7 +53,7 @@ function skidAt(x, z, h, y){
 /* knock trees and lamps */
 function setKnock(set, i, down, dx, dz){
   const o = set.spots[i];
-  _p.set(o.x, 0, o.z); _q.setFromAxisAngle(UP, o.r);
+  _p.set(o.x, o.y || 0, o.z); _q.setFromAxisAngle(UP, o.r);
   if (down){ _q2.setFromAxisAngle(_ax.set(dz, 0, -dx).normalize(), set.kind === 'lamp' ? 1.35 : 1.45); _q.premultiply(_q2); }
   _s.setScalar(o.s); _m4.compose(_p, _q, _s);
   for (const im of set.ims){ im.setMatrixAt(i, _m4); im.instanceMatrix.needsUpdate = true; }
@@ -76,13 +76,52 @@ function knockAround(x, z, R, fromX, fromZ){
 
 /* ---------- sound (synthesised, starts after the first tap) ---------- */
 let AC = null, soundOn = true, noiseBuf = null;
+/* A noise buffer that loops without a click: the last 50 ms are cross-faded into the first 50 ms (equal-power, since the two stretches are
+   uncorrelated), so the wrap-around is as smooth as the middle. A plain buffer of random samples ticks once per loop at the seam.
+   pink = true gives a softer 1/f noise (rain, wind) instead of white hiss. */
+function loopNoise(a, secs, pink){
+  const sr = a.sampleRate, n = Math.floor(sr * secs), x = Math.floor(sr * .05), raw = new Float32Array(n + x);
+  if (pink){
+    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+    for (let i = 0; i < raw.length; i++){
+      const w = Math.random() * 2 - 1;
+      b0 = .99886 * b0 + w * .0555179; b1 = .99332 * b1 + w * .0750759; b2 = .969 * b2 + w * .153852; b3 = .8665 * b3 + w * .3104856; b4 = .55 * b4 + w * .5329522; b5 = -.7616 * b5 - w * .016898;
+      raw[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * .5362) * .22; b6 = w * .115926;
+    }
+  } else for (let i = 0; i < raw.length; i++) raw[i] = Math.random() * 2 - 1;
+  const buf = a.createBuffer(1, n, sr), d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = raw[i];
+  for (let i = 0; i < x; i++){ const t = i / x * Math.PI / 2; d[i] = raw[i] * Math.sin(t) + raw[n + i] * Math.cos(t); }
+  return buf;
+}
+/* phones: iOS plays Web Audio through the ringer channel, so with the silent switch on the game is mute. Ask for media playback
+   (navigator.audioSession, Safari 16.4+); older iOS needs a looping silent <audio> started from a tap to do the same. iOS also
+   only counts touchend / click as a gesture (not pointerdown) and leaves the context 'interrupted' after a call or app switch. */
+const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+let acKeep = null;
+function acSession(){
+  try { if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch(e){}
+  if (!IOS || acKeep || navigator.audioSession) return;
+  try {
+    const sr = 8000, n = sr / 4, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf), w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+    acKeep = new Audio(URL.createObjectURL(new Blob([buf], {type:'audio/wav'}))); acKeep.loop = true; acKeep.setAttribute('playsinline', '');
+    const p = acKeep.play(); if (p && p.catch) p.catch(() => { acKeep = null; });
+  } catch(e){ acKeep = null; }
+}
 function ac(){
   if (!AC){ try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ AC = null; } }
-  if (AC && AC.state === 'suspended') AC.resume();
-  if (AC && !noiseBuf){ noiseBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+  if (AC && AC.state !== 'running' && AC.state !== 'closed') AC.resume();
+  if (AC && soundOn){ acSession(); if (acKeep && acKeep.paused) acKeep.play().catch(() => {}); }
+  else if (acKeep && !acKeep.paused) acKeep.pause();
+  if (AC && !noiseBuf) noiseBuf = loopNoise(AC, 1, false);
   if (AC && !laughClip.tried) loadLaugh(AC);
   return soundOn ? AC : null;
 }
+/* unlock on the gestures every phone accepts, and come back after a call or an app switch (only once audio has been started) */
+for (const ev of ['touchend', 'click', 'keydown']) document.addEventListener(ev, () => { if (AC && soundOn && AC.state !== 'running') ac(); }, {passive:true, capture:true});
+document.addEventListener('visibilitychange', () => { if (!document.hidden && AC && soundOn && AC.state !== 'running') AC.resume(); });
 /* 奶娃's real laugh (clip from Bilibili BV1auFZzaE4W, see README credits); synth fallback until/unless it loads */
 const laughClip = {tried:false, buf:null, src:null};
 function loadLaugh(a){
@@ -137,7 +176,7 @@ function engineStart(kind){
   o.connect(f); o2.connect(f); f.connect(g).connect(a.destination); o.start(); o2.start();
   const sk = a.createBufferSource(); sk.buffer = noiseBuf; sk.loop = true; const sf = a.createBiquadFilter(); sf.type = 'bandpass'; sf.frequency.value = 1800; sf.Q.value = 3;
   const sg = a.createGain(); sg.gain.value = 0; sk.connect(sf).connect(sg).connect(a.destination); sk.start();
-  engine = {o, o2, g, sk, sg, base:({bus:38, cart:90, patrol:85, rr:40, mase:58, p911:66, lambo:72, myvi:62})[kind] || 55};
+  engine = {o, o2, g, sk, sg, base:({bus:38, cart:90, patrol:85, rr:40, mase:58, p911:66, lambo:72, myvi:62, gwag:44, moto:96})[kind] || 55};
 }
 function engineStop(){ if (!engine) return; try { engine.o.stop(); engine.o2.stop(); engine.sk.stop(); } catch(e){} engine = null; }
 function engineUpdate(speed, slip, on){

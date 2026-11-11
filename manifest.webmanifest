@@ -1,0 +1,29 @@
+{
+  "name": "XMUM 校园漫游",
+  "short_name": "校园漫游",
+  "description": "照厦门大学马来西亚分校平面图搭的 3D 校园小游戏。粉丝作品，非官方。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
+  "orientation": "any",
+  "background_color": "#f4efe6",
+  "theme_color": "#b4472e",
+  "icons": [
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

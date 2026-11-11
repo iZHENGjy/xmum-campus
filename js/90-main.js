@@ -44,9 +44,12 @@ function updateActs(){
   actSp.querySelector('b').textContent = driving ? '漂移' : '跳';
   actR.querySelector('b').textContent = driving ? '喇叭' : '大笑';
   actQ.disabled = !!driving;
+  const aw = $('#act-w'); if (aw) aw.disabled = !!driving;
 }
 function doF(){
   if (mode !== 'naiwa' || gx.paused) return;
+  if (typeof raceTryF === 'function' && raceTryF()) return;   /* in a race F only ever puts you back in your own race car (js/92-racing.js) */
+  if (!driving && typeof roomTryF === 'function' && roomTryF()) return;   /* classroom doors (js/87-classroom.js) */
   if (driving){
     const sp = Math.hypot(driving.vx, driving.vz);
     if (sp > 12) eject(sp * .8); else leaveCar();
@@ -115,7 +118,7 @@ window.addEventListener('pointermove', e => {
   down.moved += Math.abs(dx) + Math.abs(dy);
   if (mode === 'walk'){ player.yaw -= dx * .0045; player.pitch = Math.max(-1.2, Math.min(1.2, player.pitch - dy * .0045)); }
   if (mode === 'hole'){ camYaw -= dx * .005; }
-  if (mode === 'naiwa'){ camYaw -= dx * .005; camPitch = Math.max(-.1, Math.min(1.2, camPitch + dy * .004)); camYawHold = 1.6; }
+  if (mode === 'naiwa'){ camYaw -= dx * .005; camPitch = Math.max(indoorNow() ? .75 : -.1, Math.min(1.2, camPitch + dy * .004)); camYawHold = 1.6; }
 });
 const endDown = e => {
   if (!down || e.pointerId !== down.id) return;
@@ -204,19 +207,21 @@ function updateNaiwaMode(dt, T){
   let d = dist;
   for (let k = 1; k <= 10; k++){
     const dd = dist * k / 10, x = tx + Math.sin(camYaw) * dd * cp, z = tz + Math.cos(camYaw) * dd * cp;
-    if (hitsBuilding(x, z, .6)){ d = Math.max(2.5, dd - dist / 10); break; }
+    if (!indoorNow() && hitsBuilding(x, z, .6)){ d = Math.max(2.5, dd - dist / 10); break; }   /* indoors the camera looks down over the walls */
   }
-  camPos.set(tx + Math.sin(camYaw) * d * cp, Math.max(.6, ty + d * spch), tz + Math.cos(camYaw) * d * cp);
+  const cx = tx + Math.sin(camYaw) * d * cp, cz = tz + Math.cos(camYaw) * d * cp;
+  camPos.set(cx, Math.max(.6, groundAt(cx, cz) + 1, ty + d * spch), cz);
   if (camShake > .01){ camPos.x += (rnd() - .5) * camShake; camPos.y += (rnd() - .5) * camShake; camPos.z += (rnd() - .5) * camShake; camShake *= Math.exp(-dt * 6); }
   const k = driving ? 1 - Math.exp(-dt * 10) : 1;
   camera.position.lerp(camPos, k);
+  { const gy = groundAt(camera.position.x, camera.position.z) + .6; if (camera.position.y < gy) camera.position.y = gy; }
   camLook.set(tx, ty, tz); camera.lookAt(camLook);
   fitShadow(Math.round(px / 20) * 20, Math.round(pz / 20) * 20, 150);
   /* prompts */
   let msg = '';
   if (driving) msg = TOUCH ? '' : 'W/S 油门刹车 · A/D 转向 · 按住空格漂移 · H 喇叭 · F 下车';
   else if (nw.state === 'fly') msg = '啊啊啊啊——';
-  else { const nc = nearestCar(); msg = nc ? (TOUCH ? '点「上车」开走这辆' : '按 F 上车') + ' · ' + nc.T.name : (TOUCH ? '' : 'WASD 走 · 空格跳 · R 大笑 · Q 撩头 · 找辆车按 F 上车'); }
+  else { const nc = nearestCar(); msg = nc ? (TOUCH ? '点「上车」开走这辆' : '按 F 上车') + ' · ' + nc.T.name : (TOUCH ? '' : 'WASD 走 · 空格跳 · E 水枪 · R 大笑 · 找辆车按 F 上车'); }
   if (!driving && nw.state !== 'fly' && Math.hypot(nw.x - SHOWROOM[0], nw.z - SHOWROOM[1]) < 11) msg = TOUCH ? '点右上角「XMUM 车行」看车' : '按 G 打开 XMUM 车行';
   else if (driving && driving.wrecked) msg = TOUCH ? '这辆车报废了，点「下车」换一辆' : '这辆车报废了，按 F 下车换一辆';
   gx.update(dt, px, pz); msg = gx.prompt() || msg;
@@ -236,6 +241,7 @@ const mg = mini.getContext('2d');
 function drawMini(cx, cz, yaw){
   const Sz = mini.width, k = Sz / 520, X = x => Sz / 2 + (x - cx) * k, Z = z => Sz / 2 + (z - cz) * k;
   mg.fillStyle = '#74a955'; mg.fillRect(0, 0, Sz, Sz);
+  if (typeof drawOutMini === 'function') drawOutMini(mg, X, Z, k);   /* hills, roads and shops outside the gate */
   mg.fillStyle = '#4d8a3e'; mg.beginPath(); FOREST.forEach(([x, z], i) => i ? mg.lineTo(X(x), Z(z)) : mg.moveTo(X(x), Z(z))); mg.fill();
   mg.lineCap = 'round'; mg.lineJoin = 'round';
   for (const r of ROADS_W){ mg.strokeStyle = r.m === asphalt ? '#cfcac0' : '#e6dcc8'; mg.lineWidth = Math.max(1.5, r.w * k); mg.beginPath(); r.p.forEach(([x, z], i) => i ? mg.lineTo(X(x), Z(z)) : mg.moveTo(X(x), Z(z))); mg.stroke(); }
@@ -271,21 +277,24 @@ window.addEventListener('resize', resize); resize();
 const v3 = new THREE.Vector3();
 let last = performance.now(); const t0 = last;
 setHelp(); applyTime(1); updateActs();
-/* adaptive quality: step down resolution, then shadows, if the frame rate stays low */
-const QUAL = {level:0, acc:0, frames:0, wait:4};
+/* adaptive quality: if the frame rate stays low, step down one quality tier (js/quality.js) at a time.
+   A tier the player picked by hand is never changed: they only get one hint. On 流畅 the last step is 3/4 resolution. */
+const QUAL = {acc:0, frames:0, wait:4, hinted:false};
 function adaptQuality(dt){
-  if (document.hidden || QUAL.level >= 3) return;
+  if (document.hidden) return;
   QUAL.acc += dt; QUAL.frames++;
   if (QUAL.acc < 3) return;
   const fps = QUAL.frames / QUAL.acc; QUAL.acc = 0; QUAL.frames = 0;
   if (QUAL.wait > 0){ QUAL.wait--; return; }
   if (fps >= 40 || fps < 8) return;   /* under 8 fps is the browser throttling a hidden page, not the GPU */
-  QUAL.level++; QUAL.wait = 1;
-  if (QUAL.level === 1){ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25)); resize(); }
-  else if (QUAL.level === 2){ for (const set of knockSets) for (const im of set.ims) im.castShadow = false; sun.shadow.mapSize.set(1024, 1024); if (sun.shadow.map){ sun.shadow.map.dispose(); sun.shadow.map = null; } }
-  else { renderer.setPixelRatio(1); renderer.shadowMap.enabled = false; scene.traverse(o => { if (o.material) [].concat(o.material).forEach(m => m.needsUpdate = true); }); resize(); }
-  toast('已切换到更流畅的画质', `画质档位 ${3 - QUAL.level} / 3`, 1600);
+  QUAL.wait = 2;
+  if (XQ.level === 'low'){ if (XQ.scale > .8 && fps < 30) XQ.setScale(.75); return; }
+  if (XQ.manual){ if (!QUAL.hinted){ QUAL.hinted = true; toast('画面有点卡？', '回菜单把画质改成「' + XQ.labels[XQ.level === 'high' ? 'mid' : 'low'] + '」会顺很多', 3600); } return; }
+  XQ.set(XQ.level === 'high' ? 'mid' : 'low', {auto:true});
+  toast('已切换到更流畅的画质', '画质：' + XQ.label + ' · 菜单里可以改', 2000);
 }
+XQ.onChange(() => { QUAL.acc = 0; QUAL.frames = 0; QUAL.wait = Math.max(QUAL.wait, 2); });
+let miniTick = 0;
 function frame(now){
   const dt = Math.min(.05, (now - last) / 1000); last = now; const T = (now - t0) / 1000;
   adaptQuality((now - (frame.prev || now)) / 1000); frame.prev = now;
@@ -302,8 +311,10 @@ function frame(now){
     controls.update();
   }
   if (mode !== 'naiwa'){ for (const pk of PICKUPS) pk.m.visible = false; destMark.visible = false; }
+  if (gx.frame) gx.frame(dt, T);   /* every frame, paused or not, in every mode: the B1 arcade runs from here (js/91-arcade.js) */
   animNaiwa(dt, T);
   updateNPCs(dt, T); updateFountain(dt);
+  if (typeof updateOutskirts === 'function') updateOutskirts(dt, T);   /* js/13-outskirts.js */
   updateParts(dt);
   applyTime(1 - Math.exp(-dt * 2.5));
   headMat.emissiveIntensity = .1 + cur.lamp * 1.4; tailMat.emissiveIntensity = .1 + cur.lamp;
@@ -314,19 +325,23 @@ function frame(now){
   if (!REDUCED) for (const c of clouds){ c.position.x += dt * 5; if (c.position.x > 1600) c.position.x = -1600; }
   const W = window.innerWidth, H = window.innerHeight, dist = camera.position.distanceTo(controls.target);
   for (const L of labels){
-    if (L.dead){ L.el.style.visibility = 'hidden'; continue; }
+    if (L.dead){ if (L.shown !== false){ L.shown = false; L.el.style.visibility = 'hidden'; } continue; }
     v3.copy(L.pos).project(camera);
     let show = v3.z < 1 && Math.abs(v3.x) < 1.05 && Math.abs(v3.y) < 1.05;
     if (show && mode === 'hole') show = L.hole || camera.position.distanceTo(L.pos) < (L.minor ? 220 : 600);
     else if (show && mode !== 'orbit') show = camera.position.distanceTo(L.pos) < (L.minor ? 160 : 320);
     else if (show && L.minor) show = dist < 650;
-    if (show){ L.el.style.visibility = 'visible'; L.el.style.transform = `translate(-50%,-100%) translate(${(v3.x * .5 + .5) * W}px,${(-v3.y * .5 + .5) * H}px)`; }
-    else L.el.style.visibility = 'hidden';
+    if (show){ if (L.shown !== true){ L.shown = true; L.el.style.visibility = 'visible'; } L.el.style.transform = `translate(-50%,-100%) translate(${((v3.x * .5 + .5) * W).toFixed(1)}px,${((-v3.y * .5 + .5) * H).toFixed(1)}px)`; }
+    else if (L.shown !== false){ L.shown = false; L.el.style.visibility = 'hidden'; }
   }
-  if (mode === 'walk') drawMini(player.x, player.z, player.yaw);
-  else if (mode === 'hole') drawMini(hole.x, hole.z, camYaw);
-  else if (mode === 'naiwa') drawMini(driving ? driving.x : nw.x, driving ? driving.z : nw.z, (driving ? driving.h : nw.h) + Math.PI);
-  renderer.render(scene, camera);
+  /* the minimap is a full 2D redraw: every third frame is plenty (every fourth on 流畅) */
+  if (++miniTick >= (XQ.tier ? 3 : 4)){
+    miniTick = 0;
+    if (mode === 'walk') drawMini(player.x, player.z, player.yaw);
+    else if (mode === 'hole') drawMini(hole.x, hole.z, camYaw);
+    else if (mode === 'naiwa') drawMini(driving ? driving.x : nw.x, driving ? driving.z : nw.z, (driving ? driving.h : nw.h) + Math.PI);
+  }
+  gfxRender(dt, T);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

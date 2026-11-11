@@ -38,6 +38,19 @@ uiSoundBtn.addEventListener('click', () => {
   if (soundOn){ ac(); sfx.ding(); }
 });
 
+/* ---------- quality picker (tiers live in js/quality.js) ---------- */
+const uiGfxHint = $('#tGfxHint');
+const UI_GFX_TIP = {low:'最省电最顺，关掉阴影和特效，手机卡的话选这个', mid:'有阴影和水面波纹，适合大多数手机', high:'柔和阴影、泛光、树叶摆动，适合电脑和新手机'};
+document.querySelectorAll('[data-gfx]').forEach(b => b.addEventListener('click', () => {
+  const aaWas = XQ.aa; XQ.set(b.dataset.gfx);
+  if (XQ.cfg.aa !== aaWas) uiGfxHint.textContent = UI_GFX_TIP[XQ.level] + '（边缘平滑下次打开生效）';
+}));
+XQ.onChange(() => {
+  document.querySelectorAll('[data-gfx]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.gfx === XQ.level)));
+  uiGfxHint.textContent = UI_GFX_TIP[XQ.level] + (XQ.manual ? '' : ' · 自动选的');
+  document.querySelectorAll('[data-gfx]').forEach(b => { b.title = UI_GFX_TIP[b.dataset.gfx]; });
+});
+
 /* ---------- title screen ---------- */
 const titleEl = $('#title');
 let titleOpen = true, titleTimer = 0;
@@ -87,13 +100,21 @@ const UI_BOARDS = {
   hole2: {fmt:v => (+v || 0).toFixed(1) + '%', what:'黑洞 2.0（有道具和连吞）一局吞掉校园的最高比例', local:() => +uiGet('xmum-hole2-best') || 0, empty:'还没玩过黑洞 2.0，去吞一局'},
   hole:  {fmt:v => (+v || 0).toFixed(1) + '%', what:'旧版黑洞的成绩，已停止更新，留作纪念', local:() => +uiGet('xmum-hole-best') || 0, empty:'没有旧版黑洞的成绩'},
   stunt: {fmt:v => Math.round(+v || 0).toLocaleString() + ' 分', what:'奶娃累计特技分', local:() => +uiGta().stunt || 0, empty:'还没攒到特技分，去漂移一下'},
-  rich:  {fmt:v => 'RM ' + (+v || 0).toFixed(2), what:'奶娃钱包', local:() => +uiGta().money || 0, empty:'钱包空空，去送外卖'}
+  rich:  {fmt:v => 'RM ' + (+v || 0).toFixed(2), what:'奶娃总资产：现金加上买过的车、改装、水枪、衣橱、喷漆和宿舍周边，按原价算', local:() => typeof netWorth === 'function' ? netWorth() : +uiGta().money || 0, empty:'还没有资产，去送外卖'}
 };
+/* 小游戏榜（B1 游戏厅，js/91-arcade.js）：board 写成 'mini:<gameId>'，定义来自 XMini.board(id)；'mini' 表示上次看的那个小游戏 */
+let lbMini = '';
+function uiBoardDef(board){
+  if (UI_BOARDS[board]) return UI_BOARDS[board];
+  const m = /^mini:([a-z][a-z0-9_]{1,15})$/.exec(board || '');
+  return (m && window.XMini && XMini.board(m[1])) || null;
+}
+function uiMiniBoards(){ return window.XMini ? (XMini.boards || XMini.games.filter(g => g.board).map(g => g.id)).map(id => 'mini:' + id) : []; }
 const lbEl = $('#lb'), lbBody = $('#lbBody'), lbTabs = [...lbEl.querySelectorAll('[role="tab"]')];
 let lbBoard = 'hole2', lbReq = 0;
 function uiEl(tag, cls, text){ const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
 function uiLocalCard(board){
-  const B = UI_BOARDS[board], v = B.local(), box = uiEl('div', 'lb-local');
+  const B = uiBoardDef(board), v = B.local(), box = uiEl('div', 'lb-local');
   box.append(uiEl('span', 'lb-k', '本机最好 · ' + uiName));
   box.append(v > 0 ? uiEl('b', 'lb-v', B.fmt(v)) : uiEl('span', 'lb-none', B.empty));
   return box;
@@ -104,10 +125,25 @@ function uiDate(ts){
   return (d.getMonth() + 1) + '/' + d.getDate();
 }
 function renderBoard(board){
-  lbBoard = board; const B = UI_BOARDS[board], req = ++lbReq;
-  lbTabs.forEach(t => { const on = t.dataset.board === board; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1; });
-  lbBody.setAttribute('aria-labelledby', 'lbt-' + board);
+  if (board === 'mini') board = uiBoardDef(lbMini) ? lbMini : uiMiniBoards()[0] || 'mini';
+  const mini = /^mini/.test(board), tab = mini ? 'mini' : board;
+  lbBoard = board; const B = uiBoardDef(board), req = ++lbReq;
+  lbTabs.forEach(t => { const on = t.dataset.board === tab; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1; });
+  lbBody.setAttribute('aria-labelledby', 'lbt-' + tab);
   lbBody.textContent = '';
+  if (mini){
+    const all = uiMiniBoards();
+    if (!B){ lbBody.append(uiEl('p', 'lb-what', '还没有带排行榜的小游戏')); return; }
+    lbMini = board;
+    if (all.length > 1){
+      const chips = uiEl('div', 'lb-chips'); chips.setAttribute('role', 'group'); chips.setAttribute('aria-label', '选一个小游戏');
+      for (const id of all){
+        const d = uiBoardDef(id), c = uiEl('button', 'lb-chip', d.icon + ' ' + d.name); c.type = 'button'; c.setAttribute('aria-pressed', String(id === board));
+        c.addEventListener('click', () => renderBoard(id)); chips.append(c);
+      }
+      lbBody.append(chips);
+    }
+  }
   lbBody.append(uiEl('p', 'lb-what', B.what));
   const net = window.XNet;
   if (!net || !net.online || typeof net.top !== 'function'){
@@ -116,7 +152,7 @@ function renderBoard(board){
   }
   const list = uiEl('ol', 'lb-list'); list.append(uiEl('li', 'lb-wait', '读取中…'));
   lbBody.append(list);
-  Promise.race([net.top(board, 20), new Promise((_, no) => setTimeout(() => no(new Error('timeout')), 8000))]).then(rows => {
+  Promise.race([B.top ? B.top(20) : net.top(board, 20), new Promise((_, no) => setTimeout(() => no(new Error('timeout')), 8000))]).then(rows => {
     if (req !== lbReq) return;
     list.textContent = '';
     rows = Array.isArray(rows) ? rows : [];
@@ -142,9 +178,9 @@ lbTabs.forEach((t, i) => {
   });
 });
 function openLeaderboard(board){
-  renderBoard(UI_BOARDS[board] ? board : lbBoard);
+  renderBoard(uiBoardDef(board) || board === 'mini' ? board : lbBoard);
   uiOpenDialog(lbEl);
-  const sel = lbTabs.find(t => t.dataset.board === lbBoard); if (sel) sel.focus({preventScroll:true});
+  const sel = lbTabs.find(t => t.dataset.board === (/^mini/.test(lbBoard) ? 'mini' : lbBoard)); if (sel) sel.focus({preventScroll:true});
 }
 $('#tLb').addEventListener('click', () => openLeaderboard('hole2'));
 $('#hlb').addEventListener('click', () => openLeaderboard('hole2'));
@@ -168,10 +204,31 @@ function uiSyncAcct(){
     acctBtn.hidden = true;
   } else {
     acctEl.classList.remove('on');
-    acctText.textContent = '游客身份，进度只存在这台设备';
+    acctText.textContent = uiHasProgress() ? '你的进度只存在这台设备，换手机、清缓存就没了。用 Google 登录，进度存到云端' : '游客身份，进度只存在这台设备';
     acctBtnText.textContent = '用 Google 登录'; acctBtn.dataset.act = 'in';
   }
+  acctEl.classList.toggle('nudge', !N.account.google && !UI_EMBEDDED && uiHasProgress());
 }
+/* worth protecting: some money, a car or a few achievements */
+function uiHasProgress(){
+  try { const d = JSON.parse(localStorage.getItem('xmum-gta-v1') || 'null'); return !!d && ((+d.money || 0) >= 200 || (d.owned || []).length > 0 || Object.keys(d.ach || {}).length >= 2); } catch(e){ return false; }
+}
+/* opened inside WeChat / QQ / other apps: a clear banner on the title page. Their built-in browser cannot do Google login and may wipe saved data,
+   and no web page can open the system browser by itself, so point at the app's own ··· menu (top right) */
+if (UI_EMBEDDED) (() => {
+  const KEY = 'xmum-embed-tip';
+  try { if (sessionStorage.getItem(KEY)) return; } catch(e){}
+  const app = /MicroMessenger/i.test(navigator.userAgent) ? '微信' : /QQ\//i.test(navigator.userAgent) ? 'QQ' : 'App';
+  const bar = document.createElement('div'); bar.id = 'embedTip'; bar.setAttribute('role', 'note');
+  bar.innerHTML = '<span></span><button type="button" aria-label="关掉提示">×</button><i aria-hidden="true">↗</i>';
+  bar.querySelector('span').textContent = '在' + app + '里进度可能会丢：点右上角「···」→「在浏览器打开」，还能用 Google 登录';
+  const close = e => { if (e){ e.preventDefault(); e.stopPropagation(); } bar.hidden = true; bar.style.display = 'none'; try { sessionStorage.setItem(KEY, '1'); } catch(err){} };
+  bar.querySelector('button').addEventListener('click', close);
+  /* a slim strip on the body, never over the title's buttons; it goes away by itself after a while too */
+  setTimeout(() => { if (!bar.hidden) close(); }, 20000);
+  const put = () => document.body.appendChild(bar);
+  if (document.body) put(); else document.addEventListener('DOMContentLoaded', put);
+})();
 function uiLoginError(e){
   const c = String(e && e.code || '');
   if (/popup-closed|cancelled-popup/.test(c)) return '登录已取消';
@@ -191,6 +248,54 @@ if (acctBtn) acctBtn.addEventListener('click', async () => {
   acctBusy = false; uiSyncAcct();
   if (err) acctText.textContent = uiLoginError(err);
 });
+
+/* ---------- before the first game of this visit: recommend saving progress ----------
+   Most players open the link inside WeChat and start right away, as guests. So the first tap on a game mode in each visit
+   shows one clear card first: in an app, how to open in the browser; in a browser, a solid 「用 Google 登录」. Either way
+   a second button carries straight on into the game, so nobody is stuck. */
+(() => {
+  const GO = '#title [data-go="naiwa"], #title [data-go="hole"]', KEY = 'xmum-login-gate';
+  let shown = false; try { shown = !!sessionStorage.getItem(KEY); } catch(e){}
+  const want = () => {
+    if (shown) return false;
+    const N = window.XNet;
+    if (UI_EMBEDDED) return true;                                   // in WeChat: always worth one card
+    return !!(N && N.online && N.account && !N.account.google);    // browser guest (only when sign-in can actually work)
+  };
+  const card = document.createElement('div'); card.id = 'loginGate'; card.hidden = true; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true');
+  card.innerHTML = '<div class="lg-box"><b class="lg-t"></b><p class="lg-p"></p><div class="lg-btns"><button type="button" class="lg-main"></button><button type="button" class="lg-skip">先玩，以后再说</button></div><p class="lg-tip" hidden></p></div>';
+  document.body.appendChild(card);
+  const $c = q => card.querySelector(q);
+  let go = null;
+  const close = () => { card.hidden = true; };
+  const carryOn = () => { close(); shown = true; try { sessionStorage.setItem(KEY, '1'); } catch(e){} const b = go; go = null; if (b) b.click(); };
+  $c('.lg-skip').addEventListener('click', carryOn);
+  $c('.lg-main').addEventListener('click', () => {
+    if (UI_EMBEDDED){
+      const tip = $c('.lg-tip'); tip.hidden = false;
+      tip.textContent = '点屏幕右上角的「···」（三个点），选「在浏览器打开」。打开后点「用 Google 登录」，进度就会存到云端。';
+      $c('.lg-main').textContent = '知道了，我去浏览器打开'; return;
+    }
+    close(); shown = true; try { sessionStorage.setItem(KEY, '1'); } catch(e){}
+    if (acctBtn && !acctBtn.hidden && acctBtn.dataset.act === 'in'){ acctEl.scrollIntoView({block:'center', behavior:'smooth'}); acctBtn.click(); }
+  });
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest(GO);
+    if (!b || !want()) return;
+    e.preventDefault(); e.stopImmediatePropagation(); go = b;
+    const app = /MicroMessenger/i.test(navigator.userAgent) ? '微信' : /QQ\//i.test(navigator.userAgent) ? 'QQ' : 'App';
+    if (UI_EMBEDDED){
+      $c('.lg-t').textContent = '建议先用浏览器打开，再用 Google 登录';
+      $c('.lg-p').textContent = '在' + app + '里玩，进度只存在' + app + '里，随时可能被清掉，也不能登录。用浏览器打开并登录 Google，进度会存到云端，换手机也不丢。';
+      $c('.lg-main').textContent = '怎么用浏览器打开？';
+    } else {
+      $c('.lg-t').textContent = '推荐先用 Google 登录';
+      $c('.lg-p').textContent = '现在是游客身份，进度只存在这台设备，换手机、清缓存就没了。用 Google 登录，进度存到云端，换设备也能接着玩。';
+      $c('.lg-main').textContent = '用 Google 登录';
+    }
+    $c('.lg-tip').hidden = true; card.hidden = false;
+  }, true);
+})();
 
 window.XUI = {
   playerName: () => uiName,

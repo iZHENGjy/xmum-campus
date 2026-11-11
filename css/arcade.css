@@ -1,0 +1,97 @@
+/* B1 游戏厅和小游戏平台（js/91-arcade.js）。body.arc-in：在游戏厅里；body.mg-on：正在玩小游戏；body.mg-nomove：这个小游戏不用摇杆 */
+body.arc-in #gstat,body.arc-in #mini,body.arc-in #compass,body.arc-in #combo,body.arc-in .seg-time,body.arc-in .brand,body.arc-in #rainBtn{display:none!important}
+body.arc-in #acts>button:not(.mg-b){display:none}
+#acts>.mg-b{display:none}
+body.arc-in #acts>.mg-b:not([hidden]){display:flex}
+body.arc-in #acts{grid-template-columns:repeat(2,auto)}
+body.mg-nomove #joy{display:none}
+body.mg-on .seg-mode{display:none}
+body.mg-on .side{width:auto!important;display:flex!important}
+body.mg-on .topbar{justify-content:flex-end}
+body.mg-card #acts,body.mg-card #joy,body.mg-card #prompt{visibility:hidden}
+body.arc-in #gxach{top:calc(var(--safe-t) + 118px)}
+
+/* hall bar and in-game HUD: top centre on wide screens, under the menu row on phones */
+#arcBar,#mgHud{position:fixed;z-index:6;left:50%;top:calc(var(--safe-t) + var(--edge));transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:7px 10px 7px 14px;max-width:calc(100% - 24px);box-sizing:border-box}
+#arcBar[hidden],#mgHud[hidden]{display:none}
+#arcBar b{font-family:var(--display);font-size:16px;letter-spacing:.06em;white-space:nowrap;margin-right:2px}
+#arcBar .btn{min-height:34px;white-space:nowrap}
+#mgHud{--mg-c:var(--tile);gap:14px;border-top:3px solid var(--mg-c)}
+.mg-name{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.mg-name i{font-style:normal;font-size:20px;line-height:1}
+.mg-name b{font-family:var(--display);font-size:15px;letter-spacing:.04em}
+.mg-cell{display:flex;flex-direction:column;align-items:center;min-width:44px;line-height:1.15}
+.mg-cell[hidden]{display:none}
+.mg-cell span{font-size:10.5px;color:var(--muted)}
+.mg-cell b{font-family:var(--display);font-size:22px;font-variant-numeric:tabular-nums}
+.mg-cell.urgent b{color:var(--tile)}
+.mg-info{font-size:13px;font-weight:500;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.mg-info:empty{display:none}
+.mg-pause{flex:none;width:36px;height:36px;display:grid;place-items:center;border-radius:50%;border:1px solid var(--line);background:var(--panel-solid);color:var(--ink);cursor:pointer;padding:0}
+.mg-pause svg{width:16px;height:16px}
+.mg-pause:hover{border-color:var(--tile);color:var(--tile)}
+
+/* intro / pause / result card */
+#mgCard{position:fixed;z-index:9;left:50%;top:50%;transform:translate(-50%,-50%);width:min(400px,calc(100% - 32px));max-height:min(86vh,620px);overflow:auto;box-sizing:border-box;
+  padding:20px 22px 18px;text-align:center;background:var(--panel-solid);color:var(--ink)}
+#mgCard[hidden]{display:none}
+#mgCard .eyebrow{color:var(--tile);font-weight:700;letter-spacing:.3em;font-size:12px}
+#mgCard h2{font-family:var(--display);font-size:24px;line-height:1.3;margin:6px 0 10px;text-wrap:balance}
+#mgCard p{font-size:13px;line-height:1.7;color:var(--muted);margin:0 0 8px}
+#mgCard .hrow{margin-top:14px}
+.mg-best{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:9px 13px;margin:10px 0 0;border-radius:var(--r-md);background:var(--tile-soft);text-align:left}
+.mg-best span{font-size:12px;color:var(--muted)}
+.mg-best b{font-family:var(--display);font-size:17px;color:var(--tile);font-variant-numeric:tabular-nums}
+.mg-score{display:flex;flex-direction:column;align-items:center;gap:2px;margin:2px 0 10px}
+.mg-score b{font-family:var(--display);font-size:40px;line-height:1.1;color:var(--tile);font-variant-numeric:tabular-nums}
+.mg-score span{font-size:13px;font-weight:700;color:var(--muted)}
+.mg-score span.m0,.mg-row-t em.m0{color:#a8791f}
+.mg-score span.m1,.mg-row-t em.m1{color:#6f7b86}
+.mg-score span.m2,.mg-row-t em.m2{color:#a0623a}
+.mg-net:empty{display:none}
+
+/* overlay for games that draw their own HTML (ctx.ui) */
+#mgUi{position:fixed;inset:0;z-index:5;pointer-events:none}
+#mgUi[hidden]{display:none}
+#mgUi>*{pointer-events:auto}
+
+/* game list */
+#mgList{width:min(480px,calc(100% - 32px))}
+.mg-lead{margin:0 0 12px;font-size:13px;color:var(--muted);line-height:1.6}
+#mgRows{display:grid;gap:8px;margin-bottom:14px}
+.mg-row{--mg-c:var(--tile);display:grid;grid-template-columns:48px 1fr auto;align-items:center;gap:12px;padding:10px 12px;text-align:left;cursor:pointer;
+  border-radius:var(--r-md);border:1px solid var(--line);border-left:4px solid var(--mg-c);background:var(--card-bg);color:var(--ink);font:inherit}
+.mg-row:hover{border-color:var(--mg-c)}
+.mg-row-i{font-style:normal;font-size:30px;line-height:1;text-align:center}
+.mg-row-t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.mg-row-t b{font-family:var(--display);font-size:17px;letter-spacing:.03em}
+.mg-row-t span{font-size:12.5px;color:var(--muted);line-height:1.5}
+.mg-row-t em{font-style:normal;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.mg-row-go{font-size:13px;font-weight:700;color:var(--on-accent);background:var(--tile);border-radius:999px;padding:6px 14px;white-space:nowrap}
+
+/* leaderboard: one chip per mini-game under the 小游戏 tab */
+.lb-chips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+.lb-chip{height:30px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink);font-size:13px;cursor:pointer;white-space:nowrap}
+.lb-chip[aria-pressed="true"]{background:var(--tile);border-color:var(--tile);color:var(--on-accent)}
+
+/* title screen entry */
+.t-btn.t-arc{background:var(--tile);border-color:var(--tile);color:var(--on-accent)}
+.t-btn.t-arc:hover{color:var(--on-accent);filter:brightness(1.08)}
+
+@media (max-width:760px){
+  #arcBar,#mgHud{top:calc(var(--safe-t) + 62px)}
+}
+@media (max-width:560px){
+  #arcBar{gap:6px;padding:6px 8px 6px 10px}
+  #arcBar b{font-size:14px}
+  #arcBar .btn{padding:5px 10px;font-size:12.5px}
+  #mgHud{gap:9px;padding:6px 8px 6px 10px}
+  .mg-name b{display:none}
+  .mg-cell b{font-size:20px}
+  .mg-info{font-size:12.5px}
+  #mgCard{padding:18px 16px 14px}
+  #mgCard h2{font-size:21px}
+  .mg-score b{font-size:34px}
+  .tabs button{font-size:13px}
+  .t-btn.t-arc{flex:1 1 100%;height:44px;font-size:15px}
+}

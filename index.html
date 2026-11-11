@@ -2,13 +2,21 @@
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="校园漫游">
+<meta name="theme-color" content="#b4472e">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
 <title>XMUM 校园漫游</title>
 <meta name="description" content="照厦门大学马来西亚分校平面图搭的 3D 校园小游戏：奶娃开车、黑洞吞校园。粉丝作品，非官方。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@700;900&display=swap">
-<link rel="stylesheet" href="css/style.css?v=20">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&display=swap">
+<link rel="stylesheet" href="css/style.css?v=21">
+<link rel="stylesheet" href="css/arcade.css?v=21">
 </head>
 <body class="titled" data-mode="orbit">
 <canvas id="c" class="grab" tabindex="0" aria-label="三维校园场景"></canvas>
@@ -52,8 +60,10 @@
       <div class="grow"><span>保安警戒</span><b id="stars" class="stars">☆☆☆☆☆</b></div>
       <div class="grow"><span>特技分</span><b id="stunt">0</b></div>
       <div class="grow"><span>车况</span><b id="hp">—</b></div>
+      <div class="grow"><span>水枪</span><b id="water" class="water">●●●●●●</b></div>
       <div class="mission" id="mission">走进或开进橙色光圈接外卖单</div>
       <button class="btn gbtn" id="garageBtn">XMUM 车行</button>
+      <button class="btn gbtn" id="wardBtn">奶娃衣橱</button>
       <button class="btn gbtn" id="gxPauseBtn" aria-pressed="false" aria-label="暂停，看这局战绩和成就"><span>暂停</span><span class="gx-long"> · 战绩</span></button>
     </div>
     <div class="panel gstat" id="hstat" hidden>
@@ -104,6 +114,7 @@
   <div class="hrow"><button class="btn primary" id="hagain">再来一局</button><button class="btn" id="hlb">排行榜</button><button class="btn" id="hquit">去开车</button></div>
 </div>
 <div id="acts" hidden>
+  <button id="act-w"><b>水枪</b><kbd>E</kbd></button>
   <button id="act-f"><b>上车</b><kbd>F</kbd></button>
   <button id="act-sp"><b>跳</b><kbd>空格</kbd></button>
   <button id="act-r"><b>大笑</b><kbd>R</kbd></button>
@@ -154,13 +165,24 @@
     </div>
 
     <div class="t-more">
+      <button type="button" class="t-btn t-arc" id="tArc"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="4.5" width="13" height="8" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4.2 8.5h3M5.7 7v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="10.4" cy="9.4" r="1" fill="currentColor"/><circle cx="12" cy="7.6" r="1" fill="currentColor"/></svg>小游戏</button>
       <button type="button" class="t-btn" id="tLb"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 14V9h3.5v5M6.25 14V4h3.5v10M10.5 14V7H14v7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>排行榜</button>
+      <button type="button" class="t-btn" id="tWard"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 2.5c0 1.1.9 2 2 2s2-.9 2-2l3.5 1.8-1 3-1.5-.6V13.5h-6V6.7l-1.5.6-1-3z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>衣橱</button>
       <button type="button" class="t-btn" id="tHow"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="4" width="13" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4 7h1M7.5 7h1M11 7h1M5 9.8h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>玩法</button>
       <button type="button" class="t-btn" id="tSound" aria-pressed="true"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h2.5L8 3v10L4.5 10H2Z" fill="currentColor"/><path class="on" d="M10.5 5.5c1.3 1.4 1.3 3.6 0 5M12.5 3.8c2.2 2.4 2.2 6 0 8.4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path class="off" d="M10.5 6l4 4M14.5 6l-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>声音开</span></button>
       <span class="t-fb"><button type="button" class="t-btn" id="tFb" data-fb aria-describedby="tFbNeed"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M5.5 7h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>反馈</button><span class="fb-need" id="tFbNeed">需要 GitHub 账号</span></span>
+      <div class="t-gfx" role="group" aria-labelledby="tGfxL">
+        <span class="t-gfx-l" id="tGfxL">画质</span>
+        <div class="seg seg-gfx">
+          <button type="button" data-gfx="low" aria-pressed="false">流畅</button>
+          <button type="button" data-gfx="mid" aria-pressed="false">标准</button>
+          <button type="button" data-gfx="high" aria-pressed="false">高清</button>
+        </div>
+        <span class="t-gfx-hint" id="tGfxHint" role="status" aria-live="polite"></span>
+      </div>
     </div>
 
-    <footer class="t-foot">粉丝作品，非学校官方 · 布局照 2025 年 9 月校园平面图</footer>
+    <footer class="t-foot">粉丝作品，非学校官方 · 布局照 2025 年 9 月校园平面图 · <a href="/xmum-campus/v1/" class="t-classic">怀念老版本？玩经典版 v1.0</a></footer>
   </div>
 </section>
 
@@ -170,7 +192,8 @@
     <button type="button" role="tab" id="lbt-hole2" data-board="hole2" aria-controls="lbBody" aria-selected="true">黑洞 2.0</button>
     <button type="button" role="tab" id="lbt-hole" data-board="hole" aria-controls="lbBody" aria-selected="false" tabindex="-1">黑洞 1.0</button>
     <button type="button" role="tab" id="lbt-stunt" data-board="stunt" aria-controls="lbBody" aria-selected="false" tabindex="-1">特技</button>
-    <button type="button" role="tab" id="lbt-rich" data-board="rich" aria-controls="lbBody" aria-selected="false" tabindex="-1">富豪</button>
+    <button type="button" role="tab" id="lbt-rich" data-board="rich" aria-controls="lbBody" aria-selected="false" tabindex="-1">总资产</button>
+    <button type="button" role="tab" id="lbt-mini" data-board="mini" aria-controls="lbBody" aria-selected="false" tabindex="-1">小游戏</button>
   </div>
   <div id="lbBody" role="tabpanel" aria-live="polite" tabindex="0"></div>
 </dialog>
@@ -185,9 +208,21 @@
         <dt><kbd>F</kbd></dt><dd>上车、下车（开太快下车会被甩飞）</dd>
         <dt><kbd>空格</kbd></dt><dd>跳；开车时按住漂移</dd>
         <dt><kbd>R</kbd> <kbd>Q</kbd> <kbd>H</kbd></dt><dd>大笑、撩头、按喇叭</dd>
-        <dt><kbd>G</kbd></dt><dd>打开 XMUM 车行（站在南草坪转台旁）</dd>
+        <dt><kbd>M</kbd></dt><dd>车载电台换台：霓虹夜驾 → 芙蓉湖 Lo-fi → 赛道 EDM → 关（手机点「电台」）。点电台小条打开面板：单曲循环、收藏到这辆车、外放（每分钟 RM 0.5，40 米内的玩家听得到）</dd>
+        <dt><kbd>G</kbd></dt><dd>打开 XMUM 车行（站在南草坪转台旁），里面有喷漆店和改装车间</dd>
+        <dt>改装车间</dt><dd>轮毂、宽体、尾翼、霓虹、排气、姿态。要花金币和改装道具（送外卖、抓小偷、猴子大战、宿舍撤离、小游戏奖牌、成就都会掉），下单后按真实时间施工，车照样能开，完工回车行提车</dd>
+        <dt><kbd>C</kbd></dt><dd>奶娃衣橱：换皮肤、身形、衣服和配件</dd>
+        <dt><kbd>E</kbd></dt><dd>水枪：鼠标指哪喷哪（点左键也能开火），蓝线是水柱能到的地方，没有自动瞄准；淋湿保安，巡逻车会停下来擦玻璃；车行里的「水枪工坊」可以升级</dd>
+        <dt>秋千</dt><dd>音乐岛西边草坪：<kbd>F</kbd> 坐上去，按住<kbd>空格</kbd>荡高，最高点松手飞出去</dd>
+        <dt>猴山</dt><dd>树林西北的小山，从东边的路沿土路上山顶。猴子会抢东西，还会躲水、躲石头、上树、传外卖，用水枪淋或者大笑（<kbd>R</kbd>）赶跑；山顶的棕色光圈是「猴子大战」</dd>
+        <dt>教学楼门口</dt><dd>A1、A2、A4、A5 门口的黄圈按 <kbd>F</kbd> 进去：走廊、教室、打印室、教师办公室</dd>
+        <dt>教学楼潜入</dt><dd>A3 门口的红圈「抢救期末卷」和蓝圈的轮换委托。按住 <kbd>F</kbd> 翻找，<kbd>Q</kbd> 蹲下（没声音，停在家具旁边就是躲起来）；别进保安和老师的扇形视野，别跑</dd>
+        <dt>校门外</dt><dd>麦当当得来速（开车点餐送回学校）、KIP 超市大乱斗（商场门口进门，和 AI 顾客抢货、互撞、结账）、蜜雪冰橙打工、山梁拉力；夜晚 Bell 后巷有夜市</dd>
+        <dt>偷外卖的小偷</dt><dd>送单时车速 54 以上他抢不到；被抢了就追上去，<kbd>E</kbd> 水枪淋他，走到身边按 <kbd>F</kbd> 拿回来</dd>
+        <dt>B1 游戏厅</dt><dd>学生活动中心南门的粉圈按 <kbd>F</kbd> 进去，走到街机前按 <kbd>F</kbd> 玩小游戏；标题页的「小游戏」也能直接进</dd>
+        <dt>LY 宿舍门口</dt><dd>紫圈按 <kbd>F</kbd> 进宿舍：按住 <kbd>F</kbd> 搜柜子，23:00 门禁前走到撤离点，带出来的东西卖成 RM（消防梯、后门卖得更多）；别跑，宿管听得见。<kbd>Q</kbd> 蹲下：蹲着走没声音、宿管看不远，停在床、衣柜、书桌、快递箱旁边就是躲起来</dd>
       </dl>
-      <p>走进橙色光圈接外卖，限时送到。撞东西会招来保安，甩掉他们或者被罚款。漂移、飞跃、撞车攒特技分，换成钱买车。</p>
+      <p>到橙色光圈挑一单外卖（<kbd>F</kbd> 或 <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> 接，<kbd>X</kbd> 跳过；不想被打扰按 <kbd>J</kbd> 关掉接单），限时送到。撞东西会招来保安，甩掉他们或者被罚款。漂移、飞跃、撞车攒特技分，换成钱买车。</p>
     </section>
     <section>
       <h3>黑洞 · 吞校园</h3>
@@ -200,8 +235,9 @@
       <h3>触屏</h3>
       <dl>
         <dt>左下摇杆</dt><dd>走路、开车、移动黑洞，推到底是跑</dd>
-        <dt>右下按钮</dt><dd>上车、跳 / 漂移、大笑、撩头</dd>
+        <dt>右下按钮</dt><dd>上车、跳 / 漂移、大笑、撩头（教学楼潜入、宿舍里是蹲下 / 起身）；「水枪」点一下朝面前喷，按住拖动可以瞄准</dd>
         <dt>拖动屏幕</dt><dd>转视角；俯瞰时双指缩放</dd>
+        <dt>横屏</dt><dd>手机横过来玩视野更大。标题页的「全屏」可以藏起浏览器地址栏（iPhone 要先「添加到主屏幕」再从主屏幕打开）</dd>
       </dl>
     </section>
     <section>
@@ -230,27 +266,63 @@
 </dialog>
 
 <div class="panel" id="toast" role="status" aria-live="polite"></div>
-<div class="panel" id="err" hidden>这个浏览器打不开 3D 画面（需要 WebGL）。换个浏览器试试。</div>
+<div class="panel" id="err" hidden>3D 画面打不开（需要 WebGL）。先关掉其他标签页，或者把浏览器完全关掉再打开；还不行就换 Chrome 或 Safari 试试。</div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-<script src="js/00-core.js?v=20"></script>
-<script src="js/10-world.js?v=20"></script>
-<script src="js/15-props.js?v=20"></script>
-<script src="js/16-ambient.js?v=20"></script>
-<script src="js/20-fx.js?v=20"></script>
-<script src="js/30-naiwa.js?v=20"></script>
-<script src="js/40-vehicles.js?v=20"></script>
-<script src="js/50-missions.js?v=20"></script>
-<script src="js/60-details.js?v=20"></script>
-<script src="js/70-hole.js?v=20"></script>
-<script src="js/80-gta.js?v=20"></script>
-<script src="js/85-activities.js?v=20"></script>
-<script src="js/90-main.js?v=20"></script>
-<script src="js/ui-title.js?v=20"></script>
-<script src="js/firebase-config.js?v=20"></script>
-<script src="js/net.js?v=20"></script>
-<script src="js/stats.js?v=20"></script>
-<script src="js/feedback.js?v=20"></script>
+<script src="js/quality.js?v=21"></script>
+<script src="js/00-core.js?v=21"></script>
+<script src="js/09-azone.js?v=21"></script>
+<script src="js/10-world.js?v=21"></script>
+<script src="js/12-terrain.js?v=21"></script>
+<script src="js/13-outskirts.js?v=21"></script>
+<script src="js/15-props.js?v=21"></script>
+<script src="js/16-ambient.js?v=21"></script>
+<script src="js/18-gfx.js?v=21"></script>
+<script src="js/20-fx.js?v=21"></script>
+<script src="js/30-naiwa.js?v=21"></script>
+<script src="js/32-wardrobe.js?v=21"></script>
+<script src="js/40-vehicles.js?v=21"></script>
+<script src="js/42-gate.js?v=21"></script>
+<script src="js/44-hill.js?v=21"></script>
+<script src="js/45-auditorium.js?v=21"></script>
+<script src="js/42-tuning.js?v=21"></script>
+<script src="js/50-missions.js?v=21"></script>
+<script src="js/60-details.js?v=21"></script>
+<script src="js/70-hole.js?v=21"></script>
+<script src="js/80-gta.js?v=21"></script>
+<script src="js/85-activities.js?v=21"></script>
+<script src="js/86-guard.js?v=21"></script>
+<script src="js/88-wardrobe-ui.js?v=21"></script>
+<script src="js/90-main.js?v=21"></script>
+<script src="js/87-classroom.js?v=21"></script>
+<script src="js/87-heist.js?v=21"></script>
+<script src="js/89-outskirts-play.js?v=21"></script>
+<script src="js/89-offers.js?v=21"></script>
+<script src="js/91-arcade.js?v=21"></script>
+<script src="js/minigames/canteen.js?v=21"></script>
+<script src="js/minigames/hoops.js?v=21"></script>
+<script src="js/minigames/kipmart.js?v=21"></script>
+<script src="js/minigames/bigeat.js?v=21"></script>
+<script src="js/89-dorm.js?v=21"></script>
+<script src="js/89-dorm-ui.js?v=21"></script>
+<script src="js/89-swing-monkeys.js?v=21"></script>
+<script src="js/92-racing.js?v=21"></script>
+<script src="js/93-tuning-ui.js?v=21"></script>
+<script src="js/94-tuning-drive.js?v=21"></script>
+<script src="js/94-showcase.js?v=21"></script>
+<script src="js/97-wall.js?v=21"></script>
+<script src="js/95-radio.js?v=21"></script>
+<script src="js/ui-title.js?v=21"></script>
+<script src="js/ui-screen.js?v=21"></script>
+<script src="js/ui-notice.js?v=21"></script>
+<script src="js/firebase-config.js?v=21"></script>
+<script src="js/net.js?v=21"></script>
+<script src="js/96-social.js?v=21"></script>
+<script src="js/98-perf.js?v=21"></script>
+<script src="js/99-edge.js?v=21"></script>
+<script src="js/stats.js?v=21"></script>
+<script src="js/feedback.js?v=21"></script>
+<script src="js/hud-brand.js?v=21"></script>
 </body>
 </html>
