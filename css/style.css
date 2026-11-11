@@ -1107,15 +1107,19 @@ body.wd-open #radio,body.sp-run #radio,body.titled #radio{display:none!important
   body.naiwa .menu{height:30px;padding:0 8px}
   body.naiwa .menu span{display:none}
   body.naiwa .seg-mode button{height:26px;padding:0 8px;font-size:12.5px}
-  body.naiwa #online{height:22px;padding:0 8px;font-size:11px}
-  body.naiwa .gstat{grid-column:1;grid-row:1;width:auto;max-width:100%;display:flex;align-items:center;gap:10px;padding:3px 5px 3px 10px;min-height:38px;
+  body.naiwa .ctrls{position:relative}
+  body.naiwa .crow-sub{position:absolute;top:calc(100% + 6px);right:84px}   /* 在线人数挂在小地图左边，不占顶上那条 */
+  body.naiwa #online{height:22px;padding:0 8px;font-size:11px;margin:0;background:var(--panel-solid);box-shadow:0 2px 8px var(--shadow)}
+  body.naiwa .gstat{grid-column:1;grid-row:1;width:auto;max-width:100%;display:flex;align-items:center;gap:9px;padding:3px 5px 3px 10px;min-height:38px;
     -webkit-backdrop-filter:none;backdrop-filter:none;background:var(--panel-solid)}   /* no backdrop filter: the task line inside is position:fixed and must not be trapped in this box */
-  body.naiwa .grow{flex-direction:column;align-items:flex-start;gap:0;flex:none;min-width:0}
+  body.naiwa .grow{flex-direction:column;align-items:flex-start;gap:0;flex:0 1 auto;min-width:0}
   body.naiwa .grow span{font-size:9.5px;line-height:1.2}
   body.naiwa .grow b{font-size:13.5px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;max-width:100%}
   body.naiwa .grow b.stars{font-size:10.5px!important;letter-spacing:0}
   body.naiwa .grow b.water{font-size:10px;letter-spacing:-.5px}
   #gstat .grow:nth-child(4){display:none}
+  /* 开车时水枪用不了、走路时没有车况：各省一格 */
+  body.rd-car #gstat .grow:nth-child(6),body.naiwa:not(.rd-car) #gstat .grow:nth-child(5){display:none}
   body.naiwa #gstat .gbtn{flex:none;width:auto;margin:0;min-height:30px;padding:0 9px;font-size:12px;white-space:nowrap}
   body.naiwa #gstat #garageBtn{margin-left:2px}
   body.naiwa #gstat #wardBtn,body.naiwa #gstat .gx-long,#hlist{display:none}
