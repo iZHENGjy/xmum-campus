@@ -77,7 +77,7 @@
     card:null,            // 正显示的邀请卡
     target:null,          // 4 米内能互动的人
     menuFor:null,
-    lastFx:new Map(), remFx:new Map(), bubbles:new Map(),
+    lastFx:new Map(), remFx:new Map(), bubbles:new Map(), fxTone:-1,
     sendLog:[], invCool:{}, inSpam:{}
   };
   const XSocial = window.XSocial = {
@@ -425,14 +425,22 @@ body.wd-open #socStat,body.wd-open #socMenu,body.wd-open #socCard,body.wd-open #
     void B.L.el.offsetWidth; B.L.el.classList.add('pop');
     B.until = pnow() + FX_SHOW;
   }
+  /* 人多时一起发表情：只显示最近的几个气泡（流畅 6 个，其余 8 个，自己的总显示），远的先藏起来 */
+  const bubCap = () => g(() => XQ.level, 'mid') === 'low' ? 6 : 8;
+  const _bubList = [];
   function placeBubbles(){
     const t = pnow(), [mx, , mz] = (() => { const p = myPos(); return [p.x, 0, p.z]; })();
+    _bubList.length = 0;
     for (const [uid, B] of S.bubbles){
       if (t > B.until || mode === 'orbit' || mode === 'hole'){ B.L.dead = true; if (t > B.until + 30 && uid !== XNet.uid){ B.L.el.remove(); const i = labels.indexOf(B.L); if (i >= 0) labels.splice(i, 1); S.bubbles.delete(uid); } continue; }
-      const h = headOf(uid);
-      if (!h || Math.hypot(h[0] - mx, h[2] - mz) > 70){ B.L.dead = true; continue; }
-      B.L.pos.set(h[0], h[1], h[2]); B.L.dead = false;
+      const h = headOf(uid), d = h ? Math.hypot(h[0] - mx, h[2] - mz) : 1e9;
+      if (!h || d > 70){ B.L.dead = true; continue; }
+      B.L.pos.set(h[0], h[1], h[2]);
+      _bubList.push([uid === XNet.uid ? -1 : d, B]);
     }
+    _bubList.sort((a, b) => a[0] - b[0]);
+    const cap = bubCap();
+    for (let i = 0; i < _bubList.length; i++) _bubList[i][1].L.dead = i >= cap;
   }
   /* poses for an emote on any 奶娃 (yours or a ghost): arms, elbows, body; k fades it in and out */
   const REST = {sx:-.32, sz:.36, ex:-1.22, ez:-.32};
@@ -488,7 +496,7 @@ body.wd-open #socStat,body.wd-open #socMenu,body.wd-open #socCard,body.wd-open #
       showBubble(uid, kind, i);
       if (kind === 'e') S.remFx.set(uid, {id:i, t:0, start:t});
       const h = headOf(uid), p = myPos();
-      if (h && Math.hypot(h[0] - p.x, h[2] - p.z) < 40) tone('triangle', 780, 1040, .07, .04);
+      if (h && Math.hypot(h[0] - p.x, h[2] - p.z) < 40 && t - S.fxTone > .25){ S.fxTone = t; tone('triangle', 780, 1040, .07, .04); }   // 很多人一起发也只响一声
     }
   }
 
@@ -939,6 +947,7 @@ body.wd-open #socStat,body.wd-open #socMenu,body.wd-open #socCard,body.wd-open #
       if (!r || !r.g || f.t > EMO_DUR){ if (r && r.g) restPose(r.g.n); S.remFx.delete(uid); continue; }
       if (!r.g.vis) continue;
       pose(r.g.n, f.id, f.t);
+      if (r.g.lod === 'mid') continue;                                     // 中距离的简化影子不放表情粒子
       const G = r.g, w = G.socSeatW || [G.x, G.y, G.z]; fxParts(f.id, f.t, dt, w[0], w[1], w[2]);
     }
     placeRiders();

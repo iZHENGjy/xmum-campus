@@ -605,13 +605,14 @@
   /* ---------- 影子分三级（LOD）：近处完整模型，中距离简化模型，远处只剩名字 ----------
      距离按镜头算：25 米内（走出去要到 30 米才换）用完整奶娃和车；150 米内（出去 160 米）用简化版：
      奶娃 3 个网格（身体 + 两条腿）、约 1,200–2,000 个三角形、顶点色、所有人共用一个材质，车是一个方盒子网格；再远只显示名字。
-     数量按画质封顶（GHOST_CAP），从近到远排：完整模型最多 full 个，模型（完整 + 简化）最多 model 个，名字最多 label 个，再多的不画。
+     数量按画质封顶（GHOST_CAP），从近到远排：完整模型最多 full 个，模型（完整 + 简化）最多 model 个，模型以外只剩名字的最多 label 个，再多的不画
+     （名字标签是 DOM，每帧都要摆位置，总数压在 14 / 22 / 30 个以内）。
      挑战对手、自己坐的车的司机、自己车上的乘客（XNet.follow）至少画简化版。
      简化版照着同一个奶娃造型（js/30-naiwa.js 的 NW_PROFILE、nwShape）和这个人的装扮造：先在内存里搭一只完整的、穿好衣服的奶娃，
      皮肤、肚皮、手脚、眼睛的颜色取它的材质；衣服按离身体最近的布料涂到身体、胳膊、腿上；帽子、背包这类做成同样大小、同样颜色的小块。
      同一身装扮只造一次（liteCache）。完整模型、第一次见到的装扮都比较费时，每帧最多造一个，其余的先用名字或简化版顶着。 */
   const LOD_FULL = 25, LOD_FULL_OUT = 30, LOD_MID = 150, LOD_MID_OUT = 160;
-  const GHOST_CAP = {low:{full:3, model:10, label:20}, mid:{full:5, model:16, label:30}, high:{full:8, model:24, label:40}};
+  const GHOST_CAP = {low:{full:3, model:10, label:4}, mid:{full:5, model:16, label:6}, high:{full:8, model:24, label:6}};
   const LITE_MAT = new THREE.MeshStandardMaterial({vertexColors:true, roughness:.66, metalness:0}); LITE_MAT.keep = true;
   const _lm = new THREE.Matrix4(), _va = new THREE.Vector3(), _vb = new THREE.Vector3(), _vc = new THREE.Vector3();
   const avgCache = new Map();
@@ -1138,7 +1139,7 @@
     syncSubs(); emit();
   }
   XNet.wake = () => wake();
-  /* 排队时临时借用一下连接（排行榜、昵称、云存档），用完 15 秒没人再用就断开 */
+  /* 排队时临时借用一下连接（排行榜、昵称、云存档；玩家有操作时也借，留言墙这些直接读数据库），15 秒没人再用就断开 */
   let borrowT = 0;
   function borrowNet(){
     if (seat !== 'queue') return;
@@ -1276,11 +1277,15 @@
         if (document.visibilityState === 'hidden'){ hiddenAt = performance.now(); away(); }
         else { wake(); if (hiddenPage){ hiddenPage = false; if (gridOK){ if (connected && seat === 'in') joinOn(); } else sendLegacy(); syncSubs(); } }
       });
-      for (const ev of ['pointerdown', 'keydown', 'touchstart', 'wheel']) window.addEventListener(ev, () => { if (document.visibilityState !== 'hidden') wake(); else lastInput = performance.now(); }, {capture:true, passive:true});
+      for (const ev of ['pointerdown', 'keydown', 'touchstart', 'wheel']) window.addEventListener(ev, () => {
+        if (document.visibilityState === 'hidden'){ lastInput = performance.now(); return; }
+        wake(); if (seat === 'queue') borrowNet();        // 排队时有操作就先连着（留言墙、展示区、赛车幽灵直接读数据库），停手 15 秒断开；不收不发位置
+      }, {capture:true, passive:true});
       setInterval(() => {
         const t = performance.now();
         if (hiddenPage && document.visibilityState === 'hidden' && t - hiddenAt > SLEEP.hidden) sleep('切到后台超过 ' + SLEEP.hidden / 1000 + ' 秒', 'hidden');
         else if (!hiddenPage && isTitle() && t - lastInput > SLEEP.title) sleep('开场画面 ' + SLEEP.title / 1000 + ' 秒没操作', 'title');
+        if (sleeping && sleepWhy === 'title' && !isTitle() && !hiddenPage) wake();   // 开场画面被代码关掉（没有点击）也要连回来
         /* 进了游戏还没座位：看一眼人数（排队中由 retrySeat 定时看） */
         if (gridOK && XNet.online && connected && !sleeping && !hiddenPage && !quitting && !isTitle() && seat === 'none') checkSeat();
       }, 2000);

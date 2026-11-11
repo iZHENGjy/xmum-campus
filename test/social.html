@@ -33,7 +33,7 @@ if (FR){
     clear:() => keys().forEach(k => real.removeItem(PFX + k)), key:i => keys()[i] ?? null, get length(){ return keys().length; }}});
   localStorage.setItem('xmum-name', ${JSON.stringify(NAME)});
   ${Q.has('awake') ? "Object.defineProperty(document, 'visibilityState', {get:() => 'visible'}); Object.defineProperty(document, 'hidden', {get:() => false});" : ''}
-  ${Q.has('raf') ? "window.requestAnimationFrame = cb => setTimeout(() => cb(performance.now()), 33); window.cancelAnimationFrame = id => clearTimeout(id);" : ''}
+  ${Q.has('raf') ? "(() => { let q = [], tm = 0; window.requestAnimationFrame = cb => { q.push(cb); if (!tm) tm = setTimeout(() => { tm = 0; const l = q, t = performance.now(); q = []; for (const f of l) try { f(t); } catch(e){ console.error(e); } }, 33); return q.length; }; window.cancelAnimationFrame = () => {}; })();" : ''}
   ${Q.has('mute') ? "for (const n of ['AudioContext', 'webkitAudioContext']){ const AC = window[n]; if (!AC) continue; window[n] = function(o){ const c = new AC(o); c.suspend(); c.resume = () => Promise.resolve(); return c; }; window[n].prototype = AC.prototype; }" : ''}
 })();<\/script>`;
   fetch('../index.html', {cache:'no-store'}).then(r => r.text()).then(html => {

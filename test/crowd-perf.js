@@ -4,7 +4,8 @@
  *     ghostMs / ghostCalls / ghostTris   其中别的玩家（影子和他们的车）占多少：同一时刻把影子藏起来再测一遍，两次相减
  *                              （这台电脑上别的程序会让整帧毫秒忽高忽低，相减的这部分比较准）
  *     full / lite / label      完整模型 / 简化模型 / 只剩名字 的人数
- *   参数：{at:[x, z], levels:['low'], frames:10, settle:3000}
+ *     netLabels / bubbles / radioDecks   看得见的名字标签、气泡，在响的外放合成器；cpuMs：游戏逻辑每帧毫秒（加 cpu:3000 才测）
+ *   参数：{at:[x, z], levels:['low'], frames:10, settle:3000, cpu:3000}
  * 加 &perf 不放假人，测没有人群时的数字。 */
 'use strict';
 window.XCrowdPerf = {
@@ -25,23 +26,55 @@ window.XCrowdPerf = {
     }
     return {full, lite, label};
   },
+  /* 游戏逻辑每帧花多少 CPU：把 requestAnimationFrame 的回调包一下计时（含 three.js 提交绘制），ms 毫秒内取平均 */
+  async cpu(ms){
+    /* 按回调分开记：主循环（js/90-main.js，含画面和标签）和影子（js/net.js 的 frame，函数比较短的那个） */
+    const raf = window.requestAnimationFrame, by = {};
+    window.requestAnimationFrame = cb => raf(t => { const a = performance.now(); cb(t); const d = performance.now() - a, k = cb.name + ':' + String(cb).length; const e = by[k] || (by[k] = {s:0, n:0}); e.s += d; e.n++; });
+    await new Promise(r => setTimeout(r, ms || 3000));
+    window.requestAnimationFrame = raf;
+    const list = Object.entries(by).map(([k, e]) => [k, e.s / e.n]).sort((a, b) => b[1] - a[1]);
+    const net = list.find(([k]) => /^frame:/.test(k) && k !== (list[0] && list[0][0]));
+    return {cpuMs:+list.reduce((x, e) => x + e[1], 0).toFixed(2), mainMs:+(list[0] ? list[0][1] : 0).toFixed(2), ghostCpuMs:+(net ? net[1] : 0).toFixed(2)};
+  },
+  /* 画面里看得见的 DOM 标签（名字、气泡）和在响的外放合成器 */
+  dom(){
+    let lab = 0, bub = 0;
+    for (const L of labels) if (!L.dead && L.shown !== false){ if (L.el.classList.contains('soc-bub')) bub++; else if (L.el.getAttribute('data-net')) lab++; }
+    const decks = window.XRadio && XRadio.decks && XRadio.decks.remote ? XRadio.decks.remote.size : 0;
+    return {netLabels:lab, bubbles:bub, allLabels:labels.length, radioDecks:decks};
+  },
+  /* 站到 at（在车上就把车挪过去），朝 h */
+  place(at, h){
+    if (typeof driving !== 'undefined' && driving){ driving.x = at[0]; driving.z = at[1]; driving.h = h; driving.vx = driving.vz = 0; }
+    else { nw.x = at[0]; nw.z = at[1]; nw.h = h; }
+  },
+  /* 压测：上最近的车、开自己的电台（这样才听得到别人的外放），再让最近 k 辆假人的车开外放 */
+  async radioStorm(k){
+    try { ac(); } catch(e){}
+    const c = cars.filter(c => c.kind && !c.npc).sort((a, b) => Math.hypot(a.x - nw.x, a.z - nw.z) - Math.hypot(b.x - nw.x, b.z - nw.z))[0];
+    if (c && !driving){ nw.x = c.x + 2; nw.z = c.z; enterCar(c); }
+    await new Promise(r => setTimeout(r, 800));
+    try { XRadio.setPower(true); } catch(e){}
+    return XCrowdBots.radio(k || 6);
+  },
   async run(o){
     o = o || {};
     const wait = ms => new Promise(r => setTimeout(r, ms)), at = o.at || [105, 128], out = {};
     if (typeof titleOpen !== 'undefined' && titleOpen) XUI.closeTitle('naiwa');
     await wait(500);
     for (const lv of o.levels || ['low', 'mid', 'high']){
-      XQ.set(lv); nw.x = at[0]; nw.z = at[1]; await wait(o.settle || 3000);
+      XQ.set(lv); this.place(at, 0); await wait(o.settle || 3000);
       const acc = {ms:0, calls:0, tris:0, ghostMs:0, ghostCalls:0, ghostTris:0}, H = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
       for (const h of H){
-        nw.x = at[0]; nw.z = at[1]; nw.h = h; await wait(900);
+        this.place(at, h); await wait(900);
         const n = o.frames || 10, a = XPerf.stats(n), R = this.roots();
         R.forEach(x => { x.visible = false; }); const b = XPerf.stats(n); R.forEach(x => { x.visible = true; });
         acc.ms += a.ms; acc.calls += a.calls; acc.tris += a.tris;
         acc.ghostMs += a.ms - b.ms; acc.ghostCalls += a.calls - b.calls; acc.ghostTris += a.tris - b.tris;
       }
       for (const k in acc) acc[k] = /ms/i.test(k) ? +(acc[k] / H.length).toFixed(1) : Math.round(acc[k] / H.length);
-      out[lv] = Object.assign(acc, this.count(), {heard:XNet.peers().size});
+      out[lv] = Object.assign(acc, this.count(), this.dom(), o.cpu ? await this.cpu(o.cpu) : {}, {heard:XNet.peers().size});
     }
     return out;
   }
