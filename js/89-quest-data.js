@@ -25,10 +25,12 @@
  * XQD.msgs[id]   = {from:'mom'|'xiaoman'|npc id, text}
  * XQD.events     = [{id, when:Q => bool, diary:id, msg:id, minCh:章（可选）}]  「第一次」这类事：条件第一次成立时记一句日记 / 发一条消息，只一次
  * XQD.homesick   = {first:'……我想家了。', more:[...], night:'...'}
+ * XQD.watch      = [(Q, flag, dt) => {...}]  每 0.5 秒调一次，给需要计时的「新」条件用：自己判断，满足了 flag('sofa5')，步骤里写 done:Q => Q.flag('sofa5')
+ * 章节还可以写 endCine:'ending'（结尾台词说完播这段过场，播完或跳过才发这一章的奖励）、startMsg / endMsg（消息 id）
  * 改了步骤 id 会让老存档里的打勾对不上，只加不改。 */
 'use strict';
 window.XQD = (() => {
-  const D = {people:{}, npcs:{}, chapters:[], sides:[], diary:{}, msgs:{}, events:[], homesick:{}};
+  const D = {people:{}, npcs:{}, chapters:[], sides:[], diary:{}, msgs:{}, events:[], homesick:{}, watch:[]};
   const K = (pc, touch) => (typeof TOUCH !== 'undefined' && TOUCH) ? touch : pc;
 
   /* ---------- 发消息的人 ---------- */

@@ -279,7 +279,14 @@
     const c = chapter(), n = D.npcs[id];
     emit('talk', id);
     if (c && c.npc === id && S.ph === 'meet'){ say(c.intro || [[id, '……']], id, () => beginChapter(c)); return; }
-    if (c && c.npc === id && S.ph === 'report'){ say(c.outro || [[id, '做得好！']], id, () => finishChapter(c)); return; }
+    if (c && c.npc === id && S.ph === 'report'){
+      say(c.outro || [[id, '做得好！']], id, () => {
+        /* a chapter can end on a cutscene (chapter 7: the ending, js/89-cine.js); the reward comes when it is over or skipped */
+        if (c.endCine && window.XCine && XCine.play && XCine.play(c.endCine, {onDone:() => finishChapter(c)})) return;
+        finishChapter(c);
+      });
+      return;
+    }
     const fresh = sidesOf(id).filter(s => !S.sides[s.id]);
     if (fresh.length){
       const lines = [[id, fresh.length > 1 ? '对了，还有几件事想拜托你：' : '对了，还有件事想拜托你：']].concat(fresh.map(s => [id, '· ' + s.text + (s.rm ? `（RM ${s.rm}）` : '')]));
@@ -451,6 +458,8 @@
       }
       homesickCall(); homesickTry();
     }
+    /* watchers from the data file for the few conditions that need timing (sitting 5 s…): XQD.watch.push((Q, flag, dt) => …) */
+    for (const w of D.watch || []) g(() => w(Q, flag, .5));
     npcSync();
     emit('poll');
   }
