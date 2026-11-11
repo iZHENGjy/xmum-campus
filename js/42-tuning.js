@@ -20,15 +20,15 @@ const TN_PARTS = [
   {id:'ecu',   name:'调校芯片', ch:'芯', color:'#2fa36f', rar:'r', rm:20,  from:'教学楼潜入、奶娃投篮金牌'},
   {id:'susp',  name:'避震套件', ch:'震', color:'#7c5bd0', rar:'r', rm:18,  from:'KIP 大乱斗、宿舍撤离'},
   {id:'plan',  name:'改装图纸', ch:'图', color:'#3c80e0', rar:'r', rm:30,  from:'每解锁一个成就、清空 Bell 通缉榜、拿到已经有的配方'},
-  {id:'ti',    name:'航空钛锭', ch:'钛', color:'#8e9bc0', rar:'l', rm:80,  from:'宿舍撤离大丰收；竞速冠军、黑洞第 1 名、投篮和猴子大战金牌时有几率掉'},
-  {id:'core',  name:'赛道引擎核心', ch:'核', color:'#e0543c', rar:'l', rm:120, from:'清空 Bell 通缉榜、抢救期末卷；竞速冠军、黑洞第 1 名、从 4 星以上甩掉保安时有小几率掉'}
+  {id:'ti',    name:'航空钛锭', ch:'钛', color:'#8e9bc0', rar:'l', rm:80,  from:'宿舍撤离一次带出 RM 300 以上（一定给）、RM 150 以上（50%）；黑洞第 1 名 12%、猴子大战金牌 12%、竞速第 1 名 10%、奶娃投篮金牌 8%'},
+  {id:'core',  name:'赛道引擎核心', ch:'核', color:'#e0543c', rar:'l', rm:120, from:'清空 Bell 路口的通缉榜（六个小偷全抓完，一定给）；教学楼潜入金牌 25%、竞速第 1 名 8%、从 4 星以上甩掉保安 5%、黑洞第 1 名 4%'}
 ];
 const TN_PART = {}; for (const p of TN_PARTS) TN_PART[p.id] = p;
 /* 改装配方：拿到一次就永久解锁对应的顶级改装（还要配稀有零件）。重复拿到的换成 1 张改装图纸 */
 const TN_BPS = [
   {id:'bp_nitro',   name:'氮气系统配方',   ch:'氮', for:'双罐氮气、直喷赛级氮气', from:'竞速第一次在一条赛道拿冠军'},
-  {id:'bp_twin',    name:'双涡轮配方',     ch:'涡', for:'双涡轮引擎', from:'教学楼潜入（偷手机、夜巡）'},
-  {id:'bp_race',    name:'赛道引擎配方',   ch:'擎', for:'赛道级引擎（顶级）', from:'五条赛道都跑完、抢救期末卷'},
+  {id:'bp_twin',    name:'双涡轮配方',     ch:'涡', for:'双涡轮引擎', from:'教学楼潜入（任意委托金牌）'},
+  {id:'bp_race',    name:'赛道引擎配方',   ch:'擎', for:'赛道级引擎（顶级）', from:'五条赛道都跑完（一定给）、抢救期末卷成功（30%）'},
   {id:'bp_wide',    name:'宽体套件配方',   ch:'宽', for:'宽体轮眉（跑车）', from:'宿舍撤离带出 RM 150 以上'},
   {id:'bp_swan',    name:'鹅颈尾翼配方',   ch:'翼', for:'鹅颈双层尾翼（跑车）', from:'宿舍撤离带出 RM 150 以上、秋千飞跃 40 米以上（小几率）'},
   {id:'bp_plasma',  name:'等离子尾焰配方', ch:'焰', for:'等离子尾焰', from:'宿舍撤离、Bell 大胃王争霸赛冠军'},
@@ -269,7 +269,7 @@ const TN_DROPS = {
   canteen: {name:'食堂端盘子', g:[[['rim', 3], ['lacq', 2]], [['rim', 2], ['lacq', 1]], [['rim', 1]], []]},
   kipmart: {name:'KIP 大乱斗', g:[[['susp', 1], ['tyre', 1], ['bp_offroad', 1, .35]], [['susp', 1]], [['tyre', 1]], []]},
   monkey:  {name:'猴子大战', g:[[['cf', 3], ['tyre', 1], ['ti', 1, .12], ['bp_drift', 1, .3]], [['cf', 2]], [['cf', 1]], []]},
-  dorm:    {name:'宿舍撤离', g:[[['neon', 1], ['cf', 1], ['susp', 1], ['ti', 1], ['bp_*', 1]], [['neon', 1], ['cf', 1], ['bp_*', 1, .6]], [['neon', 1], ['susp', 1, .3]], []]},
+  dorm:    {name:'宿舍撤离', g:[[['neon', 1], ['cf', 1], ['susp', 1], ['ti', 1], ['bp_*', 1]], [['neon', 1], ['cf', 1], ['ti', 1, .5], ['bp_*', 1, .6]], [['neon', 1], ['susp', 1, .3]], []]},
   heist:   {name:'教学楼潜入', g:[[['ecu', 2], ['core', 1, .25], ['bp_*', 1]], [['ecu', 1], ['bp_*', 1, .5]], [['ecu', 1]], []]},
   drive:   {name:'得来速', g:[[['rim', 1], ['lacq', 1], ['nos', 1, .3], ['bp_launch', 1, .15]], [['rim', 1], ['lacq', 1]], [['rim', 1]], []]},
   tea:     {name:'蜜雪冰橙打工', g:[[['lacq', 2], ['neon', 2]], [['lacq', 1], ['neon', 1]], [['lacq', 1]], []]},

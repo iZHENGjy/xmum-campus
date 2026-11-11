@@ -285,7 +285,7 @@ tnEl.innerHTML = `<button class="x" id="tunex" aria-label="关闭">×</button>
   <div class="wd-tabs" id="tuneTabs" role="tablist"></div>
   <div class="tn-list" id="tuneList"></div>
   <div class="wd-done" id="tuneDone" role="status" aria-live="polite" hidden></div>
-  <div class="wd-foot"><div class="wd-sel"><b id="tuneName"></b><span id="tuneDesc"></span><span class="tn-cost" id="tuneCost"></span></div><div class="wd-btns"><button class="btn buy" id="tuneGo"></button></div></div>`;
+  <div class="wd-foot"><div class="wd-sel"><b id="tuneName"></b><span id="tuneDesc"></span><span class="tn-cost" id="tuneCost"></span><div class="tn-where" id="tuneWhere" hidden></div></div><div class="wd-btns"><button class="btn buy" id="tuneGo"></button></div></div>`;
 document.body.appendChild(tnEl);
 const tn = {on:false, tab:'perf', sel:null, try:{}, yaw:0, pitch:.22, zoom:1, drag:null, wasPaused:false, view:''};
 const tnSel = () => tn.sel && TN.byKey[tn.sel];
@@ -351,6 +351,7 @@ function tnRenderQ(){
 function tnFoot(){
   const go = $('#tuneGo'), cost = $('#tuneCost'), name = $('#tuneName'), desc = $('#tuneDesc');
   go.hidden = false; go.disabled = false; go.className = 'btn buy'; cost.innerHTML = '';
+  const where = $('#tuneWhere'); where.hidden = true; where.innerHTML = '';
   if (tn.sel === 'p:bp'){
     name.textContent = `改装配方 ${Object.keys(tune.bp).length} / ${TN_BPS.length}`; desc.textContent = '顶级改装要「配方 + 稀有零件」。宿舍撤离、教学楼潜入最容易出配方；重复的配方换成改装图纸。'; go.hidden = true; return;
   }
@@ -386,6 +387,9 @@ function tnFoot(){
       const P = TN_PART[p], have = tune.inv[p] || 0; return `<span class="pt r-${P.rar}${have >= it.need[p] ? '' : ' no'}" style="--c:${P.color}"><i>${P.ch}</i>${P.name} ${have}/${it.need[p]}</span>`;
     }).join('') + `<span class="tm">${TN_TIER[it.tier]}施工 ${tnMinTxt(it)}</span>`;
   const short = tnShort(it.need);
+  /* what is missing and where it drops, right here (before, you had to find its chip in the parts bar, which on a PC ran off the edge) */
+  const miss = (bp && !tune.bp[bp.id] ? [bp] : []).concat(short.map(p => TN_PART[p]));
+  if (miss.length && tnItemOk(kind, it)){ where.innerHTML = '<em>缺的去哪儿拿</em>' + miss.map(m => `<div><b>${m.name}</b>：${m.from}</div>`).join(''); where.hidden = false; }
   if (!tnItemOk(kind, it)){ go.textContent = '这辆车装不了'; go.disabled = true; go.className = 'btn'; }
   else if (tune.jobs.length >= tune.bays){ go.textContent = '施工位满了'; go.disabled = true; go.className = 'btn'; }
   else if (!tnBpOk(it)){ go.textContent = '缺配方：' + bp.name; go.disabled = true; go.className = 'btn'; }
