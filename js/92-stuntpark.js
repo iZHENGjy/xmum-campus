@@ -1,4 +1,4 @@
-/* XMUM 校园漫游 · 校外飞车乐园：校园西墙外、Jalan Sunsuria 北边的一大块平地（js/12-terrain.js 的 PARK_PAD，x -1002 ~ -798）
+/* XMUM 校园漫游 · 汽车游乐园（第一期）：校园西墙外、Jalan Sunsuria 北边的一大块平地（js/12-terrain.js 的 PARK_PAD，x -1002 ~ -798）
  *
  * 场内的黄色跳台落地区里有树、楼、路灯，飞远了就撞。这里单独划了一块地，都从主路往北拐进来：
  *   - 大跳台（x = -920）：150 多米助跑直道，7 米高的红白跳台，330 米长的铺装落地区，每 25 米一道线和距离数字，两边插旗；
@@ -136,6 +136,18 @@
     for (const s of [-1, 1]) for (const e of [-1, 1]) parts.push(geoTint(rodGeo(.22, .22, [FW.x + s * 2.4, .5, FW.z + e * 8.5], [FW.x + s * 1.5, FW.y, FW.z], 6), '#e8e4dc'));
     addBox(FW.x, FW.z, 3, 9.5, 0);
   }
+  { /* the park boundary: a low red-and-white kerb (look only, nothing to crash into), open on the road side where the three lanes come in */
+    const BX = {x0:-1000, x1:-800, z0:-470, z1:258}, gaps = [[CX - RUN.hw - 1, CX + RUN.hw + 1], [L1 - L1HW - 1, L1 + L1HW + 1], [LP.x - 4.5, LP.x + 4.5]];
+    const kerb = (ax, az, bx, bz, skip) => {
+      const L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.round(L / 5)), along = az === bz;
+      for (let k = 0; k < n; k++){
+        const t = (k + .5) / n, x = ax + (bx - ax) * t, z = az + (bz - az) * t; if (skip && skip(x)) continue;
+        parts.push(geoTint(geoAt(new THREE.BoxGeometry(along ? L / n - .1 : .7, .22, along ? .7 : L / n - .1), x, .11, z), k % 2 ? WHITE : RED));
+      }
+    };
+    kerb(BX.x0, BX.z0, BX.x1, BX.z0); kerb(BX.x0, BX.z0, BX.x0, BX.z1); kerb(BX.x1, BX.z0, BX.x1, BX.z1);
+    kerb(BX.x0, BX.z1, BX.x1, BX.z1, x => gaps.some(([a, b]) => x > a - 2.5 && x < b + 2.5));
+  }
   const sign = {x:CX - 26, z:248, face:Math.PI / 4, bw:10, bh:4, top:6.8};
   { const fx = Math.sin(sign.face), fz = Math.cos(sign.face), rx = fz, rz = -fx;
     parts.push(geoTint(geoAt(new THREE.BoxGeometry(sign.bw + .3, sign.bh + .3, .14), sign.x, sign.top - sign.bh / 2, sign.z, 0, sign.face, 0), '#2b2e33'));
@@ -246,13 +258,13 @@
     g.fillStyle = '#f4f1ea'; for (let i = -2; i < 34; i++){ g.beginPath(); g.moveTo(i * 32, 410); g.lineTo(i * 32 + 16, 410); g.lineTo(i * 32 + 46, 380); g.lineTo(i * 32 + 30, 380); g.closePath(); g.fill(); }
     g.fillRect(0, 0, 1024, 10); g.fillRect(0, 370, 1024, 10);
     g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#ffffff';
-    g.font = '900 140px sans-serif'; g.fillText('校外飞车乐园', 512, 140);
-    g.font = '700 50px sans-serif'; g.fillStyle = '#ffe08a'; g.fillText('大跳台 · 大回环 · 飞跃峡谷 · 8 字赛道', 512, 280);
+    g.font = '900 150px sans-serif'; g.fillText('汽车游乐园', 512, 140);
+    g.font = '700 50px sans-serif'; g.fillStyle = '#ffe08a'; g.fillText('大跳台 · 大回环 · 飞跃峡谷 · 8 字赛道 · 漂移圆', 512, 280);
     const tex = new THREE.CanvasTexture(cv); tex.anisotropy = ANISO;
     const board = new THREE.Mesh(new THREE.PlaneGeometry(sign.bw, sign.bh), new THREE.MeshStandardMaterial({map:tex, roughness:.6, emissive:'#ffffff', emissiveMap:tex, emissiveIntensity:.18}));
     board.position.set(sign.x + Math.sin(sign.face) * .09, sign.top - sign.bh / 2, sign.z + Math.cos(sign.face) * .09); board.rotation.y = sign.face; scene.add(board);
   }
-  addLabel('校外飞车乐园', -905, 16, 160);
+  addLabel('汽车游乐园', -905, 16, 160);
   [['大跳台', CX, BIG.H + 5, BIG.z], ['360° 大回环', LP.x + LP.w / 2, 2 * LP.R + 4, LP.z], ['波浪道 · 飞跃峡谷', L1, 6, 200], ['漂移圆', SK.x, 4, SK.z], ['8 字赛道', F8.x, 5, F8.z], ['摩天轮', FW.x, FW.y + FW.r + 4, FW.z]]
     .forEach(([t, x, y, z]) => addLabel(t, x, y, z, true));
 
@@ -275,7 +287,7 @@
       mg.beginPath(); mg.arc(X(FW.x), Z(FW.z), Math.max(3, FW.r * k * .6), 0, 7); mg.strokeStyle = '#f2c230'; mg.stroke();
       const lx = X(-900), lz = Z(40);   /* the big map (js/ui-guide.js) writes the 3D labels as names itself */
       if (typeof mini !== 'undefined' && mg.canvas === mini && lx > -60 && lx < mg.canvas.width + 60 && lz > -10 && lz < mg.canvas.height + 10){
-        mg.font = '700 13px sans-serif'; mg.textAlign = 'center'; mg.lineWidth = 3; mg.strokeStyle = 'rgba(31,42,51,.85)'; mg.strokeText('飞车乐园', lx, lz); mg.fillStyle = '#ffffff'; mg.fillText('飞车乐园', lx, lz); mg.textAlign = 'start';
+        mg.font = '700 13px sans-serif'; mg.textAlign = 'center'; mg.lineWidth = 3; mg.strokeStyle = 'rgba(31,42,51,.85)'; mg.strokeText('汽车游乐园', lx, lz); mg.fillStyle = '#ffffff'; mg.fillText('汽车游乐园', lx, lz); mg.textAlign = 'start';
       }
     };
   }
@@ -342,8 +354,8 @@
   /* ---------- per frame: records, the figure-8 lap timer, doughnuts, prompts ---------- */
   const PS = {fly:null, onBig:false, lap:null, gateIn:-1, donut:0, donutN:0, donutIdle:0, ph:0, msg:''};
   const fmtT = t => Math.floor(t / 60) + ':' + (t % 60).toFixed(1).padStart(4, '0');
-  if (typeof GX_MORE !== 'undefined') GX_MORE.push({id:'bigjump', name:'飞车乐园 · 大跳台', fmt:v => `最远 ${Math.round(v)} 米`},
-    {id:'loops', name:'飞车乐园 · 大回环', fmt:v => `转过 ${Math.round(v)} 圈`}, {id:'parkLap', name:'飞车乐园 · 8 字赛道', fmt:v => `最快一圈 ${fmtT(v)}`});
+  if (typeof GX_MORE !== 'undefined') GX_MORE.push({id:'bigjump', name:'汽车游乐园 · 大跳台', fmt:v => `最远 ${Math.round(v)} 米`},
+    {id:'loops', name:'汽车游乐园 · 大回环', fmt:v => `转过 ${Math.round(v)} 圈`}, {id:'parkLap', name:'汽车游乐园 · 8 字赛道', fmt:v => `最快一圈 ${fmtT(v)}`});
   const call = (t, s) => { if (typeof gxCallout === 'function' && !(typeof gxA !== 'undefined' && gxA.act)) gxCallout(t, s, '#e8412c'); };
   const onBig = c => { const u = (c.x - BIG.x) * BIG.fx + (c.z - BIG.z) * BIG.fz, v = (c.x - BIG.x) * BIG.fz - (c.z - BIG.z) * BIG.fx; return Math.abs(v) < BIG.W / 2 && u > -BIG.L / 2 && u < BIG.L / 2 + 1; };
   const best = k => prog.best[k];
@@ -352,7 +364,7 @@
     const c = driving;
     if (!c){
       PS.fly = null; PS.onBig = false; PS.lap = null; PS.donut = 0;
-      if (typeof nw !== 'undefined' && inPark(nw.x, nw.z)) PS.msg = '校外飞车乐园：开车来玩 · 大跳台、大回环、飞跃峡谷、8 字赛道';
+      if (typeof nw !== 'undefined' && inPark(nw.x, nw.z)) PS.msg = '汽车游乐园：开车来玩 · 大跳台、大回环、飞跃峡谷、8 字赛道';
       return;
     }
     if (!inPark(c.x, c.z)){ PS.fly = null; PS.lap = null; PS.donut = 0; return; }
