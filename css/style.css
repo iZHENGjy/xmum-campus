@@ -17,7 +17,7 @@
   --shadow:rgba(10,20,30,.14);
   --card-bg:#fffdf8;
   --display:"Noto Serif SC","Songti SC","SimSun",serif;
-  --body:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --body:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",system-ui,sans-serif;   /* the device's own Chinese font: nothing to download */
   --r-lg:14px;
   --r-md:10px;
   --r-sm:7px;
