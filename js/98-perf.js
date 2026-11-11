@@ -482,7 +482,7 @@
     lastSnap = snap;
   };
 
-  /* ---------- 自动降档：更早（开局 4 秒后就看）、更果断（很卡就直接跳到流畅） ---------- */
+  /* ---------- 自动降档：更早（开局 4 秒后就看）、更果断（很卡就直接跳到流畅；电脑「标准」档先降分辨率） ---------- */
   QUAL.wait = 1;
   const adapt0 = adaptQuality;
   adaptQuality = function(dt){
@@ -496,6 +496,8 @@
     QUAL.wait = 1;
     if (XQ.level === 'low'){ if (XQ.scale > .8 && fps < 32) XQ.setScale(.75); return; }
     if (XQ.manual){ if (!QUAL.hinted){ QUAL.hinted = true; toast('画面有点卡？', '回菜单把画质改成「' + XQ.labels[XQ.level === 'high' ? 'mid' : 'low'] + '」会顺很多', 3600); } return; }
+    /* 电脑「标准」档先把渲染分辨率降到 8 成（高分屏笔记本上很管用，画面还是标准档），还不够再降到流畅 */
+    if (XQ.level === 'mid' && !XQ.touch && XQ.scale > .9 && fps >= 28){ XQ.setScale(.8); return; }
     const next = XQ.level === 'high' && fps >= 24 ? 'mid' : 'low';
     XQ.set(next, {auto:true});
     toast('已切换到更流畅的画质', '画质：' + XQ.label + ' · 菜单里可以改', 2000);

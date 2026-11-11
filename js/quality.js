@@ -25,16 +25,38 @@ const XQ = window.XQ = (() => {
      detail: 地面的草纹、路面颗粒和铺装缝；tex: 外墙贴图边长；planes: 奶娃航班间隔倍数（0 = 不飞） */
   const CFG = {
     low:  {pr:1,   aa:false, shadow:0, smap:0,                   lod:.6,              props:260, particles:.35, bloom:false, water:false, wind:false, glow:false, npcDetail:120, detail:false, tex:256, planes:2.5},
-    mid:  {pr:1.5, aa:true,  shadow:1, smap:touch ? 1536 : 2048, lod:touch ? .85 : 1, props:420, particles:.7,  bloom:false, water:true,  wind:false, glow:true,  npcDetail:220, detail:true,  tex:touch ? 256 : 512, planes:1},
+    mid:  {pr:touch ? 1.5 : 1.25, aa:true,  shadow:1, smap:touch ? 1536 : 2048, lod:touch ? .85 : 1, props:420, particles:.7,  bloom:false, water:true,  wind:false, glow:true,  npcDetail:220, detail:true,  tex:touch ? 256 : 512, planes:1},
     high: {pr:2,   aa:true,  shadow:2, smap:touch ? 2048 : 4096, lod:1.4,             props:650, particles:1,   bloom:true,  water:true,  wind:true,  glow:true,  npcDetail:400, detail:true,  tex:512, planes:1}
   };
-  /* 没选过的时候：手机默认标准，内存小的手机默认流畅；电脑默认高清，内存小的默认标准 */
-  function guess(){ const small = mem && mem <= 4; return touch ? (small ? 'low' : 'mid') : (small || (cores && cores <= 2) ? 'mid' : 'high'); }
+  /* 显卡名字（认不出来就是空串）。只在没选过画质的时候查一次：临时开一个 WebGL 上下文，问完就释放 */
+  function gpuName(){
+    try {
+      const c = document.createElement('canvas'), gl = c.getContext('webgl') || c.getContext('experimental-webgl');
+      if (!gl) return '';
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      const name = String((ext && gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) || gl.getParameter(gl.RENDERER) || '');
+      const lose = gl.getExtension('WEBGL_lose_context'); if (lose) lose.loseContext();
+      return name;
+    } catch(e){ return ''; }
+  }
+  /* 独显：NVIDIA、AMD 的 RX / Pro 系列、Intel Arc。核显（Intel UHD / Iris / HD、AMD "Radeon Graphics" / Vega）和认不出来的都不算 */
+  const DISCRETE = /nvidia|geforce|quadro|\brtx\b|\bgtx\b|radeon(\(tm\))? (rx|pro|r9|vii)|intel\(r\) arc|\barc\(tm\) a\d/i;
+  /* 没选过的时候：手机默认标准，内存小的手机默认流畅；
+     电脑只有认出是独显才默认高清，核显和认不出来的默认标准（同学的笔记本大多是 Intel 核显 + 高分屏，高清太重），内存小的默认流畅 */
+  let gpu = '';
+  function guess(){
+    const small = mem && mem <= 4;
+    if (touch) return small ? 'low' : 'mid';
+    if (small || (cores && cores <= 2)) return small ? 'low' : 'mid';
+    gpu = gpuName();
+    return DISCRETE.test(gpu) ? 'high' : 'mid';
+  }
   const ok = v => NAMES.indexOf(v) >= 0;
   const saved = get(K_MANUAL), auto = get(K_AUTO);
   const fns = [];
   const q = {
     names:NAMES, labels:LABELS, touch,
+    get gpu(){ return gpu; },
     level: ok(saved) ? saved : ok(auto) ? auto : guess(),
     manual: ok(saved),
     scale: 1,   /* 流畅档还卡的时候，再把分辨率降到 3/4（js/90-main.js 的 adaptQuality） */
