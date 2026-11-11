@@ -111,6 +111,7 @@
         <dt>挑战赛和竞速</dt><dd>环湖赛、早八冲刺、田径场漂移、飞跃挑战按成绩给奖牌和钱；带格子旗的赛事点开车进圈，选人机赛、道具赛或影线 1v1。</dd>
         <dt>特技分</dt><dd>漂移、飞跃、撞车连成一串，连击结束换成钱（50 分 = RM 1）。</dd>
         <dt>校门外</dt><dd>麦当当得来速、蜜雪冰橙打工、KIP 超市大乱斗、山梁拉力；夜晚 Bell 后巷有夜市；傍晚起排屋南边的 Kota Warisan 大夜市开市，榴莲摊有猫山王挑战。</dd>
+        <dt>坐小火车</dt><dd>开到 Salak Tinggi ERL 站（地图上的紫色点），站厅门口紫圈${K('按 F', '点「上车」')}坐车，一站到 KLIA 机场：问讯台接「送机赶时间」跑腿单，还有 24 小时的すき家。</dd>
         <dt>抓小偷</dt><dd>送单时有人抢外卖：追上去用水枪淋或开车撞倒，走到身边${K('按 F', '点「上车」')}拿回来。Bell 路口的通缉榜能直接接悬赏。</dd>
         <dt>大活</dt><dd>LY 宿舍门口紫圈「宿舍撤离」、A3 门口红圈蓝圈「教学楼潜入」、猴山山顶「猴子大战」、B1 游戏厅的小游戏（得分换钱），掉的改装道具最好。</dd>
         <dt>成就</dt><dd>解锁就给钱，还送一张改装图纸。暂停面板里能看全部成就。</dd>
@@ -180,7 +181,7 @@
         <dt>电台</dt><dd>点左下角的电台小条</dd>
       </dl>`}
   ];
-  const LEGEND = [['#1f2a33', '你（箭头）'], ['#ff8a3d', '外卖取餐'], ['#4fd18b', '送达点'], ['#ffd24a', '打卡点'], ['#e84d8a', '喷漆车间'], ['#e74c3c', '巡逻车', 1], ['#c9a0ff', '宿舍门口'], ['#ffd27a', '教学楼门口'], ['#ff6f61', '抢救期末卷'], ['#ff5fa2', 'B1 游戏厅'], ['#38c6d9', '出售的房子']];
+  const LEGEND = [['#1f2a33', '你（箭头）'], ['#ff8a3d', '外卖取餐'], ['#4fd18b', '送达点'], ['#ffd24a', '打卡点'], ['#e84d8a', '喷漆车间'], ['#e74c3c', '巡逻车', 1], ['#c9a0ff', '宿舍门口'], ['#ffd27a', '教学楼门口'], ['#ff6f61', '抢救期末卷'], ['#ff5fa2', 'B1 游戏厅'], ['#38c6d9', '出售的房子'], ['#a774ff', 'ERL 火车站']];
 
   /* ---------- the guide sheet ---------- */
   const gd = document.createElement('dialog'); gd.id = 'guide'; gd.className = 'panel sheet gd'; gd.setAttribute('aria-labelledby', 'gdT');
@@ -255,7 +256,7 @@
   const $m = id => bm.querySelector('#' + id), cv = $m('bmCv'), view = $m('bmView'), cx2d = cv.getContext('2d');
   const MV = {span:720, cx:0, cz:0, follow:true, raf:0, last:0, dpr:1, ptr:new Map(), pinch:0, drag:null};
   const SPAN_MIN = 160, SPAN_MAX = 2600;
-  const indoor = () => g(() => ROOM.in, false) || g(() => DORM.in, false);
+  const indoor = () => g(() => ROOM.in, false) || g(() => DORM.in, false) || !!g(() => XTrain.inside, null);
   function meNow(){
     if (mode === 'walk') return [player.x, player.z, player.yaw];
     if (mode === 'hole') return [hole.x, hole.z, camYaw];
