@@ -485,7 +485,7 @@ function tnFrame(now){
   const dt = Math.min(.05, (now - (tnLast || now)) / 1000); tnLast = now;
   if (!myCar){ tnClose(); return; }
   if (!tn.drag && !REDUCED) tn.yaw += dt * .18;
-  const T = myCar.T, W = window.innerWidth, H = window.innerHeight, r = tnEl.getBoundingClientRect(), wide = r.top < H * .3;   /* side panel, not the bottom sheet */
+  const T = myCar.T, W = window.innerWidth, H = window.innerHeight, r = tnEl.getBoundingClientRect(), wide = r.left > W * .3;   /* side panel, not the bottom sheet */
   const ox = wide ? Math.round(r.width / 2 + 8) : 0, oy = wide ? 0 : Math.round((H - r.top) / 2), key = W + 'x' + H + ':' + ox + ',' + oy;
   if (key !== tn.view){ tn.view = key; camera.setViewOffset(W, H, ox, oy, W, H); }
   /* back off until the whole car fits the part of the screen the panel leaves free (FOV 50: half-height = d · tan 25°) */

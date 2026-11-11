@@ -20,7 +20,9 @@
     btn.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path class="in" d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>'
       + '<path class="out" d="M6 2v4H2M14 6h-4V2M10 14v-4h4M2 10h4v4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>全屏</span>';
     const hint = D.createElement('span'); hint.className = 't-fs-hint'; hint.id = 'tFullHint'; hint.setAttribute('role', 'status'); hint.hidden = true;
-    const fb = more.querySelector('.t-fb'); more.insertBefore(btn, fb || null); more.insertBefore(hint, fb || null);
+    /* 和「反馈」放在一组：手机竖屏时上面那行四个按钮已经排满 */
+    const fb = more.querySelector('.t-fb');
+    if (fb){ fb.insertBefore(btn, fb.firstChild); more.insertBefore(hint, fb.nextSibling); } else { more.append(btn, hint); }
     let hintT = 0;
     const say = t => { hint.textContent = t; hint.hidden = false; clearTimeout(hintT); hintT = setTimeout(() => { hint.hidden = true; }, 7000); };
     const sync = () => { const on = !!fsEl(); btn.setAttribute('aria-pressed', String(on)); btn.querySelector('span').textContent = on ? '退出全屏' : '全屏'; };
