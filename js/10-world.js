@@ -22,7 +22,7 @@ const FOREST = pxPts([[330,60],[760,45],[790,240],[900,290],[980,440],[900,540],
 flatPoly(FOREST, regWet(flatMat('#365c2c', 2), .6), .03, true);
 const LAWN_SQ = pxPts([[385,140],[600,130],[640,200],[630,330],[400,340],[380,250]]);
 flatPoly(LAWN_SQ, regWet(flatMat('#527838', 3), .55), .035, false);
-const GATE_LAWNS = [pxPts([[890,738],[1000,712],[1166,706],[1166,800],[900,800]]), pxPts([[1194,706],[1350,708],[1500,722],[1500,800],[1194,800]])];
+const GATE_LAWNS = [pxPts([[890,738],[1000,712],[AXIS_PX - 14,706],[AXIS_PX - 14,800],[900,800]]), pxPts([[AXIS_PX + 14,706],[1350,708],[1500,722],[1500,800],[AXIS_PX + 14,800]])];   /* either side of the axis walk */
 const gateLawnMat = regWet(flatMat('#4f7436', 3), .55);
 GATE_LAWNS.forEach(L => flatPoly(L, gateLawnMat, .035, true));
 
@@ -42,8 +42,10 @@ const ROADS = [
   {w:7,  m:asphalt, p:[[580,370],[700,330],[850,285],[960,265]]},
   {w:7,  m:asphalt, p:AZ_PX.diag},
   {w:7,  m:asphalt, p:[[260,170],[150,230],[110,330],[110,560],[180,680],[300,730],[470,740],[505,640],[480,520],[430,420],[330,300],[260,170]]},
-  {w:16, m:paving,  p:[[1180,800],AZ_PX.axisEnd]},
-  {w:9,  m:paving,  p:[[1140,855],[1140,800]]}, {w:9, m:paving, p:[[1220,855],[1220,800]]},
+  /* the axis walk from the front road to A3's stair (past the statue), and the two walks in from the gate lanes; was: where they ran while the trees were
+     scattered (the axis used to be 15 m east of A3), swapped for the real ones on the first frame (ROAD_SWAP) */
+  {w:16, m:paving,  p:[[AXIS_PX,800],AZ_PX.axisEnd], was:[[AXIS_WAS_PX,800],PX((AXIS_WAS_PX - CX) * SC, AZ.promZ((AXIS_WAS_PX - CX) * SC) + 2.5)]},
+  {w:9,  m:paving,  p:[[AXIS_PX - 36,855],[AXIS_PX - 36,800]], was:[[1140,855],[1140,800]]}, {w:9, m:paving, p:[[AXIS_PX + 36,855],[AXIS_PX + 36,800]], was:[[1220,855],[1220,800]]},
   {w:6,  m:pathMat, p:[AZ_PX.bridge,[1165,372],[1230,346],[1310,322],[1330,290],[1300,262]]},
   {w:7,  m:ringRoadMat, p:AZ_PX.ring},
   {w:7,  m:asphalt, p:AZ_PX.side}, {w:7, m:asphalt, p:AZ_PX.garage},
@@ -53,7 +55,8 @@ const ROADS = [
   {w:6,  m:pathMat, p:[[1520,295],[1600,250],[1700,258]]},
   {w:6,  m:pathMat, p:[[1450,500],[1560,520]]}
 ];
-const ROADS_W = ROADS.map(r => ({w:r.w, m:r.m, p:pxPts(r.p)}));
+const ROADS_W = ROADS.map(r => ({w:r.w, m:r.m, p:pxPts(r.p), was:r.was && pxPts(r.was)}));
+const ROAD_SWAP = [];   /* [segment, a, b]: road segments that sit at their old place until the first frame (js/42-gate.js gateClearRun) */
 const kerbMat = regWet(flatMat('#a39a8b', 3), .4);
 const KERBS = ROADS_W.filter(r => r.m === asphalt).map(r => ({w:r.w + 2.6, m:kerbMat, p:r.p}));
 (function buildRoads(){
@@ -69,7 +72,7 @@ const KERBS = ROADS_W.filter(r => r.m === asphalt).map(r => ({w:r.w + 2.6, m:ker
         const ax = x0 + dx * k / n, az = z0 + dz * k / n, bx = x0 + dx * (k + 1) / n, bz = z0 + dz * (k + 1) / n;
         pos.push(ax + nx, 0, az + nz, bx - nx, 0, bz - nz, ax - nx, 0, az - nz, ax + nx, 0, az + nz, bx + nx, 0, bz + nz, bx - nx, 0, bz - nz);
       }
-      roadSegs.push({a:r.p[i], b:r.p[i + 1], h});
+      if (r.was){ const sg = {a:r.was[i], b:r.was[i + 1], h}; roadSegs.push(sg); ROAD_SWAP.push([sg, r.p[i], r.p[i + 1]]); } else roadSegs.push({a:r.p[i], b:r.p[i + 1], h});
     }
     for (const [x, z] of r.p) for (let k = 0; k < 12; k++){
       const a0 = k / 12 * Math.PI * 2, a1 = (k + 1) / 12 * Math.PI * 2;
@@ -544,7 +547,9 @@ function stadPt(r, u){
 })();
 
 /* ---------- south gate: the name stone on the axis, in front of the gate (as on the real campus, north to south: 陈嘉庚像, the gate, the stone, its fountain pool) ---------- */
-const [GX] = P(1180, 0), FENCE_Z = 214;   /* FENCE_Z: where the old inner fence ran; scenery is still kept back from it, so the layout stays put */
+/* GX: the axis (AXIS_PX, js/09-azone.js); GXW: where it used to run, 15 m east (the scenery's stand-ins stay there until the first frame).
+   FENCE_Z: where the old inner fence ran; scenery is still kept back from it, so the layout stays put */
+const [GX] = P(AXIS_PX, 0), [GXW] = P(AXIS_WAS_PX, 0), FENCE_Z = 214;
 /* the gateway (js/42-gate.js): the iron gate is closed and stands back between the two porches (z = gz); in front of it, on the axis, the black name stone
    (sz) on the back of a long granite pool with a row of jets (pz0..pz1, half-width hw), then paving down to Jalan Sunsuria. Cars go in and out by the two
    lanes beyond the porches (centre GX ± lane, width lw: IN on the west, OUT on the east), as at the real gate. */
@@ -603,14 +608,14 @@ structBlock(function(){
   { const wq = {p:[], u:[], c:[]}; washQuad(wq, true, x - 5.1, x + 5.1, WY + .1, WY + WH + .1, sz + .58, [.42, .35, .25], .1, .95); washMesh(wq, scene); }
   /* the stone and the fountain used to stand in a little plaza west of the gate: the scenery was scattered round their colliders, so those stay until the
      first frame (FENCE_GHOST); the real ones are added in js/42-gate.js */
-  FENCE_GHOST.push(addBox(GX - 34, 257.4, 14.6, 1.4, 0), addCircle(GX - 34, 260.8, 2.7));
+  FENCE_GHOST.push(addBox(GXW - 34, 257.4, 14.6, 1.4, 0), addCircle(GXW - 34, 260.8, 2.7));
   addLabel('校碑', x, 6, sz, true);
-  for (const [x0, x1] of [[-585, GX - 30], [GX + 30, 590]]) FENCE_GHOST.push(addBox((x0 + x1) / 2, FENCE_Z, (x1 - x0) / 2, .4, 0));
+  for (const [x0, x1] of [[-585, GXW - 30], [GXW + 30, 590]]) FENCE_GHOST.push(addBox((x0 + x1) / 2, FENCE_Z, (x1 - x0) / 2, .4, 0));
   addLabel('南门（正门）', GX, 9, 258);
 })();
 /* Tan Kah Kee statue */
 structBlock(function(){
-  const [x, z] = P(1180, 738);
+  const [x, z] = P(AXIS_PX, 738);
   const info = {name:'陈嘉庚像', tag:'雕像', desc:'厦门大学创办人陈嘉庚的塑像。从正门进来先经过他，再往北就是"一主四从"的主楼群。', spawn:[x, z + 14, 0]};
   const bronze = M('#6d5638', {metalness:.55, roughness:.45});
   /* a moulded granite pedestal (two steps, a base course, the die with a dark inscription panel, a cornice), and on it a standing figure in a long
@@ -642,7 +647,9 @@ structBlock(function(){
   const body = new THREE.Mesh(fig, bronze); body.position.set(x, 0, z);
   body.castShadow = true; scene.add(body);
   [ped, plate, body].forEach(m => { m.userData.info = info; pickables.push(m); });
-  addCircle(x, z, 3.2); addLabel('陈嘉庚像', x, 9, z, true);
+  /* on the axis now; while the scenery is placed, a stand-in where it used to stand (the swap: lateColsSwap, js/42-gate.js) */
+  { const c = addCircle(x, z, 3.2), st = curStruct; c.dead = true; curStruct = null; LATE_COLS.push([c, addCircle(GXW, z, 3.2), st]); curStruct = st; }
+  addLabel('陈嘉庚像', x, 9, z, true);
 })();
 /* East gate: it stood on the ring road itself, with its two posts in the traffic lanes. Now it spans the D-zone road just inside the junction:
    two granite piers on moulded bases, a beam with the name boards, a tiled roof on red brackets, a guard booth and a raised boom on the north side. */

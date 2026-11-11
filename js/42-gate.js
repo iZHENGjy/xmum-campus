@@ -24,7 +24,7 @@ const gateLate = [];    /* colliders added on the first frame (gateClearRun), so
     tbox(P2, .2, .7, .2, p[0], .35, p[1], '#34373c'); lamps.push(new THREE.BoxGeometry(.26, .14, .26).translate(p[0], .77, p[1])); gatePools.push([p[0], .1, p[1], 3.3]);
   }
   /* ---------- the statue stands on a round stepped base ---------- */
-  const [sx, sz] = P(1180, 738);
+  const [sx, sz] = P(AXIS_PX, 738);
   P2.push(geoTint(new THREE.CylinderGeometry(6.4, 6.6, .2, 40).translate(sx, .1, sz), '#a29b8e'), geoTint(new THREE.CylinderGeometry(5.1, 5.2, .22, 40).translate(sx, .31, sz), '#b0a99b'));
   const m = new THREE.Mesh(geoMerge(P2), decoMat); m.castShadow = m.receiveShadow = true; scene.add(m);
   scene.add(new THREE.Mesh(geoMerge(lamps), gateLampMat));
@@ -152,6 +152,8 @@ function ironRail(list, xa, xb, z, y0, h, sp){
   }
   gatePools.push([GX, .1, 263, 4.4]);
   gateClear.push([GX - 7.6, 252, GX + 7.6, 266]);
+  /* the axis walk from the front road up to A3's stair, with the statue on it: trees and lamps scattered before it moved over here go */
+  gateClear.push([GX - 8.2, AZ.promZ(GX) - 4, GX + 8.2, 214]);
   { const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const g = cv.getContext('2d');
     g.fillStyle = '#1d4f9a'; g.fillRect(0, 0, 128, 64); g.fillStyle = '#b3261e'; g.fillRect(128, 0, 128, 64); g.strokeStyle = '#ffffff'; g.lineWidth = 4; g.strokeRect(4, 4, 120, 56); g.strokeRect(132, 4, 120, 56);
     g.fillStyle = '#ffffff'; g.font = '900 40px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('IN', 64, 34); g.fillText('OUT', 192, 34);
@@ -183,6 +185,8 @@ function gateClearRun(){
   gateCleared = true;
   /* the old inner fence (js/10-world.js FENCE_GHOST) only stood in while the scenery was placed */
   for (const c of FENCE_GHOST){ const i = colliders.indexOf(c); if (i >= 0) colliders.splice(i, 1); for (const st of structures){ const j = st.cols.indexOf(c); if (j >= 0) st.cols.splice(j, 1); } }
+  /* the axis walks were where the axis used to run, 15 m east of A3's middle, while the scenery was scattered: now they move onto the axis */
+  for (const [sg, a, b] of ROAD_SWAP){ sg.a = a; sg.b = b; }
   /* so do the low cheek walls beside the A-zone steps (js/09-azone.js): from now on you walk or drive over them */
   for (const c of AZ.cheeks){ const i = colliders.indexOf(c); if (i >= 0) colliders.splice(i, 1); for (const st of structures){ const j = st.cols.indexOf(c); if (j >= 0) st.cols.splice(j, 1); } }
   /* the name stone with its pool, on the axis in front of the gate (eaten with the stone); the closed gate and the boom posts */

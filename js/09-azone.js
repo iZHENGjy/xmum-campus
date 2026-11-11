@@ -4,6 +4,9 @@
    画台地、台阶、挡土墙、楼底座、连廊、亭子，把楼抬上去，都在 azBuild() 里，由 js/42-gate.js 在树和小物件摆完以后调用。 */
 'use strict';
 const PX = (x, z) => [x / SC + CX, z / SC + CY];   /* metres -> map pixels (the inverse of P) */
+/* the campus axis, in map pixels: through the middle of A3 (and its grand stair), the Tan Kah Kee statue, the main gate and the name stone (GX in js/10-world.js).
+   AXIS_WAS_PX: where it used to run, 15 m east of A3's middle; a few stand-ins stay there while the trees are scattered, so they land where they did. */
+const AXIS_PX = 1155, AXIS_WAS_PX = 1180;
 const AZ = (() => {
   const H = 6.5, SD = 17, FB = 28;
   /* TL: top edge of the front bank, west -> east, a few metres in front of each block's porch (one straight piece per block, so its stair is straight).
@@ -103,7 +106,7 @@ const AZ_PX = {
   bridge:PX(96.5, -38),   /* where the path to the bridge leaves the ring road */
   axisEnd:PX(GX_AZ(), AZ.promZ(GX_AZ()) + 2.5)   /* the axis road stops at the promenade (its round end stays off the bank) */
 };
-function GX_AZ(){ return (1180 - CX) * SC; }   /* the gate axis (GX in js/10-world.js, which is defined later) */
+function GX_AZ(){ return (AXIS_PX - CX) * SC; }   /* the gate axis (GX in js/10-world.js, which is defined later) */
 
 /* things standing where the ground is now a stair, a bank or a wall (trees, lamps, benches): cleared with the gate's set on the first frame (js/42-gate.js) */
 function azClears(kind, x, z){

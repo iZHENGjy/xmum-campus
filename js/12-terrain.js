@@ -30,9 +30,10 @@ const OUT_ROADS = [
   {id:'gate', kind:'gate', w:10, line:[[GX, 272], [GX, 307]]},   /* from Jalan Sunsuria across the median to Bell Avenue: the gate itself is closed, with the name stone in front */
   {id:'gateW', kind:'lane', w:GATE_FRONT.lw, line:[[GX - GATE_FRONT.lane, 246.6], [GX - GATE_FRONT.lane, 270]]},   /* the two lanes beside the gate: in (west) and out (east) */
   {id:'gateE', kind:'lane', w:GATE_FRONT.lw, line:[[GX + GATE_FRONT.lane, 246.6], [GX + GATE_FRONT.lane, 270]]},
-  {id:'bellF', kind:'lane', w:6, line:[[GX - 16, 307], [520, 307], [530, 316], [530, 348]]},
-  {id:'bellB', kind:'lane', w:6, line:[[GX - 16, 363], [424, 363]]},
-  {id:'bellW', kind:'lane', w:6, line:[[GX - 16, 307], [GX - 16, 363]]},
+  /* Bell Avenue's lanes: its west end lines up with the gate axis (x = 104), as on the real street */
+  {id:'bellF', kind:'lane', w:6, line:[[104, 307], [520, 307], [530, 316], [530, 348]]},
+  {id:'bellB', kind:'lane', w:6, line:[[104, 363], [424, 363]]},
+  {id:'bellW', kind:'lane', w:6, line:[[104, 307], [104, 363]]},
   /* round the back of Bell Suites to the back lane: the frontage lane used to stop dead on the grass at z 348
      (the Bell street race in js/92-racing.js already ran this way, over the grass) */
   {id:'bellE', kind:'lane', w:6, line:[[530, 348], [519, 366], [440, 366.5], [424, 363]]},

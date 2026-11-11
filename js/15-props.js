@@ -66,7 +66,7 @@ const rot2 = (lx, lz, ry) => [lx * Math.cos(ry) + lz * Math.sin(ry), -lx * Math.
     const t = (x - r.a[0]) * ux + (z - r.a[1]) * uz, cx = r.a[0] + ux * t, cz = r.a[1] + uz * t, h = Math.atan2(ux, uz), n = Math.round(r.w / 1.05);
     for (let k = 0; k < n; k++){ const o = -r.w / 2 + .6 + k * (r.w - 1.2) / (n - 1); spots.push([cx - uz * o, cz + ux * o, h]); }
   };
-  [[1140, 855], [1220, 855], [1165, 509], [1075, 259], [960, 263], [1300, 262], [1580, 505], [1580, 700], [1640, 340], [1580, 360]].forEach(([px, py]) => zebra(...P(px, py)));
+  [[AXIS_PX - 36, 855], [AXIS_PX + 36, 855], [1165, 509], [1075, 259], [960, 263], [1300, 262], [1580, 505], [1580, 700], [1640, 340], [1580, 360]].forEach(([px, py]) => zebra(...P(px, py)));
   const im = new THREE.InstancedMesh(new THREE.PlaneGeometry(.55, 3.4).rotateX(-Math.PI / 2), flatMat('#f4f1ea', 9), spots.length);
   spots.forEach(([x, z, h], i) => { _cm.compose(_cp.set(x, .053, z), _cq.setFromAxisAngle(UP, h), _cs.set(1, 1, 1)); im.setMatrixAt(i, _cm); });
   im.frustumCulled = false; im.receiveShadow = true; scene.add(im);
@@ -258,7 +258,7 @@ const umbSpots = [];
 /* ---------- bollards at the gate entrances, trimmed hedges along the axis, flowering shrubs at building fronts ---------- */
 const bollardSpots = [], hedgeSpots = [], shrubSpots = [];
 (function(){
-  for (const [x0, x1] of [[91.4, 100.6], [139.4, 148.6]]) for (let x = x0; x <= x1 + .01; x += 1.53) bollardSpots.push({x, z:209.5, r:0, s:1});
+  for (const s of [-1, 1]){ const xc = GX + s * GATE_FRONT.lane; for (let x = xc - 4.6; x <= xc + 4.61; x += 1.53) bollardSpots.push({x, z:209.5, r:0, s:1}); }   /* across the two walks in from the gate lanes */
   const bGeo = geoMerge([geoTint(new THREE.CylinderGeometry(.14, .16, .85, 10).translate(0, .43, 0), '#d9d6cf'), geoTint(new THREE.CylinderGeometry(.165, .165, .1, 10).translate(0, .7, 0), '#c4502a'),
     geoTint(new THREE.SphereGeometry(.14, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, .855, 0), '#d9d6cf')]);
   const bol = instanced(bGeo, M('#ffffff', {vertexColors:true, roughness:.6}), bollardSpots); bol.castShadow = false;
@@ -298,7 +298,7 @@ const bollardSpots = [], hedgeSpots = [], shrubSpots = [];
 (function(){
   const rr = mkRng(4711), fl = ['#e0245e', '#ff7eb6', '#f6c445', '#ff6b35', '#ffffff', '#c2185b', '#8e44ad'], leaf = ['#3f7f37', '#4f9442'];
   const bump = (x, z) => { const f = rr() < .7; pd(new THREE.IcosahedronGeometry(f ? .2 : .26, 0).scale(1, .75, 1), f ? fl[(rr() * fl.length) | 0] : leaf[(rr() * 2) | 0], x, .5 + rr() * .12, z); };
-  const [sx, sz] = P(1180, 738);
+  const [sx, sz] = P(AXIS_PX, 738);
   pd(new THREE.CylinderGeometry(6.3, 6.4, .42, 40, 1, true), '#b7b0a4', sx, .21, sz); pd(new THREE.CylinderGeometry(4.3, 4.3, .42, 32, 1, true), '#b7b0a4', sx, .21, sz);
   pd(new THREE.RingGeometry(4.3, 6.3, 40, 1).rotateX(-Math.PI / 2), '#5b4636', sx, .4, sz);
   pd(new THREE.TorusGeometry(6.35, .1, 4, 40).rotateX(Math.PI / 2), '#c9c2b4', sx, .42, sz);
