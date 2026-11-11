@@ -79,7 +79,7 @@ const AZ = (() => {
      north lake outside 音乐岛, up to the road along the north shore (which, with the east road, closes the ring) */
   const RING = [[360, 38], [340, 40], [300, 40], [262, 34], [240, 30], [205, 35], [186, 34], [160, 26], [132, 17], [110, 4], [100, -18], [96, -34], [86, -46], [60, -50], [35, -52], [10, -58], [-8, -72], [-14, -92], [-14, -110]];
   const CORR = {x:105, z0:44.6, z1:10.5, w:5.2};   /* the one covered walk: from the back of A3 down the slope to the ring road, toward the bridge */
-  return {H, SD, FB, TL, BL, R, NOTCH, BOX, raw, part, near, prom, promZ, WALLS, FLIGHTS, RING, CORR, flat:false, built:false, lifted:[], roads:[], meshes:[], cols:[]};
+  return {H, SD, FB, TL, BL, R, NOTCH, BOX, raw, part, near, prom, promZ, WALLS, FLIGHTS, RING, CORR, flat:false, built:false, lifted:[], roads:[], meshes:[], cols:[], cheeks:[]};
 })();
 /* ground height of the A zone at (x, z); 0 elsewhere, and 0 everywhere in black-hole mode (the campus is flat there) */
 function azY(x, z){ return AZ.flat ? 0 : AZ.raw(x, z); }
@@ -182,7 +182,9 @@ function azBuild(){
         for (const [ua, sd] of [[wa, -1], [wb, 1]]) q(at(ua, s0, -.2), at(ua, s1, -.2), at(ua, s1, top(s1)), at(ua, s0, Math.min(H + .55, top(s0))), '#9a9284', [f.tx * sd, 0, f.tz * sd]);
         q(at(wa, s1, -.2), at(wb, s1, -.2), at(wb, s1, top(s1)), at(wa, s1, top(s1)), '#9a9284', [f.nx, 0, f.nz]);
       }
-      const mid = at(u, SD / 2 - .15, 0), c = addBox(mid[0], mid[2], .5, SD / 2 + .45, Math.atan2(-f.tz, f.tx)); AZ.cols.push(c);
+      /* the cheek walls stand only ~.55 m above the steps and the bank either side, so you walk or drive over them (people kept running into them).
+         Their box stays while the rest of the props are placed (a row of them skips it), then js/42-gate.js drops it on the first frame */
+      const mid = at(u, SD / 2 - .15, 0); AZ.cheeks.push(addBox(mid[0], mid[2], .5, SD / 2 + .45, Math.atan2(-f.tz, f.tx)));
       if (f.grand){
         /* lantern pier: a moulded granite pier, an iron lantern with corner posts under a pyramid hood */
         const pp = at(u, SD + 1.1, 0), X = pp[0], Z = pp[2];
