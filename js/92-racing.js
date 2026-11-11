@@ -128,9 +128,15 @@ for (const T of RC_TRACKS){
       const j = i % P2.N, x = P2.X[j], z = P2.Z[j], nx = -P2.TZ[j], nz = P2.TX[j], A = [x + nx * hw, 0, z + nz * hw], B = [x - nx * hw, 0, z - nz * hw];
       A[1] = groundAt(A[0], A[2]) + .1; B[1] = groundAt(B[0], B[2]) + .1; tp.push([A, B]);
     }
-    const pp = []; for (let i = 0; i < tp.length - 1; i++){ const [A, B] = tp[i], [C, D] = tp[i + 1]; pp.push(...A, ...C, ...B, ...B, ...C, ...D); }
+    /* the trail stops at the asphalt and kerbs of the roads it crosses (it used to be painted over the KIP hill road) */
+    const onRoad = (x, z) => typeof OUT_ROADS !== 'undefined' && OUT_ROADS.some(r => r.p.some((p, q) => q < r.p.length - 1 && Math.abs(p[0] - x) < 40 && Math.abs(p[1] - z) < 40 && segDist(x, z, p, r.p[q + 1]) < r.w / 2 + 1.6));
+    const pp = []; for (let i = 0; i < tp.length - 1; i++){
+      const [A, B] = tp[i], [C, D] = tp[i + 1];
+      if ([A, B, C, D].some(P => onRoad(P[0], P[2])) || onRoad((A[0] + D[0]) / 2, (A[2] + D[2]) / 2)) continue;
+      pp.push(...A, ...C, ...B, ...B, ...C, ...D);
+    }
     const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.Float32BufferAttribute(pp, 3)); tg.computeVertexNormals();
-    const tm = new THREE.Mesh(tg, M('#9a6a45', {roughness:1, polygonOffset:true, polygonOffsetFactor:-4, polygonOffsetUnits:-16, side:THREE.DoubleSide})); tm.receiveShadow = true; scene.add(tm);
+    const tm = new THREE.Mesh(tg, M('#7d5f42', {roughness:1, polygonOffset:true, polygonOffsetFactor:-4, polygonOffsetUnits:-16, side:THREE.DoubleSide})); tm.receiveShadow = true; scene.add(tm);
     /* clear the hill trees off the trail (moved far away, so a reset in black-hole mode can't stand them back up on it) */
     if (typeof OUT_SETS !== 'undefined') for (const set of OUT_SETS) set.spots.forEach((o, i) => {
       if (o.hidden || rcNear(P2, o.x, o.z).d > T.w / 2 + 3) return;

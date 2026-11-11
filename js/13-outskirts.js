@@ -44,8 +44,9 @@ function bellNames(units, pois){
 const BELL_SIGN = {n:bellNames(BELL_UNITS, BELL_N).map(signOf), s:bellNames(BELL_UNITS, BELL_S).map(signOf)};
 
 /* ---------- one texture atlas (plus a half-size glow map for night) for every facade, shopfront and sign outside the gate ---------- */
-const ATL = 1024, atlCv = document.createElement('canvas'), emCv = document.createElement('canvas');
-atlCv.width = atlCv.height = ATL; emCv.width = emCv.height = ATL / 2;
+/* ATL is the layout size; the canvas is drawn at twice that (sharper shop signs) unless the quality tier keeps textures small (phones on 标准, 流畅) */
+const ATL = 1024, ATK = XQ.cfg.tex >= 512 ? 2 : 1, atlCv = document.createElement('canvas'), emCv = document.createElement('canvas');
+atlCv.width = atlCv.height = ATL * ATK; emCv.width = emCv.height = ATL / 2 * ATK;
 const atlTex = new THREE.CanvasTexture(atlCv), emTex = new THREE.CanvasTexture(emCv); atlTex.anisotropy = ANISO;
 const AR = (x, y, w, h) => ({x, y, w, h, u0:(x + 2) / ATL, u1:(x + w - 2) / ATL, v0:1 - (y + h - 2) / ATL, v1:1 - (y + 2) / ATL});
 const A_SOLID = AR(0, 0, 32, 32), A_BURGER = AR(64, 0, 128, 128), A_KIP = AR(256, 0, 512, 128), A_GLASS = AR(768, 0, 256, 128);
@@ -55,7 +56,7 @@ const A_SIGN = i => AR((i % 4) * 256, 376 + Math.floor(i / 4) * 40, 256, 40);
 const OUT_FONT = '"Noto Sans SC","Microsoft YaHei","PingFang SC",sans-serif';
 function paintAtlas(){
   const g = atlCv.getContext('2d'), e = emCv.getContext('2d'), R = mkRng(77);
-  e.setTransform(.5, 0, 0, .5, 0, 0);
+  g.setTransform(ATK, 0, 0, ATK, 0, 0); e.setTransform(.5 * ATK, 0, 0, .5 * ATK, 0, 0);
   g.fillStyle = '#ffffff'; g.fillRect(0, 0, ATL, ATL); e.fillStyle = '#000000'; e.fillRect(0, 0, ATL, ATL);
   const both = f => { f(g, false); f(e, true); };
   const glass = (x, y, w, h) => { const gr = g.createLinearGradient(0, y, 0, y + h); gr.addColorStop(0, '#7593a3'); gr.addColorStop(1, '#2d4452'); g.fillStyle = gr; g.fillRect(x, y, w, h);
@@ -75,7 +76,6 @@ function paintAtlas(){
     if (k === 2){
       g.fillStyle = '#b9bcbf'; g.fillRect(x + 8, y + 8, 240, 70); g.fillStyle = '#9ea2a6'; for (let i = 0; i < 14; i++) g.fillRect(x + 8, y + 10 + i * 5, 240, 1.6);
       g.fillStyle = '#e9e1cc'; g.fillRect(x + 8, y + 78, 240, 74); g.fillStyle = '#8a6a4a'; for (let i = 0; i < 5; i++) g.fillRect(x + 20 + i * 46, y + 96, 30, 56);
-      e.fillStyle = '#ffe0a0'; e.fillRect(x + 8, y + 78, 240, 74);
       g.restore(); e.restore(); return;
     }
     const inside = k === 1 ? '#8a5a35' : k === 3 ? '#3a302a' : '#efe4c9';
@@ -84,8 +84,13 @@ function paintAtlas(){
     if (k === 1){ g.fillStyle = '#f5d7a1'; for (let i = 0; i < 4; i++){ g.beginPath(); g.arc(x + 40 + i * 60, y + 30, 8, 0, 7); g.fill(); } g.fillStyle = '#4a2f1d'; for (let i = 0; i < 4; i++){ g.fillRect(x + 22 + i * 60, y + 104, 36, 6); g.fillRect(x + 37 + i * 60, y + 110, 6, 40); } }
     if (k === 3){ g.fillStyle = '#f2c94c'; g.fillRect(x + 30, y + 14, 196, 26); g.fillStyle = '#3a302a'; for (let i = 0; i < 6; i++) g.fillRect(x + 40 + i * 30, y + 22, 18, 3); g.fillStyle = '#d8d2c8'; for (let i = 0; i < 4; i++){ g.fillRect(x + 20 + i * 58, y + 104, 42, 8); g.fillRect(x + 38 + i * 58, y + 112, 6, 38); } }
     if (k !== 3){ g.fillStyle = 'rgba(150,185,200,.32)'; g.fillRect(x + 8, y + 8, 240, 144); g.fillStyle = '#2a2c2f'; for (const mx of [86, 170]) g.fillRect(x + mx, y + 8, 4, 144); g.fillRect(x + 8, y + 100, 240, 3); g.fillStyle = '#1f2326'; g.fillRect(x + 108, y + 52, 40, 100); }
-    e.fillStyle = k === 3 ? '#e0b070' : '#fff0c8'; e.fillRect(x + 8, y + 8, 240, 144);
     g.restore(); e.restore();
+  });
+  /* lit at night: a dimmed, warm copy of the shopfront itself (it used to glow as one flat white panel); a shutter's closed half stays dark */
+  A_SHOP.forEach((a, k) => {
+    const {x, y} = a, y0 = k === 2 ? 66 : 0;
+    e.save(); e.globalAlpha = k === 3 ? .72 : .6; e.drawImage(atlCv, x * ATK, (y + y0) * ATK, 256 * ATK, (128 - y0) * ATK, x, y + y0, 256, 128 - y0);
+    e.globalAlpha = 1; e.globalCompositeOperation = 'multiply'; e.fillStyle = '#ffe2b8'; e.fillRect(x, y, 256, 128); e.restore();
   });
   /* glass curtain wall and mall cladding */
   { const {x, y} = A_GLASS; const gr = g.createLinearGradient(0, y, 0, y + 128); gr.addColorStop(0, '#8fb6c9'); gr.addColorStop(1, '#3f6a80'); g.fillStyle = gr; g.fillRect(x, y, 256, 128);
@@ -93,14 +98,15 @@ function paintAtlas(){
   { const {x, y} = A_MALL; g.fillStyle = '#ece1cd'; g.fillRect(x, y, 256, 120); g.fillStyle = '#d8ccb6'; for (let i = 0; i < 4; i++) g.fillRect(x + i * 64, y, 2, 120); g.fillRect(x, y + 30, 256, 2);
     g.fillStyle = '#3e5866'; g.fillRect(x, y + 56, 256, 26); g.fillStyle = '#dfe6ea'; for (let i = 0; i < 8; i++) g.fillRect(x + i * 32, y + 56, 3, 26); e.fillStyle = '#6a5636'; e.fillRect(x, y + 56, 256, 26); }
   /* KIP mall name board and the burger badge of 麦当当 */
-  both((c, em) => { const {x, y} = A_KIP; c.fillStyle = '#ffffff'; c.fillRect(x, y, 512, 128); c.strokeStyle = '#1d3f8f'; c.lineWidth = 8; c.strokeRect(x + 6, y + 6, 500, 116);
+  both((c, em) => { const {x, y} = A_KIP; c.fillStyle = em ? '#6b6b6b' : '#ffffff'; c.fillRect(x, y, 512, 128); c.strokeStyle = '#1d3f8f'; c.lineWidth = 8; c.strokeRect(x + 6, y + 6, 500, 116);
     c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#d22630'; c.font = `900 66px ${OUT_FONT}`; c.fillText('KIP MALL', x + 256, y + 50); c.fillStyle = '#1d3f8f'; c.font = `700 32px ${OUT_FONT}`; c.fillText('购 物 中 心', x + 256, y + 100); });
   both((c, em) => { const {x, y} = A_BURGER; c.fillStyle = '#c8102e'; c.fillRect(x, y, 128, 128); c.fillStyle = '#ffc72c'; c.beginPath(); c.arc(x + 64, y + 64, 54, 0, 7); c.fill();
     c.fillStyle = '#e8963a'; c.beginPath(); c.ellipse(x + 64, y + 52, 36, 22, 0, Math.PI, 0); c.fill(); c.fillStyle = '#6cbf3c'; c.fillRect(x + 28, y + 52, 72, 7); c.fillStyle = '#5a3420'; c.fillRect(x + 28, y + 60, 72, 12);
     c.fillStyle = '#e8963a'; c.fillRect(x + 30, y + 74, 68, 12); c.fillStyle = '#fff4d0'; for (let i = 0; i < 5; i++){ c.beginPath(); c.arc(x + 46 + i * 9, y + 40 + (i % 2) * 4, 2, 0, 7); c.fill(); } });
   /* shop signs */
   OUT_SIGNS.forEach(([name, bg, fg, , icon], i) => both((c, em) => {
-    const {x, y} = A_SIGN(i); c.save(); c.translate(x, y); c.scale(1, 40 / 48); c.translate(-x, -y); c.fillStyle = bg; c.fillRect(x, y, 256, 48); c.fillStyle = 'rgba(0,0,0,.18)'; c.fillRect(x, y + 43, 256, 5);
+    /* the glow map dims the board and keeps the letters bright, so a sign still reads at night (white boards used to wash out completely) */
+    const {x, y} = A_SIGN(i); c.save(); c.translate(x, y); c.scale(1, 40 / 48); c.translate(-x, -y); c.fillStyle = em ? '#' + new THREE.Color(bg).multiplyScalar(.4).getHexString() : bg; c.fillRect(x, y, 256, 48); c.fillStyle = 'rgba(0,0,0,.18)'; c.fillRect(x, y + 43, 256, 5);
     let tx = x + 128, maxW = 236;
     if (icon){ c.fillStyle = fg; c.beginPath(); c.arc(x + 26, y + 24, 16, 0, 7); c.fill(); c.fillStyle = bg;
       if (icon === 'cup'){ c.fillRect(x + 19, y + 16, 14, 16); c.fillRect(x + 33, y + 19, 4, 8); }
@@ -162,7 +168,8 @@ function tMesh(b, mat, info, shadow){
 }
 
 /* ---------- roads: terrain-following ribbons (asphalt, kerbs) and markings ---------- */
-function roadAt(r, s){
+/* (was also called roadAt, which js/15-props.js declares again for the campus roads and so replaced this one for everybody after load) */
+function outRoadAt(r, s){
   s = Math.max(0, Math.min(r.L, s)); let lo = 0, hi = r.s.length - 1;
   while (hi - lo > 1){ const m = (lo + hi) >> 1; if (r.s[m] <= s) lo = m; else hi = m; }
   const t = (s - r.s[lo]) / ((r.s[hi] - r.s[lo]) || 1), a = r.p[lo], b = r.p[hi], L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
@@ -180,7 +187,7 @@ function ribbon(b, r, o0, o1, dy, col, keep){
 }
 function dashes(b, r, off, w, len, gap, dy, col, keep){
   for (let s = 3; s + len < r.L; s += len + gap){
-    const [ax, az, tx, tz] = roadAt(r, s), [bx, bz, ux, uz] = roadAt(r, s + len);
+    const [ax, az, tx, tz] = outRoadAt(r, s), [bx, bz, ux, uz] = outRoadAt(r, s + len);
     if (keep && !keep([ax, az], [bx, bz])) continue;
     const na = [-tz, tx], nb = [-uz, ux], P = (x, z, n, o) => { const px = x + n[0] * o, pz = z + n[1] * o; return [px, terrainY(px, pz) + dy, pz]; };
     gQuad4(b, P(ax, az, na, off - w / 2), P(bx, bz, nb, off - w / 2), P(bx, bz, nb, off + w / 2), P(ax, az, na, off + w / 2), col);
@@ -191,16 +198,22 @@ const KIP_X0 = ROAD.kip.p[0][0];
 /* kerbs and markings stop where another road crosses or joins */
 const clearOf = (self, pad) => (a, b) => { const mx = (a[0] + b[0]) / 2, mz = (a[1] + b[1]) / 2;
   return !OUT_ROADS.some(o => o !== self && o.p.some((p, q) => q < o.p.length - 1 && segDist(mx, mz, p, o.p[q + 1]) < o.w / 2 + pad)); };
+/* driveways off the hill road into the KIP car park and the 麦当当 lot (north entrance, south exit): no kerb and no edge line across them
+   (the kerb used to run straight across the mouth of both car parks) */
+const DRIVES = [[-548, 893, -521, 915], [-503, 1058, -486, 1090], [-514, 1108, -494, 1136]];
+const sideKeep = (base, off) => (a, b) => { if (!base(a, b)) return false;
+  const L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, x = (a[0] + b[0]) / 2 - (b[1] - a[1]) / L * off, z = (a[1] + b[1]) / 2 + (b[0] - a[0]) / L * off;
+  return !DRIVES.some(([x0, z0, x1, z1]) => x > x0 && x < x1 && z > z0 && z < z1); };
 const surfNear = TB(), markNear = TB(), surfFar = TB(), markFar = TB();
 for (const r of OUT_ROADS){
   const hw = r.w / 2, near = r !== ROAD.kip, S = near ? surfNear : surfFar, K = near ? markNear : markFar;
   ribbon(S, r, -hw, hw, .05, ASPH);
   if (r.kind === 'lane') continue;
   const kk = clearOf(r, 1.4), mk = clearOf(r, .4);
-  ribbon(S, r, hw, hw + 1.3, .09, KERB, kk); ribbon(S, r, -hw - 1.3, -hw, .09, KERB, kk);
+  ribbon(S, r, hw, hw + 1.3, .09, KERB, sideKeep(kk, hw + .65)); ribbon(S, r, -hw - 1.3, -hw, .09, KERB, sideKeep(kk, -hw - .65));
   if (r.kind !== 'main') continue;
   dashes(K, r, 0, .22, 3, 6, .075, LINE, mk);
-  ribbon(K, r, hw - .55, hw - .4, .075, YEL, mk); ribbon(K, r, -hw + .4, -hw + .55, .075, YEL, mk);
+  ribbon(K, r, hw - .55, hw - .4, .075, YEL, sideKeep(mk, hw)); ribbon(K, r, -hw + .4, -hw + .55, .075, YEL, sideKeep(mk, -hw));
 }
 /* zebra crossings: over Jalan Sunsuria in front of the gate, and over the frontage lane */
 for (const zc of [270, 289]) for (let k = -3; k <= 3; k++) gRect(markNear, GX + 9 + k * 1.1 - .32, zc - 3.6, GX + 9 + k * 1.1 + .32, zc + 3.6, .075, LINE);
@@ -220,15 +233,27 @@ const tTri = (b, A, B, C, col) => {
 };
 (function(){
   /* the shophouse block: row s = -1 (north, faces Jalan Sunsuria) and s = +1 (south, faces the back lane) */
+  const bdr = mkRng(5321), ROOFS = ['#7a7771', '#7e7a74', '#767370', '#7c7873'];   /* roof dressing has its own stream, so outRng (unit heights, trims) is unchanged */
   for (const s of [-1, 1]){
     const dir = s, zo = s < 0 ? BELL.zF + 3 + BELL.park : BELL.zB - 3 - BELL.park, zf = zo - s * BELL.arc, zb = BELL.zMid, names = s < 0 ? BELL_SIGN.n : BELL_SIGN.s;
     let ui = 0;
     for (const bx0 of BELL.blocks){
       const bx1 = bx0 + BELL.n * BELL.unit;
+      let lastTop = 11;
       for (let u = 0; u < BELL.n; u++, ui++){
         const x0 = bx0 + u * BELL.unit, x1 = x0 + BELL.unit, si = names[ui], up = outRng() < .8 ? 2 : 1, top = 5.6 + up * 3.3;
         const tint = BELL_TINTS[(ui * 7 + (s > 0 ? 5 : 2)) % BELL_TINTS.length], win = A_WIN[(ui * 5 + up + (s > 0 ? 1 : 0)) % 3];
         tBox(bellB, x0, 0, Math.min(zb, zf), x1, top, Math.max(zb, zf), tint, 'nz pz py ny');
+        /* back wall on the shared middle line: where the unit behind is lower, you used to look straight into this one (and out through its shopfront) */
+        fZ(bellB, zb, x0, x1, 0, top, -dir, null, '#cfc6b6');
+        /* side walls at the ends of each block (the walk-through lanes and both ends of the street): upper-floor windows instead of a blank wall */
+        if (u === 0) tileX(bellB, x0 - .02, Math.min(zb, zo), Math.max(zb, zo), 5.6, top, -1, A_WIN[1], 6.5, 3.3, tint);
+        if (u === BELL.n - 1){ tileX(bellB, x1 + .02, Math.min(zb, zo), Math.max(zb, zo), 5.6, top, 1, A_WIN[1], 6.5, 3.3, tint); lastTop = top + 1; }
+        /* on the roof: a water tank on a stand, air-conditioner condensers by the front parapet, now and then a stair hut */
+        { const mz = (zb + zo) / 2, R = bdr;
+          if (R() < .7){ const tx = x0 + 1.6 + R() * (BELL.unit - 3.2), tz = zb + s * (2.2 + R() * 2); tBox(bellB, tx - .75, top, tz - .75, tx + .75, top + .5, tz + .75, '#5d6166'); tBox(bellB, tx - .85, top + .5, tz - .85, tx + .85, top + 1.9, tz + .85, R() < .5 ? '#d9d6cf' : '#7590a3'); }
+          for (let k = 0, n = 1 + Math.floor(R() * 3); k < n; k++){ const ax = x0 + 1 + R() * (BELL.unit - 2), az = zo - s * (1.3 + R() * 1.5); tBox(bellB, ax - .45, top, az - .3, ax + .45, top + .65, az + .3, '#c9cbcc'); }
+          if (R() < .25){ const hx = x0 + 1.5 + R() * (BELL.unit - 5); tBox(bellB, hx, top, mz - 1.3, hx + 2.2, top + 2.5, mz + 1.3, tint); tBox(bellB, hx - .15, top + 2.5, mz - 1.45, hx + 2.35, top + 2.7, mz + 1.45, '#8d8983'); } }
         tBox(bellB, x0, 4.2, Math.min(zf, zo), x1, top, Math.max(zf, zo), tint, 'nz pz py');
         fZ(bellB, zf + dir * .01, x0, x1, 0, 4.2, dir, A_SHOP[OUT_SIGNS[si][3]], '#ffffff');
         fZ(bellB, zo, x0, x1, 4.2, 5.6, dir, null, '#d8d0c2');
@@ -236,12 +261,12 @@ const tTri = (b, A, B, C, col) => {
         for (let f = 0; f < up; f++) fZ(bellB, zo, x0, x1, 5.6 + f * 3.3, 5.6 + (f + 1) * 3.3, dir, win, tint);
         tBox(bellB, x0, top, Math.min(zo, zo - s * .35), x1, top + 1, Math.max(zo, zo - s * .35), tint);
         if (outRng() < .35) tBox(bellB, (x0 + x1) / 2 - 1.7, top + 1, Math.min(zo, zo - s * .35), (x0 + x1) / 2 + 1.7, top + 1.8, Math.max(zo, zo - s * .35), TRIM);
-        fY(bellB, top, x0, Math.min(zb, zo), x1, Math.max(zb, zo), '#8d8983');
+        fY(bellB, top, x0, Math.min(zb, zo), x1, Math.max(zb, zo), ROOFS[ui % ROOFS.length]);
         tBox(bellB, x0 - .2, 4.2, Math.min(zo, zo + dir * .18), x0 + .2, top + 1, Math.max(zo, zo + dir * .18), TRIM);
         tBox(bellB, x0 - .26, 0, zo - s * .35 - .26, x0 + .26, 4.2, zo - s * .35 + .26, '#efe8da');
         if (OUT_SIGNS[si][0] === '蜜雪冰橙') OUT_DESTS.push({name:'蜜雪冰橙（Bell Avenue）', x:(x0 + x1) / 2, z:BELL.zF});
       }
-      tBox(bellB, bx1 - .2, 4.2, Math.min(zo, zo + dir * .18), bx1 + .2, 11, Math.max(zo, zo + dir * .18), TRIM);
+      tBox(bellB, bx1 - .2, 4.2, Math.min(zo, zo + dir * .18), bx1 + .2, lastTop, Math.max(zo, zo + dir * .18), TRIM);   /* as tall as the last unit's parapet (was a fixed 11 m) */
       tBox(bellB, bx1 - .26, 0, zo - s * .35 - .26, bx1 + .26, 4.2, zo - s * .35 + .26, '#efe8da');
       gRect(surfNear, bx0, Math.min(zo, zf), bx1, Math.max(zo, zf), .06, PAVE);
     }
@@ -257,6 +282,9 @@ const tTri = (b, A, B, C, col) => {
   }
   /* walk-through lanes between the blocks */
   for (let k = 1; k < BELL.blocks.length; k++) gRect(surfNear, BELL.blocks[k] - 10, BELL.zF + 3 + BELL.park, BELL.blocks[k], BELL.zB - 3 - BELL.park, .06, PAVE);
+  /* a parking strip along the south side of the back lane: a car park by day, the ground the night-market stalls (js/89-outskirts-play.js, z 369.7–371.1) stand on at night */
+  gRect(surfNear, 140, 366, 400, 374.5, .055, ASPH2); gLine(markNear, 140, 374.35, 400, 374.35, .2, .075, LINE);
+  for (let x = 141.4; x < 399; x += 2.6) gLine(markNear, x, 369.5, x, 374.2, .12, .075, LINE);
   /* Bell Suites: 17-storey apartment tower in two offset slabs on a two-storey podium, at the east end of the block */
   for (const [x0, z0, x1, z1] of [[428, 328, 476, 351], [467, 337, 518, 360]]){
     tileZ(bellB, z0, x0, x1, 0, 4.2, -1, A_SHOP[0], 7.5, 4.2, '#ffffff'); tileZ(bellB, z1, x0, x1, 0, 4.2, 1, A_SHOP[1], 7.5, 4.2, '#ffffff');
@@ -269,7 +297,7 @@ const tTri = (b, A, B, C, col) => {
     tBox(bellB, tx0 - .3, H, tz0 - .3, tx1 + .3, H + 1.4, tz0 + .3, '#c9c1b3'); tBox(bellB, tx0 - .3, H, tz1 - .3, tx1 + .3, H + 1.4, tz1 + .3, '#c9c1b3');
     addBox((x0 + x1) / 2, (z0 + z1) / 2, (x1 - x0) / 2 + .4, (z1 - z0) / 2 + .4, 0); addFp({t:0, x:(x0 + x1) / 2, z:(z0 + z1) / 2, w:x1 - x0, d:z1 - z0, rot:0, color:'#9c8d7e'});
   }
-  gRect(surfNear, 420, 312, 540, 326, .06, PAVE);
+  gRect(surfNear, 420, 312, 516, 326, .06, PAVE);   /* stops short of the frontage lane as it bends south (it used to be laid over it) */
   addLabel('Bell Suites', 472, 66, 344, true);
   OUT_DESTS.push({name:'Bell Suites 公寓', x:522, z:318});
   /* Bell 喷漆: a drive-in spray garage at the west end of the block, open to the frontage lane (north).
@@ -340,30 +368,51 @@ const mcdInfo = {name:'麦当当', tag:'快餐', spawn:[-522 + MDX, 776 + MDZ, -
   tBox(b, -668, 5.6, 922, -612, 6.3, 932, '#f4f1ea', ''); for (const x of [-666, -614]) tBox(b, x - .3, 0, 922.5, x + .3, 5.6, 923.1, '#cfd3d6');
   fZ(b, Z0 - .1, -718, -704, 13, 15.6, -1, A_SIGN(SIGN_KIP0), '#ffffff'); fZ(b, Z0 - .1, -576, -562, 13, 15.6, -1, A_SIGN(SIGN_KIP0 + 1), '#ffffff');
   fX(b, X1 + .1, 966, 980, 13, 15.6, 1, A_SIGN(SIGN_KIP0 + 2), '#ffffff');
+  /* road sign at the car-park entrance, on the verge south of the driveway (clear of the hill road, the 山梁拉力 finish and the 油棕园 grid), facing the traffic both ways */
+  { const px = -533, pz = 919;
+    for (const sx of [-1, 1]) tBox(b, px + sx * 2.1 - .2, 0, pz - .2, px + sx * 2.1 + .2, 7.4, pz + .2, '#9aa0a6');
+    tBox(b, px - 2.7, 5.6, pz - .3, px + 2.7, 7.2, pz + .3, '#1d3f8f'); fZ(b, pz - .31, px - 2.55, px + 2.55, 5.7, 7.1, -1, A_KIP, '#ffffff'); fZ(b, pz + .31, px - 2.55, px + 2.55, 5.7, 7.1, 1, A_KIP, '#ffffff');
+    for (let k = 0; k < 3; k++){ const y = 4.75 - k * .95; tBox(b, px - 2.3, y, pz - .15, px + 2.3, y + .8, pz + .15, '#2c2f33'); fZ(b, pz - .16, px - 2.2, px + 2.2, y + .05, y + .75, -1, A_SIGN(SIGN_KIP0 + k), '#ffffff'); fZ(b, pz + .16, px - 2.2, px + 2.2, y + .05, y + .75, 1, A_SIGN(SIGN_KIP0 + k), '#ffffff'); }
+    tBox(b, px - 2.6, 0, pz - .5, px + 2.6, .35, pz + .5, '#c9c1b3');
+    addBox(px, pz, 2.7, .5, 0); }
   addBox(-640, 986, 85.5, 54.5, 0); addFp({t:0, x:-640, z:990, w:170, d:100, rot:0, color:'#b9805a'});
   tMesh(b, townMat, kipInfo, true);
   /* car park in front, footpath along the facade */
   gRect(surfFar, -772, 872, -540, 926, .05, ASPH); gRect(surfFar, -735, 926, -545, 940, .06, PAVE); gRect(surfFar, -545, 896, -526, 912, .05, ASPH);
   for (let x = -766; x < -546; x += 2.8){ gLine(markFar, x, 878, x, 884, .12, .075, LINE); gLine(markFar, x, 908, x, 920, .12, .075, LINE); }
   for (const z of [884, 908, 914, 920]) gLine(markFar, -766, z, -546, z, .12, .075, LINE);
+  /* kerb round the car park (open at the driveway) */
+  gRect(surfFar, -772.5, 871.5, -539.5, 872.1, .09, KERB); gRect(surfFar, -772.5, 871.5, -771.9, 926, .09, KERB);
+  gRect(surfFar, -540.1, 871.5, -539.5, 895.5, .09, KERB); gRect(surfFar, -540.1, 912.5, -539.5, 926, .09, KERB);
   addLabel('KIP 购物中心', -640, 32, 986);
   OUT_DESTS.push({name:'KIP 购物中心', x:-640, z:918, far:true});
   /* 麦当当: red box with a yellow fascia, a badge tower, glass front toward the road, a tall pole sign, drive-thru lane.
      Modelled around the old spot and shifted by (MDX, MDZ) to its place south of KIP mall. */
   const m = TB(), mLot = TB(), mMark = TB(), MX0 = -501, MX1 = -472, MZ0 = 762, MZ1 = 788;
   tBox(m, -495, 0, 768, MX1, 4.8, MZ1, '#c0392b', 'nx py');
-  tileX(m, -495, 768, MZ1, 0, 4.2, -1, A_SHOP[0], 6.7, 4.2, '#ffffff'); fX(m, -495, 768, MZ1, 4.2, 4.8, -1, null, '#c0392b');
+  tileX(m, -495, 768, MZ1, 0, 4.2, -1, A_SHOP[1], 6.7, 4.2, '#ffffff'); fX(m, -495, 768, MZ1, 4.2, 4.8, -1, null, '#c0392b');   /* dining room behind the glass, not shop shelves */
   tBox(m, -495.4, 4.8, 767.6, MX1 + .4, 6.2, MZ1 + .4, '#ffc72c', 'py ny'); fY(m, 6.2, -495.4, 767.6, MX1 + .4, MZ1 + .4, '#5a5a5a');
   fX(m, -495.5, 774.3, 781.7, 4.8, 6.2, -1, A_SIGN(SIGN_MCD), '#ffffff');
   tBox(m, MX0, 0, MZ0, -495, 9, 768, '#a8321f', 'py ny'); fY(m, 9, MX0, MZ0, -495, 768, '#ffc72c');
   fX(m, MX0 - .05, 762.7, 767.3, 4, 8.6, -1, A_BURGER, '#ffffff'); fZ(m, MZ0 - .05, -500.3, -495.7, 4, 8.6, -1, A_BURGER, '#ffffff');
-  fZ(m, MZ1 + .02, -480, -476, 1, 2.4, 1, null, '#2b3a44');
-  tBox(m, -536.35, 0, 751.65, -535.65, 12, 752.35, '#c9ccd0');
+  /* the pick-up window on the drive-thru side: frame, glass, counter ledge, a white band and two menu posters (was a dark square on a bare red wall) */
+  tBox(m, -480.5, .85, MZ1, -475.5, 2.75, MZ1 + .12, '#d9dde0', 'ny'); fZ(m, MZ1 + .13, -480.1, -475.9, 1.1, 2.5, 1, A_GLASS, '#ffffff');
+  fZ(m, MZ1 + .135, -478.06, -477.94, 1.1, 2.5, 1, null, '#d9dde0');
+  tBox(m, -480.7, .85, MZ1, -475.3, .95, MZ1 + .45, '#b9bdc0', '');
+  fZ(m, MZ1 + .02, -495, MX1, 3.55, 3.85, 1, null, '#f4f1ea'); fZ(m, MZ1 + .02, -495, MX1, 3.25, 3.35, 1, null, '#ffc72c');
+  for (const x of [-489, -485]) fZ(m, MZ1 + .03, x - 1.1, x + 1.1, 1.2, 2.8, 1, A_BURGER, '#ffffff');
+  /* roof plant behind the fascia */
+  for (const [x, z] of [[-490, 773], [-486, 773], [-481, 782]]) tBox(m, x - 1, 6.2, z - .7, x + 1, 7.3, z + .7, '#b7b9bb');
+  /* pole sign: the pole stops inside the boxes (it used to be thicker than the 麦当当 24h board and showed through the middle of the name) */
+  tBox(m, -536.6, 0, 751.6, -535.4, .45, 752.4, '#9a9ea3');
+  tBox(m, -536.22, .45, 751.78, -535.78, 12, 752.22, '#c9ccd0');
   tBox(m, -538.2, 12, 751.6, -533.8, 16.4, 752.4, '#c8102e', 'pz nz ny'); fZ(m, 751.58, -538, -534, 12.2, 16.2, -1, A_BURGER, '#ffffff'); fZ(m, 752.42, -538, -534, 12.2, 16.2, 1, A_BURGER, '#ffffff');
   tBox(m, -539.5, 10.3, 751.7, -532.5, 11.7, 752.3, '#c8102e', 'pz nz ny'); fZ(m, 751.68, -539.3, -532.7, 10.4, 11.6, -1, A_SIGN(SIGN_MCD), '#ffffff'); fZ(m, 752.32, -539.3, -532.7, 10.4, 11.6, 1, A_SIGN(SIGN_MCD), '#ffffff');
   addBox((MX0 + MX1) / 2 + MDX, (MZ0 + MZ1) / 2 + MDZ, (MX1 - MX0) / 2 + .5, (MZ1 - MZ0) / 2 + .5, 0); addCircle(-536 + MDX, 752 + MDZ, .8);
   addFp({t:0, x:(MX0 + MX1) / 2 + MDX, z:(MZ0 + MZ1) / 2 + MDZ, w:MX1 - MX0, d:MZ1 - MZ0, rot:0, color:'#c8402e'});
   gRect(mLot, -541, 742, -448, 810, .05, ASPH);
+  /* + the wedge between the lot and the hill road as it bends away south-west (was grass, cut off from the road by a kerb) */
+  gQuad4(mLot, [-541, .05, 759], [-541, .05, 812], [-554.3, .05, 812], [-544.4, .05, 772], ASPH);
   for (let x = -530; x < -452; x += 2.8){ gLine(mMark, x, 800, x, 806, .12, .075, LINE); gLine(mMark, x, 744, x, 750, .12, .075, LINE); }
   for (const [ax, az, bx2, bz] of [[-506, 756, -464, 756], [-464, 756, -464, 796], [-464, 796, -506, 796]]) gLine(mMark, ax, az, bx2, bz, .18, .075, YEL);
   const shift = (src, dst) => { for (let i = 0; i < src.p.length; i += 3){ src.p[i] += MDX; src.p[i + 2] += MDZ; } for (const k of ['p', 'n', 'uv', 'c']) for (const v of src[k]) dst[k].push(v); };
@@ -398,7 +447,7 @@ const outBulbGeo = new THREE.BoxGeometry(.28, .05, .6).translate(0, 5.37, 1.5);
   const spots = [], step = TOUCH ? 56 : 42;
   for (let x = MAP.x0 + 30; x < MAP.x1 - 20; x += step){ if (Math.abs(x - GX) < 16 || [264, 299, KIP_X0].some(v => Math.abs(x - v) < 10)) continue; const sd = Math.round(x / step) % 2 ? 1 : -1; spots.push(outSpot(x, 279.5, sd > 0 ? 0 : Math.PI, 1)); }
   for (let x = 150; x < 420; x += 30){ spots.push(outSpot(x, BELL.zF - 3.6, 0, .9)); spots.push(outSpot(x + 15, BELL.zB + 3.6, Math.PI, .9)); }
-  for (let s = 40; s < ROAD.kip.L - 20; s += step){ const [x, z, tx, tz] = roadAt(ROAD.kip, s), o = -(ROAD.kip.w / 2 + 1.8); spots.push(outSpot(x - tz * o, z + tx * o, Math.atan2(-tz, tx), 1)); }
+  for (let s = 40; s < ROAD.kip.L - 20; s += step){ const [x, z, tx, tz] = outRoadAt(ROAD.kip, s), o = -(ROAD.kip.w / 2 + 1.8); spots.push(outSpot(x - tz * o, z + tx * o, Math.atan2(-tz, tx), 1)); }
   for (const [x, z] of [[-740, 896], [-680, 896], [-620, 896], [-566, 896], [-525 + MDX, 776 + MDZ], [-455 + MDX, 776 + MDZ]]) spots.push(outSpot(x, z, 0, 1));
   outSet('lamp', spots, [[outPostGeo, M('#3b3f44', {metalness:.4, roughness:.5})], [outBulbGeo, bulbMat]], !TOUCH);
 })();
@@ -406,7 +455,15 @@ const outBulbGeo = new THREE.BoxGeometry(.28, .05, .6).translate(0, 5.37, 1.5);
 (function(){
   const spots = [], rr = mkRng(4410);
   for (let x = -40; x < 560; x += 19) if (Math.abs(x - GX) > 20 && Math.abs(x - 264) > 9 && Math.abs(x - 299) > 9) spots.push(outSpot(x + (rr() - .5) * 3, 279.5 + (rr() - .5) * 2, rr() * 6.28, .9 + rr() * .3));
-  outSet('tree', spots, [[trunkGeo, M('#ffffff', {vertexColors:true, roughness:.95})], [crownGeo, M('#ffffff', {side:THREE.DoubleSide, roughness:.8, vertexColors:true})]], true);
+  const parts = [[trunkGeo, M('#ffffff', {vertexColors:true, roughness:.95})], [crownGeo, M('#ffffff', {side:THREE.DoubleSide, roughness:.8, vertexColors:true})]];
+  outSet('tree', spots, parts, true);
+  /* and round the KIP and 麦当当 car parks, on the verges outside the bays (they were bare asphalt pads in the grass): one more set, culled with the view */
+  const lot = [];
+  for (let x = -762; x < -548; x += 19) lot.push(outSpot(x + (rr() - .5) * 2, 868.6, rr() * 6.28, .85 + rr() * .3));
+  for (let z = 880; z < 925; z += 15) lot.push(outSpot(-775.6, z + (rr() - .5) * 2, rr() * 6.28, .85 + rr() * .3));
+  for (let z = 1072; z < 1134; z += 15.5) lot.push(outSpot(-402.6, z + (rr() - .5) * 2, rr() * 6.28, .85 + rr() * .3));
+  for (let x = -490; x < -410; x += 16) lot.push(outSpot(x + (rr() - .5) * 2, 1063.6, rr() * 6.28, .85 + rr() * .3));
+  outSet('tree', TOUCH ? lot.filter((_, i) => i % 2) : lot, parts, true);   /* half as many on phones */
 })();
 /* hill trees: low-poly jungle trees everywhere, an oil-palm estate on the slopes east of Bell Avenue; one instanced mesh per kind per 1/36 of the map,
    culled by the camera frustum, the shadow frustum and (in the main loop) by distance */
@@ -439,7 +496,13 @@ const oilPalmGeo = (() => {
     return false;
   };
   const ok = (x, z, pad) => x > TG.x0 + 40 && x < xMax - 40 && z > TG.z0 + 40 && z < zMax - 40 && rectDist(x, z, CAMPUS_R) > 10 && !OUT_PADS.some(p => rectDist(x, z, p) < 8) && !nearRoad(x, z, pad);
-  const put = (key, x, z, s, col) => { const ci = Math.min(NC - 1, Math.floor((x - TG.x0) / cw)) + NC * Math.min(NC - 1, Math.floor((z - TG.z0) / ch)); chunks[ci][key].push(Object.assign(outSpot(x, z, rr() * 6.28, s), {col})); };
+  /* on a slope the trunk stands on the lowest ground round its foot, so its downhill side never hangs in the air
+     (one in three hill trees used to float by 15 cm or more, the worst by almost 2 m) */
+  const put = (key, x, z, s, col) => {
+    const ci = Math.min(NC - 1, Math.floor((x - TG.x0) / cw)) + NC * Math.min(NC - 1, Math.floor((z - TG.z0) / ch)), o = Object.assign(outSpot(x, z, rr() * 6.28, s), {col}), r = .48 * s;
+    let lo = o.y; for (let a = 0; a < 8; a++) lo = Math.min(lo, terrainY(x + Math.cos(a * .785) * r, z + Math.sin(a * .785) * r));
+    o.y = o.ty = lo - .05; chunks[ci][key].push(o);
+  };
   const ESTATE = {x0:300, x1:760, z0:530, z1:930}, dens = TOUCH ? .55 : 1;
   for (let z = ESTATE.z0; z < ESTATE.z1; z += 12) for (let x = ESTATE.x0 + (Math.round(z / 12) % 2) * 7; x < ESTATE.x1; x += 14){
     if (rr() > .93 * dens) continue; const px = x + (rr() - .5) * 2, pz = z + (rr() - .5) * 2;
@@ -483,7 +546,7 @@ const outRelief = (() => {
   }
   g.putImageData(img, 0, 0); return cv;
 })();
-const OUT_LOTS = [[-772, 872, -540, 940], [-541 + MDX, 742 + MDZ, -448 + MDX, 810 + MDZ], [138, 310, 413, 315.5], [138, 354.7, 413, 360], [420, 312, 540, 326]];
+const OUT_LOTS = [[-772, 872, -540, 940], [-541 + MDX, 742 + MDZ, -448 + MDX, 810 + MDZ], [138, 310, 413, 315.5], [138, 354.7, 413, 360], [420, 312, 516, 326]];
 function drawOutMini(mg, X, Z, k){
   const C = TG.C; mg.imageSmoothingEnabled = true;
   mg.drawImage(outRelief, X(TG.x0 - C / 2), Z(TG.z0 - C / 2), TG.nx * C * k, TG.nz * C * k);
