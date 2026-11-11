@@ -183,6 +183,67 @@
         }
       }
     },
+    "wall": {
+      ".read": "auth != null",
+      ".indexOn": [
+        "ts"
+      ],
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid && (!newData.exists() || !data.exists() || now >= data.child('ts').val() + 600000)",
+        ".validate": "newData.hasChildren(['name', 'text', 'color', 'ts'])",
+        "name": {
+          ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16 && newData.val() === root.child('users').child(auth.uid).child('name').val()"
+        },
+        "text": {
+          ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 40 && newData.val().matches(/[^ ]/) && !newData.val().matches(/(https?|www|[.](com|net|org|cn|my|io|cc|xyz|top|me|co|info|link|ly|gg|app|site|shop|vip)|@|<|>|[0-9]{6})/i)"
+        },
+        "color": {
+          ".validate": "newData.isString() && newData.val().matches(/^(yellow|pink|blue|green|orange|purple)$/)"
+        },
+        "ts": {
+          ".validate": "newData.isNumber() && newData.val() === now"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
+    "wallLikes": {
+      "$author": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid === $author && !newData.exists() && newData.parent().parent().child('wall').child($author).child('ts').val() === now",
+        "$liker": {
+          ".write": "auth != null && auth.uid === $liker && $liker !== $author && !data.exists()",
+          ".validate": "newData.val() === true && root.child('wall').child($author).exists()"
+        }
+      }
+    },
+    "wallLikeN": {
+      ".read": "auth != null",
+      ".indexOn": ".value",
+      "$author": {
+        ".write": "auth != null && newData.exists()",
+        ".validate": "newData.isNumber() && ((auth.uid === $author && newData.val() === 0 && newData.parent().parent().child('wall').child($author).child('ts').val() === now) || (auth.uid !== $author && !root.child('wallLikes').child($author).child(auth.uid).exists() && newData.parent().parent().child('wallLikes').child($author).child(auth.uid).val() === true && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))))"
+      }
+    },
+    "wallFlags": {
+      "$author": {
+        ".write": "auth != null && auth.uid === $author && !newData.exists() && newData.parent().parent().child('wall').child($author).child('ts').val() === now",
+        "$reporter": {
+          ".read": "auth != null && auth.uid === $reporter",
+          ".write": "auth != null && auth.uid === $reporter && $reporter !== $author && !data.exists()",
+          ".validate": "newData.val() === true && root.child('wall').child($author).exists()"
+        }
+      }
+    },
+    "wallFlagN": {
+      ".read": "auth != null",
+      ".indexOn": ".value",
+      "$author": {
+        ".write": "auth != null && newData.exists()",
+        ".validate": "newData.isNumber() && ((auth.uid === $author && newData.val() === 0 && newData.parent().parent().child('wall').child($author).child('ts').val() === now) || (auth.uid !== $author && !root.child('wallFlags').child($author).child(auth.uid).exists() && newData.parent().parent().child('wallFlags').child($author).child(auth.uid).val() === true && ((!data.exists() && newData.val() === 1) || (data.exists() && newData.val() === data.val() + 1))))"
+      }
+    },
     "saves": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
