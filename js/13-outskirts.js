@@ -234,14 +234,17 @@ for (const r of OUT_ROADS){
   ribbon(K, r, hw - .55, hw - .4, .075, YEL, sideKeep(mk, hw)); ribbon(K, r, -hw + .4, -hw + .55, .075, YEL, sideKeep(mk, -hw));
 }
 /* zebra crossings: over Jalan Sunsuria in front of the gate, and over the frontage lane */
-for (const zc of [270, 289]) for (let k = -3; k <= 3; k++) gRect(markNear, GX + 9 + k * 1.1 - .32, zc - 3.6, GX + 9 + k * 1.1 + .32, zc + 3.6, .075, LINE);
+/* stripes run with the traffic (east-west), stacked across each carriageway, in a band 4 m wide where you walk across */
+for (const zc of [270, 289]) for (let k = -3; k <= 3; k++) gRect(markNear, GX + 7, zc + k * 1.1 - .32, GX + 11, zc + k * 1.1 + .32, .075, LINE);
 for (const xc of [GX + 9, 264, 299]) for (let k = -2; k <= 2; k++) gRect(markNear, xc - 2, 307 + k * 1.1 - .32, xc + 2, 307 + k * 1.1 + .32, .075, LINE);
 
 /* ---------- Bell Avenue block, Bell Suites tower, Taman Warisan Megah terraces behind ---------- */
 const bellInfo = {name:'Bell Avenue 商业街', tag:'商业', spawn:[276, 303, Math.PI],
   desc:'正门对面、隔着 Jalan Sunsuria 的一整排三层店屋，北排朝大路，南排朝后巷，中间有两条穿行小巷，东头是 Bell Suites 公寓。星爸爸咖啡、31 冰淇淋、蜜雪冰橙、螺蛳粉、麻辣烫都在这排（店名都是谐音或通用名，顺序照真实地图）。'};
 const resInfo = {name:'Taman Warisan Megah 住宅区', tag:'住宅', spawn:[110, 405.5, Math.PI / 2],
-  desc:'Bell Avenue 后面的双层排屋和几栋矮公寓，很多同学在这里租房住。'};
+  desc:'Bell Avenue 后面的双层排屋和几栋矮公寓，很多同学在这里租房住。正对校门那一排每户门口都有车棚，挂着「出售」牌子的可以买下来装修（js/89-house.js）。'};
+/* the terrace row straight south of the gate: twelve 6 m houses, each with a TWM.porch deep carport in front (js/89-house.js sells some of them) */
+const TWM = {x0:74, z0:411, x1:146, z1:430, porch:5.5, unit:6};
 const BELL_TINTS = ['#f2dfc0', '#e8cdb8', '#d5e3d8', '#efd5d3', '#dcdcec', '#f3e7c4', '#d9e6ee', '#ece2d6', '#e7d9ef', '#f0e0b8'];
 const bellB = TB(), resB = TB(), OUT_DESTS = [];
 const tTri = (b, A, B, C, col) => {
@@ -332,8 +335,8 @@ const tTri = (b, A, B, C, col) => {
     addBox(X0 + t / 2, (Z0 + Z1) / 2, t / 2 + .05, (Z1 - Z0) / 2, 0); addBox(X1 - t / 2, (Z0 + Z1) / 2, t / 2 + .05, (Z1 - Z0) / 2, 0); addBox((X0 + X1) / 2, Z1 - t / 2, (X1 - X0) / 2, t / 2 + .05, 0);
     addFp({t:0, x:(X0 + X1) / 2, z:(Z0 + Z1) / 2, w:X1 - X0, d:Z1 - Z0, rot:0, color:'#7d858d'});
     window.XSPRAY = {x:(X0 + X1) / 2, z:326.5, h:0, r:4.5, door:{x:(X0 + X1) / 2, z:Z0, h:0, w:X1 - X0 - 2 * t, d:Z1 - Z0 - t, top:H - 1.5}}; }
-  /* gate pillars at the opening in the hedge */
-  for (const s of [-1, 1]){ const px = GX + s * 16.8; tBox(bellB, px - 1, 0, 262.2, px + 1, 3.2, 264.8, '#a4553a'); tBox(bellB, px - 1.25, 3.2, 261.9, px + 1.25, 3.6, 265.1, '#e6dece'); addBox(px, 263.5, 1.1, 1.4, 0); }
+  /* gate pillars at the ends of the gateway, just past the porches (GATE_FRONT, js/10-world.js) */
+  for (const s of [-1, 1]){ const px = GX + s * (GATE_FRONT.porch + 5.6); tBox(bellB, px - 1, 0, 262.2, px + 1, 3.2, 264.8, '#a4553a'); tBox(bellB, px - 1.25, 3.2, 261.9, px + 1.25, 3.6, 265.1, '#e6dece'); addBox(px, 263.5, 1.1, 1.4, 0); }
   OUT_DESTS.push({name:'Bell Avenue 后巷', x:250, z:BELL.zB});
   /* road-closed barriers where Jalan Sunsuria runs off the map */
   for (const xe of [MAP.x0 + 2, MAP.x1 - 2]) for (const zc of [270, 289]) for (let k = -2; k <= 2; k++) tBox(bellB, xe - .3, 0, zc + k * 1.8 - .8, xe + .3, 1.1, zc + k * 1.8 + .8, k % 2 ? '#d63a2f' : '#f4f1ea', 'ny');
@@ -342,14 +345,29 @@ const tTri = (b, A, B, C, col) => {
   const TER = [[-26, 380, 68, 399], [74, 380, 147, 399], [152, 380, 225, 399], [232, 380, 316, 399],
     [-13, 411, 67, 430], [74, 411, 146, 430], [153, 411, 226, 430], [233, 411, 316, 430],
     [-13, 433, 67, 453], [74, 433, 146, 453], [153, 433, 226, 453], [233, 433, 316, 453]];
-  TER.forEach(([x0, z0, x1, z1], k) => {
+  TER.forEach(([x0, z0r, x1, z1], k) => {
+    /* the row facing the gate (TWM) has a carport in front of every house: the house itself starts TWM.porch further back */
+    const porch = x0 === TWM.x0 && z0r === TWM.z0, z0 = porch ? z0r + TWM.porch : z0r;
     const tint = BELL_TINTS[(k * 3 + 1) % BELL_TINTS.length], roof = k % 3 ? '#a5553a' : '#8e4a33', zc = (z0 + z1) / 2, L = x1 - x0 + 1.2;
     tBox(resB, x0, 0, z0, x1, 6.6, z1, tint, 'nz pz py ny');
-    tileZ(resB, z0, x0, x1, 0, 6.6, -1, A_WIN[1], 6, 3.3, tint); tileZ(resB, z1, x0, x1, 0, 6.6, 1, A_WIN[0], 6, 3.3, tint);
+    tileZ(resB, z0, x0, x1, porch ? 3.3 : 0, 6.6, -1, A_WIN[1], 6, 3.3, tint); tileZ(resB, z1, x0, x1, 0, 6.6, 1, A_WIN[0], 6, 3.3, tint);
     tQuad(resB, [x0 - .6, 9.2, zc], [L, 0, 0], [0, -2.9, -(zc - z0 + .8)], null, roof);
     tQuad(resB, [x1 + .6, 9.2, zc], [-L, 0, 0], [0, -2.9, z1 - zc + .8], null, roof);
     tTri(resB, [x0, 6.6, z1], [x0, 9.2, zc], [x0, 6.6, z0], tint); tTri(resB, [x1, 6.6, z0], [x1, 9.2, zc], [x1, 6.6, z1], tint);
     for (let x = x0 + 6; x < x1 - 1; x += 6) tBox(resB, x - .15, 0, z0 - .4, x + .15, 6.9, z0, '#e6dece');
+    if (porch) for (let ux = x0; ux < x1 - 1; ux += TWM.unit){
+      const ux1 = ux + TWM.unit;
+      /* ground floor: front door on the left, a wide window on the right */
+      fZ(resB, z0, ux, ux1, 0, 3.3, -1, null, tint);
+      tBox(resB, ux + .45, 0, z0 - .12, ux + 1.95, 2.75, z0, '#efe8da', 'ny pz'); tBox(resB, ux + .6, 0, z0 - .16, ux + 1.8, 2.6, z0 - .1, '#6b4a33', 'ny pz');
+      tBox(resB, ux + 2.5, .85, z0 - .1, ux + 5.5, 2.55, z0, '#efe8da', 'ny pz'); tBox(resB, ux + 2.65, 1, z0 - .14, ux + 5.35, 2.4, z0 - .08, '#5d7f93', 'ny pz');
+      /* carport: concrete floor, a flat roof on two posts, and a low wall between neighbours */
+      gRect(resB, ux, z0r, ux1, z0, .05, '#9e9a92');
+      tBox(resB, ux, 2.95, z0r - .3, ux1, 3.15, z0, '#8d8983'); tQuad(resB, [ux, 2.95, z0r - .3], [TWM.unit, 0, 0], [0, 0, z0 - z0r + .3], null, '#e8e3d8');
+      tBox(resB, ux + .05, 0, z0r - .15, ux + .3, 2.95, z0r + .1, '#efe8da'); tBox(resB, ux1 - .3, 0, z0r - .15, ux1 - .05, 2.95, z0r + .1, '#efe8da');
+      tBox(resB, ux - .08, 0, z0r, ux + .08, 1, z0, '#d9d1c2'); addBox(ux, (z0r + z0) / 2, .1, (z0 - z0r) / 2, 0);
+    }
+    if (porch) addBox(x1, (z0r + z0) / 2, .1, (z0 - z0r) / 2, 0), tBox(resB, x1 - .08, 0, z0r, x1 + .08, 1, z0, '#d9d1c2');
     addBox((x0 + x1) / 2, zc, (x1 - x0) / 2 + .3, (z1 - z0) / 2 + .3, 0); addFp({t:0, x:(x0 + x1) / 2, z:zc, w:x1 - x0, d:z1 - z0, rot:0, color:'#a8644a'});
   });
   for (const [x0, z0, x1, z1] of [[346, 380, 421, 390], [447, 380, 521, 390], [346, 392.5, 421, 403], [447, 392.5, 521, 403], [346, 427, 421, 436], [447, 427, 521, 436]]){

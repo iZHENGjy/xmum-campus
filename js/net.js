@@ -27,7 +27,7 @@
  * 状态变化时会在 window 上派发 'xnet' 事件。
  *
  * 数据库路径：
- *   /pres/{格}/{uid} = {p, t, n, m, k?, c?, fx?, ride?, rs?, duel?, ds?, dnd?}   位置（新协议）：地图 100 米一格（格 = "列_行"，0–23，覆盖 ±1200 米），
+ *   /pres/{格}/{uid} = {p, t, n, m, k?, c?, fx?, ride?, rs?, duel?, ds?, dnd?}   位置（新协议）：地图 100 米一格（格 = "列_行"，0–24，覆盖 -1200 ~ 1300 米），
  *                  只写自己所在的格、只订阅周围 3×3 格；p = "x,z,y,h,vx,vz,w"（0.1 米 / 0.01 弧度 / 0.1 米每秒 / 0.01 弧度每秒），
  *                  n 名字、m 模式（w 走路 / n 奶娃）、k 车型、c 颜色（默认黄色时不写）；只有 p 和变了的字段才 update。
  *                  只在走路/奶娃模式时存在；看开场画面、黑洞、俯瞰、后台时不写
@@ -68,7 +68,9 @@
    * p = "x,z,y,h,vx,vz,w"：坐标 0.1 米、朝向 0.01 弧度、速度 0.1 米/秒、转向速度 0.01 弧度/秒，都取整。
    * 发送端按「航位推算」决定发不发：接收端拿上一条的速度和转向往前推，推出来的位置和真实位置差得多了才发下一条。 */
   const PR = XNet.proto = (() => {
-    const CELL = 100, ORG = -1200, NC = 24, MARGIN = 8;      // -1200…1200 米：校园加外面的 KIP、麦当当
+    /* -1200…1300 米：校园加外面的 KIP、麦当当、汽车游乐园二园（地图南边到 z 1260）。以前是 24 格到 +1200；旧页面不认第 24 格，
+       只是看不见站在 z / x 1200 以外的新页面玩家，不会出错 */
+    const CELL = 100, ORG = -1200, NC = 25, MARGIN = 8;
     const wrap = a => { a = ((a + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI; return isFinite(a) ? a : 0; };
     const ix = v => Math.max(0, Math.min(NC - 1, Math.floor(((+v || 0) - ORG) / CELL)));
     const key = (i, j) => i + '_' + j;
@@ -86,7 +88,7 @@
       return out;
     }
     const q = (v, s, lim) => { v = Math.round((+v || 0) * s); return Math.max(-lim, Math.min(lim, v)) || 0; };
-    const encP = s => [q(s.x, 10, 12000), q(s.z, 10, 12000), q(s.y, 10, 7000), q(wrap(s.h), 100, 314), q(s.vx, 10, 999), q(s.vz, 10, 999), q(s.w, 100, 999)].join(',');
+    const encP = s => [q(s.x, 10, 13000), q(s.z, 10, 13000), q(s.y, 10, 7000), q(wrap(s.h), 100, 314), q(s.vx, 10, 999), q(s.vz, 10, 999), q(s.w, 100, 999)].join(',');
     const P_RE = /^-?[0-9]{1,5},-?[0-9]{1,5},-?[0-9]{1,4},-?[0-9]{1,3},-?[0-9]{1,3},-?[0-9]{1,3},-?[0-9]{1,3}$/;
     function decP(str){
       if (typeof str !== 'string' || !P_RE.test(str)) return null;
@@ -169,7 +171,7 @@
   const SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
   const SEND_MS = 200, IDLE_HEARTBEAT = 2000, HIDDEN_HEARTBEAT = 4000;   // 旧协议（/presence）的节奏：只在退回旧协议时用
   const TICK = 100, STALE_GRID = 75000;                                   // 新协议：每 100 毫秒检查一次；心跳 30 秒，75 秒没消息算掉线（正常下线有 onDisconnect 马上删）
-  const STALE_DRAW = 6000, STALE_COUNT = 15000, MAP = 1200, OLD_MAP = 700;   // 旧 /presence 的规则只认 ±700 米
+  const STALE_DRAW = 6000, STALE_COUNT = 15000, MAP = 1300, OLD_MAP = 700;   // 旧 /presence 的规则只认 ±700 米
   let db = null, me = null, warned = false, serverOffset = 0, connected = false;
   const SOCIAL_KEYS = ['fx', 'ride', 'rs', 'duel', 'ds', 'dnd'];   /* presence 里互动用的字段（js/96-social.js），规则在 database.rules.json */
   const best = {hole:-1, stunt:-1, rich:-1};            // 服务器上自己的最好成绩（-1 = 未知）
@@ -1036,6 +1038,7 @@
     let s = 0;
     try { const d = JSON.parse(o['xmum-gta-v1'] || 'null') || {}; s += (+d.money || 0) + (Array.isArray(d.owned) ? d.owned.length : 0) * 500 + (+d.stunt || 0) / 50; } catch(e){}
     try { s += +(JSON.parse(o['xmum-wardrobe-v1'] || 'null') || {}).spent || 0; } catch(e){}
+    try { s += +(JSON.parse(o['xmum-house-v1'] || 'null') || {}).spent || 0; } catch(e){}   // 买房装修花掉的钱（js/89-house.js），不然买了房云端进度反而像变少了
     return s + (+o['xmum-hole2-best'] || 0) * 10 + (+o['xmum-hole-best'] || 0) * 10;
   }
   let lastPushed = '';

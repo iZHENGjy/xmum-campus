@@ -276,6 +276,7 @@ const TN_DROPS = {
   thief:   {name:'抓小偷', g:[[['turbo', 1], ['plan', 1], ['core', 1]], [['turbo', 1]], [], []]},
   activity:{name:'挑战赛', g:[[['tyre', 1], ['cf', 1], ['lacq', 1]], [['tyre', 1], ['lacq', 1]], [['lacq', 1]], []]},
   arcade:  {name:'B1 小游戏', g:[[['turbo', 1]], [['cf', 1]], [['lacq', 1]], []]},
+  klia:    {name:'KLIA 送机', day:12, g:[[['nos', 1], ['lacq', 1], ['ti', 1, .08]], [['lacq', 1], ['nos', 1, .35]], [['lacq', 1]], []]},
   bell:    {name:'大胃王争霸赛', g:[[['neon', 2], ['nos', 1], ['bp_plasma', 1, .5]], [['neon', 2]], [['neon', 1]], []]},
   /* 补充的 8 个玩法 */
   hole:    {name:'黑洞模式', g:[[['cf', 2], ['ti', 1, .12], ['core', 1, .04]], [['cf', 1], ['ti', 1, .05]], [['cf', 1, .5]], []]},
