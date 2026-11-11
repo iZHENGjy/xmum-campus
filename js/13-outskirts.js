@@ -216,7 +216,8 @@ for (const r of OUT_ROADS){
   ribbon(K, r, hw - .55, hw - .4, .075, YEL, sideKeep(mk, hw)); ribbon(K, r, -hw + .4, -hw + .55, .075, YEL, sideKeep(mk, -hw));
 }
 /* zebra crossings: over Jalan Sunsuria in front of the gate, and over the frontage lane */
-for (const zc of [270, 289]) for (let k = -3; k <= 3; k++) gRect(markNear, GX + 9 + k * 1.1 - .32, zc - 3.6, GX + 9 + k * 1.1 + .32, zc + 3.6, .075, LINE);
+/* stripes run with the traffic (east-west), stacked across each carriageway, in a band 4 m wide where you walk across */
+for (const zc of [270, 289]) for (let k = -3; k <= 3; k++) gRect(markNear, GX + 7, zc + k * 1.1 - .32, GX + 11, zc + k * 1.1 + .32, .075, LINE);
 for (const xc of [GX + 9, 264, 299]) for (let k = -2; k <= 2; k++) gRect(markNear, xc - 2, 307 + k * 1.1 - .32, xc + 2, 307 + k * 1.1 + .32, .075, LINE);
 
 /* ---------- Bell Avenue block, Bell Suites tower, Taman Warisan Megah terraces behind ---------- */
