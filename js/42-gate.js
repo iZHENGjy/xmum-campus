@@ -174,6 +174,8 @@ function gateClearRun(){
   gateCleared = true;
   /* the old inner fence (js/10-world.js FENCE_GHOST) only stood in while the scenery was placed */
   for (const c of FENCE_GHOST){ const i = colliders.indexOf(c); if (i >= 0) colliders.splice(i, 1); for (const st of structures){ const j = st.cols.indexOf(c); if (j >= 0) st.cols.splice(j, 1); } }
+  /* so do the low cheek walls beside the A-zone steps (js/09-azone.js): from now on you walk or drive over them */
+  for (const c of AZ.cheeks){ const i = colliders.indexOf(c); if (i >= 0) colliders.splice(i, 1); for (const st of structures){ const j = st.cols.indexOf(c); if (j >= 0) st.cols.splice(j, 1); } }
   /* the planter under the name stone is a little wider than the box the scenery was placed round (eaten with the stone) */
   { const c = addBox(GATE_PLAZA.sx, GATE_PLAZA.sz + .2, 15.4, 1.4, 0), st = structures.find(s => s.info === gateInfo); if (st) st.cols.push(c); }
   /* a campus cat whose spot is now inside a block that was turned moves to the front of it */
