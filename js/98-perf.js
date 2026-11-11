@@ -334,6 +334,8 @@
     scene.add(mesh); mesh.updateMatrixWorld(true);
     const B = {key, mesh, list, cls:+key.split('|')[3], cast, r:geo.boundingSphere.radius, c:geo.boundingSphere.center};
     for (const e of list){ e.b = B; e.o.layers.mask = M_PARK; }
+    /* 成员不再直接画了：释放它们在显卡上的那份顶点（只是显存，数组还在；拆批以后 three.js 会自己重新上传） */
+    for (const e of list) e.o.geometry.dispose();
     batches.set(key, B);
     return B;
   }
