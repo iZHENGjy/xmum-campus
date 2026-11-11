@@ -1521,3 +1521,37 @@ body.titled:has(#embedTip:not([hidden])) #title .t-wrap{padding-top:56px}
   .bm-legend{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-top:6px;padding-bottom:2px}
   .bm-legend::-webkit-scrollbar{display:none}
 }
+
+/* ---------- 买房装修 (js/89-house-ui.js): same panel as the wardrobe; a side panel on wide screens, a bottom sheet on upright phones ---------- */
+#house{position:fixed;z-index:9;right:calc(var(--safe-r) + 16px);top:calc(var(--safe-t) + 16px);bottom:calc(var(--safe-b) + 16px);width:min(400px,42vw);display:flex;flex-direction:column;
+  padding:18px 16px 12px;background:var(--panel-solid);box-sizing:border-box}
+#houseMoney{font-family:var(--display);font-size:15px;font-weight:700;color:var(--gold)}
+#house .wd-tabs button small{opacity:.7;font-size:11px}
+.hz-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.18)}
+.hz-set{display:flex;align-items:center;gap:8px;margin:0 0 8px;padding:6px 8px;border:1px dashed var(--line);border-radius:var(--r-md);font-size:12px;flex:none}
+.hz-set span{flex:1;min-width:0;color:var(--muted);line-height:1.4}
+.hz-set .btn{min-height:32px;padding:4px 10px;flex:none}
+.hz-it small{font-size:10.5px;color:var(--muted);line-height:1.2}
+.hz-ic{display:grid;place-items:center;font-size:18px;line-height:1}
+.hz-h{grid-column:1/-1;font-size:12px;font-weight:700;color:var(--muted);margin:4px 2px 0}
+.hz-info{flex:1;min-height:0;overflow:auto;font-size:13px;line-height:1.55;margin:0 -4px;padding:0 4px;overscroll-behavior:contain}
+.hz-tags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.hz-tags b,.hz-tags span{font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;background:var(--chip);color:var(--ink)}
+.hz-tags b{background:#38c6d9;color:#0f2a30}
+.hz-lead{margin:0 0 8px}
+.hz-dl{display:grid;grid-template-columns:auto 1fr;gap:5px 10px;margin:0}
+.hz-dl dt{color:var(--muted);font-weight:700;white-space:nowrap}
+.hz-dl dd{margin:0}
+.hz-dl dd b{color:var(--gold)}
+@media (max-width:760px){
+  #house{left:calc(var(--safe-l) + 8px);right:calc(var(--safe-r) + 8px);top:auto;bottom:calc(var(--safe-b) + 8px);width:auto;height:min(58vh,480px);padding:14px 12px 10px}
+  #house .shop-h{margin-bottom:8px}
+  #house .shop-h h2{font-size:19px}
+  .hz-info{font-size:12.5px}
+}
+@media (max-height:520px) and (min-width:561px){
+  #house{left:auto;right:calc(var(--safe-r) + 8px);top:calc(var(--safe-t) + 8px);bottom:calc(var(--safe-b) + 8px);width:min(400px,54vw);height:auto;padding:10px 12px 8px}
+  #house .shop-h{margin-bottom:6px}
+  #house .shop-h h2{font-size:17px}
+  .hz-set{margin-bottom:6px;padding:4px 8px}
+}
