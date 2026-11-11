@@ -76,10 +76,30 @@ const ofEsc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&am
 const ofPay = v => (typeof v === 'number' ? 'RM ' + Math.round(v) : v);
 const ofTime = v => (typeof v === 'number' ? '限时 ' + Math.round(v) + ' 秒' : v);
 const ofDist = v => (typeof v === 'number' ? (v >= 1000 ? (v / 1000).toFixed(1) + ' 公里' : Math.round(v / 10) * 10 + ' 米') : v);
+/* phones (body.nt-on, js/ui-notice.js): a new offer first shows as one pill above the action buttons, so the road stays clear; a tap opens the full card */
+function ofPill(c){
+  const s = c.spec, n = c.opts.length, pays = c.opts.map(o => o.pay).filter(v => typeof v === 'number');
+  const lo = pays.length ? Math.round(Math.min(...pays)) : null, hi = pays.length ? Math.round(Math.max(...pays)) : null;
+  const pay = lo != null ? 'RM ' + lo + (hi !== lo ? '–' + hi : '') : (c.opts[0].pay != null ? ofPay(c.opts[0].pay) : '');
+  offerEl.innerHTML = `<button type="button" class="of-pill" data-open aria-label="${ofEsc(s.title)}：有单可接，点开看详情"><i>${ofEsc(s.icon || '📋')}</i><b>${n > 1 ? `接单 · ${n} 选 1` : '接单'}</b>` +
+    (pay ? `<em>${ofEsc(pay)}</em>` : '') + `<span>${ofEsc(s.title)}</span><u aria-hidden="true">看看</u></button>`;
+}
+function ofPlace(){
+  if (!offerEl.classList.contains('mini')){ offerEl.style.bottom = ''; return; }
+  /* just above whatever sits under it on the right: the action buttons, and on upright phones the compass row */
+  const me = offerEl.getBoundingClientRect(); let top = 1e9;
+  for (const id of ['acts', 'compass']){
+    const e = document.getElementById(id); if (!e || e.hidden) continue;
+    const r = e.getBoundingClientRect(); if (r.height && r.right > me.left && r.left < me.right) top = Math.min(top, r.top);
+  }
+  offerEl.style.bottom = top < 1e9 ? Math.round(innerHeight - top + 8) + 'px' : '';
+}
 function ofRender(c){
   const s = c.spec, one = c.opts.length === 1 && !s.options;
-  offerEl.classList.toggle('one', one);
-  offerEl.innerHTML = `<div class="of-h"><i>${ofEsc(s.icon || '📋')}</i><b>${ofEsc(s.title)}</b><span>${ofEsc(s.desc || '')}</span><button type="button" class="of-x" data-x>跳过${TOUCH ? '' : ' X'}</button></div><div class="of-opts">` +
+  offerEl.classList.toggle('one', one); offerEl.classList.toggle('mini', !!c.mini);
+  if (c.mini){ ofPill(c); ofPlace(); return; }
+  offerEl.style.bottom = '';
+  offerEl.innerHTML = `<div class="of-h"><i>${ofEsc(s.icon || '📋')}</i><b>${ofEsc(s.title)}</b><span>${ofEsc(s.desc || '')}</span>${c.pill ? '<button type="button" class="of-x" data-min>收起</button>' : ''}<button type="button" class="of-x" data-x>跳过${TOUCH ? '' : ' X'}</button></div><div class="of-opts">` +
     c.opts.map((o, i) => {
       const meta = [o.pay != null && `<em>${ofEsc(ofPay(o.pay))}</em>`, o.desc && ofEsc(o.desc), o.time != null && ofEsc(ofTime(o.time)), o.dist != null && ofEsc(ofDist(o.dist))].filter(Boolean).join(' · ');
       return `<button type="button" class="of-opt${one ? ' go' : ''}" data-i="${i}"><kbd>${one ? 'F' : i + 1}</kbd><b>${o.tag ? `<u>${ofEsc(o.tag)}</u>` : ''}${ofEsc(o.title)}</b>` +
@@ -104,12 +124,12 @@ function offerJob(id, build){
   const sk = O.skip[id];
   if (sk){ sk.seen = O.frame; ofNote('这单跳过了 · 走开一下再回来可以重新看'); return false; }
   if (!O.on){ ofNote(TOUCH ? '现在不接单：点指南针旁的「不接单」打开' : '现在不接单：按 J 打开'); return false; }
-  if (O.cur){ if (O.cur.id !== id) return false; O.cur.seen = O.frame; return true; }
+  if (O.cur){ if (O.cur.id !== id) return false; O.cur.seen = O.frame; if (O.cur.mini && !(O.frame % 15)) ofPlace(); return true; }
   if (driving && Math.hypot(driving.vx, driving.vz) > O.VMAX){ ofNote('慢一点才看得到单子'); return false; }
   const spec = build(); if (!spec) return false;
   const opts = (spec.options ? spec.options.slice(0, 3) : [{title:spec.accept || '接单', pay:spec.pay, time:spec.time, dist:spec.dist, risk:spec.risk, onAccept:spec.onAccept}]);
   if (!opts.length) return false;
-  O.cur = {id, spec, opts, seen:O.frame, t:performance.now() / 1000};
+  O.cur = {id, spec, opts, seen:O.frame, t:performance.now() / 1000, mini:document.body.classList.contains('nt-on')};
   ofRender(O.cur); offerEl.hidden = false; tone('triangle', 880, 1175, .09, .06);
   return true;
 }
@@ -131,6 +151,8 @@ ofTogBtn.addEventListener('click', e => {
 });
 offerEl.addEventListener('click', e => {
   const b = e.target.closest('[data-i]'); ac();
+  if (e.target.closest('[data-open]') && OFFER.cur){ OFFER.cur.mini = false; OFFER.cur.pill = true; ofRender(OFFER.cur); canvas.focus({preventScroll:true}); return; }
+  if (e.target.closest('[data-min]') && OFFER.cur){ OFFER.cur.mini = true; ofRender(OFFER.cur); canvas.focus({preventScroll:true}); return; }
   if (b) ofAccept(+b.dataset.i); else if (e.target.closest('[data-x]')) ofSkip();
   canvas.focus({preventScroll:true});
 });
