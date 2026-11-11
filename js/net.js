@@ -22,6 +22,8 @@
  *   XNet.fresh(r)        peers() 里的一条还算不算在线（新协议 75 秒、旧 /presence 6 秒没消息算掉线）
  *   XNet.proto           位置同步协议的纯函数（分格、编码、航位推算），test/net-traffic.html 用它模拟流量
  *   XNet.traffic         流量计 {rx, tx, rxN, txN}（网址加 ?netmeter 才统计，左下角显示每秒 KB）
+ *   XNet.sleeping        现在是不是断开着（后台 60 秒、开场画面 1 分钟没操作、满员排队）；XNet.seat() → {seat:'none'|'in'|'queue', maxOnline, lastCount}
+ *   XNet.lod             影子分级显示的距离和封顶数（GHOST_CAP），调试用
  * 状态变化时会在 window 上派发 'xnet' 事件。
  *
  * 数据库路径：
@@ -29,7 +31,8 @@
  *                  只写自己所在的格、只订阅周围 3×3 格；p = "x,z,y,h,vx,vz,w"（0.1 米 / 0.01 弧度 / 0.1 米每秒 / 0.01 弧度每秒），
  *                  n 名字、m 模式（w 走路 / n 奶娃）、k 车型、c 颜色（默认黄色时不写）；只有 p 和变了的字段才 update。
  *                  只在走路/奶娃模式时存在；看开场画面、黑洞、俯瞰、后台时不写
- *   /on/{uid} = 服务器时间            在线人数：上线写一次、下线删掉（onDisconnect），只在有人进出时推送
+ *   /on/{uid} = 服务器时间            在线人数：进了游戏（不在开场画面）才写，算一个座位；下线删掉（onDisconnect），只在有人进出时推送
+ *   /config/maxOnline = 数字           在线人数上限（只读，在 Firebase 控制台改；没有就是 80）。满了的人单机玩、排队，见「在线人数上限」
  *   /presence/{uid} = {name, mode, x, z, y, h, car?, color, t}   旧协议：发布前的旧页面还在写；新页面只读（看得见旧页面的人，互动不找他们），
  *                  数据库还没发布新规则时新页面也退回这里写（和以前一样）。下个版本可以删掉
  *   /boards/{board}/{uid} = {name, value, ts}
@@ -315,8 +318,8 @@
     if (!XNet.online){ el.hidden = true; return; }
     const n = XNet.playersOnline, cap = gridOK ? maxOnline : 0;
     let t = '在线 ' + n + ' 人';
-    if (cap && seat === 'queue') t = '满员排队中 · 在线 ' + n + ' / ' + cap;
-    else if (cap && isTitle()){ t = '在线 ' + n + ' / ' + cap; if (n >= cap * .9) t += ' · 人多，可能要排队'; }
+    if (cap && seat === 'queue') t = '满员排队 ' + n + '/' + cap;
+    else if (cap && isTitle()){ t = '在线 ' + n + '/' + cap; if (n >= cap * .9) t += ' · 人多要排队'; }
     el.textContent = t; el.hidden = false;
   }
   /* 新协议：/on/{uid} 里的人（只在进出时各推一次）+ 还开着旧页面、在 /presence 里的人；退回旧协议时只数 /presence */
