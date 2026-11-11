@@ -136,23 +136,6 @@
     for (const s of [-1, 1]) for (const e of [-1, 1]) parts.push(geoTint(rodGeo(.22, .22, [FW.x + s * 2.4, .5, FW.z + e * 8.5], [FW.x + s * 1.5, FW.y, FW.z], 6), '#e8e4dc'));
     addBox(FW.x, FW.z, 3, 9.5, 0);
   }
-  { /* the park boundary: a low red-and-white kerb (look only, nothing to crash into), open on the road side where the three lanes come in */
-    const BX = {x0:-1000, x1:-800, z0:-470, z1:258}, gaps = [[CX - RUN.hw - 1, CX + RUN.hw + 1], [L1 - L1HW - 1, L1 + L1HW + 1], [LP.x - 4.5, LP.x + 4.5]];
-    const kerb = (ax, az, bx, bz, skip) => {
-      const L = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.round(L / 5)), along = az === bz;
-      for (let k = 0; k < n; k++){
-        const t = (k + .5) / n, x = ax + (bx - ax) * t, z = az + (bz - az) * t; if (skip && skip(x)) continue;
-        parts.push(geoTint(geoAt(new THREE.BoxGeometry(along ? L / n - .1 : .7, .22, along ? .7 : L / n - .1), x, .11, z), k % 2 ? WHITE : RED));
-      }
-    };
-    kerb(BX.x0, BX.z0, BX.x1, BX.z0); kerb(BX.x0, BX.z0, BX.x0, BX.z1); kerb(BX.x1, BX.z0, BX.x1, BX.z1);
-    kerb(BX.x0, BX.z1, BX.x1, BX.z1, x => gaps.some(([a, b]) => x > a - 2.5 && x < b + 2.5));
-  }
-  const sign = {x:CX - 26, z:248, face:Math.PI / 4, bw:10, bh:4, top:6.8};
-  { const fx = Math.sin(sign.face), fz = Math.cos(sign.face), rx = fz, rz = -fx;
-    parts.push(geoTint(geoAt(new THREE.BoxGeometry(sign.bw + .3, sign.bh + .3, .14), sign.x, sign.top - sign.bh / 2, sign.z, 0, sign.face, 0), '#2b2e33'));
-    for (const s of [-1, 1]){ const px = sign.x + rx * s * sign.bw * .36, pz = sign.z + rz * s * sign.bw * .36; parts.push(geoTint(geoAt(new THREE.CylinderGeometry(.16, .16, sign.top - sign.bh + .2, 8), px, (sign.top - sign.bh + .2) / 2, pz), '#3b3f44')); addCircle(px, pz, .3); }
-  }
   { const sg = toGeo(SB); delete sg.attributes.uv; parts.unshift(sg);
     const m = new THREE.Mesh(geoMerge(parts), M('#ffffff', {vertexColors:true, roughness:.55})); m.castShadow = m.receiveShadow = true; scene.add(m); }
 
@@ -251,19 +234,6 @@
   }
   fwTurn(0);
 
-  /* ---------- the road sign ---------- */
-  {
-    const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 410; const g = cv.getContext('2d');
-    g.fillStyle = '#c8322a'; g.fillRect(0, 0, 1024, 410);
-    g.fillStyle = '#f4f1ea'; for (let i = -2; i < 34; i++){ g.beginPath(); g.moveTo(i * 32, 410); g.lineTo(i * 32 + 16, 410); g.lineTo(i * 32 + 46, 380); g.lineTo(i * 32 + 30, 380); g.closePath(); g.fill(); }
-    g.fillRect(0, 0, 1024, 10); g.fillRect(0, 370, 1024, 10);
-    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#ffffff';
-    g.font = '900 150px sans-serif'; g.fillText('汽车游乐园', 512, 140);
-    g.font = '700 50px sans-serif'; g.fillStyle = '#ffe08a'; g.fillText('大跳台 · 大回环 · 飞跃峡谷 · 8 字赛道 · 漂移圆', 512, 280);
-    const tex = new THREE.CanvasTexture(cv); tex.anisotropy = ANISO;
-    const board = new THREE.Mesh(new THREE.PlaneGeometry(sign.bw, sign.bh), new THREE.MeshStandardMaterial({map:tex, roughness:.6, emissive:'#ffffff', emissiveMap:tex, emissiveIntensity:.18}));
-    board.position.set(sign.x + Math.sin(sign.face) * .09, sign.top - sign.bh / 2, sign.z + Math.cos(sign.face) * .09); board.rotation.y = sign.face; scene.add(board);
-  }
   addLabel('汽车游乐园', -905, 16, 160);
   [['大跳台', CX, BIG.H + 5, BIG.z], ['360° 大回环', LP.x + LP.w / 2, 2 * LP.R + 4, LP.z], ['波浪道 · 飞跃峡谷', L1, 6, 200], ['漂移圆', SK.x, 4, SK.z], ['8 字赛道', F8.x, 5, F8.z], ['摩天轮', FW.x, FW.y + FW.r + 4, FW.z]]
     .forEach(([t, x, y, z]) => addLabel(t, x, y, z, true));
@@ -312,6 +282,7 @@
       c.loopRide = null; loopPose(c, PI2); c.x = LP.x + LP.w; c.y = 0; c.pitch = 0; c.vz = -L.v0; c.root.position.set(c.x, 0, c.z); c.root.rotation.set(0, c.h, 0);
       if (c === driving){
         const n = (prog.best.loops | 0) + 1; prog.best.loops = n; saveGame(); addStunt('360° 大回环', 600);
+        if (window.XPark.onLoop) window.XPark.onLoop(n, Math.round(L.v0 * 3.6));
         if (typeof gxCallout === 'function') gxCallout('360° 大回环！', `进环 ${Math.round(L.v0 * 3.6)} km/h · 一共转过 ${n} 圈`, '#e8412c');
       }
     } else if (L.th <= 0){
@@ -377,6 +348,7 @@
       if (d > 3){
         const dist = Math.round(d), prev = best('bigjump'), rec = prev == null || dist > prev;
         if (rec){ prog.best.bigjump = dist; saveGame(); }
+        if (window.XPark.onJump) window.XPark.onJump(dist, rec, Math.round(f.v0 * 3.6));   /* big screen and crowd (js/92-stuntpark-deco.js) */
         call(`大跳台 ${dist} 米`, rec ? (prev == null ? '第一跳！纪录已保存' : `新纪录！上次 ${prev} 米`) : `起飞 ${Math.round(f.v0 * 3.6)} km/h · 纪录 ${prev} 米`);
       }
     }
@@ -388,6 +360,7 @@
         if (PS.lap && PS.lap.seen.size === F8G.length - 1){
           const t = PS.lap.t, prev = best('parkLap'), rec = prev == null || t < prev;
           if (rec){ prog.best.parkLap = Math.round(t * 10) / 10; saveGame(); }
+          if (window.XPark.onLap) window.XPark.onLap(t, rec);
           addStunt('8 字赛道一圈', 200);
           call(`一圈 ${fmtT(t)}`, rec ? (prev == null ? '第一圈！纪录已保存 · 继续跑下一圈' : `新纪录！上次 ${fmtT(prev)}`) : `纪录 ${fmtT(prev)} · 继续跑下一圈`);
         } else if (!PS.lap) call('8 字赛道 · 计时开始', '按顺序经过五个检查点再回到方格线');
@@ -427,5 +400,7 @@
     const base = updateOutskirts;
     updateOutskirts = function(dt, T){ base(dt, T); if (camera.position.distanceTo(FWS.wheel.position) < 1100) fwTurn(dt); };
   }
-  window.XPark = {BIG, GAPK, ROLL, MOUND, LP, LP_MIN, SK, FW, F8, F8G, LIP, LAND, RUN, PB, S:PS, cleared, loopStep};   /* for tests */
+  /* the dressing (js/92-stuntpark-deco.js) builds on these; onJump / onLoop / onLap are set there; the rest is for tests */
+  window.XPark = {BIG, GAPK, ROLL, MOUND, LP, LP_MIN, SK, FW, F8, F8G, f8At, LIP, LAND, RUN, PB, CX, L1, L1HW, S:PS, cleared, loopStep, fmtT,
+    kit:{mk, tri, quad, flat, ribbon, toGeo, UPN, RED, WHITE, ASPH, PAINT, YEL, DARK}};
 })();
