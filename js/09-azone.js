@@ -259,22 +259,59 @@ function azBuild(){
       for (let u = -hx + 3; u < hx - 2; u += 5.5) P2.push(geoTint(geoAt(new THREE.BoxGeometry(2.6, .9, .1), c.cx + u * cs + lz * sn, y - 1.6, c.cz - u * sn + lz * cs, 0, ry, 0), '#2e302f'));
     }
   }
-  /* ---- 连廊: the one covered walk, white columns and a red tiled roof, from the back of A3 down the slope; cars pass between its columns ---- */
-  { const C = AZ.CORR, n = Math.round((C.z0 - C.z1) / 4.6), L = (C.z0 - C.z1) / n, roofs = {tile:[], ridge:[], wall:[], vent:[]}, info = {name:'连廊', tag:'景观', desc:'学校里唯一的一条连廊：白柱子、红瓦屋檐，从 A3 后门顺着坡一直通到环湖路，再往前就是芙蓉桥。柱子之间够宽，车也能从底下穿过去。'};
-    const parts = [];
+  /* ---- 连廊: the one covered walk, white columns and a red tiled roof, from the back of A3 down the slope; cars pass between its columns ----
+     The roof is one piece that follows the slope (beams and ridge pitched bay by bay), with the swallowtail ridge ends only at the top and the bottom. */
+  { const C = AZ.CORR, n = Math.round((C.z0 - C.z1) / 4.6), L = (C.z0 - C.z1) / n, roofs = {tile:[], ridge:[]}, info = {name:'连廊', tag:'景观', desc:'学校里唯一的一条连廊：白柱子、红瓦屋檐，从 A3 后门顺着坡一直通到环湖路，再往前就是芙蓉桥。柱子之间够宽，车也能从底下穿过去。'};
+    const parts = [], WHITE = '#f4efe6', zk = k => C.z0 - k * L, yT = k => AZ.raw(C.x, zk(k)) + 4.1;   /* yT: top of the columns in row k */
     for (let k = 0; k <= n; k++){
-      const z = C.z0 - k * L;
+      const z = zk(k);
       for (const s of [-1, 1]){
-        const x = C.x + s * C.w / 2, y = AZ.raw(x, z);
-        parts.push(geoTint(new THREE.CylinderGeometry(.24, .28, 4.1, 10).translate(x, y + 2.05, z).toNonIndexed(), '#f4efe6'), geoTint(new THREE.BoxGeometry(.7, .3, .7).translate(x, y + .15, z), '#d8d1c4'));
+        const x = C.x + s * C.w / 2, y = AZ.raw(x, z), h = yT(k) - y;
+        parts.push(geoTint(new THREE.CylinderGeometry(.24, .28, h, 10).translate(x, y + h / 2, z).toNonIndexed(), WHITE), geoTint(new THREE.BoxGeometry(.7, .3, .7).translate(x, y + .15, z), '#d8d1c4'),
+          geoTint(new THREE.BoxGeometry(.46, .16, .46).translate(x, yT(k) - .32, z), '#e4ddd0'));
         AZ.cols.push(addCircle(x, z, .3));
       }
+      tbox(parts, C.w + .3, .3, .3, C.x, yT(k) - .1, z, WHITE);
     }
-    for (let k = 0; k < n; k++){
-      const za = C.z0 - k * L, zb = za - L, y = Math.max(AZ.raw(C.x, za), AZ.raw(C.x, zb)) + 4.1, zc = (za + zb) / 2;
-      for (const s of [-1, 1]) tbox(parts, .3, .42, L + .1, C.x + s * C.w / 2, y - .1, zc, '#f4efe6');
-      tbox(parts, C.w + .3, .3, .3, C.x, y - .1, za, '#f4efe6');
-      gableParts(L + .4, C.w + .6, 1.5, .55, C.x, y + .12, zc, roofs, 'z');
+    /* pitched beams along both sides */
+    const pitched = (list, w, h, x, ya, za, yb, zb, col) => { const len = Math.hypot(ya - yb, za - zb); list.push(geoTint(geoAt(new THREE.BoxGeometry(w, h, len), x, (ya + yb) / 2, (za + zb) / 2, -Math.atan2(ya - yb, za - zb), 0, 0), col)); };
+    for (let k = 0; k < n; k++) for (const s of [-1, 1]) pitched(parts, .3, .42, C.x + s * C.w / 2, yT(k) - .1, zk(k), yT(k + 1) - .1, zk(k + 1), WHITE);
+    /* the roof: a curved section (eave to ridge), swept down the corridor through every column row, running 0.9 m past the end rows */
+    const D = C.w / 2 + .75, HR = 1.45, NS = 4, prof = t => HR * Math.pow(t, 1.6), U = TILE_U, V = TILE_V;
+    const rows = [{z:zk(0) + .9, y:yT(0) + .12 + (yT(0) - yT(1)) / L * .9}];
+    for (let k = 0; k <= n; k++) rows.push({z:zk(k), y:yT(k) + .12});
+    rows.push({z:zk(n) - .9, y:yT(n) + .12 - (yT(n - 1) - yT(n)) / L * .9});
+    const pos = [], uv = [], tri = (a, b, c, ua, ub, uc) => { pos.push(...a, ...b, ...c); uv.push(...ua, ...ub, ...uc); };
+    const quadUp = (a, b, c, e, ua, ub, uc, ue) => {   /* two triangles, wound so the face looks up/out */
+      const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2], ny = uz * vx - ux * vz, nx = uy * vz - uz * vy, mx = (a[0] + c[0]) / 2 - C.x;
+      if (ny + nx * Math.sign(mx) * .3 >= 0){ tri(a, b, c, ua, ub, uc); tri(a, c, e, ua, uc, ue); } else { tri(a, c, b, ua, uc, ub); tri(a, e, c, ua, ue, uc); }
+    };
+    let run = 0;
+    for (let r = 0; r < rows.length - 1; r++){
+      const A = rows[r], B = rows[r + 1], seg = Math.hypot(A.y - B.y, A.z - B.z);
+      for (const side of [-1, 1]){
+        let sl = 0;
+        for (let j = 0; j < NS; j++){
+          const t0 = j / NS, t1 = (j + 1) / NS, x0 = C.x + side * D * (1 - t0), x1 = C.x + side * D * (1 - t1), l = Math.hypot(D / NS, prof(t1) - prof(t0));
+          quadUp([x0, A.y + prof(t0), A.z], [x0, B.y + prof(t0), B.z], [x1, B.y + prof(t1), B.z], [x1, A.y + prof(t1), A.z],
+            [run / U, sl / V], [(run + seg) / U, sl / V], [(run + seg) / U, (sl + l) / V], [run / U, (sl + l) / V]);
+          sl += l;
+        }
+        /* eave fascia */
+        const xe = C.x + side * D, z2 = [0, 0]; quadUp([xe, A.y - .3, A.z], [xe, B.y - .3, B.z], [xe, B.y, B.z], [xe, A.y, A.z], z2, z2, z2, z2);
+      }
+      roofs.ridge.push(geoTint(rodGeo(.3, .3, [C.x, A.y + HR + .12, A.z], [C.x, B.y + HR + .12, B.z], 4).toNonIndexed(), '#8f2f1f'));
+      run += seg;
+    }
+    const tg = new THREE.BufferGeometry(); tg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); tg.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); tg.computeVertexNormals();
+    roofs.tile.push(tg);
+    /* swallowtail ends at the top and the bottom, white gables under the first and last bays */
+    for (const [row, e] of [[rows[0], 1], [rows[rows.length - 1], -1]]){
+      for (const side of [-1, 1]){ _cm.compose(_cp.set(C.x, row.y + HR + .3, row.z), _cq.setFromUnitVectors(UP, new THREE.Vector3(side * .22, .75, e * .9).normalize()), _cs.setScalar(.75)); roofs.ridge.push(hornGeo.clone().applyMatrix4(_cm)); }
+      const k = e > 0 ? 0 : n, zg = zk(k) + e * .2, yb = yT(k) + .02, gp = [];
+      for (let j = 0; j < 8; j++){ const v0 = -C.w / 2 - .1 + (C.w + .2) * j / 8, v1 = -C.w / 2 - .1 + (C.w + .2) * (j + 1) / 8, h0 = prof(1 - Math.abs(v0) / D) + .05, h1 = prof(1 - Math.abs(v1) / D) + .05;
+        const a = [C.x + v0, yb, zg], b = [C.x + v1, yb, zg], c = [C.x + v1, yb + h1, zg], d = [C.x + v0, yb + h0, zg];
+        parts.push(quadGeo(a, b, c, d, WHITE), quadGeo(d, c, b, a, WHITE)); }
     }
     const m = new THREE.Mesh(geoMerge(parts), decoMat); m.castShadow = m.receiveShadow = true; scene.add(m);
     const rm = roofMeshes(roofs, roofMat('#c4502a'), scene);
@@ -327,8 +364,8 @@ let azFountAcc = 0;
 function azFountain(dt){
   const G = GATE_PLAZA, cp = camera.position;
   if (Math.abs(cp.x - G.sx) > 140 || Math.abs(cp.z - G.fz) > 140){ azFountAcc = 0; return; }
-  azFountAcc += dt * 16;
-  while (azFountAcc > 1){ azFountAcc--; const a = Math.random() * 6.283, r = .6 + Math.random() * .8; spawnPart('dust', G.sx, 3.6, G.fz, .45, {vx:Math.cos(a) * r, vy:2.2 + Math.random() * 1.4, vz:Math.sin(a) * r, g:9, life:.9, op:.7, grow:.6, color:'#e9f7ff'}); }
+  azFountAcc += dt * 14;
+  while (azFountAcc > 1){ azFountAcc--; const a = Math.random() * 6.283, r = .25 + Math.random() * .45; spawnPart('dust', G.sx, 2.5, G.fz, .3, {vx:Math.cos(a) * r, vy:1.1 + Math.random() * .9, vz:Math.sin(a) * r, g:9, life:.75, op:.65, grow:.5, color:'#e9f7ff'}); }
 }
 /* every object that was put down at a fixed height (a ring at y = .1, a label at 6.5 m) is lifted by the ground under it; if its owner moves it, the new height is the base */
 const azTrackMap = new WeakMap(); let azScanT = 0;
