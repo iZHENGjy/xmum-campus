@@ -33,7 +33,8 @@
       go:[P(1.15, 0, 21.4), P(1.15, 0, 22.8), P(1.15, 0, 26.2), P(4, 0, 27.2), P(4, PL, 30.2), P(6, PL, 34), P(6, PL, 36.5)],
       back:[P(6, PL, 36.8), P(4, PL, 31.5), P(4, 0, 27.4), P(1.15, 0, 26), P(1.15, 0, 22.5), P(0, 0, 16.4)],
       dep:{path:east, at:KX + 6}, arr:{path:west, at:KX + 6},
-      cams:{gate:[P(-5, 3.3, 18.6), P(1.5, 1.1, 25)], wait:[P(-30, PL + 1.9, 31.4), P(8, PL + .4, 39)], door:[P(-1.5, PL + 1.3, 32.4), P(6, PL + .2, 38.6)], arrive:[P(16, PL + 1.6, 32.2), P(6, PL + .3, 38.4)]},
+      ceil:(x, z) => z - KZ > 15.6 ? (z - KZ < 30 ? 5 : 6.4) - .3 : 11.5,
+      cams:{gate:[P(-5, 3.3, 18.6), P(1.5, 1.1, 25)], wait:[P(-16, PL + 1.9, 31.6), P(10, PL + .5, 39.5)], door:[P(-1.5, PL + 1.3, 32.4), P(6, PL + .2, 38.6)], arrive:[P(16, PL + 1.6, 32.2), P(6, PL + .3, 38.4)]},
       gateFx:gate
     };
   }
@@ -99,7 +100,7 @@
 
   function build(K){
     const gr = KL.g = new THREE.Group(); scene.add(gr);
-    const A = K.kAtlas(1024, 512), rg = paintAtlas(K, A), mat = K.kMat(A, {roughness:.6, emissive:'#6e6a63', emissiveMap:null, emissiveIntensity:1}, false);   /* indoors: lit evenly, not by the sky */
+    const A = K.kAtlas(1024, 512), rg = paintAtlas(K, A), mat = K.kMat(A, {roughness:.6, emissive:'#2c2a27', emissiveMap:null, emissiveIntensity:1}, false);   /* indoors: a fixed light (js/89-train.js indoorLight) plus a little glow of its own */
     const b = K.KB(), gl = K.KB(), WHITE = '#f3f1ec', DARK = '#2b2f36', GREY = '#9ba1a8';
     const X = x => KX + x, Z = z => KZ + z;
     /* floor: polished granite tiles (its own repeating texture) */
@@ -149,7 +150,7 @@
         cl.push(geoTint(new THREE.CylinderGeometry(2.4, .75, HC - 1.4, 16, 1, true).translate(X(cx), (HC - 1.4) / 2, Z(cz)), '#d8d4cc'));
         cl.push(geoTint(new THREE.CylinderGeometry(5.2, 2.4, 2.2, 16, 1, true).translate(X(cx), HC - .3, Z(cz)), '#e2ddd3'));
         addCol({t:1, cx:X(cx), cz:Z(cz), r:1.1}); }
-      const cm = new THREE.Mesh(geoMerge(cl), new THREE.MeshStandardMaterial({vertexColors:true, roughness:.5, metalness:.1, emissive:'#77736a', side:THREE.DoubleSide})); gr.add(cm); }
+      const cm = new THREE.Mesh(geoMerge(cl), new THREE.MeshStandardMaterial({vertexColors:true, roughness:.5, metalness:.1, emissive:'#3a3834', side:THREE.DoubleSide})); gr.add(cm); }
     /* ---- check-in islands A–F: counters both sides, a back wall with screens, a hanging letter board ---- */
     ISL.forEach((ix, i) => {
       const z0 = -40, z1 = -22;
