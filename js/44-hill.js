@@ -10,7 +10,10 @@ const hlInfo = {name:'后山观景亭', tag:'景观', spawn:[HL.x, HL.z + 9, Mat
   desc:'校园西北角的后山，满山是树林和油棕，山顶有一座两层檐的红顶凉亭。从山脚的石阶步道走上去大约 26 米高，能看到 LY 宿舍楼、音乐岛和整片湖；山脊往东一直通到猴山。'};
 
 /* ---------- the routes: a stone stair up from the forest road, and a dirt track along the ridge to 猴山 ---------- */
-const HL_STAIR = [[-354, -98], [-366, -112], [-357, -124], [-336, -128], [-318, -133], [-333, -142], [-318, -150], [-300, -153], [-296, -157.6]];
+/* the stair starts just off the forest road's pavement (the road runs from (-390, -116.4) to (-306, -68.4), 4.8 m half width with the pavement)
+   and ends square on the pavilion's front steps, coming straight up from the south */
+const HL_STAIR = [[-352.4, -100.9], [-366, -112], [-357, -124], [-336, -128], [-318, -133], [-333, -142], [-318, -150], [-306, -151.6], [-299.6, -152.7], [-296.6, -154.9], [-296, -157.6]];
+const HL_ROAD = {a:[-390, -116.4], b:[-306, -68.4]};
 const HL_RIDGE = [[-283, -165], [-262, -170], [-240, -168], [-222, -173], [-209, -176]];
 function hlCurve(pts, step){
   const cv = new THREE.CatmullRomCurve3(pts.map(([x, z]) => new THREE.Vector3(x, 0, z)), false, 'centripetal'), n = Math.ceil(cv.getLength() / step);
@@ -47,8 +50,8 @@ const hlNear = (x, z, line, w) => { for (let i = 0; i < line.length - 1; i += 2)
       const a = line[Math.max(0, i - 1)], b = line[Math.min(line.length - 1, i + 1)], dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1, nx = -dz / l, nz = dx / l, [x, z] = line[i];
       if (i) run += Math.hypot(x - line[i - 1][0], z - line[i - 1][1]);
       const g0 = groundAt(x, z), g1 = i ? groundAt(line[i - 1][0], line[i - 1][1]) : g0, steep = Math.abs(g0 - g1) / Math.max(.2, Math.hypot(x - (i ? line[i - 1][0] : x), z - (i ? line[i - 1][1] : z))) > .1;
-      /* on the steep parts every ~1.1 m a dark nosing line reads as a step */
-      const nose = stepEvery && steep && run % stepEvery < .24;
+      /* on the steep parts a darker band at every ~1.1 m reads as the edge of a step (one sample in, whatever the spacing) */
+      const nose = stepEvery && steep && i && Math.floor(run / stepEvery) !== Math.floor((run - Math.hypot(x - line[i - 1][0], z - line[i - 1][1])) / stepEvery);
       for (const o of [-hw - .35, -hw, 0, hw, hw + .35]){
         const px = x + nx * o, pz = z + nz * o, rim = Math.abs(o) > hw;
         pos.push(px, groundAt(px, pz) + (rim ? .03 : .1), pz);
@@ -59,7 +62,7 @@ const hlNear = (x, z, line, w) => { for (let i = 0; i < line.length - 1; i += 2)
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
     const m = new THREE.Mesh(g, M('#ffffff', {vertexColors:true, roughness:.95, polygonOffset:true, polygonOffsetFactor:-4, polygonOffsetUnits:-16})); m.receiveShadow = true; scene.add(m); HL.meshes.push(m); return m;
   };
-  strip(HL.stair, 1.1, '#b9b1a1', '#7d766a', 1.1).userData.info = hlInfo;
+  strip(HL.stair, 1.1, '#a49c8e', '#6f685d', 1.1).userData.info = hlInfo;   /* weathered granite: pale, but not paper white in the sun */
   strip(HL.ridge, .9, '#927a55', '#6f5f45', 0);
   /* stone lanterns up the stair, and a sign at its foot */
   const parts = [], lamps = [];
@@ -68,12 +71,15 @@ const hlNear = (x, z, line, w) => { for (let i = 0; i < line.length - 1; i += 2)
     tbox(parts, .5, .25, .5, px, y + .12, pz, '#9a9488'); tbox(parts, .22, .7, .22, px, y + .6, pz, '#a8a294'); tbox(parts, .46, .1, .46, px, y + 1.32, pz, '#8f897d');
     parts.push(geoTint(new THREE.ConeGeometry(.42, .3, 4).rotateY(Math.PI / 4).translate(px, y + 1.52, pz), '#7f796e')); lamps.push(new THREE.BoxGeometry(.3, .32, .3).translate(px, y + 1.11, pz));
   }
-  { const [x, z] = HL.stair[0], y = groundAt(x - 2.4, z + .5);
-    tbox(parts, .16, 2.2, .16, x - 2.4, y + 1.1, z + .5, '#5b4630'); tbox(parts, 1.8, .7, .1, x - 2.4, y + 1.9, z + .5, '#6e2614'); }
+  /* the sign at the foot: 2.4 m along the road from where the stair leaves it, on the verge (not on the road), turned to face the road */
+  const RD = (() => { const dx = HL_ROAD.b[0] - HL_ROAD.a[0], dz = HL_ROAD.b[1] - HL_ROAD.a[1], l = Math.hypot(dx, dz); return {ux:dx / l, uz:dz / l}; })();
+  const SG = {x:HL.stair[0][0] + RD.ux * 2.4 + RD.uz * .5, z:HL.stair[0][1] + RD.uz * 2.4 - RD.ux * .5, ry:Math.atan2(-RD.uz, RD.ux)};
+  { const y = groundAt(SG.x, SG.z), q = new THREE.Matrix4().makeRotationY(SG.ry).setPosition(SG.x, 0, SG.z);
+    parts.push(geoTint(new THREE.BoxGeometry(.16, 2.2, .16).translate(0, y + 1.1, -.22).applyMatrix4(q), '#5b4630'), geoTint(new THREE.BoxGeometry(1.8, .7, .1).translate(0, y + 1.9, -.1).applyMatrix4(q), '#6e2614')); }
   const m = new THREE.Mesh(geoMerge(parts), decoMat); m.castShadow = m.receiveShadow = true; m.userData.info = hlInfo; pickables.push(m); scene.add(m); HL.meshes.push(m);
   const lm = new THREE.Mesh(geoMerge(lamps), bulbMat); scene.add(lm); HL.meshes.push(lm);
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.7, .62), plaqueMat('后山步道')); const [sx, sz] = HL.stair[0];
-  sign.position.set(sx - 2.4, groundAt(sx - 2.4, sz + .5) + 1.9, sz + .56); scene.add(sign); HL.meshes.push(sign);
+  sign.position.set(SG.x, groundAt(SG.x, SG.z) + 1.9, SG.z); sign.rotation.y = SG.ry; sign.translateZ(-.04); scene.add(sign); HL.meshes.push(sign);
   addLabel('上山步道', sx, groundAt(sx, sz) + 6, sz, true);
 })();
 
@@ -84,6 +90,9 @@ const hlNear = (x, z, line, w) => { for (let i = 0; i < line.length - 1; i += 2)
   const g = new THREE.Group(); g.position.set(HL.x, Y, HL.z); g.rotation.y = HL.rot; scene.add(g);
   /* platform with a deep skirt (the slope never shows under it), a kerb, and three steps down the front */
   tbox(parts, h * 2, T + 2.5, h * 2, 0, T / 2 - 1.25, 0, STONE2); tbox(parts, h * 2 + .3, .16, h * 2 + .3, 0, T - .02, 0, STONE);
+  /* the floor inside the kerb: darker flagstones in a 1.2 m grid (the kerb alone read as one flat white slab in the sun) */
+  tbox(parts, h * 2 - .5, .02, h * 2 - .5, 0, T + .065, 0, '#968f82');
+  for (let k = -3; k <= 3; k++){ tbox(parts, h * 2 - .5, .025, .05, 0, T + .07, k * 1.2, '#7a7468'); tbox(parts, .05, .025, h * 2 - .5, k * 1.2, T + .07, 0, '#7a7468'); }
   for (let k = 0; k < 3; k++){ const d = HL.stepD * (k + 1) / 3, y = T * (1 - (k + 1) / 3); tbox(parts, 3.4, y + .3, d, 0, (y - .3) / 2, h + d / 2 - .02, k % 2 ? STONE : STONE2); }
   /* columns on round bases; benches with a leaning back (美人靠) on the three closed sides */
   const C = 3.55, CH = 3.5;

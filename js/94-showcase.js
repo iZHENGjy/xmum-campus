@@ -1,9 +1,9 @@
-/* XMUM 校园漫游 · 豪车展台：陈华春音乐厅（Tan Hua Choon Auditorium）门前扩出一片石砖广场，7 个车模展位扇形排开，
+/* XMUM 校园漫游 · 豪车展台：陈华春音乐厅（Tan Hua Choon Auditorium）门前扩出一片石砖广场，7 个车模展位沿着红毯排成 V 字，
    常年站着全服最有钱的 7 个奶娃和他们的爱车。
    - 每个展位是一个台子：正面名牌写名次、昵称和总资产；台上前面站着玩家的奶娃（穿自己选的装扮，摆车模姿势），
      侧边的转盘上停着他的车（带完整的喷漆、贴花和改装外观，慢慢转）。
    - 排位按总资产（js/80-gta.js netWorth，跟「总资产」排行榜一个口径），名牌上显示的就是排位用的数。
-     第 1 名在正中，台子最高、最靠前；2、3 名在两边，往外依次到 6、7 名。
+     第 1 名在红毯尽头、正对音乐厅大门，台子最高；2、3 名在红毯两边离它最近，往马路方向依次到 6、7 名。
    - 玩家自己定制展位：展示哪辆车（默认最贵那辆）、哪套装扮（跟着衣橱走，或者单独存一套展台装扮）、哪个姿势。
      入口：在展台广场按 F（手机点「展位」）打开「我的展位」；走到自己的展位前按 F 看详情，里面也有按钮。
    - 装饰：每个台子前面一对开业花篮，前三名是双层大花篮，台前还有一排花；夜里定时放烟花，有人新上台、名次变了也放一发。
@@ -13,16 +13,21 @@
    - 离线或预览版：自己和几个「示范」奶娃一起排位，自己保证在台上；联机时示范只用来填空位，永远排在真实玩家后面。
    - 性能：台子、灯带、转盘、光斑、光柱、花朵全部实例化，名牌共用一张贴图；7 个低模奶娃 + 7 辆车行低模车，
      离远了隐藏车的细节件、奶娃不再摆动作，再远整片不画。流畅档花少一半、没有光柱、烟花只在有人上榜时放、粒子少。
-   位置全在下面几个常量里：广场中心、朝向（本地 +z 朝外，对着马路）、大小、扇形；合并音乐厅新模型以后只改这里就能挪。 */
+   位置：整片展台跟着音乐厅（js/45-auditorium.js AUDI）走，坐标系就是音乐厅的（x 横过正面，+z 从大门朝外对着马路），
+   只是原点挪到门前石砖广场的中间。排布是一条「V 字大道」：红毯从马路沿着大门的中轴线一直铺到第 1 名，
+   第 1 名在最里面、正对大门；2–7 名分两排站在红毯两边，面朝红毯、稍微朝马路，越往里名次越高。
+   布局用脚本检查过：台子（含台阶）、花篮、门头立柱互不相交，全部在广场里，离音乐厅台阶前的浅色石带至少 2.5 米，红毯两边留出 7 米多的走道。 */
 'use strict';
-const SC_X = -75, SC_Z = 185, SC_ROT = .165;      /* 广场中心（世界坐标）和朝向：跟门前的棕榈步道平行，正面朝南边的马路 */
-const SC_HW = 21, SC_HD = 10.5;                    /* 半宽、半深（米） */
-/* 扇形：展位排在以 (0, cz) 为圆心、半径 r 的弧上，相邻两个隔 step 弧度；圆心在广场后面，所以中间那个最靠前 */
-const SC_FAN = {r:22, cz:-18.2, step:.285};
+const SC_ZC = 35;                                  /* 广场中心离音乐厅中心多远（音乐厅坐标的 z，米） */
+const SC_X = audiW(0, SC_ZC)[0], SC_Z = audiW(0, SC_ZC)[1], SC_ROT = AUDI.rot;   /* 广场中心（世界坐标）和朝向，本地 +z 朝马路 */
+const SC_HW = 21, SC_HD = 16;                      /* 半宽、半深（米）：从音乐厅台阶前到马路边 */
+/* V 字大道：第 1 名在 (0, zc)；两边第 k 个（k = 0, 1, 2）在 (±(x0 + k·dx), z0 + k·dz)，台子转到面朝红毯、往马路偏 phi */
+const SC_LAY = {zc:-11, x0:8.8, z0:-6, dx:2.1, dz:6.8, phi:.3};
 const SC_BW = 5.8, SC_BD = 6.4;                    /* 一个展台的宽、深 */
 const SC_N = 7, SC_TOP = 3;                        /* 7 个位置；前三名的台子更隆重 */
 const SC_HGT = [1.3, 1.1, 1.1, .95, .95, .8, .8];  /* 台高，按名次 */
-const SC_CAR_S = .9;                               /* 展车按九成大小摆（车模的意思），最长的劳斯来斯也转得开 */
+const SC_CAR_S = .86;                              /* 展车按 86% 大小摆（车模的意思）：最长的劳斯来斯转起来也扫不出转盘、碰不到奶娃 */
+const SC_DISC = 2.72;                              /* 转盘半径：车转一圈扫过的圆（劳斯来斯约 2.66 米）再留一点 */
 const SC_KEY = 'xmum-showcase-v1', SC_LOOK_RE = /^[a-z0-9_,]{0,60}$/, SC_WEAR_RE = /^[a-z0-9_,]{0,100}$/, SC_MAX = 1e7;
 const SC_POSES = {auto:'轮换', hip:'叉腰', wave:'挥手', cheer:'欢呼', show:'介绍爱车', flex:'秀肌肉'};
 const SC_CYCLE = ['hip', 'wave', 'show', 'cheer', 'flex'];
@@ -115,30 +120,16 @@ const scWrite = () => { try { localStorage.setItem(SC_KEY, JSON.stringify(Object
 /* ---------- the plaza ---------- */
 const scRoot = new THREE.Group(); scRoot.position.set(SC_X, 0, SC_Z); scRoot.rotation.y = SC_ROT; scene.add(scRoot);
 const scTex = (w, h, draw) => { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); t.anisotropy = ANISO; return t; };
-function scRound(hw, hd, r){
-  const s = new THREE.Shape(); s.moveTo(-hw + r, -hd); s.lineTo(hw - r, -hd); s.quadraticCurveTo(hw, -hd, hw, -hd + r); s.lineTo(hw, hd - r); s.quadraticCurveTo(hw, hd, hw - r, hd);
-  s.lineTo(-hw + r, hd); s.quadraticCurveTo(-hw, hd, -hw, hd - r); s.lineTo(-hw, -hd + r); s.quadraticCurveTo(-hw, -hd, -hw + r, -hd); return s;
-}
-/* light-grey granite setts like the real forecourt: 8 x 8 stones per tile, every one a slightly different grey */
-const scSetts = scTex(256, 256, (g, w) => {
-  const rr = mkRng(2024); g.fillStyle = '#55524d'; g.fillRect(0, 0, w, w);
-  for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++){
-    const v = 118 + rr() * 42 | 0, o = (y % 2) * 16; g.fillStyle = `rgb(${v},${v - 2},${v - 6})`;
-    g.fillRect((x * 32 + o + 2) % w, y * 32 + 2, 28, 28); if (o && x === 7) g.fillRect(0, y * 32 + 2, 14, 28);
-  }
-});
-scSetts.wrapS = scSetts.wrapT = THREE.RepeatWrapping; scSetts.repeat.set(.25, .25);
-const scPave = new THREE.MeshStandardMaterial({map:scSetts, roughness:.85, polygonOffset:true, polygonOffsetFactor:-6, polygonOffsetUnits:-24});
-const scKerb = M('#d9d4c8', {roughness:.7, polygonOffset:true, polygonOffsetFactor:-5, polygonOffsetUnits:-20});
-const scCarpet = M('#8e1d22', {roughness:.95, polygonOffset:true, polygonOffsetFactor:-7, polygonOffsetUnits:-28});
-if (typeof regWet === 'function'){ regWet(scPave, .3); regWet(scKerb, .3); }
+/* the carpet sits a little above the forecourt's setts and wins the depth test against them (their offset is -10 / -40) */
+const scCarpet = M('#8e1d22', {roughness:.95, polygonOffset:true, polygonOffsetFactor:-14, polygonOffsetUnits:-56});
 
-/* the seven booths on the fan, in rank order: 1 in the middle, 2 on the left (seen from the road), 3 on the right, and so on outwards */
+/* the seven booths, in rank order: 1 at the end of the carpet, 2 on the left (seen from the road), 3 on the right, and so on towards the road */
 const scSlots = Array.from({length:SC_N}, (_, i) => {
-  const a = i ? (i % 2 ? -1 : 1) * Math.ceil(i / 2) * SC_FAN.step : 0;
-  const lx = SC_FAN.r * Math.sin(a), lz = SC_FAN.cz + SC_FAN.r * Math.cos(a) + (i ? 0 : .6), h = SC_HGT[i];
-  /* the 奶娃 stands at the front on the side towards the middle, the car turns beside it on the outer side */
-  const sd = a < 0 ? -1 : 1, fx = -1.75 * sd, fz = 2.05, cx = .7 * sd, cz = -.6;
+  const L = SC_LAY, k = (i - 1) >> 1, side = i % 2 ? -1 : 1;
+  const a = i ? -side * (Math.PI / 2 - L.phi) : 0;
+  const lx = i ? side * (L.x0 + k * L.dx) : 0, lz = i ? L.z0 + k * L.dz : L.zc, h = SC_HGT[i];
+  /* the 奶娃 stands in the front corner on the road side, the car turns beside it, inside the booth (disc edge 2.87 < 2.9) */
+  const sd = a < 0 ? -1 : 1, fx = -1.85 * sd, fz = 2.4, cx = .15 * sd, cz = -.45;
   const m = new THREE.Matrix4().compose(new THREE.Vector3(lx, 0, lz), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), a), new THREE.Vector3(1, 1, 1));
   const g = new THREE.Group(); g.position.set(lx, 0, lz); g.rotation.y = a; scRoot.add(g);
   const tt = new THREE.Group(); tt.position.set(cx, h + .05, cz); tt.rotation.y = i * .9 + .6; g.add(tt);
@@ -150,11 +141,12 @@ const scSlots = Array.from({length:SC_N}, (_, i) => {
 });
 {
   const flat = (geo, mat, y) => { const m = new THREE.Mesh(geo, mat); m.rotation.x = -Math.PI / 2; m.position.y = y; m.receiveShadow = true; scRoot.add(m); return m; };
-  flat(new THREE.ShapeGeometry(scRound(SC_HW + .6, SC_HD + .6, 5.6), 6), scKerb, .045);
-  flat(new THREE.ShapeGeometry(scRound(SC_HW, SC_HD, 5), 6), scPave, .05);
-  /* red carpet from the road up to the champion */
-  const z0 = scSlots[0].lz + SC_BD / 2 + .25, z1 = SC_HD + .5, cg = new THREE.PlaneGeometry(3, z1 - z0); cg.translate(0, -(z0 + z1) / 2, 0);
-  flat(cg, scCarpet, .055);
+  /* the ground is the auditorium's own granite forecourt (js/45-auditorium.js); only the red carpet lies on it,
+     from the walk at the road up to the champion, with a thin brass edge either side, above the setts (y .06) and the pale band (.075) */
+  const z0 = scSlots[0].lz + SC_BD / 2 + .25, z1 = 59.2 - SC_ZC, cg = new THREE.PlaneGeometry(3, z1 - z0); cg.translate(0, -(z0 + z1) / 2, 0);
+  flat(cg, scCarpet, .085);
+  const eg = geoMerge([-1.56, 1.56].map(x => new THREE.PlaneGeometry(.12, z1 - z0).translate(x, -(z0 + z1) / 2, 0)));
+  flat(eg, M('#c9a24e', {roughness:.35, metalness:.75, polygonOffset:true, polygonOffsetFactor:-15, polygonOffsetUnits:-60}), .086);
 }
 /* booth-local transform → matrix for an instance (or a geometry) in the plaza group */
 const scQ = new THREE.Quaternion(), scY = new THREE.Vector3(0, 1, 0);
@@ -174,7 +166,7 @@ const scBand = scIM(scBox, scBandMat, SC_N);
 const scDisc = scIM(new THREE.CylinderGeometry(1, 1, 1, 40).translate(0, .5, 0), M('#1c1e24', {roughness:.22, metalness:.55}), SC_N, true);
 const scRim = scIM(new THREE.TorusGeometry(1, .012, 6, 56).rotateX(Math.PI / 2), M('#d9b25a', {roughness:.3, metalness:.85}), SC_N);
 const scPoolTex = scTex(128, 128, (g, w) => { const gr = g.createRadialGradient(w / 2, w / 2, w * .2, w / 2, w / 2, w / 2); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.5, 'rgba(255,255,255,.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, w); });
-const scPoolMat = new THREE.MeshBasicMaterial({map:scPoolTex, transparent:true, opacity:0, blending:THREE.AdditiveBlending, depthWrite:false, fog:false, polygonOffset:true, polygonOffsetFactor:-10, polygonOffsetUnits:-40});
+const scPoolMat = new THREE.MeshBasicMaterial({map:scPoolTex, transparent:true, opacity:0, blending:THREE.AdditiveBlending, depthWrite:false, fog:false, polygonOffset:true, polygonOffsetFactor:-16, polygonOffsetUnits:-64});
 const scPool = scIM(new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2), scPoolMat, SC_N * 2);
 const scBeamTex = scTex(4, 128, (g, w, h) => { const gr = g.createLinearGradient(0, h, 0, 0); gr.addColorStop(0, 'rgba(255,255,255,.9)'); gr.addColorStop(.25, 'rgba(255,255,255,.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
 const scBeamMat = new THREE.MeshBasicMaterial({map:scBeamTex, transparent:true, opacity:0, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide, fog:false});
@@ -189,11 +181,11 @@ function scLayout(){
     scStep.setMatrixAt(i, scMat(s, 0, 0, 0, SC_BW + .5, .15, SC_BD + .5));
     scBlock.setMatrixAt(i, scMat(s, 0, 0, 0, SC_BW, h, SC_BD));
     scBand.setMatrixAt(i, scMat(s, 0, h - .11, 0, SC_BW + .04, .05, SC_BD + .04));
-    scDisc.setMatrixAt(i, scMat(s, s.cx, h, s.cz, 2.75, .05, 2.75));
-    scRim.setMatrixAt(i, scMat(s, s.cx, h + .05, s.cz, 2.77, 1, 2.77));
-    scPool.setMatrixAt(i, scMat(s, 0, .07, .6, SC_BW * .85, 1, SC_BD * .75));
+    scDisc.setMatrixAt(i, scMat(s, s.cx, h, s.cz, SC_DISC, .05, SC_DISC));
+    scRim.setMatrixAt(i, scMat(s, s.cx, h + .05, s.cz, SC_DISC + .02, 1, SC_DISC + .02));
+    scPool.setMatrixAt(i, scMat(s, 0, .095, .6, SC_BW * .85, 1, SC_BD * .75));
     scPool.setMatrixAt(SC_N + i, scMat(s, s.fx, h + .012, s.fz, 1.15, 1, 1.15));
-    if (i < SC_TOP) scBeam.setMatrixAt(i, scMat(s, s.cx, h, s.cz, beam ? 2.75 : 0, beam ? (i ? 6.5 : 9) : 0, beam ? 2.75 : 0));
+    if (i < SC_TOP) scBeam.setMatrixAt(i, scMat(s, s.cx, h, s.cz, beam ? SC_DISC : 0, beam ? (i ? 6.5 : 9) : 0, beam ? SC_DISC : 0));
     const c = scBandCol(i); scBand.setColorAt(i, c); scPool.setColorAt(i, c); scPool.setColorAt(SC_N + i, c); if (i < SC_TOP) scBeam.setColorAt(i, c);
   }
   for (const im of [scStep, scBlock, scBand, scDisc, scRim, scPool, scBeam]){ im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; }
@@ -205,7 +197,7 @@ for (const s of scSlots){
   s.cols.push({t:0, cx:s.wx, cz:s.wz, hx:SC_BW / 2 + .25, hz:SC_BD / 2 + .25, c:Math.cos(SC_ROT + s.a), s:Math.sin(SC_ROT + s.a)});
   for (const sx of [-1, 1]){ const [px, pz] = scW(...s.toPlaza(sx * SC_STAND_X, SC_STAND_Z)); s.cols.push({t:1, cx:px, cz:pz, r:.5}); }
 }
-const scAllCols = () => scSlots.reduce((a, s) => a.concat(s.cols), []).concat(SCX.bannerCol ? [SCX.bannerCol] : []);
+const scAllCols = () => scSlots.reduce((a, s) => a.concat(s.cols), []).concat(SCX.gateCols || []);
 function scColliders(){
   const want = SCX.mode !== 'hole';
   for (const c of scAllCols()){ const at = colliders.indexOf(c); if (want && at < 0) colliders.push(c); else if (!want && at >= 0) colliders.splice(at, 1); }
@@ -265,26 +257,44 @@ function scDrawSigns(){
   scAtlas.needsUpdate = true;
 }
 
-/* the banner at the back: two posts and a board */
+/* the banner: two tall standing signs either side of the carpet where it leaves the road, gold characters written top to bottom
+   like the name on the auditorium. They frame the way in and never stand between the road and the champion. */
 {
+  const COLS = [['豪', '车', '展', '台'], ['总', '资', '产', '前', '七']];
   const draw = (g, w, h) => {
-    const bg = g.createLinearGradient(0, 0, w, 0); bg.addColorStop(0, '#13161f'); bg.addColorStop(.5, '#232838'); bg.addColorStop(1, '#13161f'); g.fillStyle = bg; g.fillRect(0, 0, w, h);
-    g.fillStyle = '#e3b95a'; g.fillRect(0, 0, w, 8); g.fillRect(0, h - 8, w, 8);
-    g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.font = '900 104px "Noto Serif SC","Noto Sans SC",serif'; g.fillStyle = '#f3d68c'; g.fillText('豪 车 展 台', w / 2, 104);
-    g.font = '500 34px "Noto Sans SC",sans-serif'; g.fillStyle = '#c3cad6'; g.fillText('XMUM AUTO SALON · 全服总资产前七名，人和爱车一起上台', w / 2, 196);
+    g.clearRect(0, 0, w, h);
+    COLS.forEach((chars, c) => {
+      const x0 = c * w / 2, cw = w / 2;
+      const bg = g.createLinearGradient(x0, 0, x0 + cw, 0); bg.addColorStop(0, '#13161f'); bg.addColorStop(.5, '#262c3d'); bg.addColorStop(1, '#13161f'); g.fillStyle = bg; g.fillRect(x0, 0, cw, h);
+      g.strokeStyle = '#e3b95a'; g.lineWidth = 6; g.strokeRect(x0 + 14, 14, cw - 28, h - 28); g.lineWidth = 2; g.strokeRect(x0 + 26, 26, cw - 52, h - 52);
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      const fs = chars.length > 4 ? 136 : 160, gap = (h - 210) / chars.length;
+      g.font = `900 ${fs}px "Noto Serif SC","Noto Sans SC",serif`;
+      chars.forEach((ch, i) => { const y = 70 + gap * (i + .5); g.fillStyle = 'rgba(0,0,0,.5)'; g.fillText(ch, x0 + cw / 2 + 4, y + 5); g.fillStyle = '#f3d68c'; g.fillText(ch, x0 + cw / 2, y); });
+      g.font = '700 30px "Noto Sans SC",sans-serif'; g.fillStyle = '#c3cad6'; g.fillText(c ? '人和爱车一起上台' : 'XMUM AUTO SALON', x0 + cw / 2, h - 82);
+    });
   };
-  const t = scTex(1024, 256, draw);
-  /* the web font may arrive after this file runs: draw the banner and the plates again once it is there */
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { draw(t.image.getContext('2d'), 1024, 256); t.needsUpdate = true; if (SCX.list.length) scDrawSigns(); });
-  const W = 8.4, H = W / 4, z = -SC_HD + 1, y = 3.6;
-  const board = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshBasicMaterial({map:t, toneMapped:false})); board.position.set(0, y, z + .06); scRoot.add(board);
-  const frame = new THREE.Mesh(geoMerge([new THREE.BoxGeometry(W + .3, H + .3, .1).translate(0, y, z), new THREE.BoxGeometry(.22, y + H / 2, .22).translate(-W / 2 - .1, (y + H / 2) / 2, z - .1),
-    new THREE.BoxGeometry(.22, y + H / 2, .22).translate(W / 2 + .1, (y + H / 2) / 2, z - .1)]), scTrimMat);
-  frame.castShadow = true; scRoot.add(frame);
-  const [bx, bz] = scW(0, z - .1); SCX.bannerCol = {t:0, cx:bx, cz:bz, hx:W / 2 + .3, hz:.3, c:Math.cos(SC_ROT), s:Math.sin(SC_ROT)};
+  const t = scTex(512, 1024, draw);
+  /* the web font may arrive after this file runs: draw the signs and the plates again once it is there */
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { draw(t.image.getContext('2d'), 512, 1024); t.needsUpdate = true; if (SCX.list.length) scDrawSigns(); });
+  const W = 1.1, H = 4.4, y = .55 + H / 2, z = SC_HD - 2.2, X = 4.3, faces = [], parts = [];
+  SCX.gateCols = [];
+  [-1, 1].forEach((sx, c) => {
+    const x = sx * X;
+    /* the same board on both faces, so it reads the right way from the road and from the plaza */
+    for (const back of [0, 1]){
+      const g = new THREE.PlaneGeometry(W, H), uv = g.attributes.uv;
+      for (let k = 0; k < uv.count; k++) uv.setX(k, (c + uv.getX(k)) / 2);
+      if (back) g.rotateY(Math.PI);
+      faces.push(g.translate(x, y, z + (back ? -.1 : .1)));
+    }
+    parts.push(new THREE.BoxGeometry(W + .2, H + .2, .18).translate(x, y, z), new THREE.BoxGeometry(W + .5, .45, .6).translate(x, .225, z),
+      new THREE.BoxGeometry(W + .36, .14, .34).translate(x, y + H / 2 + .17, z));
+    const [px, pz] = scW(x, z); SCX.gateCols.push({t:0, cx:px, cz:pz, hx:(W + .5) / 2 + .1, hz:.4, c:Math.cos(SC_ROT), s:Math.sin(SC_ROT)});
+  });
+  scRoot.add(new THREE.Mesh(geoMergeUV(faces), new THREE.MeshBasicMaterial({map:t, toneMapped:false})));
+  const frame = new THREE.Mesh(geoMerge(parts), scTrimMat); frame.castShadow = true; frame.receiveShadow = true; scRoot.add(frame);
 }
-
 /* ---------- flowers: a pair of opening-day flower stands in front of every booth (two tiers for the front three) and a flower bed along their step ---------- */
 const scStandMat = M('#b8934a', {roughness:.35, metalness:.7}), scRibbonMat = M('#c4262e', {roughness:.6, side:THREE.DoubleSide});
 {
@@ -715,7 +725,7 @@ function scNear(){
   /* a car parked on the plaza: F gets you in, as everywhere else (js/90-main.js asks roomTryF first) */
   SCX.carNear = typeof nearestCar === 'function' && !!nearestCar(); if (SCX.carNear) return -1;
   let best = -1, bd = 1e9;
-  for (const s of scSlots){ if (!SCX.list[s.i]) continue; const d = Math.hypot(nw.x - s.wx, nw.z - s.wz); if (d < 6.4 && d < bd){ bd = d; best = s.i; } }
+  for (const s of scSlots){ if (!SCX.list[s.i]) continue; const d = Math.hypot(nw.x - s.wx, nw.z - s.wz); if (d < 7 && d < bd){ bd = d; best = s.i; } }
   return best;
 }
 
