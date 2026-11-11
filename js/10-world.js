@@ -240,6 +240,11 @@ structBlock(function(){
   /* grass steps fanning out on the landward side */
   const steps = [];
   for (let k = 0; k < 3; k++) arcStep(steps, x, z, 16.4 + k * 2.3, 18.7 + k * 2.3, Math.PI * .62, Math.PI * 1.42, k * .32, (k + 1) * .32, k % 2 ? '#476a32' : '#527838', '#cfc9bb', 14);
+  /* the platform was a plain white disc: a darker coping round its rim, a band of red paving round the shell and radial joints between the slabs */
+  steps.push(geoTint(new THREE.TorusGeometry(15.05, .2, 4, 64).rotateX(Math.PI / 2).scale(1, .6, 1).translate(x, .8, z), '#9f998e'),
+    geoTint(new THREE.RingGeometry(11.2, 12.6, 56, 1).rotateX(-Math.PI / 2).translate(x, .815, z), '#a85a45'),
+    geoTint(new THREE.RingGeometry(14.2, 14.9, 64, 1).rotateX(-Math.PI / 2).translate(x, .815, z), '#a59f93'));
+  for (let k = 0; k < 28; k++){ const a = k / 28 * Math.PI * 2, c = Math.cos(a), s = Math.sin(a); steps.push(quadGeo([x + c * 12.6 - s * .05, .816, z + s * 12.6 + c * .05], [x + c * 14.2 - s * .05, .816, z + s * 14.2 + c * .05], [x + c * 14.2 + s * .05, .816, z + s * 14.2 - c * .05], [x + c * 12.6 + s * .05, .816, z + s * 12.6 - c * .05], '#b3ada1')); }
   const stepMesh = new THREE.Mesh(geoMerge(steps), decoMat); stepMesh.receiveShadow = true; scene.add(stepMesh);
   [base, shell, stepMesh].forEach(m => { m.userData.info = info; pickables.push(m); });
   addCircle(x, z, 15.5); addFp({t:1, x, z, r:15});
@@ -291,7 +296,7 @@ building({arcade:true, name:'LY3 食堂', tag:'食堂', desc:'LY 宿舍区的食
   const semi = new THREE.Mesh(new THREE.CircleGeometry(22, 32, 0, Math.PI), flatMat('#4f7436', 8));
   semi.rotation.x = -Math.PI / 2; semi.position.set(x, .06, z - 14); scene.add(semi);
   /* XMUM spelled in clipped shrubs on a paved bed, readable from the lake side (south) */
-  const bed = new THREE.Mesh(new THREE.PlaneGeometry(40, 11), flatMat('#a98b72', 9)); bed.rotation.x = -Math.PI / 2; bed.position.set(x, .07, z - 7); bed.receiveShadow = true; scene.add(bed);
+  const bed = new THREE.Mesh(new THREE.PlaneGeometry(40, 11), flatMat('#8f877a', 9)); bed.rotation.x = -Math.PI / 2; bed.position.set(x, .07, z - 7); bed.receiveShadow = true; scene.add(bed);
   const hedge = [], hr = mkRng(888), GREENS = ['#3f7d36', '#4a8a3c', '#37702f'];
   /* a stroke from (u0, v0) to (u1, v1) in letter space: u to the east, v to the north */
   const stroke = (cu, u0, v0, u1, v1) => {
@@ -300,6 +305,8 @@ building({arcade:true, name:'LY3 食堂', tag:'食堂', desc:'LY 宿舍区的食
   };
   const LET = {X:[[-2.4, -3.4, 2.4, 3.4], [-2.4, 3.4, 2.4, -3.4]], M:[[-2.6, -3.4, -2.6, 3.4], [2.6, -3.4, 2.6, 3.4], [-2.6, 3.4, 0, -.6], [2.6, 3.4, 0, -.6]], U:[[-2.4, 3.4, -2.4, -3.4], [2.4, 3.4, 2.4, -3.4], [-2.4, -3.4, 2.4, -3.4]]};
   'XMUM'.split('').forEach((ch, i) => LET[ch].forEach(s => stroke(-13.5 + i * 9, ...s)));
+  /* a low granite kerb round the paved bed */
+  for (const s of [-1, 1]){ tbox(hedge, 40.6, .16, .3, x, .08, z - 7 + s * 5.65, '#b7b0a4'); tbox(hedge, .3, .16, 11, x + s * 20.15, .08, z - 7, '#b7b0a4'); }
   const word = new THREE.Mesh(geoMerge(hedge), decoMat); word.castShadow = word.receiveShadow = true; scene.add(word);
 })();
 
@@ -341,37 +348,197 @@ structBlock(function d6(){
 building({arcade:true, bay:true, wash:{}, name:'B1 学生活动中心', tag:'活动', floors:5, px:1700, py:400, wp:190, dp:88, roofH:7, variant:1,
   desc:'五层的学生活动中心。三楼有室内运动中心、健身房和游泳池；楼里还有课室、电脑室、学生服务大厅、自习区、中医诊所、超市、面包店和餐厅。', skylight:true, plaque:{text:'学生活动中心', w:7}});
 const courtsInfo = {name:'户外球场', tag:'运动', desc:'Outdoor Courts：五人足球、网球、排球、篮球。'};
+/* sports kit shared by the courts and the field: one net material (a see-through mesh texture), white frames and posts merged per place, floodlight heads.
+   Posts, poles and hoops collide; they are switched on after the scenery is scattered (LATE_COLS), and js/15-props.js clears any tree or lamp there. */
+const LATE_SOLIDS = [], SPORT_HEADS = [];
+function lateSolid(x, z, r){ const c = addCircle(x, z, r); c.dead = true; LATE_COLS.push([c, undefined, curStruct || {cols:[]}]); LATE_SOLIDS.push([x, z, r + .4]); }
+const sportNetMat = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d');
+  g.strokeStyle = '#f5f5f0'; g.lineWidth = 5; g.strokeRect(0, 0, 32, 32);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  /* translucent rather than alpha-tested: up close the mesh shows, further off the mipmaps blend it into a light veil instead of letting it vanish */
+  return new THREE.MeshStandardMaterial({map:t, transparent:true, opacity:.95, depthWrite:false, side:THREE.DoubleSide, roughness:.8});
+})();
+/* a net panel through four corners (a, b along the top, c, e below them), UVs in 12 cm cells */
+function netQuad(list, a, b, c, e){
+  const g = new THREE.BufferGeometry(), w = Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) / .12, h = Math.hypot(e[0] - a[0], e[1] - a[1], e[2] - a[2]) / .12;
+  g.setAttribute('position', new THREE.Float32BufferAttribute([...a, ...e, ...c, ...a, ...c, ...b], 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute([0, h, 0, 0, w, 0, 0, h, w, 0, w, h], 2)); g.computeVertexNormals(); list.push(g);
+}
 (function(){
   const [x, z] = P(1700, 512), w = S(190), d = S(85);
-  const cv = document.createElement('canvas'); cv.width = 512; cv.height = 256; const g = cv.getContext('2d');
-  g.fillStyle = '#3d7d5e'; g.fillRect(0, 0, 512, 256); g.strokeStyle = '#f4f1ea'; g.lineWidth = 3;
-  for (let i = 0; i < 4; i++){ const cx = 12 + i * 125; g.fillStyle = i % 2 ? '#4a6fa5' : '#b65a3c'; g.fillRect(cx, 20, 112, 216); g.strokeRect(cx + 6, 26, 100, 204); g.beginPath(); g.moveTo(cx + 6, 128); g.lineTo(cx + 106, 128); g.stroke(); }
+  /* the surface, painted in metres: green run-off, a futsal pitch, two basketball courts, two tennis courts and a volleyball court, all running north-south */
+  const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 512; const g = cv.getContext('2d');
+  g.scale(1024 / w, 512 / d); g.fillStyle = '#3a6650'; g.fillRect(0, 0, w, d);
+  const cz = d / 2;
+  g.strokeStyle = '#f4f1ea'; g.lineWidth = .14;
+  const rect = (cx, hw, hl, col) => { g.fillStyle = col; g.fillRect(cx - hw, cz - hl, hw * 2, hl * 2); };
+  const out = (cx, hw, hl) => g.strokeRect(cx - hw, cz - hl, hw * 2, hl * 2);
+  const hl = (cx, hw, zz) => { g.beginPath(); g.moveTo(cx - hw, zz); g.lineTo(cx + hw, zz); g.stroke(); };
+  const arc = (cx, zz, r, a0, a1) => { g.beginPath(); g.arc(cx, zz, r, a0, a1); g.stroke(); };
+  const C = {futsal:-45.1, bb1:-24.2, bb2:-4.8, t1:14.2, t2:32.8, vb:49.3};   /* centres, metres east of the middle */
+  const X = k => C[k] + w / 2;
+  /* futsal 18 x 36, centre circle, penalty arcs */
+  rect(X('futsal'), 10.5, 20, '#2c5878'); rect(X('futsal'), 9, 18, '#33668a'); out(X('futsal'), 9, 18); hl(X('futsal'), 9, cz); arc(X('futsal'), cz, 3, 0, 7);
+  arc(X('futsal'), cz - 18, 6, 0, Math.PI); arc(X('futsal'), cz + 18, 6, Math.PI, Math.PI * 2);
+  /* basketball 15 x 28: key, free-throw circle, three-point line, centre circle */
+  for (const k of ['bb1', 'bb2']){
+    rect(X(k), 9, 16, '#7f3e2e'); rect(X(k), 7.5, 14, '#934a35'); out(X(k), 7.5, 14); hl(X(k), 7.5, cz); arc(X(k), cz, 1.8, 0, 7);
+    for (const s of [-1, 1]){
+      const bz = cz + s * 14, kz = s < 0 ? bz : bz - 5.8;
+      g.fillStyle = '#763627'; g.fillRect(X(k) - 2.45, kz, 4.9, 5.8); g.strokeRect(X(k) - 2.45, kz, 4.9, 5.8);
+      arc(X(k), bz - s * 5.8, 1.8, s < 0 ? 0 : Math.PI, s < 0 ? Math.PI : Math.PI * 2);
+      g.beginPath(); g.moveTo(X(k) - 6.6, bz); g.lineTo(X(k) - 6.6, bz - s * 1.6);
+      if (s < 0) g.arc(X(k), bz + 1.6, 6.6, Math.PI, 0, true); else g.arc(X(k), bz - 1.6, 6.6, Math.PI, 0, false);
+      g.lineTo(X(k) + 6.6, bz); g.stroke();
+    }
+  }
+  /* tennis: doubles 10.97 x 23.77 with singles lines and service boxes, on a green court inside a blue surround */
+  for (const k of ['t1', 't2']){
+    rect(X(k), 8.6, 17.5, '#284f66'); rect(X(k), 5.49, 11.89, '#33664d'); out(X(k), 5.49, 11.89); out(X(k), 4.11, 11.89);
+    hl(X(k), 4.11, cz - 6.4); hl(X(k), 4.11, cz + 6.4); g.beginPath(); g.moveTo(X(k), cz - 6.4); g.lineTo(X(k), cz + 6.4); g.stroke();
+    for (const s of [-1, 1]){ g.beginPath(); g.moveTo(X(k), cz + s * 11.89); g.lineTo(X(k), cz + s * 11.6); g.stroke(); }
+  }
+  /* volleyball 9 x 18 with attack lines */
+  rect(X('vb'), 6.5, 12, '#8c5432'); rect(X('vb'), 4.5, 9, '#a3653a'); out(X('vb'), 4.5, 9); hl(X('vb'), 4.5, cz); hl(X('vb'), 4.5, cz - 3); hl(X('vb'), 4.5, cz + 3);
   const t = new THREE.CanvasTexture(cv); t.anisotropy = ANISO;
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshStandardMaterial({map:t, roughness:.9, polygonOffset:true, polygonOffsetFactor:-8, polygonOffsetUnits:-32}));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshStandardMaterial({map:t, roughness:.85, polygonOffset:true, polygonOffsetFactor:-8, polygonOffsetUnits:-32}));
   m.rotation.x = -Math.PI / 2; m.position.set(x, .06, z); m.receiveShadow = true; scene.add(m);
-  m.userData.info = courtsInfo; pickables.push(m); footprints.push({t:2, x, z, w, d, rot:0, color:'#3d7d5e'});
+  m.userData.info = courtsInfo; pickables.push(m); footprints.push({t:2, x, z, w, d, rot:0, color:'#3a6650'});
+  /* the kit: futsal goals, basketball hoops, tennis and volleyball nets, four floodlight masts */
+  const kit = [], nets = [], heads = [], W = '#f2f0ea', STEEL = '#5f666d';
+  const post = (px, pz, h, r, col) => kit.push(geoTint(new THREE.CylinderGeometry(r, r * 1.15, h, 8).translate(px, h / 2, pz), col || STEEL));
+  const bar = (a, b, r, col) => kit.push(geoTint(rodGeo(r, r, a, b, 6), col || W));
+  for (const s of [-1, 1]){
+    /* futsal goal 3 x 2, 1 m deep */
+    const gz = z + s * 18, fx = x + C.futsal, back = gz + s * 1;
+    for (const sx of [-1.5, 1.5]){ bar([fx + sx, 0, gz], [fx + sx, 2, gz], .05); bar([fx + sx, 0, back], [fx + sx, 1.2, back], .03); bar([fx + sx, 2, gz], [fx + sx, 1.2, back], .03); bar([fx + sx, 0, gz], [fx + sx, 0, back], .03); }
+    bar([fx - 1.5, 2, gz], [fx + 1.5, 2, gz], .05); bar([fx - 1.5, 1.2, back], [fx + 1.5, 1.2, back], .03); bar([fx - 1.5, 0, back], [fx + 1.5, 0, back], .03);
+    netQuad(nets, [fx - 1.5, 1.2, back], [fx + 1.5, 1.2, back], [fx + 1.5, 0, back], [fx - 1.5, 0, back]);
+    netQuad(nets, [fx - 1.5, 2, gz], [fx + 1.5, 2, gz], [fx + 1.5, 1.2, back], [fx - 1.5, 1.2, back]);
+    for (const sx of [-1.5, 1.5]) netQuad(nets, [fx + sx, 2, gz], [fx + sx, 1.2, back], [fx + sx, 0, back], [fx + sx, 0, gz]);
+    /* basketball: pole behind the baseline, arm, backboard with its target square, orange ring */
+    for (const k of ['bb1', 'bb2']){
+      const bx = x + C[k], pz = z + s * 15.4, bz = z + s * 13.2;
+      post(bx, pz, 3.4, .1, '#2d5d8a'); bar([bx, 3.3, pz], [bx, 3.3, bz + s * .05], .07, '#2d5d8a');
+      kit.push(geoTint(new THREE.BoxGeometry(1.8, 1.05, .05).translate(bx, 3.55, bz), W), geoTint(new THREE.BoxGeometry(.6, .45, .06).translate(bx, 3.3, bz), '#c0392b'), geoTint(new THREE.BoxGeometry(.5, .35, .07).translate(bx, 3.31, bz), W));
+      kit.push(geoTint(new THREE.TorusGeometry(.23, .02, 4, 14).rotateX(Math.PI / 2).translate(bx, 3.05, bz - s * .28), '#e8702a'));
+      lateSolid(bx, pz, .18);
+    }
+  }
+  /* nets across the middle: tennis (0.91 m, white band on top) and volleyball (top at 2.43 m) */
+  for (const [k, hw, top, h] of [['t1', 6.4, 1.07, .95], ['t2', 6.4, 1.07, .95], ['vb', 5.4, 2.43, 1]]){
+    const nx = x + C[k];
+    for (const s of [-1, 1]){ post(nx + s * hw, z, top + .05, .05); lateSolid(nx + s * hw, z, .12); }
+    netQuad(nets, [nx - hw, top - .06, z], [nx + hw, top - .06, z], [nx + hw, top - h, z], [nx - hw, top - h, z]);
+    kit.push(geoTint(new THREE.BoxGeometry(hw * 2, .06, .03).translate(nx, top - .03, z), W));
+  }
+  /* floodlights on the four corners, heads turned toward the courts (they glow with the street lamps) */
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]){
+    const px = x + sx * (w / 2 + 1.2), pz = z + sz * (d / 2 + 1.2), ry = Math.atan2(-sx, -sz), fx = Math.sin(ry), fz = Math.cos(ry);
+    kit.push(geoTint(new THREE.CylinderGeometry(.12, .2, 11, 8).translate(px, 5.5, pz), STEEL), geoTint(geoAt(new THREE.BoxGeometry(2.2, .12, .12), px + fx * .1, 11, pz + fz * .1, 0, ry, 0), STEEL));
+    for (const o of [-.7, 0, .7]) heads.push(geoAt(new THREE.BoxGeometry(.55, .4, .18), px + fx * .25 + fz * o, 11.25, pz + fz * .25 - fx * o, 0, ry, 0));
+    lateSolid(px, pz, .3);
+  }
+  const km = new THREE.Mesh(geoMerge(kit), decoMat); km.castShadow = true; km.receiveShadow = true; scene.add(km);
+  const nm = new THREE.Mesh(geoMergeUV(nets), sportNetMat); scene.add(nm);
+  const hm = new THREE.Mesh(geoMerge(heads), decoMat); scene.add(hm); SPORT_HEADS.push(hm);   /* switched to bulbMat once it exists (see the lamps below) */
+  [km, nm].forEach(o => { o.userData.info = courtsInfo; pickables.push(o); });
   addLabel('户外球场', x, 6, z, true);
 })();
-const [FX, FZ] = P(1690, 690); const FIELD = {x:FX, z:FZ, rx:S(75), rz:S(100)};
+/* R, a: the outer edge of the track is a stadium curve (straights along z, half-length a; semicircular bends of radius R) inside the old ellipse rx x rz */
+const [FX, FZ] = P(1690, 690); const FIELD = {x:FX, z:FZ, rx:S(75), rz:S(100), R:43, a:15.5, lanes:8, lw:1.2};
 const fieldInfo = {name:'田径场', tag:'运动', desc:'Field & Track：红色跑道围着足球场，东侧是看台。', spawn:[FX - 52, FZ, -Math.PI / 2]};
+/* point on the stadium curve of radius r, u = 0..1 once round (by quarter: east straight, south bend, west straight, north bend),
+   so every lane is sampled at the same u and the straights stay straight */
+function stadPt(r, u){
+  const a = FIELD.a, q = u * 4;
+  if (q < 1) return [r, -a + 2 * a * q];
+  if (q < 2){ const t = (q - 1) * Math.PI; return [r * Math.cos(t), a + r * Math.sin(t)]; }
+  if (q < 3) return [-r, a - 2 * a * (q - 2)];
+  const t = Math.PI + (q - 3) * Math.PI; return [r * Math.cos(t), -a + r * Math.sin(t)];
+}
 (function(){
-  const track = new THREE.Mesh(new THREE.RingGeometry(.78, 1, 80), flatMat('#b9563d', 8));
-  track.rotation.x = -Math.PI / 2; track.scale.set(FIELD.rx, FIELD.rz, 1); track.position.set(FIELD.x, .07, FIELD.z); track.receiveShadow = true; scene.add(track);
-  const lane = new THREE.Mesh(new THREE.RingGeometry(.885, .892, 80), flatMat('#f4efe6', 9));
-  lane.rotation.x = -Math.PI / 2; lane.scale.copy(track.scale); lane.position.set(FIELD.x, .08, FIELD.z); scene.add(lane);
-  const cv = document.createElement('canvas'); cv.width = 16; cv.height = 256; const g = cv.getContext('2d');
-  for (let i = 0; i < 10; i++){ g.fillStyle = i % 2 ? '#4f9a45' : '#5ba650'; g.fillRect(0, i * 25.6, 16, 25.6); }
-  const pitch = new THREE.Mesh(new THREE.CircleGeometry(1, 80), new THREE.MeshStandardMaterial({map:new THREE.CanvasTexture(cv), roughness:.95, polygonOffset:true, polygonOffsetFactor:-8, polygonOffsetUnits:-32}));
-  pitch.rotation.x = -Math.PI / 2; pitch.scale.set(FIELD.rx * .78, FIELD.rz * .78, 1); pitch.position.set(FIELD.x, .07, FIELD.z); pitch.receiveShadow = true; scene.add(pitch);
-  [track, pitch].forEach(m => { m.userData.info = fieldInfo; pickables.push(m); });
-  for (const sz of [-1, 1]){
-    const gz = FIELD.z + sz * (FIELD.rz * .78 - 4);
-    box(.2, 2.4, .2, white, FIELD.x - 3.6, 1.2, gz); box(.2, 2.4, .2, white, FIELD.x + 3.6, 1.2, gz); box(7.4, .2, .2, white, FIELD.x, 2.4, gz);
+  /* the 400 m oval was an ellipse: now a stadium shape with eight lanes, inside it a striped pitch with its markings, goals with nets,
+     and a covered stand of five tiers of seats along the east straight */
+  const {x, z, R} = FIELD, R1 = R - FIELD.lanes * FIELD.lw, N = 160;
+  const ring = (r0, r1, list) => {
+    const p = [];
+    for (let i = 0; i < N; i++){
+      const [ax, az] = stadPt(r0, i / N), [bx, bz] = stadPt(r0, (i + 1) / N), [cx, cz] = stadPt(r1, (i + 1) / N), [dx, dz] = stadPt(r1, i / N);
+      p.push(x + ax, 0, z + az, x + cx, 0, z + cz, x + bx, 0, z + bz, x + ax, 0, z + az, x + dx, 0, z + dz, x + cx, 0, z + cz);
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3)); g.computeVertexNormals(); list.push(geoTint(g, '#ffffff'));
+  };
+  const tg = []; ring(R1 - .1, R + .4, tg);
+  const track = new THREE.Mesh(tg[0], flatMat('#b9563d', 8)); track.position.y = .07; track.receiveShadow = true; scene.add(track);
+  /* white lines: the lane lines, the finish line and staggered starts on the east straight, the pitch markings */
+  const ln = [];
+  for (let k = 0; k <= FIELD.lanes; k++) ring(R1 + k * FIELD.lw - .05, R1 + k * FIELD.lw + .05, ln);
+  const strip = (x0, z0, x1, z1, wd) => { const dx = x1 - x0, dz = z1 - z0, l = Math.hypot(dx, dz) || 1, nx = -dz / l * wd / 2, nz = dx / l * wd / 2; ln.push(quadGeo([x + x0 + nx, 0, z + z0 + nz], [x + x0 - nx, 0, z + z0 - nz], [x + x1 - nx, 0, z + z1 - nz], [x + x1 + nx, 0, z + z1 + nz], '#ffffff')); };
+  strip(R1, 6, R, 6, .3);
+  for (let k = 0; k < FIELD.lanes; k++) strip(R1 + k * FIELD.lw + .15, -6 - k * 2.6, R1 + (k + 1) * FIELD.lw - .15, -6 - k * 2.6, .12);
+  const PW = 24, PL = 38;
+  const box2 = (hx, z0, z1) => { strip(-hx, z0, hx, z0, .12); strip(-hx, z1, hx, z1, .12); strip(-hx, z0, -hx, z1, .12); strip(hx, z0, hx, z1, .12); };
+  box2(PW, -PL, PL); strip(-PW, 0, PW, 0, .12);
+  const circ = (cx, cz, r, a0, a1, wd) => { const n = Math.max(6, Math.round((a1 - a0) * r * 1.5)); for (let i = 0; i < n; i++){ const p = a0 + (a1 - a0) * i / n, q = a0 + (a1 - a0) * (i + 1) / n; strip(cx + Math.cos(p) * r, cz + Math.sin(p) * r, cx + Math.cos(q) * r, cz + Math.sin(q) * r, wd); } };
+  circ(0, 0, 6.4, 0, Math.PI * 2, .12); circ(0, 0, .2, 0, Math.PI * 2, .3);
+  for (const s of [-1, 1]){
+    const gl = s * PL, ang = Math.acos(3.5 / 6.4);
+    box2(14, Math.min(gl, gl - s * 11.5), Math.max(gl, gl - s * 11.5)); box2(6.5, Math.min(gl, gl - s * 4), Math.max(gl, gl - s * 4));
+    circ(0, gl - s * 8, .15, 0, Math.PI * 2, .3);
+    /* the penalty arc: the part of the 6.4 m circle round the spot that lies outside the box */
+    if (s < 0) circ(0, gl + 8, 6.4, ang, Math.PI - ang, .12); else circ(0, gl - 8, 6.4, Math.PI + ang, Math.PI * 2 - ang, .12);
   }
-  const standX = FIELD.x + FIELD.rx + 6;
-  for (let i = 0; i < 4; i++) box(2.4, 1 + i * 1.1, S(150), M(i % 2 ? '#c9c2b6' : '#d8d1c5'), standX + i * 2.4, (1 + i * 1.1) / 2, FIELD.z);
-  const sr = makeRoof(4, S(150), 2, 1.5, roofMat('#a8552f')); sr.position.set(standX + 6, 7, FIELD.z); scene.add(sr);
-  for (const sz of [-1, 0, 1]) box(.4, 6, .4, white, standX + 7.5, 3.5, FIELD.z + sz * S(70));
+  const lines = new THREE.Mesh(geoMerge(ln), flatMat('#f4efe6', 9)); lines.position.y = .08; lines.receiveShadow = true; scene.add(lines);
+  /* the grass inside the track, mown in stripes across the pitch */
+  const cv = document.createElement('canvas'); cv.width = 16; cv.height = 256; const g = cv.getContext('2d');
+  for (let i = 0; i < 12; i++){ g.fillStyle = i % 2 ? '#3d7535' : '#47813e'; g.fillRect(0, i * 256 / 12, 16, 256 / 12); }
+  const gp = [], Z0 = -(FIELD.a + R1), ZL = 2 * (FIELD.a + R1);
+  for (let i = 0; i < N; i++){ const [ax, az] = stadPt(R1, i / N), [bx, bz] = stadPt(R1, (i + 1) / N); gp.push(x, 0, z, x + bx, 0, z + bz, x + ax, 0, z + az); }
+  const guv = []; for (let i = 0; i < gp.length; i += 3) guv.push(.5, 1 - (gp[i + 2] - z - Z0) / ZL);
+  const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.Float32BufferAttribute(gp, 3)); pg.setAttribute('uv', new THREE.Float32BufferAttribute(guv, 2)); pg.computeVertexNormals();
+  const pitch = new THREE.Mesh(pg, new THREE.MeshStandardMaterial({map:new THREE.CanvasTexture(cv), roughness:.95, side:THREE.DoubleSide, polygonOffset:true, polygonOffsetFactor:-8, polygonOffsetUnits:-32}));
+  pitch.position.y = .07; pitch.receiveShadow = true; scene.add(pitch);
+  /* goals 7.3 x 2.44 with a sloping net, and corner flags */
+  const kit = [], nets = [], W = '#f4f2ec';
+  const bar = (p, q, r, col) => kit.push(geoTint(rodGeo(r, r, p, q, 8), col || W));
+  for (const s of [-1, 1]){
+    const gz = z + s * PL, bk = gz + s * 2.2, hw = 3.66;
+    for (const sx of [-hw, hw]){ bar([x + sx, 0, gz], [x + sx, 2.44, gz], .06); bar([x + sx, 2.44, gz], [x + sx, 1.5, bk], .03); bar([x + sx, 1.5, bk], [x + sx, 0, bk], .03); bar([x + sx, 0, gz], [x + sx, 0, bk], .03); }
+    bar([x - hw, 2.44, gz], [x + hw, 2.44, gz], .06); bar([x - hw, 1.5, bk], [x + hw, 1.5, bk], .03); bar([x - hw, 0, bk], [x + hw, 0, bk], .03);
+    netQuad(nets, [x - hw, 1.5, bk], [x + hw, 1.5, bk], [x + hw, 0, bk], [x - hw, 0, bk]); netQuad(nets, [x - hw, 2.44, gz], [x + hw, 2.44, gz], [x + hw, 1.5, bk], [x - hw, 1.5, bk]);
+    for (const sx of [-hw, hw]) netQuad(nets, [x + sx, 2.44, gz], [x + sx, 1.5, bk], [x + sx, 0, bk], [x + sx, 0, gz]);
+    for (const sx of [-PW, PW]){ bar([x + sx, 0, gz], [x + sx, 1.5, gz], .02, '#e8e4dc'); kit.push(geoTint(new THREE.BoxGeometry(.02, .35, .45).translate(x + sx, 1.32, gz - s * .24), '#e0b23c')); }
+  }
+  /* the stand (same footprint and collider as before): a front wall, five tiers of blue seats in three blocks with stairs between them,
+     a back wall, and a roof cantilevered from a row of columns with struts */
+  const standX = FIELD.x + FIELD.rx + 6, L = S(150), st = [], TR = 1.9, TH = .55, X0 = standX - 1.4, BLOCK = [[-L / 2 + 1, -16], [-14, 14], [16, L / 2 - 1]];
+  const sb = (w, h, d, px, py, pz, col) => tbox(st, w, h, d, px, py, pz, col);
+  sb(.3, 1.2, L, X0, .6, z, '#c9c2b6'); sb(.36, .08, L, X0, 1.24, z, '#b7b0a4');
+  for (let i = 0; i < 5; i++){
+    const tx = X0 + .15 + TR * i + TR / 2, th = .9 + TH * i;
+    sb(TR, th, L, tx, th / 2, z, i % 2 ? '#c7c0b4' : '#d3ccbf');
+    for (const [z0, z1] of BLOCK){
+      const bl = z1 - z0, bc = z + (z0 + z1) / 2, col = (i + (z0 < 0 ? 0 : 1)) % 2 ? '#2d5d8a' : '#3a6fa3';
+      sb(.42, .07, bl, tx - .1, th + .4, bc, col); sb(.06, .38, bl, tx + .14, th + .62, bc, col); sb(.3, .36, bl, tx - .05, th + .18, bc, '#9aa0a6');
+    }
+    /* the stairs in the two aisles: two half-height steps per tier */
+    for (const zc of [-15, 15]) for (let k = 0; k < 2; k++) sb(TR / 2, .28, 1.8, tx - TR / 4 + k * TR / 2, th + .14 - .28 + k * .28, z + zc, '#bdb6aa');
+  }
+  const XB = X0 + .15 + TR * 5, HB = .9 + TH * 4;
+  sb(.4, HB + 1.4, L, XB + .2, (HB + 1.4) / 2, z, '#c9c2b6');
+  const RY0 = 8.4, RY1 = 7.2, RX0 = XB + .6, RX1 = X0 - 1.6;
+  for (let k = 0; k <= 10; k++){
+    const cz = z - L / 2 + 1 + (L - 2) * k / 10;
+    sb(.45, RY0, .45, RX0, RY0 / 2, cz, '#e8e4dc');
+    kit.push(geoTint(rodGeo(.12, .09, [RX0, RY0, cz], [RX1, RY1, cz], 6), '#d8d4cc'), geoTint(rodGeo(.08, .08, [RX0, RY0 - 2.6, cz], [RX0 - (RX0 - RX1) * .55, RY0 - (RY0 - RY1) * .55, cz], 5), '#d8d4cc'));
+  }
+  const slope = Math.atan2(RY0 - RY1, RX0 - RX1);
+  st.push(geoTint(geoAt(new THREE.BoxGeometry(RX0 - RX1 + .6, .22, L + 1.2), (RX0 + RX1) / 2, (RY0 + RY1) / 2 + .2, z, 0, 0, slope), '#6f4334'), geoTint(geoAt(new THREE.BoxGeometry(.18, .6, L + 1.2), RX1 - .2, RY1 + .1, z, 0, 0, slope), '#5e2f20'));
+  const stand = new THREE.Mesh(geoMerge(st.concat(kit)), decoMat); stand.castShadow = stand.receiveShadow = true; scene.add(stand);
+  const nm = new THREE.Mesh(geoMergeUV(nets), sportNetMat); scene.add(nm);
+  [track, pitch, lines, stand, nm].forEach(m => { m.userData.info = fieldInfo; pickables.push(m); });
   addBox(standX + 3.6, FIELD.z, 5.2, S(75), 0);
   addLabel('田径场', FIELD.x, 8, FIELD.z);
 })();
@@ -431,24 +598,88 @@ structBlock(function(){
   const [x, z] = P(1180, 738);
   const info = {name:'陈嘉庚像', tag:'雕像', desc:'厦门大学创办人陈嘉庚的塑像。从正门进来先经过他，再往北就是"一主四从"的主楼群。', spawn:[x, z + 14, 0]};
   const bronze = M('#6d5638', {metalness:.55, roughness:.45});
-  /* square plinth in two steps with a darker inscription stone; on it a standing figure in a long coat, one hand on a cane (facing the gate) */
-  const ped = box(4.2, 3, 4.2, granite, x, 1.5, z); box(5.4, .5, 5.4, granite, x, .25, z); box(3.2, 1.5, .12, darkStone, x, 1.7, z + 2.12);
-  const fig = geoMerge([new THREE.CylinderGeometry(.5, .72, 2.5, 12).translate(0, 4.25, 0), geoAt(roundBox(1.25, .75, .62, .22, 2), 0, 5.55, 0), new THREE.SphereGeometry(.34, 14, 10).translate(0, 6.28, .02),
-    new THREE.CylinderGeometry(.13, .13, .22, 8).translate(0, 5.98, 0), rodGeo(.17, .14, [-.62, 5.7, 0], [-.7, 4.5, .12], 8), rodGeo(.17, .14, [.62, 5.7, 0], [.74, 4.75, .34], 8),
-    rodGeo(.04, .04, [.78, 4.8, .4], [.82, 3.02, .5], 6), new THREE.BoxGeometry(1.5, .12, 1.1).translate(0, 3.04, 0)]);
+  /* a moulded granite pedestal (two steps, a base course, the die with a dark inscription panel, a cornice), and on it a standing figure in a long
+     Chinese gown (长衫): the gown flares to the ankles over two shoes, a short jacket line at the hips, sleeves with cuffs, the left hand at his side holding a hat,
+     the right on a walking cane, a round head with short hair and ears. Facing the gate. */
+  const pd = [], G1 = '#b7b0a4', G2 = '#c9c2b4', G3 = '#a39c90';
+  tbox(pd, 5.6, .35, 5.6, 0, .175, 0, G3); tbox(pd, 4.9, .35, 4.9, 0, .525, 0, G1); tbox(pd, 4.3, .4, 4.3, 0, .9, 0, G2);
+  tbox(pd, 3.8, 1.9, 3.8, 0, 2.05, 0, G1); tbox(pd, 4.25, .25, 4.25, 0, 3.12, 0, G2); tbox(pd, 4.0, .18, 4.0, 0, 3.33, 0, G1);
+  const ped = new THREE.Mesh(geoMerge(pd), decoMat); ped.position.set(x, 0, z); ped.castShadow = ped.receiveShadow = true; scene.add(ped);
+  const icv = document.createElement('canvas'); icv.width = 256; icv.height = 128; const ig = icv.getContext('2d'), itx = new THREE.CanvasTexture(icv); itx.anisotropy = ANISO;
+  const ipaint = () => { ig.fillStyle = '#2f3337'; ig.fillRect(0, 0, 256, 128); ig.fillStyle = '#d9b45a'; ig.textAlign = 'center'; ig.textBaseline = 'middle';
+    ig.font = '700 46px "Noto Serif SC","Songti SC",serif'; ig.fillText('陈嘉庚先生', 128, 52); ig.font = '500 17px Georgia, serif'; ig.fillText('TAN KAH KEE  1874 – 1961', 128, 100); itx.needsUpdate = true; };
+  ipaint(); document.fonts && document.fonts.ready.then(ipaint);
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(3, 1.5), new THREE.MeshStandardMaterial({map:itx, roughness:.4, metalness:.2})); plate.position.set(x, 2.05, z + 1.91); scene.add(plate);
+  const Y = 3.42, gown = new THREE.LatheGeometry([[0, 0], [.5, .02], [.5, .12], [.47, .6], [.42, 1.2], [.38, 1.6], [.37, 1.75], [.4, 1.95], [.45, 2.35], [.47, 2.55], [.38, 2.72], [.15, 2.78], [0, 2.8]].map(([r, y]) => new THREE.Vector2(r, y)), 14).scale(1.12, 1, .78).translate(0, Y + .12, 0);
+  const fig = geoMerge([
+    gown, new THREE.BoxGeometry(1.4, .14, .9).translate(0, Y + .07, 0),
+    geoAt(roundBox(.24, .14, .4, .06, 1), -.17, Y + .2, .26), geoAt(roundBox(.24, .14, .4, .06, 1), .17, Y + .2, .26),
+    new THREE.TorusGeometry(.37, .035, 4, 16).rotateX(Math.PI / 2).scale(1.12, 1, .78).translate(0, Y + 1.87, 0),
+    new THREE.CylinderGeometry(.12, .14, .22, 10).translate(0, Y + 2.95, 0),
+    new THREE.SphereGeometry(.24, 16, 12).scale(1, 1.15, 1.05).translate(0, Y + 3.3, .02), new THREE.SphereGeometry(.245, 16, 8, 0, Math.PI * 2, 0, Math.PI * .45).scale(1, 1.1, 1.06).translate(0, Y + 3.34, -.01),
+    new THREE.SphereGeometry(.06, 8, 6).scale(.6, 1, .9).translate(-.24, Y + 3.3, 0), new THREE.SphereGeometry(.06, 8, 6).scale(.6, 1, .9).translate(.24, Y + 3.3, 0),
+    new THREE.SphereGeometry(.04, 6, 4).translate(0, Y + 3.27, .26),
+    /* left arm down, a brimmed hat in the hand; right forearm forward onto the cane */
+    rodGeo(.15, .13, [-.5, Y + 2.62, 0], [-.6, Y + 1.85, .04], 8), rodGeo(.13, .11, [-.6, Y + 1.85, .04], [-.6, Y + 1.25, .12], 8), new THREE.CylinderGeometry(.13, .13, .1, 8).translate(-.6, Y + 1.27, .12),
+    new THREE.SphereGeometry(.09, 8, 6).translate(-.6, Y + 1.12, .14), new THREE.CylinderGeometry(.3, .3, .04, 14).rotateZ(Math.PI / 2).translate(-.66, Y + .98, .2), new THREE.CylinderGeometry(.17, .19, .16, 12).rotateZ(Math.PI / 2).translate(-.72, Y + 1.0, .2),
+    rodGeo(.15, .13, [.5, Y + 2.62, 0], [.62, Y + 1.9, .1], 8), rodGeo(.13, .11, [.62, Y + 1.9, .1], [.62, Y + 1.55, .55], 8), new THREE.SphereGeometry(.09, 8, 6).translate(.62, Y + 1.5, .62),
+    rodGeo(.03, .025, [.62, Y + 1.5, .64], [.66, Y + .02, .78], 6), new THREE.SphereGeometry(.05, 6, 4).translate(.62, Y + 1.53, .64)]);
   const body = new THREE.Mesh(fig, bronze); body.position.set(x, 0, z);
   body.castShadow = true; scene.add(body);
-  [ped, body].forEach(m => { m.userData.info = info; pickables.push(m); });
+  [ped, plate, body].forEach(m => { m.userData.info = info; pickables.push(m); });
   addCircle(x, z, 3.2); addLabel('陈嘉庚像', x, 9, z, true);
 })();
-/* East gate */
+/* East gate: it stood on the ring road itself, with its two posts in the traffic lanes. Now it spans the D-zone road just inside the junction:
+   two granite piers on moulded bases, a beam with the name boards, a tiled roof on red brackets, a guard booth and a raised boom on the north side. */
+const EGATE = {x:P(1873, 0)[0], z:P(0, 340)[1], solids:[]};
 structBlock(function(){
-  const [x, z] = P(1898, 340);
-  const info = {name:'东门', tag:'校门', desc:'东门，靠近 B1 学生活动中心和 D 区宿舍。', spawn:[x - 14, z, Math.PI / 2]};
-  for (const sz of [-1, 1]){ const p = box(2.4, 8, 2.4, white, x, 4, z + sz * 9); p.userData.info = info; pickables.push(p); addBox(x, z + sz * 9, 1.4, 1.4, 0); }
-  const beam = box(2, 1.6, 20.4, white, x, 7.6, z); beam.userData.info = info; pickables.push(beam);
-  const r = makeRoof(2.6, 20.6, 1.8, 1.4, roofMat('#c4502a')); r.position.set(x, 8.4, z); scene.add(r);
-  addLabel('东门', x, 14, z, true);
+  const {x, z} = EGATE, PZ = 8.4, info = {name:'东门', tag:'校门', desc:'东门，靠近 B1 学生活动中心和 D 区宿舍。', spawn:[x - 16, z, Math.PI / 2]};
+  const d = [], STONE = '#d8d0c1', BASE = '#9b958b', RED = '#8e2f1f';
+  const bx = (w, h, dd, px, py, pz, col) => tbox(d, w, h, dd, px, py, pz, col);
+  for (const s of [-1, 1]){
+    const pz = z + s * PZ;
+    bx(3.2, .35, 3.2, x, .175, pz, BASE); bx(2.9, .9, 2.9, x, .8, pz, '#b7b0a4'); bx(2.4, 6.2, 2.4, x, 4.35, pz, STONE);
+    for (const k of [0, 1, 2, 3]) bx(2.46, .08, 2.46, x, 2.2 + k * 1.3, pz, '#c4bcad');   /* rusticated courses */
+    bx(2.8, .35, 2.8, x, 7.6, pz, '#c9c1b2'); bx(3.1, .3, 3.1, x, 7.9, pz, STONE);
+    EGATE.solids.push([x, pz, 1.7]);
+  }
+  /* the beam with a red frieze and brackets under the eaves */
+  bx(1.8, 1.3, PZ * 2 + 3.1, x, 8.7, z, STONE); bx(1.9, .22, PZ * 2 + 3.3, x, 8.05, z, '#c9c1b2'); bx(1.95, .35, PZ * 2 + 3.4, x, 9.5, z, RED);
+  for (let k = -6; k <= 6; k++) for (const s of [-1, 1]) bx(.5, .3, .22, x + s * 1.05, 9.5, z + k * 1.5, RED);
+  /* guard booth on the north verge, with a window band and a flat roof, and a raised boom over the inbound lane */
+  const gx = x + 4.2, gz = z - 13.2;
+  bx(3.2, .25, 3.2, gx, .125, gz, BASE); bx(2.8, 2.6, 2.8, gx, 1.55, gz, '#efe9de'); bx(2.84, .9, 2.84, gx, 1.95, gz, '#2a3a44'); bx(3.6, .28, 3.6, gx, 3.0, gz, RED); bx(3.7, .1, 3.7, gx, 3.18, gz, '#5b2015');
+  EGATE.solids.push([gx, gz, 2]);
+  const by = x - 2.2, bzz = z - 6.9;
+  bx(.5, 1.1, .5, by, .55, bzz, '#d9d6cf'); bx(.56, .14, .56, by, 1.1, bzz, '#c4502a');
+  lateSolid(by, bzz, .3);
+  { const A = 1.22, seg = .9;   /* the boom points across the lane, raised (open): red and white bands */
+    for (let k = 0; k < 6; k++){ const p0 = [by, 1.2 + Math.sin(A) * seg * k, bzz + Math.cos(A) * seg * k], p1 = [by, 1.2 + Math.sin(A) * seg * (k + 1), bzz + Math.cos(A) * seg * (k + 1)]; d.push(geoTint(rodGeo(.07, .06, p0, p1, 6), k % 2 ? '#f4f1ea' : '#c4502a')); } }
+  const m = new THREE.Mesh(geoMerge(d), decoMat); m.castShadow = m.receiveShadow = true; scene.add(m);
+  const r = makeRoof(3.4, PZ * 2 + 4.6, 2.2, 1.5, roofMat('#c4502a')); r.position.set(x, 9.68, z); scene.add(r);
+  /* name boards: the school's name to the road outside (east), 东门 to the campus */
+  const ncv = document.createElement('canvas'); ncv.width = 1024; ncv.height = 108; const ng = ncv.getContext('2d'), nt = new THREE.CanvasTexture(ncv); nt.anisotropy = ANISO;
+  const npaint = () => {
+    ng.fillStyle = '#6e2614'; ng.fillRect(0, 0, 1024, 108); ng.strokeStyle = '#d6a63a'; ng.lineWidth = 5; ng.strokeRect(7, 7, 1010, 94);
+    ng.textAlign = 'center'; ng.textBaseline = 'middle'; ng.fillStyle = '#ecc66e'; ng.font = '700 62px "Noto Serif SC","Songti SC",serif'; ng.fillText('厦门大学马来西亚分校', 512, 57); nt.needsUpdate = true;
+  };
+  npaint(); document.fonts && document.fonts.ready.then(npaint);
+  const out = new THREE.Mesh(new THREE.PlaneGeometry(10, 1.05), new THREE.MeshStandardMaterial({map:nt, roughness:.5})); out.rotation.y = Math.PI / 2; out.position.set(x + .91, 8.72, z); scene.add(out);
+  const inn = new THREE.Mesh(new THREE.PlaneGeometry(3.6, .9), plaqueMat('东门')); inn.rotation.y = -Math.PI / 2; inn.position.set(x - .91, 8.72, z); scene.add(inn);
+  [m, out, inn].forEach(o => { o.userData.info = info; pickables.push(o); });
+  /* at night: warm uplights on every face of the piers and under the name boards (washMat, like the teaching blocks) */
+  const wq = {p:[], u:[], c:[]};
+  for (const s of [-1, 1]){
+    const pz = z + s * PZ;
+    for (const f of [-1, 1]){ washQuad(wq, false, pz - 1.15, pz + 1.15, 1.3, 7.4, x + f * 1.24, WASH_WARM, 0, .9); washQuad(wq, true, x - 1.15, x + 1.15, 1.3, 7.4, pz + f * 1.24, WASH_WARM, 0, .9); }
+  }
+  for (const f of [-1, 1]) washQuad(wq, false, z - PZ + 1.3, z + PZ - 1.3, 8.06, 9.35, x + f * .93, WASH_WARM, .2, .8);
+  washMesh(wq, scene);
+  r.traverse(o => { if (o.isMesh){ o.userData.info = info; pickables.push(o); } });
+  /* the trees and lamps were scattered round the old posts (on the ring road): they stand in until lateColsSwap(), then the piers and the booth take over */
+  for (const sz of [-1, 1]) LATE_COLS.push([null, addBox(P(1898, 0)[0], z + sz * 9, 1.4, 1.4, 0), curStruct]);
+  for (const [cx, cz, h] of EGATE.solids){ const c = addBox(cx, cz, h - .3, h - .3, 0); c.dead = true; LATE_COLS.push([c, undefined, curStruct]); }
+  addLabel('东门', x, 15, z, true);
 })();
 
 /* ---------- the stepped lawns in front of the A row: bands of lighter and darker turf following the curve of the promenade, each edged with a low stone kerb ---------- */
@@ -626,6 +857,7 @@ const bulbGeo = new THREE.CylinderGeometry(.26, .2, .48, 6); bulbGeo.translate(0
 const postFarGeo = geoMerge([new THREE.CylinderGeometry(.075, .17, 4.3, 3, 1, true).translate(0, 2.15, 0), new THREE.ConeGeometry(.3, .42, 4).translate(0, 5.0, 0)]), bulbFarGeo = new THREE.CylinderGeometry(.26, .2, .48, 4).translate(0, 4.56, 0);
 const LOD_LAMP = far => ({far, dist:110, size:6});
 const bulbMat = new THREE.MeshStandardMaterial({color:'#fff8ea', emissive:'#ffd59a', emissiveIntensity:0});
+SPORT_HEADS.forEach(m => { m.material = bulbMat; });
 knockSets.push({kind:'lamp', spots:lampSpots, ims:[instanced(postGeo, M('#3b3f44', {metalness:.4, roughness:.5}), lampSpots, LOD_LAMP(postFarGeo)), instanced(bulbGeo, bulbMat, lampSpots, LOD_LAMP(bulbFarGeo))]});
 
 /* ---------- sky dressing ---------- */
