@@ -587,7 +587,7 @@ const KIP_SB = 4.6;   /* height of the shop band at the foot of the mall walls *
 })();
 (function(){
   /* 麦当当: red box with a yellow fascia, a badge tower, glass front to the west (Jalan Warisan Sentral 1), a tall pole sign by that road,
-     drive-thru loop (in from the west along the north side, round the east end, pick-up window on the south side, out west onto the road).
+     drive-thru (in at the north-east corner, south past the order board, west along the south side to the pick-up window, out onto the road).
      Modelled around the old spot and shifted by (MDX, MDZ) to the south end of KIP Sentral. */
   const m = TB(), mLot = TB(), mMark = TB(), MX0 = -501, MX1 = -472, MZ0 = 762, MZ1 = 788;
   tBox(m, -495, 0, 768, MX1, 4.8, MZ1, '#c0392b', 'nx py');
@@ -615,7 +615,7 @@ const KIP_SB = 4.6;   /* height of the shop band at the foot of the mall walls *
   gRect(mLot, -520.5, 751, -458, 801, .05, ASPH);
   for (let z = 753.5; z < 799; z += 2.8) gLine(mMark, -520, z, -515, z, .12, .075, LINE);
   gLine(mMark, -515, 753.5, -515, 798.3, .12, .075, LINE);
-  for (const [ax, az, bx2, bz] of [[-506, 756, -464, 756], [-464, 756, -464, 796], [-464, 796, -506, 796]]) gLine(mMark, ax, az, bx2, bz, .18, .075, YEL);
+  for (const [ax, az, bx2, bz] of [[-459.5, 752, -459.5, 796], [-459.5, 796, -506, 796], [-471.5, 752, -471.5, 761]]) gLine(mMark, ax, az, bx2, bz, .18, .075, YEL);   /* drive-thru: in at the north-east corner, round to the window on the south side */
   const shift = (src, dst) => { for (let i = 0; i < src.p.length; i += 3){ src.p[i] += MDX; src.p[i + 2] += MDZ; } for (const k of ['p', 'n', 'uv', 'c']) for (const v of src[k]) dst[k].push(v); };
   const mm = TB(); shift(m, mm); tMesh(mm, townMat, mcdInfo, true); shift(mLot, surfFar); shift(mMark, markFar);
   addLabel('麦当当', -486 + MDX, 16, 775 + MDZ);
@@ -675,7 +675,7 @@ const outBulbGeo = new THREE.BoxGeometry(.28, .05, .6).translate(0, 5.37, 1.5);
   for (let s = 40; s < ROAD.kip.L - 20; s += step){ const [x, z, tx, tz] = outRoadAt(ROAD.kip, s), o = -(ROAD.kip.w / 2 + 1.8); spots.push(outSpot(x - tz * o, z + tx * o, Math.atan2(-tz, tx), 1)); }
   /* KIP: on the middle lines of the double rows of bays, along the back lane, and in KIP Sentral; then 麦当当 (by its bays and at the corners of the drive-thru) */
   for (const [x, z] of [[-760, 890], [-700, 890], [-640, 890], [-580, 890], [-730, 908], [-670, 908], [-610, 908], [-760, 1038.5], [-690, 1038.5], [-620, 1038.5], [-550, 1038.5],
-    [-739.6, 1065], [-731.4, 1105], [-799.5, 1138], [-799.5, 1166], [-744, 1132], [-744, 1174]]) spots.push(outSpot(x, z, 0, 1));
+    [-739.6, 1065], [-731.4, 1105], [-799.5, 1138], [-799.5, 1166], [-739.6, 1140], [-739.6, 1166]]) spots.push(outSpot(x, z, 0, 1));
   outSet('lamp', spots, [[outPostGeo, M('#3b3f44', {metalness:.4, roughness:.5})], [outBulbGeo, bulbMat]], !TOUCH);
 })();
 /* coconut palms in the Jalan Sunsuria median, from the KIP turn-off to Bell Suites (gaps at the gate and the Bell driveways) */

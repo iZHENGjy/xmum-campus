@@ -185,22 +185,25 @@ function opPeople(list, parent){
 let opDeliv = deliveries, opWas = 0;
 
 /* ---------- 麦当当得来速 ---------- */
-const DT = {st:'', job:null, x:-489 + MDX, z:759 + MDZ, wx:-478 + MDX, wz:792 + MDZ, spillCd:0};
+/* in from the north-east corner (Jalan Warisan Sentral 5), south down the east side past the order board, west along the south side to the
+   window, out onto Jalan Warisan Sentral 1; the building, the board and the window are always on the driver's right (Malaysia drives on the left).
+   It used to start at the west end, which meant a U-turn for anyone coming from the hill road. */
+const DT = {st:'', job:null, x:-465 + MDX, z:772 + MDZ, wx:-478 + MDX, wz:792 + MDZ, spillCd:0};
 DT.A = opSpot('#ffc72c', .55, DT.x, DT.z, '得来速 · 点餐');
 DT.B = opSpot('#4fd18b', .55, DT.wx, DT.wz, '取餐窗口');
 {
   /* menu board with its speaker post beside the order bay, a canopy and sign over the pick-up window, an arrow painted at the lane entrance */
-  const red = M('#c8102e', {roughness:.6}), grey = M('#4a4d52', {roughness:.6}), bx = DT.x, bz = DT.z - 4.1;
-  box(4.4, 3.3, .28, red, bx, 2.75, bz); box(.2, 1.2, .2, grey, bx - 1.6, .6, bz); box(.2, 1.2, .2, grey, bx + 1.6, .6, bz);
-  box(.3, 1.3, .3, grey, bx + 3, .65, bz + .3); box(.42, .42, .2, M('#1d1f24'), bx + 3, 1.45, bz + .36);
-  addBox(bx, bz, 2.3, .25, 0);
+  const red = M('#c8102e', {roughness:.6}), grey = M('#4a4d52', {roughness:.6}), bx = DT.x - 4.1, bz = DT.z;
+  box(.28, 3.3, 4.4, red, bx, 2.75, bz); box(.2, 1.2, .2, grey, bx, .6, bz - 1.6); box(.2, 1.2, .2, grey, bx, .6, bz + 1.6);
+  box(.3, 1.3, .3, grey, bx + .3, .65, bz + 3); box(.2, .42, .42, M('#1d1f24'), bx + .36, 1.45, bz + 3);
+  addBox(bx, bz, .25, 2.3, 0);
   const menu = opSign(4, 3, 512, 384, (g, w, h) => {
     g.fillStyle = '#1d1f24'; g.fillRect(0, 0, w, h); g.fillStyle = '#ffc72c'; g.fillRect(0, 0, w, 84);
     g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#c8102e'; g.font = `900 52px ${OUT_FONT}`; g.fillText('得来速 点餐', w / 2, 44);
     g.textAlign = 'left'; g.font = `700 38px ${OUT_FONT}`;
     [['巨无霸套餐', '#ffffff'], ['麦旋风 ×4', '#9fd8ff'], ['派对桶 + 可乐', '#ffc72c'], ['夜里有夜宵加急', '#ff8a6a']].forEach(([t, col], i) => { g.fillStyle = col; g.fillText('· ' + t, 36, 132 + i * 66); });
   }, {emissive:'#ffffff', emissiveIntensity:.35});
-  menu.material.emissiveMap = menu.material.map; menu.position.set(bx, 2.75, bz + .15);
+  menu.material.emissiveMap = menu.material.map; menu.position.set(bx + .15, 2.75, bz); menu.rotation.y = Math.PI / 2;   /* faces the lane (east) */
   const wx = DT.wx, wz = 788 + MDZ;
   box(4.6, .22, 2.2, red, wx, 3.1, wz + 1.1).castShadow = !TOUCH;
   const pick = opSign(3, .7, 384, 96, (g, w, h) => { g.fillStyle = '#ffc72c'; g.fillRect(0, 0, w, h); g.fillStyle = '#c8102e'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `900 60px ${OUT_FONT}`; g.fillText('取 餐', w / 2, h / 2 + 4); });
@@ -209,7 +212,7 @@ DT.B = opSpot('#4fd18b', .55, DT.wx, DT.wz, '取餐窗口');
     g.clearRect(0, 0, w, h); g.fillStyle = '#f2c230'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `900 78px ${OUT_FONT}`; g.fillText('得来速', w / 2, h - 60);
     g.beginPath(); g.moveTo(w / 2, 14); g.lineTo(w / 2 + 70, 120); g.lineTo(w / 2 + 24, 120); g.lineTo(w / 2 + 24, 270); g.lineTo(w / 2 - 24, 270); g.lineTo(w / 2 - 24, 120); g.lineTo(w / 2 - 70, 120); g.fill();
   }, {transparent:true, depthWrite:false, polygonOffset:true, polygonOffsetFactor:-12, polygonOffsetUnits:-48});
-  arrow.rotation.set(-Math.PI / 2, 0, -Math.PI / 2); arrow.position.set(DT.x - 11.5, .09, DT.z);   /* reads upright for a car driving in (heading +x) */
+  arrow.rotation.set(-Math.PI / 2, 0, Math.PI); arrow.position.set(DT.x, .09, DT.z - 11.5);   /* reads upright for a car driving in (heading +z, south) */
 }
 const DT_MENU = [
   {name:'巨无霸套餐', note:'普通单，稳稳送到就行', risk:'', pay:1, time:1, frag:1},
@@ -227,7 +230,7 @@ function dtOpen(){
   const pick = i => {
     const c = cards[i]; if (!c) return;
     DT.job = Object.assign(c, {t:c.limit, intact:1, perfect:false, air:0, stolen:false, recovered:false}); DT.st = 'win'; opClose(true); sfx.ding();
-    toast('点好了：' + c.m.name, '往前开，绕到楼后面的取餐窗口', 2600);
+    toast('点好了：' + c.m.name, '往前开，拐过弯就是取餐窗口', 2600);
   };
   /* the order card of js/89-offers.js: three orders to pick from without stopping the game (the paused menu below is the fallback) */
   if (typeof offerJob === 'function') return {icon:'🍔', title:night ? '麦当当得来速 · 夜宵加急' : '麦当当得来速', desc:night ? '夜宵时段：报酬 ×1.5，时间更紧' : '点一份，绕到取餐窗口拿餐，限时送回学校',
