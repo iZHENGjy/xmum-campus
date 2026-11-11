@@ -180,27 +180,30 @@ function opPeople(list, parent){
     return {name, x, z, m, lbl:addLabel('外卖取餐 · ' + name, x, 6.5, z, true), out:true};
   };
   const ui = BELL_SIGN.n.findIndex(si => OUT_SIGNS[si][0] === '星爸爸咖啡');
-  PICKUPS.push(mk('星爸爸咖啡', ui >= 0 ? BELL_UNITS[ui] : 283, 309.5), mk('KIP 美食广场', -700, 923));
+  PICKUPS.push(mk('星爸爸咖啡', ui >= 0 ? BELL_UNITS[ui] : 283, 309.5), mk('KIP 美食广场', -600, 917.5));   /* in the ring lane, at the crossing to the food-court doors */
 }
 let opDeliv = deliveries, opWas = 0;
 
 /* ---------- 麦当当得来速 ---------- */
-const DT = {st:'', job:null, x:-489 + MDX, z:759 + MDZ, wx:-478 + MDX, wz:792 + MDZ, spillCd:0};
+/* in from the north-east corner (Jalan Warisan Sentral 5), south down the east side past the order board, west along the south side to the
+   window, out onto Jalan Warisan Sentral 1; the building, the board and the window are always on the driver's right (Malaysia drives on the left).
+   It used to start at the west end, which meant a U-turn for anyone coming from the hill road. */
+const DT = {st:'', job:null, x:-465 + MDX, z:772 + MDZ, wx:-478 + MDX, wz:792 + MDZ, spillCd:0};
 DT.A = opSpot('#ffc72c', .55, DT.x, DT.z, '得来速 · 点餐');
 DT.B = opSpot('#4fd18b', .55, DT.wx, DT.wz, '取餐窗口');
 {
   /* menu board with its speaker post beside the order bay, a canopy and sign over the pick-up window, an arrow painted at the lane entrance */
-  const red = M('#c8102e', {roughness:.6}), grey = M('#4a4d52', {roughness:.6}), bx = DT.x, bz = DT.z - 4.1;
-  box(4.4, 3.3, .28, red, bx, 2.75, bz); box(.2, 1.2, .2, grey, bx - 1.6, .6, bz); box(.2, 1.2, .2, grey, bx + 1.6, .6, bz);
-  box(.3, 1.3, .3, grey, bx + 3, .65, bz + .3); box(.42, .42, .2, M('#1d1f24'), bx + 3, 1.45, bz + .36);
-  addBox(bx, bz, 2.3, .25, 0);
+  const red = M('#c8102e', {roughness:.6}), grey = M('#4a4d52', {roughness:.6}), bx = DT.x - 4.1, bz = DT.z;
+  box(.28, 3.3, 4.4, red, bx, 2.75, bz); box(.2, 1.2, .2, grey, bx, .6, bz - 1.6); box(.2, 1.2, .2, grey, bx, .6, bz + 1.6);
+  box(.3, 1.3, .3, grey, bx + .3, .65, bz + 3); box(.2, .42, .42, M('#1d1f24'), bx + .36, 1.45, bz + 3);
+  addBox(bx, bz, .25, 2.3, 0);
   const menu = opSign(4, 3, 512, 384, (g, w, h) => {
     g.fillStyle = '#1d1f24'; g.fillRect(0, 0, w, h); g.fillStyle = '#ffc72c'; g.fillRect(0, 0, w, 84);
     g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#c8102e'; g.font = `900 52px ${OUT_FONT}`; g.fillText('得来速 点餐', w / 2, 44);
     g.textAlign = 'left'; g.font = `700 38px ${OUT_FONT}`;
     [['巨无霸套餐', '#ffffff'], ['麦旋风 ×4', '#9fd8ff'], ['派对桶 + 可乐', '#ffc72c'], ['夜里有夜宵加急', '#ff8a6a']].forEach(([t, col], i) => { g.fillStyle = col; g.fillText('· ' + t, 36, 132 + i * 66); });
   }, {emissive:'#ffffff', emissiveIntensity:.35});
-  menu.material.emissiveMap = menu.material.map; menu.position.set(bx, 2.75, bz + .15);
+  menu.material.emissiveMap = menu.material.map; menu.position.set(bx + .15, 2.75, bz); menu.rotation.y = Math.PI / 2;   /* faces the lane (east) */
   const wx = DT.wx, wz = 788 + MDZ;
   box(4.6, .22, 2.2, red, wx, 3.1, wz + 1.1).castShadow = !TOUCH;
   const pick = opSign(3, .7, 384, 96, (g, w, h) => { g.fillStyle = '#ffc72c'; g.fillRect(0, 0, w, h); g.fillStyle = '#c8102e'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `900 60px ${OUT_FONT}`; g.fillText('取 餐', w / 2, h / 2 + 4); });
@@ -209,7 +212,7 @@ DT.B = opSpot('#4fd18b', .55, DT.wx, DT.wz, '取餐窗口');
     g.clearRect(0, 0, w, h); g.fillStyle = '#f2c230'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `900 78px ${OUT_FONT}`; g.fillText('得来速', w / 2, h - 60);
     g.beginPath(); g.moveTo(w / 2, 14); g.lineTo(w / 2 + 70, 120); g.lineTo(w / 2 + 24, 120); g.lineTo(w / 2 + 24, 270); g.lineTo(w / 2 - 24, 270); g.lineTo(w / 2 - 24, 120); g.lineTo(w / 2 - 70, 120); g.fill();
   }, {transparent:true, depthWrite:false, polygonOffset:true, polygonOffsetFactor:-12, polygonOffsetUnits:-48});
-  arrow.rotation.set(-Math.PI / 2, 0, -Math.PI / 2); arrow.position.set(DT.x - 11.5, .09, DT.z);   /* reads upright for a car driving in (heading +x) */
+  arrow.rotation.set(-Math.PI / 2, 0, Math.PI); arrow.position.set(DT.x, .09, DT.z - 11.5);   /* reads upright for a car driving in (heading +z, south) */
 }
 const DT_MENU = [
   {name:'巨无霸套餐', note:'普通单，稳稳送到就行', risk:'', pay:1, time:1, frag:1},
@@ -227,7 +230,7 @@ function dtOpen(){
   const pick = i => {
     const c = cards[i]; if (!c) return;
     DT.job = Object.assign(c, {t:c.limit, intact:1, perfect:false, air:0, stolen:false, recovered:false}); DT.st = 'win'; opClose(true); sfx.ding();
-    toast('点好了：' + c.m.name, '往前开，绕到楼后面的取餐窗口', 2600);
+    toast('点好了：' + c.m.name, '往前开，拐过弯就是取餐窗口', 2600);
   };
   /* the order card of js/89-offers.js: three orders to pick from without stopping the game (the paused menu below is the fallback) */
   if (typeof offerJob === 'function') return {icon:'🍔', title:night ? '麦当当得来速 · 夜宵加急' : '麦当当得来速', desc:night ? '夜宵时段：报酬 ×1.5，时间更紧' : '点一份，绕到取餐窗口拿餐，限时送回学校',
@@ -308,13 +311,13 @@ carGeoCache.trolley = (() => {
   for (const sx of [-1, 1]) for (const z of [-.475, .475]) B(dark, .05, .16, .05, sx * .38, .2, z);
   return {chrome:geoMerge(wire), paint:geoMerge(red), trim:geoMerge(dark)};
 })();
-const OP_CARTS = [0, 1, 2].map(i => { const c = makeCar('trolley', '#d7262d', -622 + i * 1.5, 929.2, Math.PI); c.out = true; if (TOUCH) c.root.traverse(o => { o.castShadow = false; }); return c; });
+const OP_CARTS = [0, 1, 2].map(i => { const c = makeCar('trolley', '#d7262d', -620 + i * 1.5, 930.4, Math.PI); c.out = true; if (TOUCH) c.root.traverse(o => { o.castShadow = false; }); return c; });
 /* two more parked cars, so the KIP car park has something to weave around (and to drive home in) */
-for (const [kind, col, x, z, h] of [['myvi', '#2d5d8a', -739.4, 881, Math.PI], ['sedan', '#6d4c8f', -579.8, 917, Math.PI]]) makeCar(kind, col, x, z, h).out = true;
+for (const [kind, col, x, z, h] of [['myvi', '#2d5d8a', -740.4, 875.7, Math.PI], ['sedan', '#6d4c8f', -580.8, 905.6, 0]]) makeCar(kind, col, x, z, h).out = true;
 
 /* ---------- KIP 超市大乱斗: the pink ring at the mall door; the game itself is js/minigames/kipmart.js on the mini-game platform (js/91-arcade.js) ---------- */
-const KM = {near:false, door:{x:-640, z:925.5, h:Math.PI, name:'商场门口'}};
-KM.S = opSpot('#ff5fa2', .55, -640, 927, 'KIP 超市大乱斗 · 进门');
+const KM = {near:false, door:{x:-640, z:929.6, h:Math.PI, name:'商场门口'}};   /* under the canopy of the main doors */
+KM.S = opSpot('#ff5fa2', .55, -640, 930.6, 'KIP 超市大乱斗 · 进门');
 function kmOpen(){
   if (!window.XMini || !XMini.startAt || !window.XKipMart) return;
   const g = XMini.games.find(x => x.id === 'kipmart'); if (!g) return;
@@ -567,8 +570,9 @@ function thBuildNodes(){
   const seen = new Set(), out = [];
   const add = (x, z, alley) => { const k = Math.round(x / 8) + ',' + Math.round(z / 8); if (seen.has(k) || !thFree(x, z, 1)) return; seen.add(k); out.push({x, z, alley:!!alley}); };
   for (const ax of [229.5, 322]) for (const z of [311, 323, 335, 347, 359]) add(ax, z, true);
-  for (let x = -760; x <= -550; x += 30) for (const z of [875, 896, 923]) add(x, z, false);
-  for (let x = -730; x <= -560; x += 34) add(x, 929, true);
+  for (let x = -775; x <= -565; x += 30) for (const z of [876, 899, 917]) add(x, z, false);
+  for (let x = -745; x <= -560; x += 34) add(x, 931, true);
+  for (const x of [-794.8, -770.5, -746.2, -735.5, -700.5]) for (const z of [1060, 1086, 1112]) add(x, z, true);   /* KIP Sentral: lanes and alleys */
   for (const s of roadSegs){
     const n = Math.max(1, Math.round(Math.hypot(s.b[0] - s.a[0], s.b[1] - s.a[1]) / 28));
     for (let i = 0; i <= n; i++) add(s.a[0] + (s.b[0] - s.a[0]) * i / n, s.a[1] + (s.b[1] - s.a[1]) * i / n, false);
@@ -690,7 +694,7 @@ function thSoak(power){
 if (typeof wgAddTarget === 'function') wgAddTarget(() => TH.on ? [{x:TH.x, z:TH.z, hit:thSoak}] : []);
 let thAmmo = typeof WG !== 'undefined' ? WG.ammo : 0;
 /* where other people's orders get stolen: every pick-up ring, and the front of 麦当当 */
-const TH_SHOPS = PICKUPS.map(p => ({name:p.name, x:p.x, z:p.z})).concat([{name:'麦当当', x:-478, z:1103}]);
+const TH_SHOPS = PICKUPS.map(p => ({name:p.name, x:p.x, z:p.z})).concat([{name:'麦当当', x:-520 + MDX, z:778 + MDZ}]);   /* the lot in front of 麦当当, beside Jalan Warisan Sentral 1 */
 function thNearShop(px, pz, max){ let best = null, bd = max; for (const s of TH_SHOPS){ const d = Math.hypot(s.x - px, s.z - pz); if (d > 28 && d < bd){ bd = d; best = s; } } return best; }
 function thUpdate(dt, px, pz, sp, free){
   /* fallback while js/87-classroom.js has no wgAddTarget yet: a shot fired (ammo went down) hits a thief in the front half within range */

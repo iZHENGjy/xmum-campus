@@ -1,4 +1,4 @@
-/* XMUM 校园漫游 · 大门和门前：铁艺大门、罗马柱门廊和门卫亭、IN / OUT 牌和锥桶，门外校碑小广场的边界；草坪灯；A 区台地（azBuild，js/09-azone.js）。
+/* XMUM 校园漫游 · 大门和门前：铁艺大门（关着，门外中轴线上是校碑和喷泉池）、罗马柱门廊和门卫亭、两边进出车道的道闸、IN / OUT 牌和锥桶；草坪灯；A 区台地（azBuild，js/09-azone.js）。
    加载顺序在 js/40-vehicles.js 之后：这里的碰撞盒是在树和小物件都摆完以后才加的，所以不会挪动它们的位置；
    站在新建筑里、台阶上、草坡上的树和路灯在文件最后清掉。
    夜里的发光都是自发光材质和贴片，没有真实光源；js/18-gfx.js 每帧调 gateNight(lamp)。 */
@@ -10,9 +10,11 @@ function gateNight(lamp){
   if (!gateCleared) gateClearRun();
   const k = Math.min(1.4, lamp);
   gateGlassMat.emissiveIntensity = .12 + k * 1.15; gateLampMat.emissiveIntensity = k * 1.1;
+  gateStoneMat.emissiveIntensity = k * .8;   /* the gilded letters on the name stone (js/10-world.js) */
 }
 const gatePools = [];   /* [x, y, z, radius]: pools of light on the ground, one instanced mesh, shown with the lamp pools */
 const gateClear = [];   /* [x0, z0, x1, z1]: trees, lamps and benches inside these are removed at the end */
+const gateLate = [];    /* colliders added on the first frame (gateClearRun), so nothing placed after this file (delivery spots and so on) moves */
 
 /* ---------- the lawn below the A zone's stairs: two rows of low bollards following the curve of the promenade; the statue's round stepped base ---------- */
 (function(){
@@ -22,21 +24,16 @@ const gateClear = [];   /* [x0, z0, x1, z1]: trees, lamps and benches inside the
     tbox(P2, .2, .7, .2, p[0], .35, p[1], '#34373c'); lamps.push(new THREE.BoxGeometry(.26, .14, .26).translate(p[0], .77, p[1])); gatePools.push([p[0], .1, p[1], 3.3]);
   }
   /* ---------- the statue stands on a round stepped base ---------- */
-  const [sx, sz] = P(1180, 738);
+  const [sx, sz] = P(AXIS_PX, 738);
   P2.push(geoTint(new THREE.CylinderGeometry(6.4, 6.6, .2, 40).translate(sx, .1, sz), '#a29b8e'), geoTint(new THREE.CylinderGeometry(5.1, 5.2, .22, 40).translate(sx, .31, sz), '#b0a99b'));
   const m = new THREE.Mesh(geoMerge(P2), decoMat); m.castShadow = m.receiveShadow = true; scene.add(m);
   scene.add(new THREE.Mesh(geoMerge(lamps), gateLampMat));
 })();
 /* the A zone: podium, stairs, walls, garage, the covered walk, the lakeside pavilions; the blocks are lifted onto it (js/09-azone.js) */
 azBuild();
-/* the plaza with the name stone, west of the gate, lies outside the hedge: open it (its three hedges are walls); the gaps in the south hedge are open too */
-{ const G = GATE_PLAZA, w0 = MAP.wall;
+/* the gaps in the south hedge are open (the main gate's opening is GATE_GAP, js/12-terrain.js) */
+{ const w0 = MAP.wall;
   MAP.wall = (x, z, r) => {
-    if (x + r > G.x0 - 1.5 && x - r < G.x1 + 1 && z + r > G.z0 - 1 && z - r < G.z1 + 1.5){
-      if (z - r < G.z0 + 1) return true;
-      if (x - r < G.x0 + 1.5 || x + r > G.x1 - 1) return true;
-      return false;
-    }
     if (z + r > 260 && z - r < 267) for (const o of SOUTH_OPEN) if (x - r > o.x - o.w / 2 && x + r < o.x + o.w / 2) return false;
     return w0(x, z, r);
   }; }
@@ -90,29 +87,28 @@ function ironRail(list, xa, xb, z, y0, h, sp){
   scene.add(new THREE.Mesh(geoMerge(glow), gateLampMat));
 })();
 
-/* ---------- the gate: black wrought iron with gilded spear tips, slid open; the same railing either side; IN and OUT boards; a row of cones down the middle ----------
-   It stands in the opening of the boundary hedge (z = 263.5), where the road from Jalan Sunsuria comes in. Behind it, a flat-roofed porch on white Roman columns
-   to each side of the road: the east one shelters the guard booth, whose big windows are lit at night. Nothing here reaches the perimeter road (z < 252), so the race line is clear. */
+/* ---------- the gate: black wrought iron with gilded spear tips under one gilded arch, closed; a flat-roofed porch on white Roman columns each side; the two lanes ----------
+   As at the real gate, from the axis outward (GATE_FRONT, js/10-world.js): the iron gate, closed, with the name stone and its pool in front of it; a lane each side,
+   cars coming in by the west one and leaving by the east one (Malaysia drives on the left), each past a raised boom on its outer side; then the porches
+   (the brick gate pillars, js/13-outskirts.js, stand at their outer ends): the east one shelters the guard booth beside the OUT lane, whose big windows are lit at night; the west one is the way in on foot.
+   Nothing here reaches the perimeter road (z < 252), so the race line is clear. */
 (function(){
-  const ZF = 263.5, IN = 6.6, OUTX = 16, P2 = [], glass = [], WHITE = '#eee8dc', IRON = '#17191c', GOLD = '#c9982e';
-  /* railing: the same bars as along the frontage, between iron posts; the leaf: a heavier frame, the bars rising to an arch, gilded tips, a gilded roundel */
+  const GF = GATE_FRONT, GZ = GF.gz, IN = 6.6, P2 = [], glass = [], WHITE = '#eee8dc', IRON = '#17191c', GOLD = '#c9982e';
   const iron = [];
+  /* the two leaves meet on the axis under one arch, highest in the middle: a heavy frame, a middle rail, bars up to the arch with gilded tips, a band of gilded
+     rings under the arch, a gilded roundel on each leaf; an iron post with a gilded ball each side, the lanes going past it */
+  const top = x => 2.6 + .9 * Math.cos(Math.PI / 2 * Math.min(1, Math.abs(x - GX) / (IN - .3)));
   for (const s of [-1, 1]){
-    const xa = GX + s * (IN + .25), xb = GX + s * (OUTX - .2), len = Math.abs(xb - xa);
-    tbox(P2, len, .35, .5, (xa + xb) / 2, .175, ZF, '#b9b1a2');
-    for (let k = 0; k <= 3; k++){ tbox(P2, .16, 2.6, .16, xa + (xb - xa) * k / 3, 1.65, ZF, IRON); if (k < 3) ironRail(iron, xa + (xb - xa) * k / 3 + s * .08, xa + (xb - xa) * (k + 1) / 3 - s * .08, ZF, .35, 2.3); }
-    /* the leaf, rolled back behind the railing on its track: frame, a middle rail, 21 bars up to the arch, the arch itself in short pieces, the roundel */
-    const lx0 = GX + s * (IN + .5), lx1 = lx0 + s * 6.5, zl = ZF - .75, top = t => 2.55 + .55 * Math.sin(Math.PI * t), LX = t => lx0 + (lx1 - lx0) * t;
-    for (const t of [0, 1]) tbox(iron, .11, 2.95, .11, LX(t), 1.6, zl, IRON);
-    tbox(iron, 6.5, .14, .08, (lx0 + lx1) / 2, .2, zl, IRON); tbox(iron, 6.5, .08, .07, (lx0 + lx1) / 2, 1.42, zl, IRON);
-    for (let i = 1; i < 22; i++){ const t = i / 22, x = LX(t), h = top(t) - .2; iron.push(ironBarGeo.clone().scale(1.3, h, 1.3).translate(x, .2, zl), ironTipGeo.clone().scale(1.2, 1.2, 1.2).translate(x, .2 + h + .12, zl)); }
-    for (let i = 0; i < 16; i++){ const t0 = i / 16, t1 = (i + 1) / 16; iron.push(geoTint(rodGeo(.04, .04, [LX(t0), top(t0) - .3, zl], [LX(t1), top(t1) - .3, zl], 4).toNonIndexed(), IRON)); }
-    for (const r of [.36, .14]) iron.push(geoTint(new THREE.TorusGeometry(r, .035, 4, 20).translate(LX(.5), .82, zl).toNonIndexed(), GOLD));
-    /* gate post with a gilded ball */
-    tbox(P2, .55, 3.5, .55, GX + s * IN, 1.75, ZF, IRON); P2.push(geoTint(new THREE.SphereGeometry(.26, 10, 8).translate(GX + s * IN, 3.72, ZF).toNonIndexed(), GOLD));
-    addBox(GX + s * (IN + OUTX) / 2, ZF, (OUTX - IN) / 2 + .2, .4, 0);
+    const lx0 = GX + s * (IN - .3), lx1 = GX + s * .03, LX = t => lx0 + (lx1 - lx0) * t;
+    for (const t of [0, 1]){ const x = LX(t), h = top(x) + .1; tbox(iron, .12, h, .12, x, h / 2, GZ, IRON); }
+    tbox(iron, IN - .33, .14, .09, (lx0 + lx1) / 2, .2, GZ, IRON); tbox(iron, IN - .33, .08, .08, (lx0 + lx1) / 2, 1.42, GZ, IRON);
+    for (let i = 1; i < 22; i++){ const x = LX(i / 22), h = top(x) - .2; iron.push(ironBarGeo.clone().scale(1.3, h, 1.3).translate(x, .2, GZ), ironTipGeo.clone().scale(1.2, 1.2, 1.2).translate(x, .2 + h + .12, GZ)); }
+    for (let i = 0; i < 16; i++){ const x0 = LX(i / 16), x1 = LX((i + 1) / 16); iron.push(geoTint(rodGeo(.045, .045, [x0, top(x0) - .3, GZ], [x1, top(x1) - .3, GZ], 4).toNonIndexed(), IRON)); }
+    for (let i = 0; i < 9; i++){ const x = LX((i + .5) / 9); iron.push(geoTint(new THREE.TorusGeometry(.17, .032, 4, 14).translate(x, top(x) - .62, GZ).toNonIndexed(), GOLD)); }
+    for (const r of [.42, .17]) iron.push(geoTint(new THREE.TorusGeometry(r, .04, 4, 22).translate(LX(.5), .82, GZ).toNonIndexed(), GOLD));
+    tbox(P2, .55, 3.9, .55, GX + s * IN, 1.95, GZ, IRON); P2.push(geoTint(new THREE.SphereGeometry(.28, 10, 8).translate(GX + s * IN, 4.14, GZ).toNonIndexed(), GOLD));
   }
-  tbox(P2, IN * 2 + 14, .05, .14, GX, .06, ZF - .75, '#2a2c30');   /* the track the leaves run on */
+  gateLate.push(() => addBox(GX, GZ, IN + .3, .35, 0));
   { const fm = new THREE.Mesh(geoMerge(iron), decoMat); fm.castShadow = XQ.tier > 1; ironMeshes.push(fm); scene.add(fm); }
 
   /* a Roman column: square plinth, moulded base, tapering shaft, flared capital under a square abacus (4.8 m in all) */
@@ -123,43 +119,60 @@ function ironRail(list, xa, xb, z, y0, h, sp){
     addCircle(x, z, .62);
   };
   for (const s of [-1, 1]){
-    const xc = GX + s * 12, zc = 257.8;
+    const xc = GX + s * GF.porch, zc = 257.8;
     for (const dx of [-3.6, 0, 3.6]) for (const dz of [-2.6, 2.6]) column(xc + dx, zc + dz);
     tbox(P2, 9.4, .3, 7.4, xc, 4.95, zc, '#e4ddd0'); tbox(P2, 9.9, .5, 7.9, xc, 5.35, zc, WHITE); tbox(P2, 10.3, .16, 8.3, xc, 5.68, zc, '#f6f2ea');   /* frieze, flat roof, cornice */
     for (const dx of [-2.2, 2.2]) glass.push(new THREE.BoxGeometry(1.5, .06, 1.5).translate(xc + dx, 4.78, zc));                                              /* down-lights under the roof */
     gatePools.push([xc, .1, zc, 8.5]);
     gateClear.push([xc - 5.4, zc - 4.4, xc + 5.4, zc + 4.2]);
   }
-  /* guard booth under the east porch: a low wall, a band of big windows all round, a solid top */
-  { const bx = GX + 12, bz = 257.8, bw = 4.6, bd = 3.2;
+  /* guard booth under the east porch, on the side of the OUT lane: a low wall, a band of big windows all round, a solid top */
+  { const bx = GX + GF.porch - 1.2, bz = 257.8, bw = 4.6, bd = 3.2;
     tbox(P2, bw, 1, bd, bx, .5, bz, WHITE); tbox(P2, bw, 1.3, bd, bx, 3.75, bz, WHITE); tbox(P2, bw + .3, .12, bd + .3, bx, 1.04, bz, '#d9d2c4');
     for (const sx of [-1, 1]) for (const sz2 of [-1, 1]) tbox(P2, .22, 2.1, .22, bx + sx * (bw / 2 - .11), 2.05, bz + sz2 * (bd / 2 - .11), '#3a3d42');
     tbox(P2, .1, 2.1, .1, bx, 2.05, bz - bd / 2 + .05, '#3a3d42'); tbox(P2, .1, 2.1, .1, bx, 2.05, bz + bd / 2 - .05, '#3a3d42');
     glass.push(new THREE.BoxGeometry(bw - .3, 2.05, bd - .3).translate(bx, 2.07, bz));
     addBox(bx, bz, bw / 2 + .2, bd / 2 + .2, 0); }
   /* west porch: the pedestrian way in, three low turnstile posts and a notice board */
-  { const bx = GX - 12, bz = 257.8;
+  { const bx = GX - GF.porch, bz = 257.8;
     for (const dx of [-1.6, 0, 1.6]){ tbox(P2, .28, 1.05, .28, bx + dx, .525, bz, '#8f959b'); tbox(P2, .9, .07, .07, bx + dx + .45, .9, bz, '#c9ced3'); }
     tbox(P2, 2.2, 1.5, .1, bx - 2.6, 1.55, bz + 2.2, '#26323c'); tbox(P2, .1, .8, .1, bx - 3.5, .4, bz + 2.2, '#3a3d42'); tbox(P2, .1, .8, .1, bx - 1.7, .4, bz + 2.2, '#3a3d42'); }
-  /* granite apron under the porches and across the road */
-  { const ap = new THREE.Mesh(new THREE.PlaneGeometry(36, 10.2).rotateX(-Math.PI / 2), regWet(flatMat('#77726a', 6), .35)); ap.position.set(GX, .05, 257.1); ap.receiveShadow = true; scene.add(ap); }
-  /* IN on the left for traffic coming in (Malaysia drives on the left), OUT on the other side for traffic leaving */
+  /* granite paving in front of the gate and under the porches, down to the edge of Jalan Sunsuria (its kerb stops across the gateway, where the road
+     across the median to Bell Avenue starts; the lanes between are asphalt: js/12-terrain.js) */
+  { const xi = GF.lane - GF.lw / 2 - .1, xo = GF.lane + GF.lw / 2 + .1, xe = GF.porch + 5.2, ap = [new THREE.PlaneGeometry(xi * 2, 14).rotateX(-Math.PI / 2).translate(GX, 0, 259)];
+    for (const s of [-1, 1]) ap.push(new THREE.PlaneGeometry(xe - xo, 14).rotateX(-Math.PI / 2).translate(GX + s * (xo + xe) / 2, 0, 259));
+    const m = new THREE.Mesh(geoMergeUV(ap), regWet(flatMat('#77726a', 6), .35)); m.position.y = .05; m.receiveShadow = true; scene.add(m); }
+  /* the lanes: a boom on the outer side of each (by the booth on the east), raised (red and white bands); IN by the west lane for traffic coming in, OUT by the east one */
+  for (const s of [-1, 1]){
+    const px = GX + s * (GF.lane + GF.lw / 2 - .45), pz = 257.6, A = 1.22, seg = .9;
+    tbox(P2, .5, 1.1, .5, px, .55, pz, '#d9d6cf'); tbox(P2, .56, .14, .56, px, 1.1, pz, '#c4502a');
+    for (let k = 0; k < 6; k++){ const p0 = [px - s * Math.cos(A) * seg * k, 1.2 + Math.sin(A) * seg * k, pz], p1 = [px - s * Math.cos(A) * seg * (k + 1), 1.2 + Math.sin(A) * seg * (k + 1), pz]; P2.push(geoTint(rodGeo(.07, .06, p0, p1, 6), k % 2 ? '#f4f1ea' : '#c4502a')); }
+    gateLate.push(() => addCircle(px, pz, .35));
+    gatePools.push([GX + s * GF.lane, .1, 259, 5.2]);
+    gateClear.push([GX + Math.min(s * (GF.lane - GF.lw / 2 - .4), s * (GF.lane + GF.lw / 2 + .4)), 244, GX + Math.max(s * (GF.lane - GF.lw / 2 - .4), s * (GF.lane + GF.lw / 2 + .4)), 268]);
+  }
+  gatePools.push([GX, .1, 263, 4.4]);
+  gateClear.push([GX - 7.6, 252, GX + 7.6, 266]);
+  /* the axis walk from the front road up to A3's stair, with the statue on it: trees and lamps scattered before it moved over here go */
+  gateClear.push([GX - 8.2, AZ.promZ(GX) - 4, GX + 8.2, 214]);
   { const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64; const g = cv.getContext('2d');
     g.fillStyle = '#1d4f9a'; g.fillRect(0, 0, 128, 64); g.fillStyle = '#b3261e'; g.fillRect(128, 0, 128, 64); g.strokeStyle = '#ffffff'; g.lineWidth = 4; g.strokeRect(4, 4, 120, 56); g.strokeRect(132, 4, 120, 56);
     g.fillStyle = '#ffffff'; g.font = '900 40px Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('IN', 64, 34); g.fillText('OUT', 192, 34);
-    const quads = [];
-    for (const [x, u0, face] of [[GX - 5.4, 0, 1], [GX + 5.4, .5, -1]]){
-      tbox(P2, .1, 1.5, .1, x, .75, ZF - 2.2, '#c9ced3');
-      for (const f2 of [1, -1]){ const q = new THREE.PlaneGeometry(1.1, .55), uv = q.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setX(i, u0 + uv.getX(i) * .5); if (f2 * face < 0) q.rotateY(Math.PI); quads.push(q.translate(x, 1.75, ZF - 2.2 + f2 * face * .06).toNonIndexed()); }
+    const quads = [], bz = 262.4;
+    const bx = GF.lane + GF.lw / 2 + .3;   /* on the outer edge of each lane, in front of the porch */
+    for (const [x, u0, face] of [[GX - bx, 0, 1], [GX + bx, .5, -1]]){
+      tbox(P2, .1, 2.2, .1, x, 1.1, bz, '#c9ced3');
+      for (const f2 of [1, -1]){ const q = new THREE.PlaneGeometry(1.1, .55), uv = q.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setX(i, u0 + uv.getX(i) * .5); if (f2 * face < 0) q.rotateY(Math.PI); quads.push(q.translate(x, 2.45, bz + f2 * face * .06).toNonIndexed()); }
     }
     scene.add(new THREE.Mesh(geoMergeUV(quads), new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(cv)}))); }
   const m = new THREE.Mesh(geoMerge(P2), decoMat); m.castShadow = m.receiveShadow = true; scene.add(m);
   scene.add(new THREE.Mesh(geoMerge(glass), gateGlassMat));
-  /* traffic cones between the two lanes and by the boards. A car knocks them over (they are an outside set, like the street lamps beyond the gate:
+  /* traffic cones along the lanes. A car knocks them over (they are an outside set, like the street lamps beyond the gate:
      the campus sets are cleared out of the gateway on the first frame, and these also stay out of the black hole's tally) */
   const coneGeo = geoMerge([geoTint(new THREE.ConeGeometry(.2, .62, 10, 1, true).translate(0, .35, 0).toNonIndexed(), '#f26a1b'), geoTint(new THREE.CylinderGeometry(.115, .15, .13, 10, 1, true).translate(0, .37, 0).toNonIndexed(), '#f6f3ec'),
     geoTint(new THREE.BoxGeometry(.44, .05, .44).translate(0, .025, 0), '#d85a12')]);
-  outSet('cone', [[0, 253.8], [0, 256.2], [0, 258.6], [0, 261], [-5, 260.2], [5, 260.2], [0, 266.4], [0, 268.8]].map(([dx, z]) => outSpot(GX + dx, z, 0, 1)), [[coneGeo, M('#ffffff', {vertexColors:true, roughness:.7})]], false);
+  const li = GF.lane - GF.lw / 2 + .5, lo = GF.lane + GF.lw / 2 - .5;
+  outSet('cone', [[-li, 254.5], [-li, 257], [li, 254.5], [li, 257], [-lo, 266.6], [-lo, 268.6], [lo, 266.6], [lo, 268.6]].map(([dx, z]) => outSpot(GX + dx, z, 0, 1)), [[coneGeo, M('#ffffff', {vertexColors:true, roughness:.7})]], false);
 })();
 
 /* ---------- pools of light under the porches, the stair lanterns and the lawn bollards: one instanced mesh, switched with the street-lamp pools ---------- */
@@ -174,10 +187,13 @@ function gateClearRun(){
   gateCleared = true;
   /* the old inner fence (js/10-world.js FENCE_GHOST) only stood in while the scenery was placed */
   for (const c of FENCE_GHOST){ const i = colliders.indexOf(c); if (i >= 0) colliders.splice(i, 1); for (const st of structures){ const j = st.cols.indexOf(c); if (j >= 0) st.cols.splice(j, 1); } }
+  /* the axis walks were where the axis used to run, 15 m east of A3's middle, while the scenery was scattered: now they move onto the axis */
+  for (const [sg, a, b] of ROAD_SWAP){ sg.a = a; sg.b = b; }
   /* so do the low cheek walls beside the A-zone steps (js/09-azone.js): from now on you walk or drive over them */
   for (const c of AZ.cheeks){ const i = colliders.indexOf(c); if (i >= 0) colliders.splice(i, 1); for (const st of structures){ const j = st.cols.indexOf(c); if (j >= 0) st.cols.splice(j, 1); } }
-  /* the planter under the name stone is a little wider than the box the scenery was placed round (eaten with the stone) */
-  { const c = addBox(GATE_PLAZA.sx, GATE_PLAZA.sz + .2, 15.4, 1.4, 0), st = structures.find(s => s.info === gateInfo); if (st) st.cols.push(c); }
+  /* the name stone with its pool, on the axis in front of the gate (eaten with the stone); the closed gate and the boom posts */
+  { const G = GATE_FRONT, z0 = G.sz - .95, c = addBox(GX, (z0 + G.pz1) / 2, G.hw, (G.pz1 - z0) / 2, 0), st = structures.find(s => s.info === gateInfo); if (st) st.cols.push(c);
+    for (const f of gateLate) f(); }
   /* a campus cat whose spot is now inside a block that was turned moves to the front of it */
   if (typeof cats !== 'undefined') for (const k of cats) for (const c of LATE_REAL){
     const dx = k.hx - c.cx, dz = k.hz - c.cz, lx = dx * c.c - dz * c.s, lz = dx * c.s + dz * c.c;

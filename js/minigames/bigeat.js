@@ -562,7 +562,7 @@ body.be-on #acts kbd{color:rgba(255,255,255,.85)}
     parts:'bell',                  // 改装零件掉落表：js/42-tuning.js 的 TN_DROPS.bell，按奖牌发，结算面板显示（js/93-tuning-ui.js）
     desc:'夜市长桌上和对手比吃：狂点吃，别噎着，辣了喝水',
     intro:RULES,
-    controls:{a:'吃', b:'喝水', tap:true, help:{touch:'狂点右下「吃」（点画面也算）· 蓝色「喝水」解辣、解噎', key:'狂点鼠标左键或空格：吃 · 右键或 K：喝水 · P 暂停'}},
+    controls:{a:'吃', b:'喝水', tap:true, help:{touch:'狂点右下「吃」（点画面也算）· 蓝色「喝水」解辣、解噎', key:'狂点鼠标左键或空格：吃 · 右键或 K：喝水 · Esc 暂停'}},
     board:{fmt:v => (v / 10).toFixed(1) + ' 秒', lower:true, max:600},
     medals:[200, 240, 600],
     sky:'#170f22', shadow:9,

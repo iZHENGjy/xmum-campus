@@ -7,9 +7,9 @@ let camYaw = 0, camPitch = .32, camDist = 9;
 const orbitSave = {pos:camera.position.clone(), tgt:controls.target.clone()};
 const help = $('#help'), mini = $('#mini'), joyEl = $('#joy'), acts = $('#acts'), gstat = $('#gstat'), promptEl = $('#prompt');
 function setHelp(){
-  if (mode === 'orbit') help.innerHTML = '拖动旋转 · 滚轮或双指缩放 · 右键平移 · <b>点一栋楼</b>看介绍 · 右上角切到<b>奶娃</b>开车、<b>黑洞</b>吞校园，或回<b>菜单</b>';
-  else if (TOUCH) help.innerHTML = '左下摇杆走路（推到底是跑）· 拖动屏幕转头 · 找 8 个金色打卡点';
-  else help.innerHTML = '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 走路 · <kbd>Shift</kbd> 跑 · 拖动鼠标转头 · <kbd>←</kbd><kbd>→</kbd> 转身 · 找 8 个金色打卡点';
+  if (mode === 'orbit') help.innerHTML = '拖动旋转 · 滚轮或双指缩放 · 右键平移 · <b>点一栋楼</b>看介绍 · 右上角切到<b>奶娃</b>开车、<b>黑洞</b>吞校园，或回<b>菜单</b>' + (TOUCH ? '' : ' · <kbd>P</kbd> 游戏指南');
+  else if (TOUCH) help.innerHTML = '左下摇杆走路（推到底是跑）· 拖动屏幕转头 · 点小地图看大地图 · 找 8 个金色打卡点';
+  else help.innerHTML = '<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 走路 · <kbd>Shift</kbd> 跑 · 拖动鼠标转头 · <kbd>←</kbd><kbd>→</kbd> 转身 · <kbd>M</kbd> 地图 · <kbd>P</kbd> 指南 · 找 8 个金色打卡点';
   help.hidden = mode === 'walk' && TOUCH;
 }
 function setMode(m){
@@ -91,7 +91,7 @@ window.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT' || document.querySelector('dialog[open]')) return;
   if (mode === 'naiwa' && !e.repeat){
     ac();
-    if (e.code === 'KeyP' || (e.code === 'Escape' && $('#shop').hidden)){ gx.togglePause(); return; }
+    if (e.code === 'Escape' && $('#shop').hidden){ gx.togglePause(); return; }   /* P is the game guide and M the big map now (js/ui-guide.js) */
     if (gx.paused) return;
     if (e.code === 'KeyF' || e.code === 'Enter') doF();
     if (e.code === 'Space' && !driving) footAction('jump');
@@ -118,7 +118,7 @@ window.addEventListener('pointermove', e => {
   down.moved += Math.abs(dx) + Math.abs(dy);
   if (mode === 'walk'){ player.yaw -= dx * .0045; player.pitch = Math.max(-1.2, Math.min(1.2, player.pitch - dy * .0045)); }
   if (mode === 'hole'){ camYaw -= dx * .005; }
-  if (mode === 'naiwa'){ camYaw -= dx * .005; camPitch = Math.max(indoorNow() ? .75 : -.1, Math.min(1.2, camPitch + dy * .004)); camYawHold = 1.6; }
+  if (mode === 'naiwa'){ camYaw -= dx * .005; camPitch = Math.max(indoorNow() ? (window.XINDOOR_PITCH != null ? window.XINDOOR_PITCH : .75) : -.1, Math.min(1.2, camPitch + dy * .004)); camYawHold = 1.6; }
 });
 const endDown = e => {
   if (!down || e.pointerId !== down.id) return;
@@ -219,9 +219,9 @@ function updateNaiwaMode(dt, T){
   fitShadow(Math.round(px / 20) * 20, Math.round(pz / 20) * 20, 150);
   /* prompts */
   let msg = '';
-  if (driving) msg = TOUCH ? '' : 'W/S 油门刹车 · A/D 转向 · 按住空格漂移 · H 喇叭 · F 下车';
+  if (driving) msg = TOUCH ? '' : 'W/S 油门刹车 · A/D 转向 · 按住空格漂移 · H 喇叭 · F 下车 · M 地图';
   else if (nw.state === 'fly') msg = '啊啊啊啊——';
-  else { const nc = nearestCar(); msg = nc ? (TOUCH ? '点「上车」开走这辆' : '按 F 上车') + ' · ' + nc.T.name : (TOUCH ? '' : 'WASD 走 · 空格跳 · E 水枪 · R 大笑 · 找辆车按 F 上车'); }
+  else { const nc = nearestCar(); msg = nc ? (TOUCH ? '点「上车」开走这辆' : '按 F 上车') + ' · ' + nc.T.name : (TOUCH ? '' : 'WASD 走 · 空格跳 · E 水枪 · R 大笑 · F 上车 · M 地图 · P 指南'); }
   if (!driving && nw.state !== 'fly' && Math.hypot(nw.x - SHOWROOM[0], nw.z - SHOWROOM[1]) < 11) msg = TOUCH ? '点右上角「XMUM 车行」看车' : '按 G 打开 XMUM 车行';
   else if (driving && driving.wrecked) msg = TOUCH ? '这辆车报废了，点「下车」换一辆' : '这辆车报废了，按 F 下车换一辆';
   gx.update(dt, px, pz); msg = gx.prompt() || msg;
@@ -236,11 +236,16 @@ function toast(t, sub, ms){
   toastEl.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), ms || 2200);
 }
 
-/* ---------- minimap (north-up, 520 m window) ---------- */
+/* ---------- minimap (north-up, 520 m window) ----------
+   The big map (M, js/ui-guide.js) draws with the same function onto its own canvas: o = {g: 2D context, span: metres across the shorter side,
+   u: how much bigger dots and lines are, names: write building names}. The indoor floor plans (js/87-classroom.js, js/89-dorm.js) wrap drawMini;
+   drawMiniCampus keeps this one so the big map can still draw the campus. */
 const mg = mini.getContext('2d');
-function drawMini(cx, cz, yaw){
-  const Sz = mini.width, k = Sz / 520, X = x => Sz / 2 + (x - cx) * k, Z = z => Sz / 2 + (z - cz) * k;
-  mg.fillStyle = '#74a955'; mg.fillRect(0, 0, Sz, Sz);
+function drawMini(cx, cz, yaw, o){
+  const G = o && o.g || mini.getContext('2d'), Sw = G.canvas.width, Sh = G.canvas.height, Sz = Math.min(Sw, Sh), u = o && o.u || 1;
+  const k = Sz / (o && o.span || 520), X = x => Sw / 2 + (x - cx) * k, Z = z => Sh / 2 + (z - cz) * k;
+  const mg = G;   /* everything below draws on G */
+  mg.fillStyle = '#74a955'; mg.fillRect(0, 0, Sw, Sh);
   if (typeof drawOutMini === 'function') drawOutMini(mg, X, Z, k);   /* hills, roads and shops outside the gate */
   mg.fillStyle = '#4d8a3e'; mg.beginPath(); FOREST.forEach(([x, z], i) => i ? mg.lineTo(X(x), Z(z)) : mg.moveTo(X(x), Z(z))); mg.fill();
   mg.lineCap = 'round'; mg.lineJoin = 'round';
@@ -254,21 +259,41 @@ function drawMini(cx, cz, yaw){
     if (f.t === 1){ mg.beginPath(); mg.arc(X(f.x), Z(f.z), f.r * k, 0, 7); mg.fill(); continue; }
     mg.save(); mg.translate(X(f.x), Z(f.z)); mg.rotate(-f.rot); mg.fillRect(-f.w / 2 * k, -f.d / 2 * k, f.w * k, f.d * k); mg.restore();
   }
-  const dot = (x, z, col, r) => { let px = X(x), pz = Z(z); const edge = px < 8 || px > Sz - 8 || pz < 8 || pz > Sz - 8;
-    px = Math.max(8, Math.min(Sz - 8, px)); pz = Math.max(8, Math.min(Sz - 8, pz));
-    mg.fillStyle = col; mg.strokeStyle = '#1f2a33'; mg.lineWidth = 2; mg.beginPath(); mg.arc(px, pz, edge ? r - 2 : r, 0, 7); mg.fill(); mg.stroke(); };
+  if (o && o.names) miniNames(mg, X, Z, Sw, Sh, u);
+  const dot = (x, z, col, r) => { r *= u; const e = 8 * u; let px = X(x), pz = Z(z); const edge = px < e || px > Sw - e || pz < e || pz > Sh - e;
+    px = Math.max(e, Math.min(Sw - e, px)); pz = Math.max(e, Math.min(Sh - e, pz));
+    mg.fillStyle = col; mg.strokeStyle = '#1f2a33'; mg.lineWidth = 2 * u; mg.beginPath(); mg.arc(px, pz, edge ? r - 2 * u : r, 0, 7); mg.fill(); mg.stroke(); };
   if (mode === 'naiwa'){
     for (const c of cars) if (c !== driving && c.root.visible){ mg.save(); mg.translate(X(c.x), Z(c.z)); mg.rotate(-c.h); mg.fillStyle = c.patrol ? '#e74c3c' : '#ffffff'; mg.fillRect(-c.T.W * k * 1.5, -c.T.L * k * .75, c.T.W * k * 3, c.T.L * k * 1.5); mg.restore(); }
     if (mission.on) dot(mission.to.x, mission.to.z, '#4fd18b', 9); else if (!gx.busy()) for (const pk of PICKUPS) dot(pk.x, pk.z, pk === hotPk && !pk.cool ? '#ffc93c' : '#ff8a3d', 8);
     gx.mini(dot);
   }
   if (mode === 'hole') holeMiniPUs(mg, X, Z);   /* black-hole power-ups on the minimap (js/70-hole.js) */
-  if (mode === 'hole'){ for (const h of HOLES){ if (!h.alive) continue; mg.fillStyle = '#120a22'; mg.strokeStyle = h.color; mg.lineWidth = h.you ? 3 : 2; mg.beginPath(); mg.arc(X(h.x), Z(h.z), Math.max(4, h.r * k), 0, 7); mg.fill(); mg.stroke(); } }
+  if (mode === 'hole'){ for (const h of HOLES){ if (!h.alive) continue; mg.fillStyle = '#120a22'; mg.strokeStyle = h.color; mg.lineWidth = (h.you ? 3 : 2) * u; mg.beginPath(); mg.arc(X(h.x), Z(h.z), Math.max(4 * u, h.r * k), 0, 7); mg.fill(); mg.stroke(); } }
   else for (const cp of CPS) if (!cp.done) dot(cp.x, cp.z, '#ffd24a', 6);
-  mg.save(); mg.translate(Sz / 2, Sz / 2); mg.rotate(-yaw);
+  /* you: in the middle of the minimap; on the big map wherever you are (pinned to the edge when the map is panned away) */
+  const me = o && o.me, ax = me ? Math.max(14 * u, Math.min(Sw - 14 * u, X(me[0]))) : Sw / 2, az = me ? Math.max(14 * u, Math.min(Sh - 14 * u, Z(me[1]))) : Sh / 2;
+  mg.save(); mg.translate(ax, az); mg.rotate(-yaw); mg.scale(u, u);
   mg.fillStyle = '#1f2a33'; mg.strokeStyle = '#ffffff'; mg.lineWidth = 2.5;
   mg.beginPath(); mg.moveTo(0, -12); mg.lineTo(8, 9); mg.lineTo(0, 4); mg.lineTo(-8, 9); mg.closePath(); mg.stroke(); mg.fill(); mg.restore();
-  mg.fillStyle = '#1f2a33'; mg.font = '700 18px sans-serif'; mg.fillText('N', Sz / 2 - 6, 20);
+  if (!(o && o.noN)){ mg.fillStyle = '#1f2a33'; mg.font = '700 18px sans-serif'; mg.fillText('N', Sw / 2 - 6, 20); }
+}
+const drawMiniCampus = drawMini;
+/* building names on the big map: the same labels the 3D view shows (js/00-core.js addLabel), minor ones only when zoomed in */
+function miniNames(g, X, Z, Sw, Sh, u){
+  const fs = Math.round(12 * u), seen = [];
+  g.font = `600 ${fs}px ${getComputedStyle(document.body).fontFamily}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
+  for (const L of labels){
+    if (L.dead || (L.minor && !miniNames.minor)) continue;
+    const x = X(L.pos.x), y = Z(L.pos.z); if (x < 0 || y < 0 || x > Sw || y > Sh) continue;
+    const t = L.el.textContent; if (!t) continue;
+    const w = g.measureText(t).width;
+    if (seen.some(b => Math.abs(b[0] - x) < (b[2] + w) / 2 + 4 && Math.abs(b[1] - y) < fs + 2)) continue;   /* no overlapping names */
+    seen.push([x, y, w]);
+    g.lineWidth = 3.5 * u; g.strokeStyle = 'rgba(255,253,248,.92)'; g.strokeText(t, x, y);
+    g.fillStyle = L.minor ? '#46525c' : '#1f2a33'; g.fillText(t, x, y);
+  }
+  g.textAlign = 'start'; g.textBaseline = 'alphabetic';
 }
 
 /* ---------- loop ---------- */
@@ -294,11 +319,12 @@ function adaptQuality(dt){
   toast('已切换到更流畅的画质', '画质：' + XQ.label + ' · 菜单里可以改', 2000);
 }
 XQ.onChange(() => { QUAL.acc = 0; QUAL.frames = 0; QUAL.wait = Math.max(QUAL.wait, 2); });
-let miniTick = 0;
+let miniTick = 0, uiHold = false;
 function frame(now){
   const dt = Math.min(.05, (now - last) / 1000); last = now; const T = (now - t0) / 1000;
   adaptQuality((now - (frame.prev || now)) / 1000); frame.prev = now;
-  if (mode === 'walk') updateWalk(dt);
+  if (uiHold && mode !== 'orbit'){ /* the game guide or the big map is open (js/ui-guide.js): walking, driving and the black hole wait */ }
+  else if (mode === 'walk') updateWalk(dt);
   else if (mode === 'naiwa'){ if (!gx.paused) updateNaiwaMode(dt * gx.scale(dt), T); }
   else if (mode === 'hole') updateHole(dt, T);
   else {
