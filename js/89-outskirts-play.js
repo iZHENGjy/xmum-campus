@@ -691,7 +691,7 @@ function thSoak(power){
 if (typeof wgAddTarget === 'function') wgAddTarget(() => TH.on ? [{x:TH.x, z:TH.z, hit:thSoak}] : []);
 let thAmmo = typeof WG !== 'undefined' ? WG.ammo : 0;
 /* where other people's orders get stolen: every pick-up ring, and the front of 麦当当 */
-const TH_SHOPS = PICKUPS.map(p => ({name:p.name, x:p.x, z:p.z})).concat([{name:'麦当当', x:-478, z:1103}]);
+const TH_SHOPS = PICKUPS.map(p => ({name:p.name, x:p.x, z:p.z})).concat([{name:'麦当当', x:-520 + MDX, z:778 + MDZ}]);   /* the lot in front of 麦当当, beside Jalan Warisan Sentral 1 */
 function thNearShop(px, pz, max){ let best = null, bd = max; for (const s of TH_SHOPS){ const d = Math.hypot(s.x - px, s.z - pz); if (d > 28 && d < bd){ bd = d; best = s; } } return best; }
 function thUpdate(dt, px, pz, sp, free){
   /* fallback while js/87-classroom.js has no wgAddTarget yet: a shot fired (ammo went down) hits a thief in the front half within range */

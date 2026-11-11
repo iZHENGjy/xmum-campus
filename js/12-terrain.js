@@ -23,9 +23,8 @@ MAP.wall = (x, z, r) => {
    lanes round it, the first row of KIP Sentral shop offices and KIP CORE to the south, Prima Apartment across the hill road. */
 const OUT_PADS = [
   {id:'bell', x0:-45, x1:545, z0:288, z1:470, fall:55},
-  {id:'kip',  x0:-822, x1:-490, z0:864, z1:1160, fall:70},
+  {id:'kip',  x0:-822, x1:-490, z0:864, z1:1180, fall:70},
   {id:'prima', x0:-490, x1:-274, z0:888, z1:1012, fall:45},
-  {id:'mcd',  x0:-503, x1:-406, z0:1065, z1:1137, fall:45}
 ];
 const OUT_ROADS = [
   {id:'artN', kind:'main', w:8, line:[[-1400, 270], [1160, 270]]},
@@ -47,15 +46,15 @@ const OUT_ROADS = [
   {id:'resC', kind:'lane', w:4.5, line:[[229, 405.5], [229, 459]]},
   {id:'resE', kind:'lane', w:5, line:[[322, 363], [322, 459]]},
   {id:'kip',  kind:'main', w:11, flatAfterZ:700, ctrl:[[-62, 289], [-64, 345], [-95, 430], [-185, 505], [-300, 570], [-420, 630], [-500, 705], [-530, 790], [-527, 880], [-505, 960], [-498, 1040], [-511, 1110], [-520, 1148]]},
-  /* 油棕园公路 (js/92-racing.js track): from 麦当当 east through the hills and the oil-palm estate back up to Jalan Sunsuria */
+  /* 油棕园公路 (js/92-racing.js track): from the end of the hill road south of KIP east through the hills and the oil-palm estate back up to Jalan Sunsuria */
   /* round KIP mall (OSM customer service roads) and the KIP Sentral grid behind it (Jalan Warisan Sentral 1–4 and two service alleys) */
   {id:'kipW', kind:'lane', w:8, line:[[-786, 917], [-786, 1030]]},
   {id:'kipE', kind:'lane', w:7, line:[[-539.5, 917], [-539.5, 1030]]},
   {id:'kipS', kind:'lane', w:7, line:[[-806, 1030], [-502, 1030]]},
-  {id:'sen1', kind:'lane', w:7, line:[[-806, 1030], [-806, 1125]]},
+  {id:'sen1', kind:'lane', w:7, line:[[-806, 1030], [-806, 1172]]},   /* runs on south to 麦当当 (really ≈ 450 m further, past more shop rows) */
   {id:'sen2', kind:'lane', w:7, line:[[-735.5, 1047], [-735.5, 1125]]},
   {id:'sen3', kind:'lane', w:7, line:[[-806, 1047], [-667, 1047]]},
-  {id:'sen4', kind:'lane', w:7, line:[[-667, 1030], [-667, 1125]]},
+  {id:'sen4', kind:'lane', w:7, line:[[-667, 1030], [-667, 1172]]},
   {id:'sen5', kind:'lane', w:6, line:[[-806, 1125], [-667, 1125]]},
   {id:'senA', kind:'lane', w:4.5, line:[[-770.5, 1047], [-770.5, 1125]]},
   {id:'senB', kind:'lane', w:4.5, line:[[-700.5, 1047], [-700.5, 1125]]},
@@ -166,7 +165,7 @@ function terrainY(x, z){
     });
   }
   for (let k = 0; k < N; k++) if (FM[k]) H[k] *= 1 - FM[k];
-  /* 3. flat pads for Bell Avenue, 麦当当 and KIP mall */
+  /* 3. flat pads for Bell Avenue, KIP (麦当当 and the petrol station are on the KIP pad) and Prima */
   function flatPads(){
     for (const p of OUT_PADS){
       const R = p.fall + 4, i0 = Math.max(0, Math.ceil((p.x0 - R - x0) / C)), i1 = Math.min(nx - 1, Math.floor((p.x1 + R - x0) / C));
