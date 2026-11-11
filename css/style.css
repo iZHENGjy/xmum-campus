@@ -1374,3 +1374,5 @@ body #offer.mini{top:auto;left:auto;right:calc(var(--safe-r) + 12px);bottom:calc
 @media (max-width:560px){ .of-pill span{display:none} }
 @keyframes ofPill{from{opacity:0;transform:translateY(8px) scale(.9)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion: reduce){ .of-pill{animation:none} }
+
+.t-foot a.t-classic{color:inherit;text-decoration:underline;text-underline-offset:2px}
