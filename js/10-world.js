@@ -229,7 +229,7 @@ const sideDesc = '"一主四从"里的"从"楼之一：讲堂、课室、电脑�
 /* The four side blocks stand on an arc that opens toward the lawn, each one turned to face its centre (the plan's angles had been applied the wrong way round:
    the west blocks were swung away from A3, which left them overlapping at the corners). placeRot keeps the scenery where it was (see LATE_COLS in js/00-core.js).
    grand: a deep ground-floor arcade to walk along, an open porch under the entrance tower, a lookout storey on top; waist: a skirt of eaves under the top floor. */
-building({arcade:true, bay:true, gable:true, eaveLight:true, grand:true, waist:[5], wash:{accent:WASH_VIOLET}, name:'A1', tag:'教学', desc:sideDesc + '它在最西端，紧挨礼堂。', floors:6, px:900, py:640, wp:95, dp:85, rot:-18, placeRot:18, variant:1, plaque:{text:'A1'}});
+building({arcade:true, bay:true, gable:true, eaveLight:true, grand:true, waist:[5], wash:{accent:WASH_VIOLET}, name:'A1', tag:'教学', desc:sideDesc + '它在最西端，紧挨陈华春音乐厅。', floors:6, px:900, py:640, wp:95, dp:85, rot:-18, placeRot:18, variant:1, plaque:{text:'A1'}});
 const A_ST = [structures[structures.length - 1]];
 building({arcade:true, bay:true, gable:true, eaveLight:true, grand:true, waist:[5], wash:{}, name:'A2', tag:'教学', desc:sideDesc, floors:6, px:1015, py:602, wp:100, dp:85, rot:-8, placeRot:8, plaque:{text:'A2'}});
 A_ST.push(structures[structures.length - 1]);
@@ -245,7 +245,9 @@ building({arcade:true, bay:true, gable:true, eaveLight:true, grand:true, waist:[
 A_ST.push(structures[structures.length - 1]);
 building({arcade:true, bay:true, gable:true, eaveLight:true, grand:true, waist:[5], wash:{accent:WASH_VIOLET}, name:'A5', tag:'教学', desc:sideDesc + '再往东走就是 B1 和运动场。', floors:6, px:1425, py:585, wp:110, dp:85, rot:3, placeRot:-3, variant:1, plaque:{text:'A5'}});
 A_ST.push(structures[structures.length - 1]);
-building({name:'礼堂', tag:'教学', desc:'A1 旁边的礼堂（Auditorium）。', floors:2, px:815, py:680, wp:75, dp:42, rot:-18, placeRot:18, roof:'#b9b2a6', roofH:4, minor:true, canopy:'front', plaque:{text:'礼堂', w:4, y:5.2, z:12.65}});
+/* 陈华春音乐厅 (Tan Hua Choon Auditorium) is built in js/45-auditorium.js, after the scenery is placed. Until then this box stands where the old
+   two-storey 礼堂 stood while the trees and props were scattered, so their layout (and the shared rnd() sequence) stays exactly as it was. */
+const AUDI_GHOST = addBox(...P(815, 680), S(75) / 2 + .7, S(42) / 2 + .7, -18 * D2R);
 const iaec = {name:'国际学术交流中心', tag:'交流', desc:'International Academic Exchange Centre。教学区西边一排两层的小楼。'};
 [[565,650],[612,650],[660,648],[706,645]].forEach(([px, py], i) => building({px, py, wp:38, dp:24, floors:2, rot:-3, info:iaec, label:i === 1 ? '国际学术交流中心' : false, minor:true, canopy:'front'}));
 
