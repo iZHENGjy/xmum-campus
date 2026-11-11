@@ -639,13 +639,13 @@ body.cine > *:not(canvas):not(.cine-ui):not(script):not(style):not(dialog):not(#
         } },
       { /* ③ 南门：交给小满学姐，客机从头顶飞过，抬头笑一下 */ dur:15, enter(){
           freeSet('bus'); inWorld(); fov(56); hideActors(); NW.root.visible = false;
-          const GX = 100, GZ = 252, gy = g(() => groundAt(GX, GZ), 0);
+          const GX = 96, GZ = 242, gy = g(() => groundAt(GX, GZ), 0);
           const P = C.A.me, F = C.A.fresh; dropFlag(P);
           scene.add(P.N.root, F.N.root); P.sit = F.sit = false; P.smile = 0; P.yaw0 = F.yaw0 = 0; P.roll0 = F.roll0 = 0; P.laughT = F.laughT = null;
           place(P, GX - 1.6, gy, GZ + 1.6, Math.PI); P.face = Math.PI;
           place(F, GX + 1, gy, GZ + 6, Math.PI); walkTo(F, GX + 2.6, GZ + 1.2, 2); F.face = Math.PI / 2;
           /* 小满学姐: the one standing at the name stone, or one of our own if she is not built right now */
-          const xm = g(() => XQD.npcs.xiaoman, null), at = xm && xm.at ? xm.at : [104.5, 251, Math.PI];
+          const xm = g(() => XQD.npcs.xiaoman, null), at = [101, 238.5, 0];   /* her spot at the main gate (js/89-quest-data.js); in chapter 7 her live .at points at the ERL station, so not read here */
           const real = scene.children.find(o => o.isGroup && o.visible && o !== P.N.root && Math.hypot(o.position.x - at[0], o.position.z - at[1]) < .6 && o.children.length && o.scale.x > 1.2);
           if (!real){ const X = C.A.xm || (C.A.xm = actor(Object.assign({shape:xm && xm.shape}, xm && xm.look || {skin:'classic', outfit:'shirt', neck:'badge', head:'buns'}))); place(X, at[0], g(() => groundAt(at[0], at[1]), 0), at[1], -Math.PI / 2); X.face = -Math.PI / 2; X.wave = 1; show('xm'); }
           show('me', 'fresh');
