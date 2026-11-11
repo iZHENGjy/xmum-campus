@@ -10,18 +10,18 @@
    rar 稀有度：n 普通、r 稀有、l 传说。rm 是总资产里一件道具的估值（js/80-gta.js netWorth），from 是背包里告诉玩家去哪儿拿 */
 const TN_RAR = {n:{name:'普通', c:'#8d98a5'}, r:{name:'稀有', c:'#3f8ee6'}, l:{name:'传说', c:'#e6a53a'}, b:{name:'配方', c:'#b45ee6'}};
 const TN_PARTS = [
-  {id:'rim',   name:'轮毂坯件', ch:'毂', color:'#7f93a8', rar:'n', rm:25,  from:'送外卖、得来速；投篮和食堂端盘子按奖牌给'},
-  {id:'lacq',  name:'赛车漆料', ch:'漆', color:'#e2714c', rar:'n', rm:20,  from:'得来速、蜜雪冰橙打工、挑战赛、B1 小游戏'},
-  {id:'neon',  name:'霓虹灯管', ch:'灯', color:'#c04ae0', rar:'n', rm:30,  from:'宿舍撤离、送夜宵、蜜雪冰橙打工'},
-  {id:'cf',    name:'碳纤维板', ch:'碳', color:'#3b3f46', rar:'r', rm:45,  from:'猴子大战、宿舍撤离带出 RM 150 以上、挑战赛金牌'},
-  {id:'turbo', name:'涡轮',     ch:'涡', color:'#c39a3a', rar:'r', rm:80,  from:'竞速前三、抓住偷外卖的小偷、B1 小游戏金牌'},
-  {id:'nos',   name:'氮气罐',   ch:'氮', color:'#2aa9de', rar:'r', rm:90,  from:'竞速（名次越好越多）、影线 1v1 跑赢'},
-  {id:'tyre',  name:'热熔胎皮', ch:'胎', color:'#5b5048', rar:'r', rm:70,  from:'挑战赛和山梁拉力、KIP 大乱斗、猴子大战金牌'},
-  {id:'ecu',   name:'调校芯片', ch:'芯', color:'#2fa36f', rar:'r', rm:85,  from:'教学楼潜入、奶娃投篮金牌'},
-  {id:'susp',  name:'避震套件', ch:'震', color:'#7c5bd0', rar:'r', rm:75,  from:'KIP 大乱斗、宿舍撤离'},
-  {id:'plan',  name:'改装图纸', ch:'图', color:'#3c80e0', rar:'r', rm:120, from:'每解锁一个成就、清空 Bell 通缉榜、拿到已经有的配方'},
-  {id:'ti',    name:'航空钛锭', ch:'钛', color:'#8e9bc0', rar:'l', rm:300, from:'宿舍撤离大丰收、竞速冠军和投篮、猴子大战金牌时有几率掉'},
-  {id:'core',  name:'赛道引擎核心', ch:'核', color:'#e0543c', rar:'l', rm:500, from:'清空 Bell 通缉榜、抢救期末卷，竞速冠军有几率掉'}
+  {id:'rim',   name:'轮毂坯件', ch:'毂', color:'#7f93a8', rar:'n', rm:6,   from:'送外卖、得来速、每天第一次打卡；投篮和食堂端盘子按奖牌给'},
+  {id:'lacq',  name:'赛车漆料', ch:'漆', color:'#e2714c', rar:'n', rm:5,   from:'得来速、蜜雪冰橙打工、挑战赛、顺风车、喷漆车间甩警戒、惊险擦车和大跳慢动作、特技连击、每天第一次打卡'},
+  {id:'neon',  name:'霓虹灯管', ch:'灯', color:'#c04ae0', rar:'n', rm:8,   from:'宿舍撤离、送夜宵、蜜雪冰橙打工、顺风车好评'},
+  {id:'cf',    name:'碳纤维板', ch:'碳', color:'#3b3f46', rar:'r', rm:12,  from:'猴子大战、黑洞模式、秋千飞跃 30 米以上、宿舍撤离带出 RM 150 以上、挑战赛金牌'},
+  {id:'turbo', name:'涡轮',     ch:'涡', color:'#c39a3a', rar:'r', rm:20,  from:'竞速前三、抓住偷外卖的小偷、B1 小游戏金牌'},
+  {id:'nos',   name:'氮气罐',   ch:'氮', color:'#2aa9de', rar:'r', rm:22,  from:'竞速（名次越好越多）、影线 1v1 跑赢、甩掉保安（星越多越多）、特技大连击'},
+  {id:'tyre',  name:'热熔胎皮', ch:'胎', color:'#5b5048', rar:'r', rm:18,  from:'挑战赛和山梁拉力、KIP 大乱斗、猴子大战金牌、特技大连击'},
+  {id:'ecu',   name:'调校芯片', ch:'芯', color:'#2fa36f', rar:'r', rm:20,  from:'教学楼潜入、奶娃投篮金牌'},
+  {id:'susp',  name:'避震套件', ch:'震', color:'#7c5bd0', rar:'r', rm:18,  from:'KIP 大乱斗、宿舍撤离'},
+  {id:'plan',  name:'改装图纸', ch:'图', color:'#3c80e0', rar:'r', rm:30,  from:'每解锁一个成就、清空 Bell 通缉榜、拿到已经有的配方'},
+  {id:'ti',    name:'航空钛锭', ch:'钛', color:'#8e9bc0', rar:'l', rm:80,  from:'宿舍撤离大丰收；竞速冠军、黑洞第 1 名、投篮和猴子大战金牌时有几率掉'},
+  {id:'core',  name:'赛道引擎核心', ch:'核', color:'#e0543c', rar:'l', rm:120, from:'清空 Bell 通缉榜、抢救期末卷；竞速冠军、黑洞第 1 名、从 4 星以上甩掉保安时有小几率掉'}
 ];
 const TN_PART = {}; for (const p of TN_PARTS) TN_PART[p.id] = p;
 /* 改装配方：拿到一次就永久解锁对应的顶级改装（还要配稀有零件）。重复拿到的换成 1 张改装图纸 */
@@ -30,14 +30,15 @@ const TN_BPS = [
   {id:'bp_twin',    name:'双涡轮配方',     ch:'涡', for:'双涡轮引擎', from:'教学楼潜入（偷手机、夜巡）'},
   {id:'bp_race',    name:'赛道引擎配方',   ch:'擎', for:'赛道级引擎（顶级）', from:'五条赛道都跑完、抢救期末卷'},
   {id:'bp_wide',    name:'宽体套件配方',   ch:'宽', for:'宽体轮眉（跑车）', from:'宿舍撤离带出 RM 150 以上'},
-  {id:'bp_swan',    name:'鹅颈尾翼配方',   ch:'翼', for:'鹅颈双层尾翼（跑车）', from:'宿舍撤离带出 RM 150 以上'},
+  {id:'bp_swan',    name:'鹅颈尾翼配方',   ch:'翼', for:'鹅颈双层尾翼（跑车）', from:'宿舍撤离带出 RM 150 以上、秋千飞跃 40 米以上（小几率）'},
   {id:'bp_plasma',  name:'等离子尾焰配方', ch:'焰', for:'等离子尾焰', from:'宿舍撤离、Bell 大胃王争霸赛冠军'},
   {id:'bp_drift',   name:'漂移增压配方',   ch:'漂', for:'漂移增压技能', from:'宿舍撤离、猴子大战金牌'},
-  {id:'bp_launch',  name:'弹射起步配方',   ch:'弹', for:'弹射起步技能', from:'教学楼潜入、得来速完美送达'},
+  {id:'bp_launch',  name:'弹射起步配方',   ch:'弹', for:'弹射起步技能', from:'教学楼潜入、得来速完美送达、顺风车连续三单五星'},
   {id:'bp_offroad', name:'越野套件配方',   ch:'越', for:'37 寸泥地胎、绞盘防撞杠（越野车）', from:'KIP 大乱斗第 1 名、教学楼潜入'},
   {id:'bp_moto',    name:'赛道摩托配方',   ch:'摩', for:'赛道整流罩、钛蝎排气（摩托）', from:'教学楼潜入、影线 1v1 跑赢'}
 ];
-const TN_BP = {}; for (const b of TN_BPS){ b.rar = 'b'; b.color = TN_RAR.b.c; b.rm = 200; TN_BP[b.id] = b; }
+/* 配方在总资产里一张算 RM 60（道具和配方的估值跟着改装价格一起调低了，见 docs/tuning.md「价格和车价」） */
+const TN_BP = {}; for (const b of TN_BPS){ b.rar = 'b'; b.color = TN_RAR.b.c; b.rm = 60; TN_BP[b.id] = b; }
 /* 施工时间按档：轻改几分钟、中改几十分钟、高级几小时、顶级跨天 */
 const TN_TIER = {n:'轻改', r:'中改', l:'高级', x:'顶级'};
 const TN_TIERC = {n:'普通', r:'稀有', l:'传说', x:'顶级'};
@@ -88,126 +89,126 @@ const TN_NEONC = {cyan:'#35e0ff', pink:'#ff5fb4', purple:'#a35cff', green:'#7dff
 const TN_ITEMS = [
   /* 轮毂 */
   {slot:'rim', id:'stock', name:'原厂轮毂', desc:'出厂的五辐轮毂'},
-  {slot:'rim', id:'mesh', name:'多辐轮毂', desc:'十四根细辐条，转起来像一张网', rm:180, need:{rim:2}, min:6, style:'mesh'},
-  {slot:'rim', id:'dish', name:'深唇轮毂', desc:'镀铬外唇往外翻，轮辐缩在很深的位置', rm:260, need:{rim:3, lacq:1}, min:10, style:'dish'},
-  {slot:'rim', id:'forged', name:'锻造 Y 辐', desc:'六组 Y 形辐条，又轻又凶', rm:420, need:{rim:3, cf:1}, min:40, style:'forged', tier:'r', perf:{acc:.01}},
-  {slot:'rim', id:'turbine', name:'涡扇轮毂', desc:'十二片扭转叶片，开起来像涡轮在转', rm:380, need:{rim:3, turbo:1}, min:40, style:'turbine', tier:'r'},
-  {slot:'rim', id:'glow', name:'发光轮毂', desc:'轮圈内侧一圈灯带，颜色跟霓虹走，夜里最显眼', rm:560, need:{rim:2, neon:2}, min:120, style:'glow', tier:'l'},
+  {slot:'rim', id:'mesh', name:'多辐轮毂', desc:'十四根细辐条，转起来像一张网', rm:70, need:{rim:2}, min:6, style:'mesh'},
+  {slot:'rim', id:'dish', name:'深唇轮毂', desc:'镀铬外唇往外翻，轮辐缩在很深的位置', rm:100, need:{rim:3, lacq:1}, min:10, style:'dish'},
+  {slot:'rim', id:'forged', name:'锻造 Y 辐', desc:'六组 Y 形辐条，又轻又凶', rm:150, need:{rim:3, cf:1}, min:40, style:'forged', tier:'r', perf:{acc:.01}},
+  {slot:'rim', id:'turbine', name:'涡扇轮毂', desc:'十二片扭转叶片，开起来像涡轮在转', rm:140, need:{rim:3, turbo:1}, min:40, style:'turbine', tier:'r'},
+  {slot:'rim', id:'glow', name:'发光轮毂', desc:'轮圈内侧一圈灯带，颜色跟霓虹走，夜里最显眼', rm:200, need:{rim:2, neon:2}, min:120, style:'glow', tier:'l'},
   {slot:'rimc', id:'stock', name:'原厂银', col:'#c4c8cc'},
-  {slot:'rimc', id:'black', name:'亮黑', col:'#202226', rm:40, need:{lacq:1}, min:2},
-  {slot:'rimc', id:'gun', name:'枪灰', col:'#4d525a', rm:40, need:{lacq:1}, min:2},
-  {slot:'rimc', id:'bronze', name:'古铜', col:'#8f6b38', rm:60, need:{lacq:1}, min:3},
-  {slot:'rimc', id:'red', name:'赛车红', col:'#c8302a', rm:60, need:{lacq:1}, min:3},
-  {slot:'rimc', id:'white', name:'珍珠白', col:'#eeece6', rm:60, need:{lacq:1}, min:3},
-  {slot:'rimc', id:'gold', name:'香槟金', col:'#d2b06a', rm:90, need:{lacq:2}, min:20, tier:'r'},
+  {slot:'rimc', id:'black', name:'亮黑', col:'#202226', rm:20, need:{lacq:1}, min:2},
+  {slot:'rimc', id:'gun', name:'枪灰', col:'#4d525a', rm:20, need:{lacq:1}, min:2},
+  {slot:'rimc', id:'bronze', name:'古铜', col:'#8f6b38', rm:30, need:{lacq:1}, min:3},
+  {slot:'rimc', id:'red', name:'赛车红', col:'#c8302a', rm:30, need:{lacq:1}, min:3},
+  {slot:'rimc', id:'white', name:'珍珠白', col:'#eeece6', rm:30, need:{lacq:1}, min:3},
+  {slot:'rimc', id:'gold', name:'香槟金', col:'#d2b06a', rm:50, need:{lacq:2}, min:20, tier:'r'},
   {slot:'size', id:'stock', name:'原厂尺寸', s:1, lp:.66},
-  {slot:'size', id:'s1', name:'大一寸', desc:'轮毂更大、胎壁更薄', rm:120, need:{rim:1}, min:4, s:1.04, lp:.74},
-  {slot:'size', id:'s2', name:'大两寸 · 低扁胎', desc:'轮毂撑满轮拱，胎壁薄得像一条线', rm:300, need:{rim:2}, min:30, s:1.08, lp:.82, tier:'r', perf:{grip:.01}},
+  {slot:'size', id:'s1', name:'大一寸', desc:'轮毂更大、胎壁更薄', rm:50, need:{rim:1}, min:4, s:1.04, lp:.74},
+  {slot:'size', id:'s2', name:'大两寸 · 低扁胎', desc:'轮毂撑满轮拱，胎壁薄得像一条线', rm:110, need:{rim:2}, min:30, s:1.08, lp:.82, tier:'r', perf:{grip:.01}},
   /* 车身 */
   {slot:'wide', id:'stock', name:'原厂车身'},
-  {slot:'wide', id:'wide', name:'宽体轮眉', desc:'四个轮眉外扩，轮距每边加宽 12 厘米', rm:1200, need:{cf:4}, bp:'bp_wide', min:240, tier:'l', perf:{grip:.04}},
+  {slot:'wide', id:'wide', name:'宽体轮眉', desc:'四个轮眉外扩，轮距每边加宽 12 厘米', rm:300, need:{cf:4}, bp:'bp_wide', min:240, tier:'l', perf:{grip:.04}},
   {slot:'lip', id:'none', name:'不装'},
-  {slot:'lip', id:'lip', name:'前铲', desc:'车头下面一块贴地的平板', rm:220, need:{cf:1}, min:8},
-  {slot:'lip', id:'canard', name:'前铲 + 风刀', desc:'前铲再加车头两侧的四片风刀', rm:360, need:{cf:2}, min:30, tier:'r', perf:{grip:.01}},
+  {slot:'lip', id:'lip', name:'前铲', desc:'车头下面一块贴地的平板', rm:80, need:{cf:1}, min:8},
+  {slot:'lip', id:'canard', name:'前铲 + 风刀', desc:'前铲再加车头两侧的四片风刀', rm:130, need:{cf:2}, min:30, tier:'r', perf:{grip:.01}},
   {slot:'skirt', id:'none', name:'不装'},
-  {slot:'skirt', id:'skirt', name:'侧裙', desc:'两侧车门下面的裙边，车身看起来更低', rm:200, need:{cf:1}, min:8},
+  {slot:'skirt', id:'skirt', name:'侧裙', desc:'两侧车门下面的裙边，车身看起来更低', rm:80, need:{cf:1}, min:8},
   {slot:'diff', id:'none', name:'不装'},
-  {slot:'diff', id:'diff', name:'扩散器', desc:'车尾下面一排导流片', rm:280, need:{cf:2}, min:12, perf:{grip:.01}},
+  {slot:'diff', id:'diff', name:'扩散器', desc:'车尾下面一排导流片', rm:100, need:{cf:2}, min:12, perf:{grip:.01}},
   {slot:'hood', id:'stock', name:'原厂引擎盖'},
-  {slot:'hood', id:'vents', name:'双进气口', desc:'引擎盖上两个带格栅的散热口', rm:260, need:{cf:1, turbo:1}, min:12},
-  {slot:'hood', id:'scoop', name:'顶置大进气', desc:'引擎盖正中一个大进气口', rm:340, need:{cf:2, turbo:1}, min:35, tier:'r', perf:{acc:.01}},
+  {slot:'hood', id:'vents', name:'双进气口', desc:'引擎盖上两个带格栅的散热口', rm:90, need:{cf:1, turbo:1}, min:12},
+  {slot:'hood', id:'scoop', name:'顶置大进气', desc:'引擎盖正中一个大进气口', rm:130, need:{cf:2, turbo:1}, min:35, tier:'r', perf:{acc:.01}},
   {slot:'aero', id:'body', name:'车身同色', desc:'前铲、侧裙、尾翼、轮眉跟车漆一个颜色'},
-  {slot:'aero', id:'black', name:'亮黑套件', desc:'所有外挂件刷成钢琴黑', rm:120, need:{lacq:2}, min:5},
-  {slot:'aero', id:'carbon', name:'碳纤维套件', desc:'所有外挂件换成裸碳，看得见编织纹', rm:500, need:{cf:4}, min:50, tier:'r'},
+  {slot:'aero', id:'black', name:'亮黑套件', desc:'所有外挂件刷成钢琴黑', rm:50, need:{lacq:2}, min:5},
+  {slot:'aero', id:'carbon', name:'碳纤维套件', desc:'所有外挂件换成裸碳，看得见编织纹', rm:170, need:{cf:4}, min:50, tier:'r'},
   /* 尾翼：大尾翼和鹅颈只给跑车 */
   {slot:'wing', id:'none', name:'不装'},
-  {slot:'wing', id:'duck', name:'鸭尾', desc:'车尾翘起一道小边', rm:240, need:{cf:1}, min:8},
-  {slot:'wing', id:'gt', name:'大尾翼', desc:'两根立柱撑起一片大翼板，带端板', rm:650, need:{cf:3, plan:1}, min:55, tier:'r', cls:'s', perf:{grip:.03}},
-  {slot:'wing', id:'swan', name:'鹅颈双层尾翼', desc:'立柱从上面吊住翼板，再加一层襟翼，最夸张的一款', rm:900, need:{cf:4, turbo:1}, bp:'bp_swan', min:300, tier:'l', cls:'s', perf:{grip:.05}},
+  {slot:'wing', id:'duck', name:'鸭尾', desc:'车尾翘起一道小边', rm:80, need:{cf:1}, min:8},
+  {slot:'wing', id:'gt', name:'大尾翼', desc:'两根立柱撑起一片大翼板，带端板', rm:220, need:{cf:3, plan:1}, min:55, tier:'r', cls:'s', perf:{grip:.03}},
+  {slot:'wing', id:'swan', name:'鹅颈双层尾翼', desc:'立柱从上面吊住翼板，再加一层襟翼，最夸张的一款', rm:280, need:{cf:4, turbo:1}, bp:'bp_swan', min:300, tier:'l', cls:'s', perf:{grip:.05}},
   /* 灯光 */
   {slot:'neon', id:'none', name:'不装'},
-  {slot:'neon', id:'kit', name:'底盘霓虹', desc:'车底一圈灯管，地上映出一片光，天黑以后更亮', rm:300, need:{neon:3}, min:12},
+  {slot:'neon', id:'kit', name:'底盘霓虹', desc:'车底一圈灯管，地上映出一片光，天黑以后更亮', rm:110, need:{neon:3}, min:12},
   {slot:'neonc', id:'cyan', name:'冰蓝', col:TN_NEONC.cyan},
-  {slot:'neonc', id:'pink', name:'樱粉', col:TN_NEONC.pink, rm:60, need:{neon:1}, min:3},
-  {slot:'neonc', id:'purple', name:'电紫', col:TN_NEONC.purple, rm:60, need:{neon:1}, min:3},
-  {slot:'neonc', id:'green', name:'酸绿', col:TN_NEONC.green, rm:60, need:{neon:1}, min:3},
-  {slot:'neonc', id:'orange', name:'熔橙', col:TN_NEONC.orange, rm:60, need:{neon:1}, min:3},
-  {slot:'neonc', id:'red', name:'警灯红', col:TN_NEONC.red, rm:60, need:{neon:1}, min:3},
-  {slot:'neonc', id:'white', name:'极光白', col:TN_NEONC.white, rm:60, need:{neon:1}, min:3},
+  {slot:'neonc', id:'pink', name:'樱粉', col:TN_NEONC.pink, rm:25, need:{neon:1}, min:3},
+  {slot:'neonc', id:'purple', name:'电紫', col:TN_NEONC.purple, rm:25, need:{neon:1}, min:3},
+  {slot:'neonc', id:'green', name:'酸绿', col:TN_NEONC.green, rm:25, need:{neon:1}, min:3},
+  {slot:'neonc', id:'orange', name:'熔橙', col:TN_NEONC.orange, rm:25, need:{neon:1}, min:3},
+  {slot:'neonc', id:'red', name:'警灯红', col:TN_NEONC.red, rm:25, need:{neon:1}, min:3},
+  {slot:'neonc', id:'white', name:'极光白', col:TN_NEONC.white, rm:25, need:{neon:1}, min:3},
   {slot:'drl', id:'none', name:'不装'},
-  {slot:'drl', id:'bar', name:'贯穿灯带', desc:'车头一整条白光', rm:160, need:{neon:1}, min:5},
-  {slot:'drl', id:'fang', name:'獠牙灯', desc:'两侧各一道折线，像獠牙', rm:200, need:{neon:1}, min:6},
-  {slot:'drl', id:'quad', name:'四眼点阵', desc:'每边两颗方灯', rm:180, need:{neon:1}, min:5},
+  {slot:'drl', id:'bar', name:'贯穿灯带', desc:'车头一整条白光', rm:60, need:{neon:1}, min:5},
+  {slot:'drl', id:'fang', name:'獠牙灯', desc:'两侧各一道折线，像獠牙', rm:70, need:{neon:1}, min:6},
+  {slot:'drl', id:'quad', name:'四眼点阵', desc:'每边两颗方灯', rm:65, need:{neon:1}, min:5},
   /* 排气 */
   {slot:'exh', id:'stock', name:'原厂排气'},
-  {slot:'exh', id:'dual', name:'双边双出', desc:'左右各一根镀铬尾喉，大脚油门会喷火', rm:220, need:{turbo:1}, min:8, n:2},
-  {slot:'exh', id:'quad', name:'钛烤蓝四出', desc:'四根烧成蓝紫色的钛尾喉，喷火更猛，松油门还会放炮', rm:420, need:{turbo:2}, min:40, n:4, ti:true, tier:'r', perf:{acc:.02}},
+  {slot:'exh', id:'dual', name:'双边双出', desc:'左右各一根镀铬尾喉，大脚油门会喷火', rm:80, need:{turbo:1}, min:8, n:2},
+  {slot:'exh', id:'quad', name:'钛烤蓝四出', desc:'四根烧成蓝紫色的钛尾喉，喷火更猛，松油门还会放炮', rm:150, need:{turbo:2}, min:40, n:4, ti:true, tier:'r', perf:{acc:.02}},
   /* 姿态 */
   {slot:'low', id:'stock', name:'原厂高度', drop:0},
-  {slot:'low', id:'l1', name:'降低 4 厘米', rm:160, need:{rim:1}, min:6, drop:.04, perf:{steer:.01}},
-  {slot:'low', id:'l2', name:'趴地 8 厘米', desc:'轮胎吃进轮拱里', rm:360, need:{rim:2, turbo:1}, min:35, drop:.08, tier:'r', perf:{grip:.01, steer:.02}},
+  {slot:'low', id:'l1', name:'降低 4 厘米', rm:60, need:{rim:1}, min:6, drop:.04, perf:{steer:.01}},
+  {slot:'low', id:'l2', name:'趴地 8 厘米', desc:'轮胎吃进轮拱里', rm:130, need:{rim:2, turbo:1}, min:35, drop:.08, tier:'r', perf:{grip:.01, steer:.02}},
   {slot:'camber', id:'stock', name:'原厂外倾', deg:0},
-  {slot:'camber', id:'c3', name:'外倾 3°', desc:'轮胎上沿往里收', rm:100, need:{rim:1}, min:4, deg:3},
-  {slot:'camber', id:'c7', name:'外倾 7°', desc:'八字脚，停着都很嚣张', rm:200, need:{rim:2}, min:25, deg:7, tier:'r'},
+  {slot:'camber', id:'c3', name:'外倾 3°', desc:'轮胎上沿往里收', rm:40, need:{rim:1}, min:4, deg:3},
+  {slot:'camber', id:'c7', name:'外倾 7°', desc:'八字脚，停着都很嚣张', rm:80, need:{rim:2}, min:25, deg:7, tier:'r'},
   /* 性能（第二轮）：数值看改装界面上的「改前 → 改后」 */
   {slot:'eng', id:'stock', name:'原厂引擎'},
-  {slot:'eng', id:'ecu', name:'进气 + 芯片调校', desc:'换高流量进气，重刷一遍发动机电脑', rm:260, need:{ecu:1}, min:8, perf:{acc:.05}},
-  {slot:'eng', id:'turbo', name:'单涡轮增压', desc:'一颗大涡轮，二档以后推背感明显', rm:900, need:{turbo:2, ecu:1}, min:45, tier:'r', perf:{acc:.10, maxV:.05}},
-  {slot:'eng', id:'twin', name:'双涡轮', desc:'两颗涡轮轮流顶上来，全转速都有劲', rm:2400, need:{turbo:3, ecu:2, ti:1}, bp:'bp_twin', min:240, tier:'l', perf:{acc:.16, maxV:.09}},
-  {slot:'eng', id:'race', name:'赛道级引擎', desc:'整颗换成赛车用的引擎核心，顶级改装，要等差不多一天', rm:5200, need:{core:1, ti:2, turbo:4, plan:2}, bp:'bp_race', min:1320, tier:'x', perf:{acc:.24, maxV:.14}},
+  {slot:'eng', id:'ecu', name:'进气 + 芯片调校', desc:'换高流量进气，重刷一遍发动机电脑', rm:120, need:{ecu:1}, min:8, perf:{acc:.05}},
+  {slot:'eng', id:'turbo', name:'单涡轮增压', desc:'一颗大涡轮，二档以后推背感明显', rm:300, need:{turbo:2, ecu:1}, min:45, tier:'r', perf:{acc:.10, maxV:.05}},
+  {slot:'eng', id:'twin', name:'双涡轮', desc:'两颗涡轮轮流顶上来，全转速都有劲', rm:600, need:{turbo:3, ecu:2, ti:1}, bp:'bp_twin', min:240, tier:'l', perf:{acc:.16, maxV:.09}},
+  {slot:'eng', id:'race', name:'赛道级引擎', desc:'整颗换成赛车用的引擎核心，顶级改装，要等差不多一天', rm:800, need:{core:1, ti:2, turbo:4, plan:2}, bp:'bp_race', min:1320, tier:'x', perf:{acc:.24, maxV:.14}},
   {slot:'tyre', id:'stock', name:'原厂轮胎'},
-  {slot:'tyre', id:'street', name:'街道性能胎', desc:'软一点的胎，过弯没那么飘', rm:180, need:{rim:2, lacq:1}, min:6, perf:{grip:.05}},
-  {slot:'tyre', id:'semi', name:'半热熔胎', desc:'热起来以后黏地，漂移也更好控', rm:600, need:{tyre:2}, min:30, tier:'r', perf:{grip:.10, steer:.03}},
-  {slot:'tyre', id:'slick', name:'赛道热熔胎', desc:'几乎没有花纹，抓地像粘在地上', rm:1600, need:{tyre:4, ti:1}, min:180, tier:'l', perf:{grip:.16, steer:.05, acc:.03}},
+  {slot:'tyre', id:'street', name:'街道性能胎', desc:'软一点的胎，过弯没那么飘', rm:80, need:{rim:2, lacq:1}, min:6, perf:{grip:.05}},
+  {slot:'tyre', id:'semi', name:'半热熔胎', desc:'热起来以后黏地，漂移也更好控', rm:200, need:{tyre:2}, min:30, tier:'r', perf:{grip:.10, steer:.03}},
+  {slot:'tyre', id:'slick', name:'赛道热熔胎', desc:'几乎没有花纹，抓地像粘在地上', rm:350, need:{tyre:4, ti:1}, min:180, tier:'l', perf:{grip:.16, steer:.05, acc:.03}},
   {slot:'susp', id:'stock', name:'原厂悬挂'},
-  {slot:'susp', id:'spring', name:'运动弹簧', desc:'短一点硬一点，转向更跟手', rm:160, need:{rim:1, lacq:1}, min:5, perf:{steer:.05}},
-  {slot:'susp', id:'coil', name:'绞牙避震', desc:'软硬高低都能调', rm:650, need:{susp:2}, min:35, tier:'r', perf:{steer:.09, grip:.03}},
-  {slot:'susp', id:'race', name:'赛道级悬挂', desc:'整套赛车用的连杆和避震', rm:1500, need:{susp:3, ti:1}, min:150, tier:'l', perf:{steer:.13, grip:.05}},
+  {slot:'susp', id:'spring', name:'运动弹簧', desc:'短一点硬一点，转向更跟手', rm:70, need:{rim:1, lacq:1}, min:5, perf:{steer:.05}},
+  {slot:'susp', id:'coil', name:'绞牙避震', desc:'软硬高低都能调', rm:200, need:{susp:2}, min:35, tier:'r', perf:{steer:.09, grip:.03}},
+  {slot:'susp', id:'race', name:'赛道级悬挂', desc:'整套赛车用的连杆和避震', rm:320, need:{susp:3, ti:1}, min:150, tier:'l', perf:{steer:.13, grip:.05}},
   /* 氮气和技能：开车时用，见 js/94-tuning-drive.js。cap = 一罐能喷几秒，pow = 喷的时候极速多几成，fill = 几秒回满 */
   {slot:'nos', id:'none', name:'不装'},
-  {slot:'nos', id:'n1', name:'单罐氮气', desc:'按住氮气键喷 2.5 秒，开着车慢慢回满', rm:700, need:{nos:2, turbo:1}, min:30, tier:'r', cap:2.5, pow:.3, fill:28, col:'#4fb8ff'},
-  {slot:'nos', id:'n2', name:'双罐氮气', desc:'两罐串联，能喷 4 秒，推力更大', rm:1800, need:{nos:4, turbo:2}, bp:'bp_nitro', min:200, tier:'l', cap:4, pow:.36, fill:24, col:'#58d2ff'},
-  {slot:'nos', id:'n3', name:'直喷赛级氮气', desc:'直接喷进燃烧室，紫色火焰，5.5 秒，回得最快', rm:4200, need:{nos:6, core:1, ti:1}, bp:'bp_nitro', min:1260, tier:'x', cap:5.5, pow:.45, fill:20, col:'#b36bff'},
+  {slot:'nos', id:'n1', name:'单罐氮气', desc:'按住氮气键喷 2.5 秒，开着车慢慢回满', rm:250, need:{nos:2, turbo:1}, min:30, tier:'r', cap:2.5, pow:.3, fill:28, col:'#4fb8ff'},
+  {slot:'nos', id:'n2', name:'双罐氮气', desc:'两罐串联，能喷 4 秒，推力更大', rm:450, need:{nos:4, turbo:2}, bp:'bp_nitro', min:200, tier:'l', cap:4, pow:.36, fill:24, col:'#58d2ff'},
+  {slot:'nos', id:'n3', name:'直喷赛级氮气', desc:'直接喷进燃烧室，紫色火焰，5.5 秒，回得最快', rm:700, need:{nos:6, core:1, ti:1}, bp:'bp_nitro', min:1260, tier:'x', cap:5.5, pow:.45, fill:20, col:'#b36bff'},
   {slot:'skill', id:'none', name:'不装'},
-  {slot:'skill', id:'launch', name:'弹射起步', desc:'停稳以后踩油门，一秒内猛地窜出去（8 秒冷却）', rm:500, need:{ecu:1, nos:1}, bp:'bp_launch', min:40, tier:'r'},
-  {slot:'skill', id:'drift', name:'漂移增压', desc:'漂得越久，出弯那一下推得越猛，还给氮气回能', rm:500, need:{tyre:1, nos:1}, bp:'bp_drift', min:40, tier:'r'},
+  {slot:'skill', id:'launch', name:'弹射起步', desc:'停稳以后踩油门，一秒内猛地窜出去（8 秒冷却）', rm:180, need:{ecu:1, nos:1}, bp:'bp_launch', min:40, tier:'r'},
+  {slot:'skill', id:'drift', name:'漂移增压', desc:'漂得越久，出弯那一下推得越猛，还给氮气回能', rm:180, need:{tyre:1, nos:1}, bp:'bp_drift', min:40, tier:'r'},
   /* 尾焰：开起来车尾拖一道光，夜里更亮；画质「流畅」档只画简化版，也可以在尾焰页关掉 */
   {slot:'trail', id:'none', name:'不装'},
-  {slot:'trail', id:'streak', name:'光轨', desc:'尾灯拖出两道光带，越快越长', rm:150, need:{neon:2}, min:8},
-  {slot:'trail', id:'flame', name:'火焰尾焰', desc:'排气口一直喷着火苗，踩油门窜得更高', rm:480, need:{neon:2, turbo:1}, min:30, tier:'r'},
-  {slot:'trail', id:'plasma', name:'等离子尾焰', desc:'一整条发光的等离子带，边上飞火星，最帅的一款', rm:1200, need:{neon:4, ti:1}, bp:'bp_plasma', min:180, tier:'l'},
+  {slot:'trail', id:'streak', name:'光轨', desc:'尾灯拖出两道光带，越快越长', rm:60, need:{neon:2}, min:8},
+  {slot:'trail', id:'flame', name:'火焰尾焰', desc:'排气口一直喷着火苗，踩油门窜得更高', rm:160, need:{neon:2, turbo:1}, min:30, tier:'r'},
+  {slot:'trail', id:'plasma', name:'等离子尾焰', desc:'一整条发光的等离子带，边上飞火星，最帅的一款', rm:280, need:{neon:4, ti:1}, bp:'bp_plasma', min:180, tier:'l'},
   {slot:'trailc', id:'auto', name:'原色', desc:'光轨跟尾灯一样红，火焰是橙色，等离子是冰蓝'},
-  {slot:'trailc', id:'cyan', name:'冰蓝', col:TN_NEONC.cyan, rm:40, need:{neon:1}, min:2},
-  {slot:'trailc', id:'pink', name:'樱粉', col:TN_NEONC.pink, rm:40, need:{neon:1}, min:2},
-  {slot:'trailc', id:'purple', name:'电紫', col:TN_NEONC.purple, rm:40, need:{neon:1}, min:2},
-  {slot:'trailc', id:'green', name:'酸绿', col:TN_NEONC.green, rm:40, need:{neon:1}, min:2},
-  {slot:'trailc', id:'gold', name:'鎏金', col:'#ffc94a', rm:40, need:{neon:1}, min:2},
-  {slot:'trailc', id:'white', name:'极光白', col:TN_NEONC.white, rm:40, need:{neon:1}, min:2},
+  {slot:'trailc', id:'cyan', name:'冰蓝', col:TN_NEONC.cyan, rm:20, need:{neon:1}, min:2},
+  {slot:'trailc', id:'pink', name:'樱粉', col:TN_NEONC.pink, rm:20, need:{neon:1}, min:2},
+  {slot:'trailc', id:'purple', name:'电紫', col:TN_NEONC.purple, rm:20, need:{neon:1}, min:2},
+  {slot:'trailc', id:'green', name:'酸绿', col:TN_NEONC.green, rm:20, need:{neon:1}, min:2},
+  {slot:'trailc', id:'gold', name:'鎏金', col:'#ffc94a', rm:20, need:{neon:1}, min:2},
+  {slot:'trailc', id:'white', name:'极光白', col:TN_NEONC.white, rm:20, need:{neon:1}, min:2},
   /* 越野车：升高、大轮胎、行李架、防撞杠和绞盘 */
   {slot:'lift', id:'stock', name:'原厂高度', lift:0},
-  {slot:'lift', id:'l1', name:'升高 6 厘米', desc:'车身抬高，轮拱里空出一截', rm:220, need:{rim:2}, min:8, lift:.06},
-  {slot:'lift', id:'l2', name:'升高 14 厘米', desc:'高到要爬着上车，过坎不怕刮底', rm:700, need:{susp:2}, min:40, lift:.14, tier:'r', perf:{grip:.02}},
+  {slot:'lift', id:'l1', name:'升高 6 厘米', desc:'车身抬高，轮拱里空出一截', rm:80, need:{rim:2}, min:8, lift:.06},
+  {slot:'lift', id:'l2', name:'升高 14 厘米', desc:'高到要爬着上车，过坎不怕刮底', rm:220, need:{susp:2}, min:40, lift:.14, tier:'r', perf:{grip:.02}},
   {slot:'otyre', id:'stock', name:'原厂公路胎', s:1, knob:0},
-  {slot:'otyre', id:'at', name:'全地形胎', desc:'粗一圈的块状花纹', rm:260, need:{rim:2}, min:8, s:1.06, knob:1, perf:{grip:.02}},
-  {slot:'otyre', id:'mt', name:'37 寸泥地胎', desc:'又宽又高的大花纹泥地胎，把轮拱撑满', rm:1400, need:{tyre:2, rim:3}, bp:'bp_offroad', min:150, s:1.15, knob:2, tier:'l', perf:{grip:.05}},
+  {slot:'otyre', id:'at', name:'全地形胎', desc:'粗一圈的块状花纹', rm:90, need:{rim:2}, min:8, s:1.06, knob:1, perf:{grip:.02}},
+  {slot:'otyre', id:'mt', name:'37 寸泥地胎', desc:'又宽又高的大花纹泥地胎，把轮拱撑满', rm:380, need:{tyre:2, rim:3}, bp:'bp_offroad', min:150, s:1.15, knob:2, tier:'l', perf:{grip:.05}},
   {slot:'rack', id:'none', name:'不装'},
-  {slot:'rack', id:'rack', name:'车顶行李架', desc:'整片铝合金行李架，四周一圈护栏', rm:240, need:{rim:2}, min:8},
-  {slot:'rack', id:'lights', name:'行李架 + 灯排', desc:'行李架前沿一排射灯，夜里像白天', rm:520, need:{neon:2, cf:1}, min:30, tier:'r'},
+  {slot:'rack', id:'rack', name:'车顶行李架', desc:'整片铝合金行李架，四周一圈护栏', rm:80, need:{rim:2}, min:8},
+  {slot:'rack', id:'lights', name:'行李架 + 灯排', desc:'行李架前沿一排射灯，夜里像白天', rm:170, need:{neon:2, cf:1}, min:30, tier:'r'},
   {slot:'winch', id:'none', name:'不装'},
-  {slot:'winch', id:'bar', name:'前防撞杠', desc:'粗钢管焊的前杠', rm:260, need:{rim:1, lacq:1}, min:8},
-  {slot:'winch', id:'winch', name:'防撞杠 + 绞盘', desc:'钢杠中间嵌一台电动绞盘，挂着红色拖钩', rm:1100, need:{turbo:1, susp:1, ti:1}, bp:'bp_offroad', min:120, tier:'l'},
+  {slot:'winch', id:'bar', name:'前防撞杠', desc:'粗钢管焊的前杠', rm:90, need:{rim:1, lacq:1}, min:8},
+  {slot:'winch', id:'winch', name:'防撞杠 + 绞盘', desc:'钢杠中间嵌一台电动绞盘，挂着红色拖钩', rm:320, need:{turbo:1, susp:1, ti:1}, bp:'bp_offroad', min:120, tier:'l'},
   /* 摩托车：排气、整流罩、轮圈 */
   {slot:'mexh', id:'stock', name:'原厂排气'},
-  {slot:'mexh', id:'high', name:'高位排气', desc:'座位下面翘起来的双出尾段', rm:240, need:{rim:1, lacq:1}, min:8},
-  {slot:'mexh', id:'ti', name:'钛蝎排气', desc:'烧成蓝紫色的钛管，声音像撕布', rm:1300, need:{ti:1, turbo:1}, bp:'bp_moto', min:150, tier:'l', perf:{acc:.04}},
+  {slot:'mexh', id:'high', name:'高位排气', desc:'座位下面翘起来的双出尾段', rm:80, need:{rim:1, lacq:1}, min:8},
+  {slot:'mexh', id:'ti', name:'钛蝎排气', desc:'烧成蓝紫色的钛管，声音像撕布', rm:350, need:{ti:1, turbo:1}, bp:'bp_moto', min:150, tier:'l', perf:{acc:.04}},
   {slot:'fair', id:'stock', name:'原厂整流罩'},
-  {slot:'fair', id:'naked', name:'街车裸露', desc:'拆掉整流罩，露出车架和引擎', rm:150, need:{lacq:1}, min:5, perf:{steer:.03}},
-  {slot:'fair', id:'wing', name:'碳纤维小翼', desc:'车头两侧各一对小翼，高速压得更稳', rm:520, need:{cf:2}, min:30, tier:'r', perf:{grip:.03}},
-  {slot:'fair', id:'race', name:'赛道整流罩', desc:'碳纤维整流罩加高风挡，趴下去风阻最小', rm:1500, need:{cf:4}, bp:'bp_moto', min:160, tier:'l', perf:{maxV:.05, grip:.02}},
+  {slot:'fair', id:'naked', name:'街车裸露', desc:'拆掉整流罩，露出车架和引擎', rm:50, need:{lacq:1}, min:5, perf:{steer:.03}},
+  {slot:'fair', id:'wing', name:'碳纤维小翼', desc:'车头两侧各一对小翼，高速压得更稳', rm:170, need:{cf:2}, min:30, tier:'r', perf:{grip:.03}},
+  {slot:'fair', id:'race', name:'赛道整流罩', desc:'碳纤维整流罩加高风挡，趴下去风阻最小', rm:380, need:{cf:4}, bp:'bp_moto', min:160, tier:'l', perf:{maxV:.05, grip:.02}},
   {slot:'mrim', id:'stock', name:'原厂轮圈'},
-  {slot:'mrim', id:'spoke', name:'细辐轮圈', desc:'十四根细辐条', rm:200, need:{rim:2}, min:6, style:'mesh'},
-  {slot:'mrim', id:'forged', name:'锻造 Y 辐', desc:'六组 Y 形辐条', rm:600, need:{rim:3, cf:1}, min:30, style:'forged', tier:'r', perf:{acc:.01}},
-  {slot:'mrim', id:'carbon', name:'碳纤维轮圈', desc:'整只碳纤维，轻得能单手拎起来', rm:1400, need:{cf:4, ti:1}, min:120, style:'turbine', col:'#2a2c31', tier:'l', perf:{acc:.03, steer:.02}}
+  {slot:'mrim', id:'spoke', name:'细辐轮圈', desc:'十四根细辐条', rm:70, need:{rim:2}, min:6, style:'mesh'},
+  {slot:'mrim', id:'forged', name:'锻造 Y 辐', desc:'六组 Y 形辐条', rm:170, need:{rim:3, cf:1}, min:30, style:'forged', tier:'r', perf:{acc:.01}},
+  {slot:'mrim', id:'carbon', name:'碳纤维轮圈', desc:'整只碳纤维，轻得能单手拎起来', rm:350, need:{cf:4, ti:1}, min:120, style:'turbine', col:'#2a2c31', tier:'l', perf:{acc:.03, steer:.02}}
 ];
 const TN = {byKey:{}, bySlot:{}, stock:{}};
 for (const s of TN_SLOTS){ TN.bySlot[s.id] = []; s.cls = s.cls || 'cs'; }
@@ -237,9 +238,19 @@ function tnPerfOf(kind, fit){
   for (const s of TN_SLOTS){ if (!tnSlotOk(kind, s)) continue; const it = TN.byKey[s.id + '.' + fit[s.id]]; for (const k in o) o[k] += it.perf[k]; }
   return o;
 }
-/* 改装价值（单辆车）：这辆车造好的零件 + 正在施工的零件，按「金币 + 用掉的道具估值」算，和总资产里的算法一样。
-   给「豪车展示区」按「车价 + 改装价值」排序：tuneCarValue('lambo') → RM；改装存档还没读（js/93-tuning-ui.js 没加载）时是 0 */
+/* 改装价值（单辆车）：这辆车现在装着的零件（每个槽一件），按「金币 + 用掉的道具估值」算。
+   给「豪车展示区」按「车价 + 改装价值」排序：tuneCarValue('lambo') → RM；改装存档还没读（js/93-tuning-ui.js 没加载）时是 0。
+   只算装着的，所以同一个槽买过好几档也只算一件；兰博鸡尼全部顶配约 RM 6,400，是车价的 4 倍（docs/tuning.md「价格和车价」）。
+   总资产（netWorth）另算：买过的全部零件和施工中的都算，见 tnCarAssets */
 function tuneCarValue(carId){
+  if (typeof tune === 'undefined' || !tune.cars) return 0;
+  const c = tune.cars[carId]; if (!c) return 0; let s = 0;
+  const fit = tnFit(c.fit);
+  for (const sl of TN_SLOTS){ if (!tnSlotOk(carId, sl)) continue; const it = TN.byKey[sl.id + '.' + fit[sl.id]]; if (it && c.own.includes(it.key)) s += tnWorth(it); }
+  return s;
+}
+/* 总资产里的一辆车：造好的全部零件 + 正在施工的 */
+function tnCarAssets(carId){
   if (typeof tune === 'undefined' || !tune.cars) return 0;
   const c = tune.cars[carId]; let s = 0;
   if (c) for (const key of c.own) if (TN.byKey[key]) s += tnWorth(TN.byKey[key]);
@@ -249,7 +260,8 @@ function tuneCarValue(carId){
 
 /* ---------- 每个玩法掉什么：XParts.reward(game, grade) 按这张表发（js/93-tuning-ui.js），说明见 docs/tuning.md ----------
    grade：0 最好（金牌 / 第 1 名）、1、2、3 没名次。每档是 [道具 id, 个数, 几率（不写 = 一定给）]；
-   bp_xxx 是一张配方，'bp_*' 是从这个玩法的配方池（TN_BP_POOL）里随机一张还没有的。 */
+   bp_xxx 是一张配方，'bp_*' 是从这个玩法的配方池（TN_BP_POOL）里随机一张还没有的；'rim|lacq' 是二选一。
+   cd = 两次掉落至少隔几秒，day = 每天最多掉几次（只有真掉了东西才算一次）：给打卡、擦车、特技、喷漆这些随手就能刷的玩法用。 */
 const TN_DROPS = {
   race:    {name:'竞速', g:[[['turbo', 1], ['nos', 2], ['ti', 1, .1], ['core', 1, .08]], [['turbo', 1], ['nos', 1]], [['nos', 1]], [['lacq', 1]]]},
   ghost:   {name:'影线 1v1', g:[[['nos', 1], ['turbo', 1], ['bp_moto', 1, .25]], [], [], [['lacq', 1]]]},
@@ -264,7 +276,16 @@ const TN_DROPS = {
   thief:   {name:'抓小偷', g:[[['turbo', 1], ['plan', 1], ['core', 1]], [['turbo', 1]], [], []]},
   activity:{name:'挑战赛', g:[[['tyre', 1], ['cf', 1], ['lacq', 1]], [['tyre', 1], ['lacq', 1]], [['lacq', 1]], []]},
   arcade:  {name:'B1 小游戏', g:[[['turbo', 1]], [['cf', 1]], [['lacq', 1]], []]},
-  bell:    {name:'大胃王争霸赛', g:[[['neon', 2], ['nos', 1], ['bp_plasma', 1, .5]], [['neon', 2]], [['neon', 1]], []]}
+  bell:    {name:'大胃王争霸赛', g:[[['neon', 2], ['nos', 1], ['bp_plasma', 1, .5]], [['neon', 2]], [['neon', 1]], []]},
+  /* 补充的 8 个玩法 */
+  hole:    {name:'黑洞模式', g:[[['cf', 2], ['ti', 1, .12], ['core', 1, .04]], [['cf', 1], ['ti', 1, .05]], [['cf', 1, .5]], []]},
+  swing:   {name:'秋千飞跃', cd:120, day:6, g:[[['cf', 1], ['bp_swan', 1, .08]], [['cf', 1, .5]], [['lacq', 1]], []]},
+  taxi:    {name:'顺风车', day:20, g:[[['neon', 1], ['lacq', 1]], [['neon', 1]], [['lacq', 1]], []]},
+  escape:  {name:'甩掉保安', cd:180, day:10, g:[[['nos', 2], ['core', 1, .05]], [['nos', 1]], [['nos', 1, .4]], []]},
+  spray:   {name:'喷漆车间', cd:300, day:3, g:[[['lacq', 1]], [], [], []]},
+  stunt:   {name:'特技连击', cd:90, day:8, g:[[['lacq', 1], ['tyre', 1, .5], ['nos', 1, .3]], [['lacq', 1], ['tyre', 1, .15]], [['lacq', 1]], []]},
+  nearmiss:{name:'惊险擦车', cd:90, day:6, g:[[['lacq', 1]], [], [], []]},
+  checkin: {name:'每日打卡', day:1, g:[[['rim|lacq', 1]], [], [], []]}
 };
 const TN_BP_POOL = {
   dorm:['bp_wide', 'bp_swan', 'bp_plasma', 'bp_drift'],

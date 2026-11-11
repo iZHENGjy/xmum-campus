@@ -1,7 +1,7 @@
 /* XMUM 校园漫游 · 改装车间：界面、施工队列、改装道具和配方背包、道具发放、存档、成就（零件目录和装车在 js/42-tuning.js）
    买车不用等，改装要等：下单时扣金币和道具，进施工位按真实时间计时（存的是时间戳，关掉游戏也照样走），
    完工后提示「回车行提车」，提车时自动装上。施工中的车照样能开，只是新零件还没装。
-   施工时间按档：轻改几分钟、中改几十分钟、高级几小时、顶级跨天；新玩家第一单 30 秒完工，先尝到甜头。
+   施工时间按档：轻改几分钟、中改几十分钟、高级几小时、顶级跨天；新玩家第一单 30 秒完工（只限轻改和中改），先尝到甜头。
    默认 1 个施工位，第二个用 RM 800 解锁；可以花金币或改装图纸加急（越久的单每分钟越便宜）。
    道具和配方只能玩出来：XParts.reward(game, grade) 按 js/42-tuning.js 的 TN_DROPS 发，XParts.grant(id, n, reason) 发单件，
    接口和各玩法的掉落见 docs/tuning.md。
@@ -11,7 +11,7 @@
 const TN_KEY = 'xmum-tune-v1', TN_BAY2 = 800, TN_FIRST_SEC = 30;
 const TN_STARTER = {rim:3, lacq:2, cf:1, neon:1};
 const TN_SHOWCASE = {rim:'forged', rimc:'gold', size:'s2', wide:'wide', lip:'canard', skirt:'skirt', diff:'diff', hood:'vents', aero:'carbon', wing:'swan', neon:'kit', neonc:'purple', drl:'fang', exh:'quad', low:'l2', camber:'c3'};
-const tune = {inv:{}, bp:{}, cars:{}, jobs:[], bays:1, first:false, kit:false, spent:0, trailOff:false};
+const tune = {inv:{}, bp:{}, cars:{}, jobs:[], bays:1, first:false, kit:false, spent:0, trailOff:false, lim:{}};
 for (const p of TN_PARTS) tune.inv[p.id] = 0;
 function tuneWrite(){ try { localStorage.setItem(TN_KEY, JSON.stringify(tune)); } catch(e){} }
 (function tuneLoad(){
@@ -28,6 +28,7 @@ function tuneWrite(){ try { localStorage.setItem(TN_KEY, JSON.stringify(tune)); 
     if (Array.isArray(d.jobs)) tune.jobs = d.jobs.filter(j => j && TN.byKey[j.k] && TN_KINDS.includes(j.kind) && isFinite(j.t1)).slice(0, 2)
       .map(j => ({k:j.k, kind:j.kind, t0:+j.t0 || 0, t1:+j.t1, told:!!j.told}));
     tune.bays = d.bays === 2 ? 2 : 1; tune.first = !!d.first; tune.kit = !!d.kit; tune.spent = Math.max(0, +d.spent || 0); tune.trailOff = !!d.trailOff;
+    if (d.lim && typeof d.lim === 'object') for (const g in TN_DROPS){ const l = d.lim[g]; if (l && typeof l.d === 'string') tune.lim[g] = {d:l.d, n:Math.max(0, l.n | 0), t:+l.t || 0}; }
   } catch(e){}
 })();
 const tnCar = kind => tune.cars[kind] || (tune.cars[kind] = {own:[], fit:tnFit(null)});
@@ -58,19 +59,34 @@ const XParts = window.XParts = {
     return tune.inv[id];
   },
   /* the drop of one game at one grade (0 best … 3 nothing), from TN_DROPS in js/42-tuning.js.
-     Returns what was given, as [{id, n}], for the result screen: XParts.chips(list) / XParts.text(list) */
+     Returns what was given, as [{id, n}], for the result screen: XParts.chips(list) / XParts.text(list).
+     A table with cd / day (打卡、擦车、特技、喷漆…) gives nothing while it is cooling down or after its daily count; only a real drop counts */
   reward(game, grade, reason){
-    const D = TN_DROPS[game], g = D && D.g[Math.max(0, Math.min(3, grade | 0))]; if (!g) return [];
-    const why = reason || D.name + TN_GRADE[Math.max(0, Math.min(3, grade | 0))], out = [];
+    const D = TN_DROPS[game], gr = Math.max(0, Math.min(3, grade | 0)), g = D && D.g[gr]; if (!g || !g.length) return [];
+    if (!XParts.ready(game)) return [];
+    const why = reason || D.name + TN_GRADE[gr], out = [];
     for (const [id0, n, p] of g){
       if (p != null && Math.random() >= p) continue;
       let id = id0;
       if (id === 'bp_*'){ const pool = (TN_BP_POOL[game] || []).filter(b => !tune.bp[b]); id = pool.length ? pool[(Math.random() * pool.length) | 0] : 'plan'; }
-      const dup = TN_BP[id] && tune.bp[id];
-      if (!XParts.grant(id, n, why)) continue;
-      out.push(dup ? {id:'plan', n:1} : {id, n});
+      else if (id.includes('|')){ const a = id.split('|'); id = a[(Math.random() * a.length) | 0]; }
+      out.push(...XParts.roll(id, n, 1, why));
     }
+    if (out.length && (D.cd || D.day)){ const l = tnLim(game); l.n++; l.t = Date.now(); tuneWrite(); }
     return out;
+  },
+  /* one part with chance p (1 = always), as a list for the result screen; a 配方 you already have comes back as 1 改装图纸 */
+  roll(id, n, p, reason){
+    if (p != null && Math.random() >= p) return [];
+    const dup = TN_BP[id] && tune.bp[id];
+    if (!XParts.grant(id, n, reason)) return [];
+    return [dup ? {id:'plan', n:1} : {id, n:TN_BP[id] ? 1 : n}];
+  },
+  /* can this game drop right now? false while its cd runs or once its daily count is used up */
+  ready(game){
+    const D = TN_DROPS[game]; if (!D) return false; if (!D.cd && !D.day) return true;
+    const l = tnLim(game);
+    return !(D.day && l.n >= D.day) && !(D.cd && Date.now() - l.t < D.cd * 1000);
   },
   /* the usual drop for a medal (0 金 / 1 银 / 2 铜): 涡轮 / 碳纤维板 / 赛车漆料; no medal (3 or more) gives nothing */
   medal(medal, reason){ return XParts.reward('arcade', medal, reason).length; },
@@ -83,6 +99,12 @@ const XParts = window.XParts = {
   },
   has:id => !!tune.bp[id]
 };
+/* per-game cooldown and daily count (tune.lim, saved): {d:'2026-11-11', n:drops today, t:last drop ms} */
+function tnLim(game){
+  const today = typeof dayKey === 'function' ? dayKey() : new Date().toDateString();
+  let l = tune.lim[game]; if (!l || l.d !== today) l = tune.lim[game] = {d:today, n:0, t:l ? l.t : 0};
+  return l;
+}
 const tnHas = need => Object.keys(need).every(p => (tune.inv[p] || 0) >= need[p]);
 const tnShort = need => Object.keys(need).filter(p => (tune.inv[p] || 0) < need[p]);
 
@@ -100,7 +122,7 @@ function tnGainShow(id, n, reason){
 
 /* ---------- where the parts come from ----------
    Each game calls XParts.reward(…) in its own end-of-round code (js/92-racing.js, js/89-dorm.js, js/87-heist.js, js/89-swing-monkeys.js,
-   js/89-outskirts-play.js, js/85-activities.js) and shows the chips on its result screen. Here: plain deliveries, the B1 arcade, achievements. */
+   js/89-outskirts-play.js, js/85-activities.js, js/70-hole.js, js/80-gta.js, js/88-wardrobe-ui.js, js/50-missions.js) and shows the chips on its result screen. Here: plain deliveries, the B1 arcade, achievements. */
 const tnW = {deliv:prog.life.deliv || 0, dt:+prog.best.o_dt || 0};
 function tnWatchDeliv(){
   const d = prog.life.deliv || 0, dt = +prog.best.o_dt || 0;
@@ -153,12 +175,12 @@ function tnTuned(kind, fit){
 const tunedBase = tunedT;
 tunedT = kind => tnTuned(kind);
 if (myCar) myCar.T = tunedT(myCar.kind);
-/* 总资产: built parts and the ones in the bays at coins + parts used, unspent parts at their value, 配方 RM 200 each, the second bay at its price */
+/* 总资产: built parts and the ones in the bays at coins + parts used, unspent parts at their value, 配方 RM 60 each, the second bay at its price */
 assetSource('carmods', () => {
   let s = (tune.bays - 1) * TN_BAY2;
   for (const p of TN_PARTS) s += (tune.inv[p.id] || 0) * p.rm;
   for (const b of TN_BPS) if (tune.bp[b.id]) s += b.rm;
-  for (const k in tune.cars) s += tuneCarValue(k);
+  for (const k in tune.cars) s += tnCarAssets(k);
   for (const j of tune.jobs) if (!tune.cars[j.kind]) s += tnWorth(TN.byKey[j.k]);
   return s;
 });
@@ -175,13 +197,15 @@ if (window.XWard){
 /* ---------- ordering, the bays, picking up ---------- */
 const tnFmt = ms => { const t = Math.ceil(ms / 1000), h = Math.floor(t / 3600), m = Math.floor(t / 60) % 60, s = t % 60, p = v => String(v).padStart(2, '0'); return h ? `${h}:${p(m)}:${p(s)}` : `${m}:${p(s)}`; };
 const tnMinFmt = m => m < 60 ? `${m} 分钟` : m % 60 ? `${Math.floor(m / 60)} 小时 ${m % 60} 分` : `${m / 60} 小时`;
-const tnMinTxt = it => !tune.first ? `${TN_FIRST_SEC} 秒（新手首单）` : tnMinFmt(it.min) + (it.min >= 1200 ? '，明天再来提车' : '');
+/* 新手首单 30 秒只给轻改和中改（开张礼包够做的那些）；高级和顶级照常等，首单优惠留给下一件轻改或中改 */
+const tnQuick = it => !tune.first && (it.tier === 'n' || it.tier === 'r');
+const tnMinTxt = it => tnQuick(it) ? `${TN_FIRST_SEC} 秒（新手首单）` : tnMinFmt(it.min) + (it.min >= 1200 ? '，明天再来提车' : '') + (!tune.first ? '（新手首单 30 秒只限轻改和中改）' : '');
 const tnBpOk = it => !it.bp || !!tune.bp[it.bp];
 function tnOrder(key){
   const it = TN.byKey[key], kind = myCar && myCar.kind; if (!it || !kind || !tnItemOk(kind, it)) return false;
   if (tnOwns(kind, key) || tnJobOf(kind, key) || tune.jobs.length >= tune.bays || money < it.rm || !tnHas(it.need) || !tnBpOk(it)) return false;
   money -= it.rm; tune.spent += it.rm; for (const p in it.need) tune.inv[p] -= it.need[p];
-  const now = Date.now(), sec = tune.first ? it.min * 60 : TN_FIRST_SEC; tune.first = true;
+  const now = Date.now(), quick = tnQuick(it), sec = quick ? TN_FIRST_SEC : it.min * 60; if (quick) tune.first = true;
   tune.jobs.push({k:key, kind, t0:now, t1:now + sec * 1000, told:false});
   moneyChanged(); tuneWrite();
   tone('square', 220, 180, .12, .05); tone('square', 330, 300, .1, .04, .12);
@@ -337,7 +361,7 @@ function tnFoot(){
   const it = tnSel();
   if (!it){
     name.textContent = '点一个零件预览';
-    desc.textContent = !tune.first ? '预览免费，上面的数值会显示改前和改后。新手首单 30 秒完工，之后越高级的改装要等越久，车照样能开'
+    desc.textContent = !tune.first ? '预览免费，上面的数值会显示改前和改后。新手首单 30 秒完工（只限轻改和中改），之后越高级的改装要等越久，车照样能开'
       : '预览免费，上面的数值会显示改前和改后。轻改几分钟、中改几十分钟、高级几小时、顶级要等一天';
     go.hidden = true; return;
   }
@@ -390,7 +414,7 @@ function tnGo(){
     return;
   }
   if (job){ if (tnReady(job)) tnPickup(tune.jobs.indexOf(job)); return; }
-  const quick = !tune.first;
+  const quick = tnQuick(it);
   if (!tnOrder(it.key)) return;
   tnRender();
   tnDone('下单了：' + it.name, quick ? '新手首单，30 秒就好，先在这儿看着它完工' : `${TN_TIER[it.tier]}要 ${tnMinTxt(it)}。车照样能开，完工后会提醒你回车行提车`);
@@ -540,7 +564,8 @@ window.XTune = {open:tnOpen, close:tnClose, get on(){ return tn.on; }};
 
 /* ---------- test switch: preview build and local test pages only, never on the live game ----------
    XTuneDebug.ff(分钟) 施工快进（不填就全部完工）· give('cf', 5) 发道具 · kit(10) 每样道具都发 · bp() 配方全给 ·
-   all() 道具 + 配方 + 钱都给够 · car('moto') 送一辆车并叫出来 · drop('race', 0) 按掉落表发一次 · reset() 清空改装存档 */
+   all() 道具 + 配方 + 钱都给够 · car('moto') 送一辆车并叫出来 · drop('race', 0) 按掉落表发一次（有冷却的玩法也照样发）·
+   lim() 看每个玩法今天掉了几次、还要冷却几秒 · unlim() 清掉冷却和每日次数 · top('lambo') 全部顶配的金币、改装价值和施工时间 · reset() 清空改装存档 */
 const TN_DEV = !/(^|\.)github\.io$/i.test(location.hostname) || /\/preview\//.test(location.pathname);
 if (TN_DEV) window.XTuneDebug = {
   ff(min){ for (const j of tune.jobs){ j.t1 = min == null ? Date.now() : j.t1 - min * 60000; j.t0 = Math.min(j.t0, j.t1 - 1000); } tuneWrite(); tnTick(); if (tn.on) tnRender(); return tune.jobs.map(j => j.k + ' ' + tnFmt(tnLeft(j))); },
@@ -549,7 +574,15 @@ if (TN_DEV) window.XTuneDebug = {
   bp(){ for (const b of TN_BPS) tune.bp[b.id] = 1; tuneWrite(); if (tn.on) tnRender(); return Object.keys(tune.bp); },
   all(){ this.kit(30); this.bp(); money += 50000; tune.first = true; tune.bays = 2; moneyChanged(); tuneWrite(); if (tn.on) tnRender(); return 'ok'; },
   car(kind){ if (!CAR_T[kind] || !SHOP.some(s => s.kind === kind)) return 'no such car'; owned.add(kind); saveGame(); summon(kind); return kind; },
-  drop(game, grade){ return XParts.reward(game, grade == null ? 0 : grade, '调试'); },
+  drop(game, grade){ const l = tune.lim[game]; delete tune.lim[game]; const r = XParts.reward(game, grade == null ? 0 : grade, '调试'); if (l && !r.length) tune.lim[game] = l; return r; },
+  lim(){ const o = {}; for (const g in TN_DROPS){ const D = TN_DROPS[g]; if (!D.cd && !D.day) continue; const l = tnLim(g);
+    o[g] = `今天 ${l.n} / ${D.day || '∞'}` + (D.cd ? ` · 冷却 ${Math.max(0, Math.ceil(D.cd - (Date.now() - l.t) / 1000))} 秒` : ''); } return o; },
+  unlim(){ tune.lim = {}; tuneWrite(); return 'ok'; },
+  /* the most expensive item in every slot this car can fit: coins, 改装价值 (coins + parts) and build minutes */
+  top(kind){ kind = kind || (myCar && myCar.kind) || 'lambo'; let rm = 0, val = 0, min = 0;
+    for (const sl of TN_SLOTS){ if (!tnSlotOk(kind, sl)) continue; const it = TN.bySlot[sl.id].filter(x => tnItemOk(kind, x)).sort((x, y) => y.rm - x.rm)[0]; if (!it || !it.rm) continue; rm += it.rm; val += tnWorth(it); min += it.min; }
+    const car = (SHOP.find(s => s.kind === kind) || {}).price || 0;
+    return {kind, car, coins:rm, value:val, x:+(val / Math.max(1, car)).toFixed(2), hours:+(min / 60).toFixed(1)}; },
   /* build and fit everything at once on the current car: XTuneDebug.fit({nos:'n3', trail:'plasma'}) */
   fit(f){ if (!myCar) return 'no car'; const c = tnCar(myCar.kind); for (const s in f){ const k = s + '.' + f[s]; if (TN.byKey[k]){ if (!c.own.includes(k)) c.own.push(k); c.fit[s] = f[s]; } } tuneWrite(); tnApplyMine(); return c.fit; },
   reset(){ try { localStorage.removeItem(TN_KEY); } catch(e){} location.reload(); },

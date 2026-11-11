@@ -178,7 +178,8 @@ function updateChase(dt){
     if (!indoor && minD < (driving ? 5.5 : 3.2) && mySp < 4) bustT += dt * (driving ? 1 : 1.6); else bustT = Math.max(0, bustT - dt);
     if (bustT > 1.5){ busted(); return; }
     if (indoor || minD > (inForest ? 70 : 150)){ calmT += dt * (inForest ? 1.6 : 1); if (calmT > 6){ calmT = 0; heat = Math.floor(heat) - 1 + .5; if (heat < 1){
-      heat = 0; despawnChasers(); toast('甩掉了保安', chasePeak >= 4 ? `从 ${chasePeak} 星警戒里溜了` : '警戒解除'); sfx.ding(); if (chasePeak >= 4) unlock('escape4'); chasePeak = 0; } } }
+      heat = 0; despawnChasers(); const loot = window.XParts ? XParts.reward('escape', chasePeak >= 4 ? 0 : chasePeak === 3 ? 1 : chasePeak === 2 ? 2 : 3, `甩掉 ${chasePeak} 星保安`) : [];   /* 改装零件, js/93-tuning-ui.js */
+      toast('甩掉了保安', (chasePeak >= 4 ? `从 ${chasePeak} 星警戒里溜了` : '警戒解除') + (loot.length ? ' · 改装：' + XParts.text(loot) : '')); sfx.ding(); if (chasePeak >= 4) unlock('escape4'); chasePeak = 0; } } }
     else calmT = 0;
     sirenT -= dt; if (sirenT <= 0){ sirenT = .42; sirenHi = !sirenHi; tone('triangle', sirenHi ? 900 : 680, sirenHi ? 900 : 680, .38, .035); }
   } else heat = Math.max(0, heat - dt * .05);
@@ -200,7 +201,9 @@ function bankStunt(){
   const pts = Math.round(stunt.pts), raw = pts / 50, pay = raw <= 40 ? raw : 40 + Math.sqrt(raw - 40) * 4; stunt.total += pts; earn(pay);
   sess.bestCombo = Math.max(sess.bestCombo, pts); if (pts >= 5000) unlock('combo5k');
   $('#stunt').textContent = stunt.total.toLocaleString();
-  if (pts >= 300){ toast(`特技 +${pts.toLocaleString()}`, `换成 RM ${pay.toFixed(2)}`, 1600); sfx.ding(); }
+  /* 改装零件（js/93-tuning-ui.js）：连击越高档越好，有冷却和每日上限 */
+  const loot = window.XParts && pts >= 1000 ? XParts.reward('stunt', pts >= 5000 ? 0 : pts >= 2500 ? 1 : 2, `特技 ${pts.toLocaleString()} 分`) : [];
+  if (pts >= 300){ toast(`特技 +${pts.toLocaleString()}`, `换成 RM ${pay.toFixed(2)}${loot.length ? ' · 改装：' + XParts.text(loot) : ''}`, 1600); sfx.ding(); }
   stunt.pts = 0; stunt.mult = 1; stunt.label = '';
 }
 function updateStunt(dt, sp){

@@ -78,7 +78,7 @@ function gxQuip(text){ if (gxTaxi.quipT > 0 || gxTaxi.say) return; gxTaxi.say = 
 const gxStarsTxt = () => { const r = gxTaxi.rating; return '评价 ' + '★'.repeat(Math.floor(r)) + (r % 1 ? '½' : '') + '☆'.repeat(5 - Math.ceil(r)); };
 function gxRate(d, quip){ if (!gxTaxi.on) return; gxTaxi.rating = Math.max(1, Math.min(5, gxTaxi.rating + d)); gxTaxi.quipT = 0; gxQuip(quip); }
 function gxTaxiEnd(ok, title, sub){
-  gxTaxi.on = false; gxTaxi.pk = null; gxTaxi.ask = null; gxTaxi.spawnCd = 6; gxDestMark.visible = false;
+  gxTaxi.on = false; gxTaxi.pk = null; gxTaxi.ask = null; gxTaxi.spawnCd = 6; gxDestMark.visible = false; if (!ok) gxTaxi.five = 0;
   if (!ok){ sfx.fail(); toast(title, sub, 2600); }
 }
 function gxUpdateTaxi(dt, px, pz, sp){
@@ -138,7 +138,11 @@ function gxUpdateTaxi(dt, px, pz, sp){
       T.on = false; T.pk = null; T.spawnCd = 3; gxDestMark.visible = false; sess.taxi++; prog.life.taxi++;
       earn(pay); sfx.ding();
       for (let i = 0; i < 8; i++) spawnPart('heart', T.to.x + (rnd() - .5) * 4, 2 + rnd() * 2, T.to.z + (rnd() - .5) * 4, .9, {vy:2.5, life:1.4, op:1, color:'#ff6fa3'});
-      toast(`送到了 · ${'★'.repeat(Math.round(r))}${'☆'.repeat(5 - Math.round(r))}`, `+RM ${pay.toFixed(2)} · ${r >= 5 ? '五星好评，还给了小费' : r >= 4 ? '同学说谢谢' : '同学下车腿有点软'}`, 2600);
+      /* 改装零件（js/93-tuning-ui.js）：按评价给；连续三单五星有几率出弹射起步配方 */
+      T.five = r >= 5 ? (T.five || 0) + 1 : 0;
+      const loot = window.XParts ? XParts.reward('taxi', r >= 5 ? 0 : r >= 4 ? 1 : r >= 3 ? 2 : 3, '顺风车') : [];
+      if (window.XParts && T.five >= 3 && XParts.ready('taxi')) loot.push(...XParts.roll('bp_launch', 1, .2, `顺风车 ${T.five} 连五星`));
+      toast(`送到了 · ${'★'.repeat(Math.round(r))}${'☆'.repeat(5 - Math.round(r))}`, `+RM ${pay.toFixed(2)} · ${r >= 5 ? '五星好评，还给了小费' : r >= 4 ? '同学说谢谢' : '同学下车腿有点软'}${loot.length ? ' · 改装：' + XParts.text(loot) : ''}`, 2600);
       if (r >= 5) unlock('taxi5');
     } else gxPromptMsg = '到了，停稳让同学下车';
   } else if (T.t <= 0) gxTaxiEnd(false, '同学自己走路去了', '太慢了，这单没拿到钱');
@@ -254,6 +258,7 @@ function gxWatchCar(dt, sp){
       if (air > .6){
         if (gxA.act && gxA.act.type === 'jump' && gxA.phase === 'run' && dist > gxA.score){ gxA.score = dist; gxCallout(`${Math.round(dist)} 米`, '本轮最远', gxA.act.color); }
         else if (air > 1) gxCallout(`飞了 ${Math.round(dist)} 米`, `滞空 ${air.toFixed(1)} 秒`);
+        if (air > 1.2 && window.XParts) XParts.reward('nearmiss', 0, '大跳慢动作');   /* 和惊险擦车共用冷却 */
         if (gxTaxi.on){ if (gxTaxi.type.k === 'sick') gxRate(-.5, '我、我的胃……'); else if (gxTaxi.type.k === 'vlog' && air > .8) gxRate(.5, '哇！！这段要火！'); else if (air > 1.2) gxQuip('啊啊啊啊——'); }
       }
     }
@@ -263,7 +268,7 @@ function gxWatchCar(dt, sp){
   for (const o of cars){
     if (o === c || !o.root.visible || (o.gxNm || 0) > now) continue;
     const gap = Math.hypot(o.x - c.x, o.z - c.z) - o.R - c.R;
-    if (gap > .1 && gap < 1.3 && Math.hypot(o.vx - c.vx, o.vz - c.vz) > 12){ o.gxNm = now + 3; addStunt('惊险擦车', 80); gxCallout('惊险擦车', '+80 × 连击'); tone('sawtooth', 900, 300, .25, .06); }
+    if (gap > .1 && gap < 1.3 && Math.hypot(o.vx - c.vx, o.vz - c.vz) > 12){ o.gxNm = now + 3; addStunt('惊险擦车', 80); gxCallout('惊险擦车', '+80 × 连击'); tone('sawtooth', 900, 300, .25, .06); if (window.XParts) XParts.reward('nearmiss', 0, '惊险擦车'); }
   }
 }
 
