@@ -180,7 +180,7 @@ function opPeople(list, parent){
     return {name, x, z, m, lbl:addLabel('外卖取餐 · ' + name, x, 6.5, z, true), out:true};
   };
   const ui = BELL_SIGN.n.findIndex(si => OUT_SIGNS[si][0] === '星爸爸咖啡');
-  PICKUPS.push(mk('星爸爸咖啡', ui >= 0 ? BELL_UNITS[ui] : 283, 309.5), mk('KIP 美食广场', -700, 923));
+  PICKUPS.push(mk('星爸爸咖啡', ui >= 0 ? BELL_UNITS[ui] : 283, 309.5), mk('KIP 美食广场', -600, 917.5));   /* in the ring lane, at the crossing to the food-court doors */
 }
 let opDeliv = deliveries, opWas = 0;
 
@@ -308,13 +308,13 @@ carGeoCache.trolley = (() => {
   for (const sx of [-1, 1]) for (const z of [-.475, .475]) B(dark, .05, .16, .05, sx * .38, .2, z);
   return {chrome:geoMerge(wire), paint:geoMerge(red), trim:geoMerge(dark)};
 })();
-const OP_CARTS = [0, 1, 2].map(i => { const c = makeCar('trolley', '#d7262d', -622 + i * 1.5, 929.2, Math.PI); c.out = true; if (TOUCH) c.root.traverse(o => { o.castShadow = false; }); return c; });
+const OP_CARTS = [0, 1, 2].map(i => { const c = makeCar('trolley', '#d7262d', -620 + i * 1.5, 930.4, Math.PI); c.out = true; if (TOUCH) c.root.traverse(o => { o.castShadow = false; }); return c; });
 /* two more parked cars, so the KIP car park has something to weave around (and to drive home in) */
-for (const [kind, col, x, z, h] of [['myvi', '#2d5d8a', -739.4, 881, Math.PI], ['sedan', '#6d4c8f', -579.8, 917, Math.PI]]) makeCar(kind, col, x, z, h).out = true;
+for (const [kind, col, x, z, h] of [['myvi', '#2d5d8a', -740.4, 875.7, Math.PI], ['sedan', '#6d4c8f', -580.8, 905.6, 0]]) makeCar(kind, col, x, z, h).out = true;
 
 /* ---------- KIP 超市大乱斗: the pink ring at the mall door; the game itself is js/minigames/kipmart.js on the mini-game platform (js/91-arcade.js) ---------- */
-const KM = {near:false, door:{x:-640, z:925.5, h:Math.PI, name:'商场门口'}};
-KM.S = opSpot('#ff5fa2', .55, -640, 927, 'KIP 超市大乱斗 · 进门');
+const KM = {near:false, door:{x:-640, z:929.6, h:Math.PI, name:'商场门口'}};   /* under the canopy of the main doors */
+KM.S = opSpot('#ff5fa2', .55, -640, 930.6, 'KIP 超市大乱斗 · 进门');
 function kmOpen(){
   if (!window.XMini || !XMini.startAt || !window.XKipMart) return;
   const g = XMini.games.find(x => x.id === 'kipmart'); if (!g) return;
@@ -567,8 +567,9 @@ function thBuildNodes(){
   const seen = new Set(), out = [];
   const add = (x, z, alley) => { const k = Math.round(x / 8) + ',' + Math.round(z / 8); if (seen.has(k) || !thFree(x, z, 1)) return; seen.add(k); out.push({x, z, alley:!!alley}); };
   for (const ax of [229.5, 322]) for (const z of [311, 323, 335, 347, 359]) add(ax, z, true);
-  for (let x = -760; x <= -550; x += 30) for (const z of [875, 896, 923]) add(x, z, false);
-  for (let x = -730; x <= -560; x += 34) add(x, 929, true);
+  for (let x = -775; x <= -565; x += 30) for (const z of [876, 899, 917]) add(x, z, false);
+  for (let x = -745; x <= -560; x += 34) add(x, 931, true);
+  for (const x of [-794.8, -770.5, -746.2, -735.5, -700.5]) for (const z of [1060, 1086, 1112]) add(x, z, true);   /* KIP Sentral: lanes and alleys */
   for (const s of roadSegs){
     const n = Math.max(1, Math.round(Math.hypot(s.b[0] - s.a[0], s.b[1] - s.a[1]) / 28));
     for (let i = 0; i <= n; i++) add(s.a[0] + (s.b[0] - s.a[0]) * i / n, s.a[1] + (s.b[1] - s.a[1]) * i / n, false);

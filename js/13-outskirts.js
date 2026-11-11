@@ -16,7 +16,8 @@ const BELL_S = [[146, '嘛嘛档 Nasi Kandar'], [164, '123 便利店'], [172, '�
   [299, '活动场地'], [303, '新疆拉面'], [312, '瑜伽 Yoga'], [321, '中医馆'], [327, '瓦煲鸡'], [332, '自助洗衣 Dobi'], [338, '八卦咖啡'], [343, '桌球 Snooker'],
   [348, '乐器行'], [352, '聚饺'], [360, '寿司 Sushi'], [369, '新疆炒米粉'], [405, '娘惹糕 Kueh']];
 const SIGN_STYLE = {'星爸爸咖啡':['#1f6b4b', '#ffffff', 1, 'cup'], '31 冰淇淋':['#f07aa6', '#ffffff', 0, 'cone'], '蜜雪冰橙':['#d7262d', '#ffffff', 0, 'snow'],
-  '店铺出租 To Let':['#f4f1ea', '#c0392b', 2], '麦当当 24h':['#c8102e', '#ffc72c', 0], 'Bell 喷漆 Spray':['#1d1f24', '#ffcf3a', 2]};
+  '店铺出租 To Let':['#f4f1ea', '#c0392b', 2], '麦当当 24h':['#c8102e', '#ffc72c', 0], 'Bell 喷漆 Spray':['#1d1f24', '#ffcf3a', 2],
+  '上校炸鸡':['#b5121b', '#ffffff', 3], 'DIY 五金百货':['#f6d23a', '#c8102e', 0], '酒店 Hotel':['#2a3f8f', '#ffffff', 2]};
 const SIGN_PAIRS = [['#1b5aa6', '#ffffff'], ['#2f6f3e', '#fff4d6'], ['#7a3b1d', '#ffe8b0'], ['#f08a1c', '#ffffff'], ['#2b9a8f', '#ffffff'], ['#3d3d3d', '#ffd84a'],
   ['#c0392b', '#ffffff'], ['#2a3f8f', '#ffffff'], ['#8a5a3c', '#fff1dc'], ['#b3261e', '#ffd84a'], ['#d98a1c', '#3a1d0a'], ['#ffffff', '#c0392b'], ['#3c6e9f', '#ffffff'],
   ['#e48aa8', '#ffffff'], ['#4e342e', '#ffd54f'], ['#00838f', '#ffffff'], ['#6a1b9a', '#ffffff'], ['#9e9d24', '#ffffff']];
@@ -29,12 +30,12 @@ function signOf(name){
   const shop = /咖啡|奶茶|甜品|冰淇淋|蛋糕|Kueh|冰雪/.test(name) ? 1 : /饭|面|粉|锅|餐|烧|鸡|鱼|饺|烫|Kandar|料理|小吃|食|快餐|寿司|小馆|哈密|菜/.test(name) ? 3 : /洗衣|租|学校|Pilates|瑜伽|Snooker|场地|乐器|汽车|出租/.test(name) ? 2 : 0;
   OUT_SIGNS.push(st ? [name, st[0], st[1], st[2], st[3]] : [name, pr[0], pr[1], shop]); signIdx.set(name, OUT_SIGNS.length - 1); return OUT_SIGNS.length - 1;
 }
-['店铺出租 To Let', '超市 Hypermarket', '影城 Cinema', '美食广场 Food Court', '麦当当 24h', 'Bell 喷漆 Spray'].forEach(signOf);
+['店铺出租 To Let', '超市 Hypermarket', '亲子乐园 Kids Park', '美食广场 Food Court', '麦当当 24h', 'Bell 喷漆 Spray'].forEach(signOf);
 /* Bell Avenue: one ~270 m block of back-to-back three-storey shophouses (north row faces Jalan Sunsuria, south row the back lane),
    split by two walk-through lanes; frontage lane, angled parking and a covered five-foot way on both sides */
 const BELL = {zF:307, zB:363, zMid:335.1, park:5.5, arc:2.6, unit:7.5, n:11, blocks:[142, 234.5, 327]};
 const BELL_UNITS = []; BELL.blocks.forEach(b0 => { for (let u = 0; u < BELL.n; u++) BELL_UNITS.push(b0 + (u + .5) * BELL.unit); });
-const SIGN_TOLET = 0, SIGN_KIP0 = 1, SIGN_MCD = 4, SIGN_SPRAY = 5;
+const SIGN_TOLET = 0, SIGN_KIP0 = 1, SIGN_MCD = 4, SIGN_SPRAY = 5;   /* KIP: 1 超市, 2 亲子乐园, 3 美食广场 */
 /* hand each shop to the nearest free unit of its row (units are filled in by the Bell Avenue builder below) */
 function bellNames(units, pois){
   const out = units.map(() => null);
@@ -42,6 +43,9 @@ function bellNames(units, pois){
   return out.map(n => n || '店铺出租 To Let');
 }
 const BELL_SIGN = {n:bellNames(BELL_UNITS, BELL_N).map(signOf), s:bellNames(BELL_UNITS, BELL_S).map(signOf)};
+/* KIP signs (the fried-chicken pad, the DIY store at the mall's north-west corner, the small hotels upstairs in KIP Sentral); registered
+   after Bell Avenue so they only take the free atlas slots and never push a Bell shop out to 店铺出租 */
+const KIP_TEN = ['上校炸鸡', 'DIY 五金百货', '酒店 Hotel'].map(signOf);
 
 /* ---------- one texture atlas (plus a half-size glow map for night) for every facade, shopfront and sign outside the gate ---------- */
 /* ATL is the layout size; the canvas is drawn at twice that (sharper shop signs) unless the quality tier keeps textures small (phones on 标准, 流畅) */
@@ -50,6 +54,7 @@ atlCv.width = atlCv.height = ATL * ATK; emCv.width = emCv.height = ATL / 2 * ATK
 const atlTex = new THREE.CanvasTexture(atlCv), emTex = new THREE.CanvasTexture(emCv); atlTex.anisotropy = ANISO;
 const AR = (x, y, w, h) => ({x, y, w, h, u0:(x + 2) / ATL, u1:(x + w - 2) / ATL, v0:1 - (y + h - 2) / ATL, v1:1 - (y + 2) / ATL});
 const A_SOLID = AR(0, 0, 32, 32), A_BURGER = AR(64, 0, 128, 128), A_KIP = AR(256, 0, 512, 128), A_GLASS = AR(768, 0, 256, 128);
+const A_CHICK = AR(192, 0, 64, 64), A_GRID = AR(192, 64, 64, 64);   /* KIP: fried-chicken badge, white mullion grid of the entrance blocks */
 const A_WIN = [0, 1, 2].map(i => AR(i * 256, 128, 256, 120)), A_MALL = AR(768, 128, 256, 120);
 const A_SHOP = [0, 1, 2, 3].map(i => AR(i * 256, 248, 256, 128));
 const A_SIGN = i => AR((i % 4) * 256, 376 + Math.floor(i / 4) * 40, 256, 40);
@@ -95,11 +100,23 @@ function paintAtlas(){
   /* glass curtain wall and mall cladding */
   { const {x, y} = A_GLASS; const gr = g.createLinearGradient(0, y, 0, y + 128); gr.addColorStop(0, '#8fb6c9'); gr.addColorStop(1, '#3f6a80'); g.fillStyle = gr; g.fillRect(x, y, 256, 128);
     g.fillStyle = '#dfe6ea'; for (let i = 0; i <= 8; i++) g.fillRect(x + i * 32 - 2, y, 4, 128); g.fillRect(x, y + 62, 256, 4); g.fillRect(x, y, 256, 3); e.fillStyle = '#7a6440'; e.fillRect(x, y + 66, 256, 62); }
-  { const {x, y} = A_MALL; g.fillStyle = '#ece1cd'; g.fillRect(x, y, 256, 120); g.fillStyle = '#d8ccb6'; for (let i = 0; i < 4; i++) g.fillRect(x + i * 64, y, 2, 120); g.fillRect(x, y + 30, 256, 2);
-    g.fillStyle = '#3e5866'; g.fillRect(x, y + 56, 256, 26); g.fillStyle = '#dfe6ea'; for (let i = 0; i < 8; i++) g.fillRect(x + i * 32, y + 56, 3, 26); e.fillStyle = '#6a5636'; e.fillRect(x, y + 56, 256, 26); }
-  /* KIP mall name board and the burger badge of 麦当当 */
-  both((c, em) => { const {x, y} = A_KIP; c.fillStyle = em ? '#6b6b6b' : '#ffffff'; c.fillRect(x, y, 512, 128); c.strokeStyle = '#1d3f8f'; c.lineWidth = 8; c.strokeRect(x + 6, y + 6, 500, 116);
-    c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#d22630'; c.font = `900 66px ${OUT_FONT}`; c.fillText('KIP MALL', x + 256, y + 50); c.fillStyle = '#1d3f8f'; c.font = `700 32px ${OUT_FONT}`; c.fillText('购 物 中 心', x + 256, y + 100); });
+  /* KIP mall cladding (one tile = 10 m wide, the 7.4 m of wall above the shop band): pale grey composite panels with a darker grey
+     band at the upper floor line, as in photos of KIPMall Kota Warisan (it used to be beige with a strip window) */
+  { const {x, y} = A_MALL; g.fillStyle = '#eef0ef'; g.fillRect(x, y, 256, 120); g.fillStyle = '#e3e6e6'; g.fillRect(x, y + 60, 256, 60);
+    g.fillStyle = '#d0d4d5'; for (let i = 0; i < 8; i++) g.fillRect(x + i * 32, y, 1.5, 120); for (const r of [20, 40, 78, 98]) g.fillRect(x, y + r, 256, 1.5);
+    g.fillStyle = '#8f979c'; g.fillRect(x, y + 52, 256, 12); g.fillStyle = '#7d858a'; g.fillRect(x, y + 62, 256, 2); g.fillStyle = '#b9bfc2'; g.fillRect(x, y + 116, 256, 4); }
+  /* glazed entrance blocks: a white mullion grid over blue-grey glass (lit inside at night) */
+  { const {x, y} = A_GRID; const gr = g.createLinearGradient(0, y, 0, y + 64); gr.addColorStop(0, '#9fb9c6'); gr.addColorStop(1, '#4f6e7e'); g.fillStyle = gr; g.fillRect(x, y, 64, 64);
+    g.fillStyle = 'rgba(255,255,255,.18)'; g.fillRect(x + 6, y, 10, 64); g.fillStyle = '#f4f5f3'; for (let i = 0; i <= 4; i++){ g.fillRect(x + i * 16 - 2, y, 4, 64); g.fillRect(x, y + i * 16 - 2, 64, 4); }
+    e.fillStyle = '#6d5a3c'; for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) if ((i * 3 + j) % 4) e.fillRect(x + i * 16 + 2, y + j * 16 + 2, 12, 12); }
+  /* KIP mall name: pinkish-red KIPMALL letters on the pale grey cladding, the way the real channel letters sit on the entrance blocks */
+  both((c, em) => { const {x, y} = A_KIP; c.fillStyle = em ? '#1a1a1a' : '#eceeed'; c.fillRect(x, y, 512, 128);
+    c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = em ? '#ff7a96' : '#e0335a'; let s = 104; c.font = `900 ${s}px ${OUT_FONT}`;
+    while (c.measureText('KIPMALL').width > 480 && s > 40){ s -= 4; c.font = `900 ${s}px ${OUT_FONT}`; }
+    c.fillText('KIPMALL', x + 256, y + 68); });
+  /* fried-chicken badge (a drumstick on red) for the pad in the north-west corner */
+  both((c, em) => { const {x, y} = A_CHICK; c.fillStyle = em ? '#7a0d12' : '#b5121b'; c.fillRect(x, y, 64, 64); c.fillStyle = '#ffffff'; c.beginPath(); c.arc(x + 32, y + 32, 27, 0, 7); c.fill();
+    c.fillStyle = '#c8742a'; c.beginPath(); c.ellipse(x + 27, y + 28, 14, 11, -.7, 0, 7); c.fill(); c.fillStyle = '#f3e3c6'; c.fillRect(x + 34, y + 34, 12, 5); c.beginPath(); c.arc(x + 47, y + 34, 3.2, 0, 7); c.arc(x + 47, y + 40, 3.2, 0, 7); c.fill(); });
   both((c, em) => { const {x, y} = A_BURGER; c.fillStyle = '#c8102e'; c.fillRect(x, y, 128, 128); c.fillStyle = '#ffc72c'; c.beginPath(); c.arc(x + 64, y + 64, 54, 0, 7); c.fill();
     c.fillStyle = '#e8963a'; c.beginPath(); c.ellipse(x + 64, y + 52, 36, 22, 0, Math.PI, 0); c.fill(); c.fillStyle = '#6cbf3c'; c.fillRect(x + 28, y + 52, 72, 7); c.fillStyle = '#5a3420'; c.fillRect(x + 28, y + 60, 72, 12);
     c.fillStyle = '#e8963a'; c.fillRect(x + 30, y + 74, 68, 12); c.fillStyle = '#fff4d0'; for (let i = 0; i < 5; i++){ c.beginPath(); c.arc(x + 46 + i * 9, y + 40 + (i % 2) * 4, 2, 0, 7); c.fill(); } });
@@ -345,47 +362,225 @@ const bellMesh = tMesh(bellB, townMat, bellInfo, true);
 tMesh(resB, townMat, resInfo, true);
 addLabel('Bell Avenue 商业街', 276, 20, 335);
 
-/* ---------- KIP mall: one big box with a glass atrium, anchor signs and a car park ---------- */
+/* ---------- KIP mall (KIPMall Kota Warisan) and the blocks round it: KIP Sentral shop offices, KIP CORE Sentral, Prima Apartment ----------
+   Traced from OpenStreetMap (mall way 661617399, KFC pad 886413865, the customer service roads round the mall, Jalan Warisan Sentral 1–4,
+   shop blocks 662262984–987, KIP CORE Sentral 886413867 / 1443393651–52, Prima Apartment 662247744–749 and its service ring 400447252)
+   and checked against aerial photos and street photos. Real metres from the mall centre (x east, z south) → game x − 662, z + 979, full size.
+   The mall is one long two-storey box (≈ 234 × 87 m) with its front to the north over the car park; the north-west corner is cut back for a
+   fried-chicken pad and the glazed "Gate A" entrance, the main doors (KIPMALL letters on a sloped canopy) are in the middle of the north front,
+   a lane runs right round it, KIP Sentral's shop offices stand across the back lane, KIP CORE's two towers rise on a podium to the south-east,
+   and the Prima Apartment blocks sit across the hill road (which plays Jalan Kota Warisan). Only the distance from campus is squeezed. */
 const kipInfo = {name:'KIP 购物中心', tag:'商场', spawn:[-640, 915, Math.PI],
-  desc:'照附近的 KIPMall Kota Warisan 搭的大商场：超市、影城、美食广场。真实距离大约 1.5–2 公里，这里压缩成从校门开车半分钟，要翻过一道山坡。'};
+  desc:'照雪邦 KIPMall Kota Warisan 按 OpenStreetMap 的轮廓 1:1 搭的两层商场：北面朝停车场，正中是挂着 KIPMALL 红字的大门，西北角是炸鸡店和 Gate A 玻璃门厅，屋顶铺着太阳能板。里面有超市、亲子乐园、美食广场。真实离校门直线大约 1.3 公里（开车要绕更远），这里压缩成从校门开车半分钟，要翻过一道山坡。'};
+const sentralInfo = {name:'KIP Sentral 店屋', tag:'商业', spawn:[-735.5, 1060, 0],
+  desc:'KIP 商场后巷对面的一排排三层店屋（KIP Sentral），门口斜着停车，楼上多是小旅馆和诊所。这里搭了离商场最近的第一排，四栋，照真实的街道 Jalan Warisan Sentral 1、2、4 排开。'};
+const coreInfo = {name:'KIP CORE Sentral', tag:'公寓', spawn:[-650, 1062, Math.PI / 2],
+  desc:'KIP Sentral 东南角的 SoHo 公寓：四层的停车裙楼上立着 A、B 两栋高楼，裙楼顶上有泳池。整片 KIP 一带最显眼的高楼。'};
+const primaInfo = {name:'Prima Apartment', tag:'住宅', spawn:[-494, 932, -Math.PI / 2],
+  desc:'KIP 商场对面山坡下的四层公寓（A、B、C、D 栋和两栋没编号的），一条小环路绕着它们。'};
+const KIP = {A:[-748, 936, -546, 1021], B:[-768, 976, -748, 1021], C:[-779, 1009, -768, 1021], H:12};
 const MDX = 42, MDZ = 325;
 const mcdInfo = {name:'麦当当', tag:'快餐', spawn:[-522 + MDX, 776 + MDZ, -Math.PI / 2],
   desc:'KIP 商场再往南的 24 小时快餐店，路边立着高高的汉堡招牌，还有得来速车道。名字是谐音，照附近那家快餐店搭的。'};
+/* a vertical prism on a footprint polygon (game x, z, in order round it): walls tiled with an atlas region (or plain), a flat roof */
+function prism(b, pts, y0, y1, col, r, tw, th, roof){
+  for (let i = 0; i < pts.length; i++){
+    const [ax, az] = pts[i], [bx, bz] = pts[(i + 1) % pts.length], L = Math.hypot(bx - ax, bz - az); if (L < .05) continue;
+    /* outward normal must point away from the centre: flip the edge when the polygon runs the other way */
+    let cx = 0, cz = 0; for (const p of pts){ cx += p[0] / pts.length; cz += p[1] / pts.length; }
+    const out = (bz - az) * ((ax + bx) / 2 - cx) - (bx - ax) * ((az + bz) / 2 - cz) > 0;
+    const [px, pz, qx, qz] = out ? [ax, az, bx, bz] : [bx, bz, ax, az];
+    const nu = r ? Math.max(1, Math.round(L / tw)) : 1, nv = r ? Math.max(1, Math.round((y1 - y0) / th)) : 1;
+    for (let u = 0; u < nu; u++) for (let v = 0; v < nv; v++){
+      const t0 = u / nu, t1 = (u + 1) / nu, h0 = y0 + (y1 - y0) * v / nv, h1 = y0 + (y1 - y0) * (v + 1) / nv;
+      /* tQuad's normal is U × V: U runs along the edge, V up; edges are taken so that this faces out */
+      tQuad(b, [px + (qx - px) * t1, h0, pz + (qz - pz) * t1], [(px - qx) * (t1 - t0), 0, (pz - qz) * (t1 - t0)], [0, h1 - h0, 0], r, col);
+    }
+  }
+  if (roof){
+    const tri = THREE.ShapeUtils.triangulateShape(pts.map(([x, z]) => new THREE.Vector2(x, z)), []);
+    for (let [i, j, k] of tri){
+      if ((pts[j][1] - pts[i][1]) * (pts[k][0] - pts[i][0]) - (pts[j][0] - pts[i][0]) * (pts[k][1] - pts[i][1]) < 0) [j, k] = [k, j];   /* face up */
+      tTri(b, [pts[i][0], y1, pts[i][1]], [pts[j][0], y1, pts[j][1]], [pts[k][0], y1, pts[k][1]], roof);
+    }
+  }
+}
+/* a collider and a minimap footprint for a (possibly turned) rectangle given by its four corners */
+function rotCol(pts, pad, color){
+  const [a, b2, c] = pts, L1 = Math.hypot(b2[0] - a[0], b2[1] - a[1]), L2 = Math.hypot(c[0] - b2[0], c[1] - b2[1]);
+  const ux = (b2[0] - a[0]) / L1, uz = (b2[1] - a[1]) / L1, rot = Math.atan2(-uz, ux), cx = (a[0] + c[0]) / 2, cz = (a[1] + c[1]) / 2;
+  addBox(cx, cz, L1 / 2 + pad, L2 / 2 + pad, rot); addFp({t:0, x:cx, z:cz, w:L1, d:L2, rot, color});
+}
+const KIP_SB = 4.6;   /* height of the shop band at the foot of the mall walls */
 (function(){
-  const b = TB(), X0 = -725, X1 = -555, Z0 = 940, Z1 = 1040, H = 19;
-  tileZ(b, Z0, X0, X1, 0, H, -1, A_MALL, 10, 4.75, '#ffffff'); tileZ(b, Z1, X0, X1, 0, H, 1, A_MALL, 10, 4.75, '#f3ede2');
-  tileX(b, X0, Z0, Z1, 0, H, -1, A_MALL, 10, 4.75, '#f3ede2'); tileX(b, X1, Z0, Z1, 0, H, 1, A_MALL, 10, 4.75, '#ffffff');
-  fY(b, H, X0, Z0, X1, Z1, '#9a9690');
-  tBox(b, X0 - .3, H, Z0 - .3, X1 + .3, H + 1, Z0 + .5, '#d9cdb7'); tBox(b, X0 - .3, H, Z1 - .5, X1 + .3, H + 1, Z1 + .3, '#d9cdb7');
-  tBox(b, X0 - .3, H, Z0, X0 + .5, H + 1, Z1, '#d9cdb7'); tBox(b, X1 - .5, H, Z0, X1 + .3, H + 1, Z1, '#d9cdb7');
-  for (const [x, z] of [[-700, 980], [-690, 1015], [-585, 975], [-600, 1010]]) tBox(b, x - 4, H, z - 3, x + 4, H + 2.4, z + 3, '#b8b6b0');
-  tBox(b, -650, H, 960, -630, H + 2.2, 1020, '#9cc7d8');
-  /* glass atrium with the name board and a drop-off canopy */
-  const AX0 = -660, AX1 = -620, AZ = 932, AH = 24;
-  tileZ(b, AZ, AX0, AX1, 0, AH, -1, A_GLASS, 10, 6, '#ffffff'); tileX(b, AX0, AZ, Z0, 0, AH, -1, A_GLASS, 8, 6, '#ffffff'); tileX(b, AX1, AZ, Z0, 0, AH, 1, A_GLASS, 8, 6, '#ffffff');
-  fY(b, AH, AX0, AZ, AX1, Z0, '#d9cdb7');
-  fZ(b, AZ - .15, -656, -624, 15.5, 23.5, -1, A_KIP, '#ffffff');
-  tBox(b, -668, 5.6, 922, -612, 6.3, 932, '#f4f1ea', ''); for (const x of [-666, -614]) tBox(b, x - .3, 0, 922.5, x + .3, 5.6, 923.1, '#cfd3d6');
-  fZ(b, Z0 - .1, -718, -704, 13, 15.6, -1, A_SIGN(SIGN_KIP0), '#ffffff'); fZ(b, Z0 - .1, -576, -562, 13, 15.6, -1, A_SIGN(SIGN_KIP0 + 1), '#ffffff');
-  fX(b, X1 + .1, 966, 980, 13, 15.6, 1, A_SIGN(SIGN_KIP0 + 2), '#ffffff');
-  /* road sign at the car-park entrance, on the verge south of the driveway (clear of the hill road, the 山梁拉力 finish and the 油棕园 grid), facing the traffic both ways */
-  { const px = -533, pz = 919;
+  const b = TB(), H = KIP.H, SB = KIP_SB, [AX0, AZ0, AX1, AZ1] = KIP.A, [BX0, BZ0, BX1, BZ1] = KIP.B, [CX0, CZ0, CX1, CZ1] = KIP.C;
+  const BLANK = '#e6e8e7', PAR = '#dfe2e2', ROOF = '#8a8e91', WHITE = '#f1f2f0', MET = '#7c8890';
+  /* the walls: a shop band (atlas tile, or a plain plinth) and the cladding above it */
+  const band = (vert, a0, a1, low, lw) => { const [k, at, dir] = vert;
+    if (k === 'z'){ if (low) tileZ(b, at, a0, a1, 0, SB, dir, low, lw || 8, SB, '#ffffff'); else fZ(b, at, a0, a1, 0, SB, dir, null, BLANK); tileZ(b, at, a0, a1, SB, H, dir, A_MALL, 10, H - SB, '#ffffff'); }
+    else { if (low) tileX(b, at, a0, a1, 0, SB, dir, low, lw || 8, SB, '#ffffff'); else fX(b, at, a0, a1, 0, SB, dir, null, BLANK); tileX(b, at, a0, a1, SB, H, dir, A_MALL, 10, H - SB, '#ffffff'); } };
+  /* north front of the main box, west to east: outward-facing shops (the DIY store), the supermarket wall, main doors, a café, the food-court doors */
+  const N = ['z', AZ0, -1];
+  band(N, AX0, -704, A_SHOP[0], 8.8); band(N, -704, -656, null); band(N, -656, -624, null); band(N, -624, -608, A_SHOP[1], 8); band(N, -608, -592, A_GLASS, 8); band(N, -592, AX1, null);
+  fZ(b, AZ0 - .1, -744, -726, 5.3, 8.1, -1, A_SIGN(KIP_TEN[1]), '#ffffff');
+  fZ(b, AZ0 - .1, -694, -666, 6.6, 10.95, -1, A_SIGN(SIGN_KIP0), '#ffffff');
+  fZ(b, AZ0 - .1, -611, -589, 5.25, 8.65, -1, A_SIGN(SIGN_KIP0 + 2), '#ffffff');
+  tBox(b, -610, 4.35, 932.6, -590, 4.7, AZ0, MET, ''); for (const x of [-609.6, -590.4]) tBox(b, x - .14, 0, 932.7, x + .14, 4.35, 933, WHITE);
+  /* east side (the kids' park doors under a flat canopy), back wall with three loading bays, the west wall in the cut-back corner */
+  const E = ['x', AX1, 1];
+  band(E, AZ0, 978, null); band(E, 978, 994, A_GLASS, 8); band(E, 994, AZ1, null);
+  fX(b, AX1 + .1, 979, 993, 6, 8.2, 1, A_SIGN(SIGN_KIP0 + 1), '#ffffff');
+  tBox(b, AX1, 4.4, 977.5, AX1 + 4.6, 4.75, 994.5, MET, ''); for (const z of [977.9, 994.1]) tBox(b, AX1 + 4.2, 0, z - .14, AX1 + 4.5, 4.4, z + .14, WHITE);
+  const S = ['z', AZ1, 1];
+  let sx = CX0; for (const x of [-724, -660, -596]){ band(S, sx, x, null); band(S, x, x + 8, A_SHOP[2], 8); sx = x + 8; } band(S, sx, AX1, null);
+  band(['x', AX0, -1], AZ0, BZ0, A_SHOP[1], 8);
+  band(['x', BX0, -1], 990, CZ0, null); band(['z', CZ0, -1], CX0, CX1, null); band(['x', CX0, -1], CZ0, CZ1, null);
+  /* roofs, a parapet round the whole outline, a raised clerestory, solar panels (they cover much of the real roof), plant */
+  for (const [x0, z0, x1, z1] of [KIP.A, KIP.B, KIP.C]) fY(b, H, x0, z0, x1, z1, ROOF);
+  const OUTL = [[AX0, AZ0], [AX1, AZ0], [AX1, AZ1], [CX0, AZ1], [CX0, CZ0], [BX0, CZ0], [BX0, BZ0], [AX0, BZ0]];
+  OUTL.forEach(([x0, z0], i) => { const [x1, z1] = OUTL[(i + 1) % OUTL.length]; tBox(b, Math.min(x0, x1) - .25, H, Math.min(z0, z1) - .25, Math.max(x0, x1) + .25, H + 1, Math.max(z0, z1) + .25, PAR); });
+  tBox(b, -704, H, 944, -662, H + 2.4, 970, '#c3c7c9');
+  for (const [x0, x1, z0, z1] of [[-744, -708, 940, 1006], [-656, -598, 946, 1004], [-590, -552, 940, 984], [-765, -751, 994, 1018]])
+    for (let z = z0; z + 3.4 <= z1; z += 5){ fY(b, H + .6, x0, z, x1, z + 3.4, '#26364f'); tBox(b, x0, H, z + 1.5, x1, H + .55, z + 1.9, '#8b9196', 'py ny'); }
+  for (const [x, z] of [[-720, 1012], [-690, 1014], [-640, 1010], [-600, 1014], [-570, 1008], [-575, 992]]) tBox(b, x - 2.2, H, z - 1.4, x + 2.2, H + 1.8, z + 1.4, '#c4c6c7');
+  /* main doors: a glazed block above the roof line with KIPMALL on top, a sloped metal-and-glass canopy, red-and-white bollards */
+  { const X0 = -656, X1 = -624, Z = 934.5, T = 16.5;
+    tBox(b, X0, 0, Z, X1, T, 941, WHITE, 'nz ny');
+    tileZ(b, Z, X0, X1, 0, SB, -1, A_GLASS, 8, SB, '#ffffff'); tileZ(b, Z, X0, X1, SB, T, -1, A_GRID, 4, 4, '#ffffff');
+    fZ(b, Z - .1, -650, -630, 11.3, 16.1, -1, A_KIP, '#ffffff');
+    tBox(b, X0 - .3, T, Z - .3, X1 + .3, T + .6, 941.3, PAR);
+    gQuad4(b, [X0 - 1, 6.4, Z], [X1 + 1, 6.4, Z], [X1 + 1, 5.6, 927], [X0 - 1, 5.6, 927], MET);
+    tQuad(b, [X0 - 1, 5.55, 927], [X1 - X0 + 2, 0, 0], [0, .8, Z - 927], null, '#d9dcdc');
+    tBox(b, X0 - 1, 5.15, 926.75, X1 + 1, 5.7, 927.2, '#5d666c');
+    fZ(b, 926.7, -646, -634, 5.72, 8.72, -1, A_KIP, '#ffffff');
+    for (const x of [X0 + 1, X1 - 1]) tBox(b, x - .3, 0, 927.1, x + .3, 5.2, 927.7, WHITE);
+    for (const x of [-651, -646, -634, -629]){ tBox(b, x - .12, 0, 926.3, x + .12, .5, 926.54, '#d63a2f'); tBox(b, x - .12, .5, 926.3, x + .12, 1, 926.54, '#f4f1ea'); } }
+  /* Gate A, in the cut-back corner: glazed block, KIPMALL letters, two billboards on the roof (photos show the same) */
+  { const X0 = BX0, X1 = BX1, Z = BZ0, T = 17;
+    tBox(b, X0, 0, Z, X1, T, 990, WHITE, 'nz ny');
+    tileZ(b, Z, X0, X1, 0, SB, -1, A_GLASS, 6.7, SB, '#ffffff'); tileZ(b, Z, X0, X1, SB, T, -1, A_GRID, 4, 4.1, '#ffffff');
+    tileX(b, X0 - .02, Z, 990, 0, SB, -1, A_GLASS, 7, SB, '#ffffff');
+    fZ(b, Z - .1, X0 + 2, X1 - 2, 12.6, 16.6, -1, A_KIP, '#ffffff');
+    tBox(b, X0 - .3, T, Z - .3, X1 + .3, T + .6, 990.3, PAR);
+    [[X0 + .5, X0 + 9.5, KIP_TEN[0]], [X1 - 9.5, X1 - .5, SIGN_KIP0 + 1]].forEach(([x0, x1, si]) => {
+      for (const x of [x0 + 1, x1 - 1]) tBox(b, x - .15, T + .6, 978.4, x + .15, T + 2.4, 978.8, '#5d666c');
+      tBox(b, x0, T + 2.4, 978.2, x1, T + 4.6, 978.9, '#b5121b'); fZ(b, 978.15, x0 + .2, x1 - .2, T + 2.55, T + 4.45, -1, A_SIGN(si), '#ffffff'); }); }
+  addBox((AX0 + AX1) / 2, (AZ0 + AZ1) / 2, (AX1 - AX0) / 2 + .4, (AZ1 - AZ0) / 2 + .4, 0); addBox((BX0 + BX1) / 2, (BZ0 + BZ1) / 2, (BX1 - BX0) / 2 + .4, (BZ1 - BZ0) / 2 + .4, 0);
+  addBox((CX0 + CX1) / 2, (CZ0 + CZ1) / 2, (CX1 - CX0) / 2 + .4, (CZ1 - CZ0) / 2 + .4, 0); addBox(-640, 937.7, 16.3, 3.2, 0);
+  for (const [x0, z0, x1, z1] of [KIP.A, KIP.B, KIP.C]) addFp({t:0, x:(x0 + x1) / 2, z:(z0 + z1) / 2, w:x1 - x0, d:z1 - z0, rot:0, color:'#b9805a'});
+  /* the fried-chicken pad (OSM: KFC, against the mall's north-west corner): white box, red fascia with the name, glass dining room, drive-thru roof, pole sign */
+  { const X0 = -769, X1 = -751.5, Z0 = 939, Z1 = 960;
+    tBox(b, X0, 0, Z0, X1, 5.4, Z1, '#f4f1ea', 'ny py');
+    tileZ(b, Z0 - .02, X0 + .5, X1 - .5, 0, 3.5, -1, A_SHOP[1], 6, 3.5, '#ffffff'); tileX(b, X0 - .02, Z0 + 1, Z1 - 6, 0, 3.5, -1, A_SHOP[1], 7, 3.5, '#ffffff');
+    tBox(b, X0 - .25, 4.1, Z0 - .25, X1 + .25, 5.6, Z1 + .25, '#b5121b', 'ny py'); fY(b, 5.45, X0, Z0, X1, Z1, '#8f9396');
+    fZ(b, Z0 - .3, X0 + 2.5, X1 - 2.5, 4.2, 5.5, -1, A_SIGN(KIP_TEN[0]), '#ffffff'); fX(b, X0 - .3, 949, 950.4, 4.15, 5.55, -1, A_CHICK, '#ffffff');
+    tBox(b, X0 - 5.5, 3.3, Z1 - 7, X0, 3.7, Z1, '#b5121b', ''); for (const z of [Z1 - 6.6, Z1 - .4]) tBox(b, X0 - 5.3, 0, z - .15, X0 - 5, 3.3, z + .15, '#f4f1ea');
+    tBox(b, -780.75, 0, 941.75, -780.25, 9, 942.25, '#c9ccd0'); tBox(b, -782.2, 9, 941.6, -778.8, 12.4, 942.4, '#b5121b', 'pz nz ny');
+    fZ(b, 941.58, -782, -779, 9.2, 12.2, -1, A_CHICK, '#ffffff'); fZ(b, 942.42, -782, -779, 9.2, 12.2, 1, A_CHICK, '#ffffff');
+    addBox((X0 + X1) / 2, (Z0 + Z1) / 2, (X1 - X0) / 2 + .3, (Z1 - Z0) / 2 + .3, 0); addCircle(-780.5, 942, .5);
+    addFp({t:0, x:(X0 + X1) / 2, z:(Z0 + Z1) / 2, w:X1 - X0, d:Z1 - Z0, rot:0, color:'#c8402e'}); }
+  /* road sign at the car-park entrance, on the verge south of the driveway (clear of the hill road, the 山梁拉力 finish and the east lane), facing the traffic both ways */
+  { const px = -530, pz = 919;
     for (const sx of [-1, 1]) tBox(b, px + sx * 2.1 - .2, 0, pz - .2, px + sx * 2.1 + .2, 7.4, pz + .2, '#9aa0a6');
-    tBox(b, px - 2.7, 5.6, pz - .3, px + 2.7, 7.2, pz + .3, '#1d3f8f'); fZ(b, pz - .31, px - 2.55, px + 2.55, 5.7, 7.1, -1, A_KIP, '#ffffff'); fZ(b, pz + .31, px - 2.55, px + 2.55, 5.7, 7.1, 1, A_KIP, '#ffffff');
+    tBox(b, px - 2.7, 5.6, pz - .3, px + 2.7, 7.2, pz + .3, '#e0335a'); fZ(b, pz - .31, px - 2.55, px + 2.55, 5.7, 7.1, -1, A_KIP, '#ffffff'); fZ(b, pz + .31, px - 2.55, px + 2.55, 5.7, 7.1, 1, A_KIP, '#ffffff');
     for (let k = 0; k < 3; k++){ const y = 4.75 - k * .95; tBox(b, px - 2.3, y, pz - .15, px + 2.3, y + .8, pz + .15, '#2c2f33'); fZ(b, pz - .16, px - 2.2, px + 2.2, y + .05, y + .75, -1, A_SIGN(SIGN_KIP0 + k), '#ffffff'); fZ(b, pz + .16, px - 2.2, px + 2.2, y + .05, y + .75, 1, A_SIGN(SIGN_KIP0 + k), '#ffffff'); }
     tBox(b, px - 2.6, 0, pz - .5, px + 2.6, .35, pz + .5, '#c9c1b3');
     addBox(px, pz, 2.7, .5, 0); }
-  addBox(-640, 986, 85.5, 54.5, 0); addFp({t:0, x:-640, z:990, w:170, d:100, rot:0, color:'#b9805a'});
   tMesh(b, townMat, kipInfo, true);
-  /* car park in front, footpath along the facade */
-  gRect(surfFar, -772, 872, -540, 926, .05, ASPH); gRect(surfFar, -735, 926, -545, 940, .06, PAVE); gRect(surfFar, -545, 896, -526, 912, .05, ASPH);
-  for (let x = -766; x < -546; x += 2.8){ gLine(markFar, x, 878, x, 884, .12, .075, LINE); gLine(markFar, x, 908, x, 920, .12, .075, LINE); }
-  for (const z of [884, 908, 914, 920]) gLine(markFar, -766, z, -546, z, .12, .075, LINE);
-  /* kerb round the car park (open at the driveway) */
-  gRect(surfFar, -772.5, 871.5, -539.5, 872.1, .09, KERB); gRect(surfFar, -772.5, 871.5, -771.9, 926, .09, KERB);
-  gRect(surfFar, -540.1, 871.5, -539.5, 895.5, .09, KERB); gRect(surfFar, -540.1, 912.5, -539.5, 926, .09, KERB);
-  addLabel('KIP 购物中心', -640, 32, 986);
+
+  /* ---- ground round the mall: car parks, pavements, kerbs (the lanes round it are OUT_ROADS kipW / kipE / kipS) ---- */
+  const BX = i => -781 + i * 2.8, NB = 78;   /* north car park bays, 2.8 m wide, x −781 … −562.6 */
+  gRect(surfFar, -790, 873, -546, 926, .05, ASPH); gRect(surfFar, -546, 913, -536, 926, .05, ASPH); gRect(surfFar, -547, 896, -526, 912, .05, ASPH);
+  gRect(surfFar, -751, 926, -543, AZ0, .06, PAVE); gRect(surfFar, -751, AZ0, -748, 962.5, .06, PAVE); gRect(surfFar, -771, 962.5, -748, BZ0, .06, PAVE);
+  gRect(surfFar, -782, 926, -751, 962.5, .05, ASPH); gRect(surfFar, -782, 962.5, -771, 1006, .05, ASPH);
+  gRect(surfFar, -771, BZ0, -768, 1006, .06, PAVE); gRect(surfFar, -782, 1006, -768, CZ0, .06, PAVE); gRect(surfFar, -782, CZ0, -779, AZ1, .06, PAVE);
+  gRect(surfFar, -782, AZ1, -543, 1026.5, .06, PAVE); gRect(surfFar, AX1, AZ0, -543, AZ1, .06, PAVE);
+  /* rows of bays: against the north kerb, two double rows, a row facing the mall across the ring lane (gaps at the two crossings) */
+  for (let i = 0; i <= NB; i++){ const x = BX(i);
+    gLine(markFar, x, 873.3, x, 878, .12, .075, LINE); gLine(markFar, x, 885, x, 895, .12, .075, LINE); gLine(markFar, x, 903, x, 913, .12, .075, LINE);
+    if (!(x > -649 && x < -631) && !(x > -609 && x < -591)) gLine(markFar, x, 921, x, 926, .12, .075, LINE); }
+  for (const z of [878, 885, 890, 895, 903, 908, 913, 921]) gLine(markFar, BX(0), z, BX(NB), z, .12, .075, LINE);
+  for (const xc of [-640, -600]) for (let k = -3; k <= 3; k++) gRect(markFar, xc + k * 1.1 - .32, 913.6, xc + k * 1.1 + .32, 920.4, .075, LINE);
+  gRect(surfFar, -536, 938, -530, 1020, .055, ASPH2); for (let z = 938; z <= 1020; z += 2.8) gLine(markFar, -536, z, -530, z, .12, .075, LINE);
+  for (const [x0, x1] of [[-800, -671], [-663, -512]]){ gRect(surfFar, x0, 1033.5, x1, 1043.5, .055, ASPH2); gLine(markFar, x0, 1038.5, x1, 1038.5, .12, .075, LINE);
+    for (let x = x0 + 1.4; x < x1 - 1; x += 2.8) gLine(markFar, x, 1033.6, x, 1043.4, .12, .075, LINE); }
+  /* kerbs: along the north edge and down the west side of the car park, open at the driveway in the east */
+  gRect(surfFar, -790.6, 872.4, -545.4, 873, .09, KERB); gRect(surfFar, -790.6, 872.4, -790, 1026.5, .09, KERB);
+  gRect(surfFar, -546.6, 872.4, -546, 895.5, .09, KERB);
+  addLabel('KIP 购物中心', -647, 26, 978);
   OUT_DESTS.push({name:'KIP 购物中心', x:-640, z:918, far:true});
+
+  /* ---- KIP Sentral: the first row of three-storey shop offices across the back lane, each block one row of units 23 m deep,
+     fronts on Jalan Warisan Sentral 1 / 2 / 4 with angled parking, backs on two service alleys (OSM 662262984–987) ---- */
+  const sb = TB(), SZ0 = 1053, SZ1 = 1120, NU = 10, U = (SZ1 - SZ0) / NU, TOP = 5.6 + 2 * 3.3, ARC = 2.4;
+  const pool = ['咖啡 Coffee', '酒店 Hotel', '快餐 AllAce', '诊所 Klinik', '24h 便利店', '马来餐 Lazat', '自助洗衣 Dobi', '酒店 Hotel', '中医馆', '店铺出租 To Let', '韩国料理', '租车 Rental', '熊猫奶茶']
+    .map(n => signIdx.has(n) ? signIdx.get(n) : SIGN_TOLET);
+  const SEN_TINT = ['#f3ede2', '#e9e2d4', '#efe6d6', '#e4e7e4'];
+  [[-796, -773, -1, 6.5], [-768, -745, 1, 6], [-726, -703, -1, 6], [-698, -675, 1, 4.5]].forEach(([x0, x1, dir, park], bi) => {
+    const xo = dir < 0 ? x0 : x1, xb = dir < 0 ? x1 : x0, xf = xo - dir * ARC, tint = SEN_TINT[bi];
+    fX(sb, xb, SZ0, SZ1, 0, TOP, -dir, null, '#d8d2c6'); tileX(sb, xb - dir * .02, SZ0, SZ1, 5.6, TOP, -dir, A_WIN[2], U, 3.3, '#d8d2c6');
+    for (const [z, d] of [[SZ0, -1], [SZ1, 1]]){ fZ(sb, z, x0, x1, 0, TOP, d, null, tint); tileZ(sb, z + d * .02, Math.min(xb, xf), Math.max(xb, xf), 5.6, TOP, d, A_WIN[1], 6.5, 3.3, tint); }
+    fY(sb, TOP, x0, SZ0, x1, SZ1, '#7a7771'); tBox(sb, Math.min(xo, xo - dir * .35), TOP, SZ0, Math.max(xo, xo - dir * .35), TOP + 1, SZ1, tint);
+    tBox(sb, Math.min(xf, xo), 4.2, SZ0, Math.max(xf, xo), TOP, SZ1, tint, 'px nx py nz pz');
+    for (let u = 0; u < NU; u++){
+      const za = SZ0 + u * U, zb = za + U, si = pool[(bi * 7 + u * 3) % pool.length];
+      fX(sb, xf + dir * .01, za, zb, 0, 4.2, dir, A_SHOP[OUT_SIGNS[si][3]], '#ffffff');
+      fX(sb, xo, za, zb, 4.2, 5.6, dir, null, '#d8d0c2'); fX(sb, xo + dir * .1, za + .35, zb - .35, 4.35, 5.45, dir, A_SIGN(si), '#ffffff');
+      for (let f = 0; f < 2; f++) fX(sb, xo, za, zb, 5.6 + f * 3.3, 5.6 + (f + 1) * 3.3, dir, A_WIN[(u + bi + f) % 3], tint);
+      tBox(sb, xo - dir * .35 - .26, 0, za - .26, xo - dir * .35 + .26, 4.2, za + .26, '#efe8da');
+    }
+    tBox(sb, xo - dir * .35 - .26, 0, SZ1 - .26, xo - dir * .35 + .26, 4.2, SZ1 + .26, '#efe8da');
+    gRect(surfFar, Math.min(xf, xo), SZ0, Math.max(xf, xo), SZ1, .06, PAVE);
+    const pa = xo, pb = xo + dir * park; gRect(surfFar, Math.min(pa, pb), SZ0, Math.max(pa, pb), SZ1, .055, ASPH2);
+    gLine(markFar, pb - dir * .15, SZ0, pb - dir * .15, SZ1, .2, .075, LINE);
+    if (park > 5) for (let z = SZ0 + 1; z < SZ1 - 3; z += 2.8) gLine(markFar, pa, z, pb, z + 2.6, .12, .075, LINE);
+    else for (let z = SZ0 + 1; z < SZ1 - 1; z += 6) gLine(markFar, pa, z, pb, z, .12, .075, LINE);
+    addBox((x0 + x1) / 2, (SZ0 + SZ1) / 2, (x1 - x0) / 2 + .3, (SZ1 - SZ0) / 2 + .3, 0); addFp({t:0, x:(x0 + x1) / 2, z:(SZ0 + SZ1) / 2, w:x1 - x0, d:SZ1 - SZ0, rot:0, color:'#b9805a'});
+  });
+  tMesh(sb, townMat, sentralInfo, true);
+  addLabel('KIP Sentral', -735.5, 18, 1086);
+  OUT_DESTS.push({name:'KIP Sentral 店屋', x:-735.5, z:1086, far:true});
+
+  /* ---- KIP CORE Sentral: a four-storey car-park podium (OSM 886413867, a wedge cut off along the south-east) with towers A and B on
+     its north edge (1443393651–52) and a pool on the podium roof ---- */
+  const cb = TB(), POD = [[-632.3, 1055.3], [-533.7, 1055.8], [-533.7, 1066.2], [-561, 1091.3], [-605.3, 1157.3], [-632.8, 1155.1]], PH = 14;
+  prism(cb, POD, 0, 4.2, '#ffffff', A_SHOP[0], 8, 4.2, null);
+  prism(cb, POD, 4.2, PH, '#d9dcdc', A_WIN[2], 8, 3.3, '#8b9a84');   /* podium roof: the residents' deck, partly planted */
+  prism(cb, POD, PH, PH + 1, '#c9c1b3', null);
+  gQuad4(cb, [-571.6, PH + .05, 1102.1], [-560.8, PH + .05, 1085.7], [-571.1, PH + .05, 1079], [-581.9, PH + .05, 1095.4], '#3fa7d6');
+  for (const [x0, x1, col] of [[-582.2, -544.7, '#eef0ee'], [-626.1, -585.7, '#e6e9eb']]){
+    const z0 = 1056.4, z1 = 1066.9, T = PH + 17 * 3.3;
+    /* floor by floor with two window bays in turn, so the lit windows at night are scattered over the face (one bay type lit everywhere or nowhere) */
+    for (let f = 0; f < 17; f++){ const y0 = PH + f * 3.3, y1 = y0 + 3.3, w = A_WIN[f % 2], w2 = A_WIN[(f + 1) % 2];
+      tileZ(cb, z0, x0, x1, y0, y1, -1, w, 6.2, 3.3, col); tileZ(cb, z1, x0, x1, y0, y1, 1, w2, 6.2, 3.3, col);
+      tileX(cb, x0, z0, z1, y0, y1, -1, w2, 5.2, 3.3, col); tileX(cb, x1, z0, z1, y0, y1, 1, w, 5.2, 3.3, col); }
+    fY(cb, T, x0, z0, x1, z1, '#8d8983'); tBox(cb, x0 - .3, T, z0 - .3, x1 + .3, T + 1.6, z0 + .3, '#c9c1b3'); tBox(cb, x0 - .3, T, z1 - .3, x1 + .3, T + 1.6, z1 + .3, '#c9c1b3');
+    /* the red vertical feature strip and the crown seen on the real towers */
+    tBox(cb, (x0 + x1) / 2 - 1.6, PH, z0 - .5, (x0 + x1) / 2 + 1.6, T + 4, z0 + .2, '#c4372f'); tBox(cb, x0 + 2, T, z0 + 2, x1 - 2, T + 3.2, z1 - 2, '#d8dadb');
+  }
+  addLabel('KIP CORE', -585, 80, 1062, true);
+  for (const [x0, z0, x1, z1] of [[-632.5, 1055.3, -533.7, 1066.2], [-632.5, 1066.2, -553, 1080], [-632.5, 1080, -565, 1098], [-632.8, 1098, -578, 1118], [-632.8, 1118, -592, 1138], [-632.8, 1138, -604, 1156]])
+    addBox((x0 + x1) / 2, (z0 + z1) / 2, (x1 - x0) / 2 + .3, (z1 - z0) / 2 + .3, 0);
+  addFp({t:0, x:-596, z:1061, w:73, d:11, rot:0, color:'#9c8d7e'}); addFp({t:0, x:-605, z:1106, w:55, d:100, rot:0, color:'#a8644a'});
+  gRect(surfFar, -663.5, 1050.5, -632.5, 1157, .055, ASPH2);   /* the podium's forecourt along Jalan Warisan Sentral 4 */
+  tMesh(cb, townMat, coreInfo, true);
+  OUT_DESTS.push({name:'KIP CORE 公寓', x:-650, z:1100, far:true});
+
+  /* ---- Prima Apartment: six four-storey slabs at their real angles round a private service ring, across the hill road from the mall ---- */
+  const pr = TB(), PRIMA = [
+    [[-468, 941.4], [-401, 933], [-402.6, 920.2], [-469.7, 928.6]], [[-456.7, 974], [-391.8, 955.3], [-395.5, 942.9], [-460.3, 961.6]],
+    [[-454, 1004.9], [-389.5, 984.7], [-393.4, 972.4], [-457.9, 992.6]], [[-356.1, 921.2], [-288.9, 913.8], [-290.4, 900.9], [-357.5, 908.3]],
+    [[-357.9, 949.1], [-290.3, 950.2], [-290.1, 937.2], [-357.7, 936.2]], [[-353.1, 974.1], [-285.6, 974.3], [-285.5, 961.4], [-353.1, 961.1]]];
+  PRIMA.forEach((pts, k) => {
+    const PH4 = 4 * 3.3, tint = ['#f0ebe1', '#ece6da', '#f2eee6'][k % 3];
+    prism(pr, pts, 0, PH4, tint, A_WIN[k % 2 ? 0 : 2], 7, 3.3, '#8d8983');
+    prism(pr, pts, PH4, PH4 + .9, '#c4502a', null);
+    rotCol(pts, .3, '#a8644a');
+  });
+  tMesh(pr, townMat, primaInfo, true);
+  addLabel('Prima Apartment', -420, 22, 960);
+})();
+(function(){
   /* 麦当当: red box with a yellow fascia, a badge tower, glass front toward the road, a tall pole sign, drive-thru lane.
      Modelled around the old spot and shifted by (MDX, MDZ) to its place south of KIP mall. */
   const m = TB(), mLot = TB(), mMark = TB(), MX0 = -501, MX1 = -472, MZ0 = 762, MZ1 = 788;
@@ -448,7 +643,9 @@ const outBulbGeo = new THREE.BoxGeometry(.28, .05, .6).translate(0, 5.37, 1.5);
   for (let x = MAP.x0 + 30; x < MAP.x1 - 20; x += step){ if (Math.abs(x - GX) < 16 || [264, 299, KIP_X0].some(v => Math.abs(x - v) < 10)) continue; const sd = Math.round(x / step) % 2 ? 1 : -1; spots.push(outSpot(x, 279.5, sd > 0 ? 0 : Math.PI, 1)); }
   for (let x = 150; x < 420; x += 30){ spots.push(outSpot(x, BELL.zF - 3.6, 0, .9)); spots.push(outSpot(x + 15, BELL.zB + 3.6, Math.PI, .9)); }
   for (let s = 40; s < ROAD.kip.L - 20; s += step){ const [x, z, tx, tz] = outRoadAt(ROAD.kip, s), o = -(ROAD.kip.w / 2 + 1.8); spots.push(outSpot(x - tz * o, z + tx * o, Math.atan2(-tz, tx), 1)); }
-  for (const [x, z] of [[-740, 896], [-680, 896], [-620, 896], [-566, 896], [-525 + MDX, 776 + MDZ], [-455 + MDX, 776 + MDZ]]) spots.push(outSpot(x, z, 0, 1));
+  /* KIP: on the middle lines of the double rows of bays, along the back lane, and in KIP Sentral; then 麦当当 */
+  for (const [x, z] of [[-760, 890], [-700, 890], [-640, 890], [-580, 890], [-730, 908], [-670, 908], [-610, 908], [-760, 1038.5], [-690, 1038.5], [-620, 1038.5], [-550, 1038.5],
+    [-739.6, 1065], [-731.4, 1105], [-525 + MDX, 776 + MDZ], [-455 + MDX, 776 + MDZ]]) spots.push(outSpot(x, z, 0, 1));
   outSet('lamp', spots, [[outPostGeo, M('#3b3f44', {metalness:.4, roughness:.5})], [outBulbGeo, bulbMat]], !TOUCH);
 })();
 /* coconut palms in the Jalan Sunsuria median, from the KIP turn-off to Bell Suites (gaps at the gate and the Bell driveways) */
@@ -459,8 +656,8 @@ const outBulbGeo = new THREE.BoxGeometry(.28, .05, .6).translate(0, 5.37, 1.5);
   outSet('tree', spots, parts, true);
   /* and round the KIP and 麦当当 car parks, on the verges outside the bays (they were bare asphalt pads in the grass): one more set, culled with the view */
   const lot = [];
-  for (let x = -762; x < -548; x += 19) lot.push(outSpot(x + (rr() - .5) * 2, 868.6, rr() * 6.28, .85 + rr() * .3));
-  for (let z = 880; z < 925; z += 15) lot.push(outSpot(-775.6, z + (rr() - .5) * 2, rr() * 6.28, .85 + rr() * .3));
+  for (let x = -786; x < -548; x += 19) lot.push(outSpot(x + (rr() - .5) * 2, 869.4, rr() * 6.28, .85 + rr() * .3));
+  for (let z = 880; z < 1022; z += 15) lot.push(outSpot(-794.2, z + (rr() - .5) * 2, rr() * 6.28, .85 + rr() * .3));
   for (let z = 1072; z < 1134; z += 15.5) lot.push(outSpot(-402.6, z + (rr() - .5) * 2, rr() * 6.28, .85 + rr() * .3));
   for (let x = -490; x < -410; x += 16) lot.push(outSpot(x + (rr() - .5) * 2, 1063.6, rr() * 6.28, .85 + rr() * .3));
   outSet('tree', TOUCH ? lot.filter((_, i) => i % 2) : lot, parts, true);   /* half as many on phones */
@@ -546,7 +743,8 @@ const outRelief = (() => {
   }
   g.putImageData(img, 0, 0); return cv;
 })();
-const OUT_LOTS = [[-772, 872, -540, 940], [-541 + MDX, 742 + MDZ, -448 + MDX, 810 + MDZ], [138, 310, 413, 315.5], [138, 354.7, 413, 360], [420, 312, 516, 326]];
+const OUT_LOTS = [[-790, 873, -546, 926], [-782, 926, -751, 962.5], [-782, 962.5, -771, 1006], [-536, 938, -530, 1020], [-800, 1033.5, -512, 1043.5], [-663.5, 1050.5, -632.5, 1157],
+  [-802.5, 1053, -796, 1120], [-745, 1053, -726, 1120], [-675, 1053, -670.5, 1120], [-541 + MDX, 742 + MDZ, -448 + MDX, 810 + MDZ], [138, 310, 413, 315.5], [138, 354.7, 413, 360], [420, 312, 516, 326]];
 function drawOutMini(mg, X, Z, k){
   const C = TG.C; mg.imageSmoothingEnabled = true;
   mg.drawImage(outRelief, X(TG.x0 - C / 2), Z(TG.z0 - C / 2), TG.nx * C * k, TG.nz * C * k);
@@ -560,10 +758,11 @@ const PED_PATHS = [
   [143, 316.8, 223, 316.8], [223, 316.8, 143, 316.8], [236, 316.8, 316, 316.8], [316, 316.8, 236, 316.8], [329, 316.8, 408, 316.8],
   [143, 353.4, 223, 353.4], [236, 353.4, 316, 353.4], [408, 353.4, 329, 353.4], [229.5, 318, 229.5, 352], [264, 301, 264, 314],
   [GX + 9, 262, GX + 9, 300], [GX + 10.5, 300, GX + 10.5, 262],
-  [-675, 930, -605, 930], [-610, 931.5, -680, 931.5], [-642, 928, -642, 888], [-503 + MDX, 758 + MDZ, -503 + MDX, 794 + MDZ]
+  [-675, 930.5, -605, 930.5], [-610, 932.5, -700, 932.5], [-641, 929, -641, 888], [-503 + MDX, 758 + MDZ, -503 + MDX, 794 + MDZ],
+  [-700, 1024, -580, 1024], [-794.8, 1057, -794.8, 1116], [-746.2, 1116, -746.2, 1057]
 ];
 const OUT_CARS = [['myvi', '#d35400', 250.8, 312.4, .524], ['sedan', '#f0eee8', 302.6, 357.6, 2.618],
-  ['sedan', '#1f1f22', -700.6, 881, 0], ['myvi', '#c0392b', -610.8, 917, Math.PI], ['sedan', '#7f8c8d', -470.6 + MDX, 803 + MDZ, 0]];
+  ['sedan', '#1f1f22', -701.2, 875.7, Math.PI], ['myvi', '#c0392b', -611.6, 923.6, 0], ['sedan', '#7f8c8d', -470.6 + MDX, 803 + MDZ, 0]];
 const OUT = {ready:false, lift:[], peds:[], pim:null, pedOn:false};
 function outInit(){
   OUT.ready = true;
