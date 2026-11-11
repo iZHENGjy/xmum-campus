@@ -102,6 +102,9 @@ const streetSpots = [];
 (function(){
   const x = 164, z = 236.4, C = '#c4502a', steel = '#3d4247', glass = '#a9c8d4';
   pBox(8, .14, 3.4, '#b7b0a4', x, .07, z);
+  /* paved apron out to the ring road (z 240.6; it was a strip of grass to wade across), a yellow edge strip, a litter bin */
+  pBox(8, .1, 2.6, '#8f897e', x, .05, z + 2.95); pBox(7.9, .02, .3, '#e6b52c', x, .15, z + 1.48);
+  pd(new THREE.CylinderGeometry(.24, .21, .78, 10), '#2f6f4f', x - 2.9, .53, z + .55); pd(new THREE.CylinderGeometry(.26, .26, .06, 10), '#3d4247', x - 2.9, .95, z + .55);
   for (const lx of [-3.4, 0, 3.4]) pBox(.12, 2.75, .12, steel, x + lx, 1.42, z - 1.2);
   for (const lx of [-3.4, 3.4]) pBox(.1, 2.65, .1, steel, x + lx, 1.37, z + 1.05);
   pd(new THREE.BoxGeometry(7.8, .14, 3.3).rotateX(.07), '#d8d4cc', x, 2.82, z - .05);

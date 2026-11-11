@@ -31,6 +31,9 @@ const OUT_ROADS = [
   {id:'bellF', kind:'lane', w:6, line:[[GX - 16, 307], [520, 307], [530, 316], [530, 348]]},
   {id:'bellB', kind:'lane', w:6, line:[[GX - 16, 363], [424, 363]]},
   {id:'bellW', kind:'lane', w:6, line:[[GX - 16, 307], [GX - 16, 363]]},
+  /* round the back of Bell Suites to the back lane: the frontage lane used to stop dead on the grass at z 348
+     (the Bell street race in js/92-racing.js already ran this way, over the grass) */
+  {id:'bellE', kind:'lane', w:6, line:[[530, 348], [519, 366], [440, 366.5], [424, 363]]},
   {id:'drv1', kind:'lane', w:7, line:[[264, 289], [264, 307]]},
   {id:'drv2', kind:'lane', w:7, line:[[299, 289], [299, 307]]},
   {id:'res1', kind:'lane', w:6, line:[[-27, 405.5], [322, 405.5]]},
@@ -145,11 +148,14 @@ function terrainY(x, z){
   }
   for (let k = 0; k < N; k++) if (FM[k]) H[k] *= 1 - FM[k];
   /* 3. flat pads for Bell Avenue, 麦当当 and KIP mall */
-  for (const p of OUT_PADS){
-    const R = p.fall + 4, i0 = Math.max(0, Math.ceil((p.x0 - R - x0) / C)), i1 = Math.min(nx - 1, Math.floor((p.x1 + R - x0) / C));
-    const j0 = Math.max(0, Math.ceil((p.z0 - R - z0) / C)), j1 = Math.min(nz - 1, Math.floor((p.z1 + R - z0) / C));
-    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++){ const k = j * nx + i; H[k] *= smooth01(4, R, rectDist(x0 + i * C, z0 + j * C, p)); }
+  function flatPads(){
+    for (const p of OUT_PADS){
+      const R = p.fall + 4, i0 = Math.max(0, Math.ceil((p.x0 - R - x0) / C)), i1 = Math.min(nx - 1, Math.floor((p.x1 + R - x0) / C));
+      const j0 = Math.max(0, Math.ceil((p.z0 - R - z0) / C)), j1 = Math.min(nz - 1, Math.floor((p.z1 + R - z0) / C));
+      for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++){ const k = j * nx + i; H[k] *= smooth01(4, R, rectDist(x0 + i * C, z0 + j * C, p)); }
+    }
   }
+  flatPads();
   /* 4. road profiles: the hill road follows the land, smoothed, pinned flat at both ends and held under a 9 % grade */
   const sample = (x, z) => {
     const fx = Math.max(0, Math.min(nx - 1.001, (x - x0) / C)), fz = Math.max(0, Math.min(nz - 1.001, (z - z0) / C)), i = Math.floor(fx), j = Math.floor(fz), u = fx - i, v = fz - j, k = j * nx + i;
@@ -186,6 +192,9 @@ function terrainY(x, z){
     }
   }
   for (let k = 0; k < N; k++) if (RW[k] > 0) H[k] = H[k] * (1 - RW[k]) + RT[k] * RW[k];
+  /* 6. the pads win over the road blend: the 油棕园 road climbs away right next to 麦当当 and its verge used to lift the
+     south-east of the car park (drive-thru window, lane) up to 4 m above the drawn asphalt */
+  flatPads();
   /* drawn surface sits a few cm under the flat ground, so the flat parts of the world hide it */
   for (let k = 0; k < N; k++) H[k] -= .06;
   TG.Y = H; TG.RW = RW; TG.RD = RD;
