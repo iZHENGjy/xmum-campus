@@ -68,9 +68,7 @@ jobs:
           cp classic-guard.js site/v1/classic-guard.js
           echo 'window.XMUM_FIREBASE = null;  /* classic v1.0: offline, see .github/workflows/pages.yml */' > site/v1/js/firebase-config.js
           for f in site/v1/*.html; do
-            sed -i '0,/<head>/s##<head>
-<meta name="robots" content="noindex,nofollow">
-<script src="classic-guard.js"></script>#' "$f"
+            sed -i '0,/<head>/s##<head>\n<meta name="robots" content="noindex,nofollow">\n<script src="classic-guard.js"></script>#' "$f"
           done
           grep -c 'classic-guard.js' site/v1/index.html
 
