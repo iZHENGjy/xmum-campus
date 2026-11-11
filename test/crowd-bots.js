@@ -28,7 +28,7 @@
         M.write(a, {name:a.name, mode:'naiwa', x:a.x, z:a.z, y:a.y, h:a.h, car:a.car, color:a.car ? a.color : '#f1c84b'});
       } else if (n % 2 === 0){
         const o = a.old(a, performance.now(), a.name, a.uid);
-        if (o){ o.t = {'.sv':'timestamp'}; o.y = Math.round(a.y * 100) / 100; if (o.car) o.color = a.color; Mk.put('presence/' + a.uid, o); Mk.disc.set('presence/' + a.uid, 1); }
+        if (o){ o.t = {'.sv':'timestamp'}; o.y = Math.round(a.y * 100) / 100; if (o.car) o.color = a.color; Mk.put('presence/' + a.uid, o); Mk.botDisc.set('presence/' + a.uid, 1); }
       }
     }
   }

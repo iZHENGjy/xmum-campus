@@ -50,6 +50,10 @@
         }
       }
     },
+    "config": {
+      ".read": "auth != null",
+      ".write": false
+    },
     "on": {
       ".read": "auth != null",
       "$uid": {

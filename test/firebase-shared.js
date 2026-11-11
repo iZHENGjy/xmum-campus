@@ -173,7 +173,9 @@
   /* 假玩家的写入对这个标签页来说是「别人写的」：监听着就算下载 */
   const put = (path, v) => { const w = [[split(path).join('/'), v == null ? null : resolve(v)]], wire = msg('d', w[0][0], w[0][1]); apply(w, true, wire); if (bc) bc.postMessage({op:'w', writes:w, wire}); };
   const update = (base, o) => { const w = Object.keys(o).map(k => [split(base + '/' + k).join('/'), o[k] == null ? null : resolve(o[k])]), wire = msg('m', split(base).join('/'), resolve(o)); apply(w, true, wire); if (bc) bc.postMessage({op:'w', writes:w, wire}); };
-  window.__mock = {get, put, update, root, uid:user.uid, ref, listeners, disc, get online(){ return online; }, goOffline, goOnline};
-  const bye = () => { const w = [...disc.keys()].map(p => [p, null]); disc.clear(); if (w.length){ apply(w, false); if (bc) bc.postMessage({op:'w', writes:w, wire:null}); } };
+  /* botDisc：同一个标签页里的假玩家「下线时删掉」的路径。和本页的 disc 分开：本页 goOffline 不会把假玩家也删掉，关页面时才删 */
+  const botDisc = new Map();
+  window.__mock = {get, put, update, root, uid:user.uid, ref, listeners, disc, botDisc, get online(){ return online; }, goOffline, goOnline};
+  const bye = () => { const w = [...disc.keys(), ...botDisc.keys()].map(p => [p, null]); disc.clear(); botDisc.clear(); if (w.length){ apply(w, false); if (bc) bc.postMessage({op:'w', writes:w, wire:null}); } };
   window.addEventListener('pagehide', bye); window.addEventListener('beforeunload', bye);
 })();

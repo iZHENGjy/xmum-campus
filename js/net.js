@@ -211,7 +211,7 @@
   async function claimName(name){
     if (!nameOk(name)) return 'invalid';
     if (!XNet.online) return 'offline';
-    const key = name.toLowerCase(), uid = XNet.uid;
+    const key = name.toLowerCase(), uid = XNet.uid; borrowNet();
     try {
       const cur = (await timeout(db.ref('names/' + key).once('value'), 10000, '读取昵称')).val();
       if (cur && cur.uid !== uid) return 'taken';
@@ -313,11 +313,19 @@
       document.body.appendChild(el);
     }
     if (!XNet.online){ el.hidden = true; return; }
-    el.textContent = '在线 ' + XNet.playersOnline + ' 人'; el.hidden = false;
+    const n = XNet.playersOnline, cap = gridOK ? maxOnline : 0;
+    let t = '在线 ' + n + ' 人';
+    if (cap && seat === 'queue') t = '满员排队中 · 在线 ' + n + ' / ' + cap;
+    else if (cap && isTitle()){ t = '在线 ' + n + ' / ' + cap; if (n >= cap * .9) t += ' · 人多，可能要排队'; }
+    el.textContent = t; el.hidden = false;
   }
   /* 新协议：/on/{uid} 里的人（只在进出时各推一次）+ 还开着旧页面、在 /presence 里的人；退回旧协议时只数 /presence */
   function recount(){
-    const now = Date.now() + serverOffset; let n = connected ? 1 : 0;
+    if (sleeping || (gridOK && seat === 'queue')){                                   // 断开、排队时显示上次的数
+      if (seat === 'queue' && XNet.playersOnline !== lastCount){ XNet.playersOnline = lastCount; emit(); }
+      pill(); return;
+    }
+    const now = Date.now() + serverOffset; let n = connected && (!gridOK || seat === 'in') ? 1 : 0;
     const oldFresh = r => r.legacy && now - (r.d.t || 0) < STALE_COUNT;
     if (gridOK){
       for (const uid of onSet) if (uid !== XNet.uid) n++;
@@ -335,7 +343,7 @@
   XNet.top = async (board, n = 10) => {
     if (!BOARDS[board]) return [];
     await XNet.ready; if (!XNet.online) return [];
-    n = Math.max(1, Math.min(100, n | 0 || 10));
+    n = Math.max(1, Math.min(100, n | 0 || 10)); borrowNet();
     try {
       const snap = await timeout(db.ref('boards/' + board).orderByChild('value').limitToLast(n).once('value'), 10000, '读取排行榜');
       const out = [];
@@ -347,7 +355,7 @@
     const v = clean(board, value);
     if (!(v > 0)) return false;
     await XNet.ready; if (!XNet.online || !(v > best[board])) return false;
-    const name = playerName(), uid = XNet.uid;
+    const name = playerName(), uid = XNet.uid; borrowNet();
     try {
       const res = await timeout(db.ref('boards/' + board + '/' + uid).transaction(cur => {
         if (cur && typeof cur.value === 'number' && cur.value >= v) return;   // 已有更好的，放弃
@@ -364,7 +372,7 @@
   XNet.miniTop = async (game, n = 10) => {
     if (!MINI_ID.test(String(game))) return [];
     await XNet.ready; if (!XNet.online) return [];
-    n = Math.max(1, Math.min(100, n | 0 || 10));
+    n = Math.max(1, Math.min(100, n | 0 || 10)); borrowNet();
     try {
       const snap = await timeout(db.ref('mini/' + game).orderByChild('value').limitToLast(n).once('value'), 10000, '读取排行榜');
       const out = [];
@@ -376,7 +384,7 @@
     const v = Math.max(0, Math.min(MINI_MAX, Math.floor(+value)));
     if (!MINI_ID.test(String(game)) || !(v > 0)) return false;
     await XNet.ready; if (!XNet.online || miniBest[game] >= v) return false;
-    const name = playerName(), uid = XNet.uid;
+    const name = playerName(), uid = XNet.uid; borrowNet();
     try {
       const res = await timeout(db.ref('mini/' + game + '/' + uid).transaction(cur => {
         if (cur && typeof cur.value === 'number' && cur.value >= v) return;   // 已有更好的，放弃
@@ -392,7 +400,7 @@
   const g = (f, d) => { try { return f(); } catch(e){ return d; } };
   let holeWasOn = false, lastAuto = -Infinity;
   function autoTick(force){
-    if (!XNet.online || sleeping) return;
+    if (!XNet.online || (sleeping && sleepWhy !== 'queue')) return;   // 排队时成绩照常交（XNet.submit 会临时连上）
     const on = g(() => HS.on, false);
     if (holeWasOn && !on && g(() => HS.t, 1) <= .01){       // 一局黑洞正常结束（时间到）
       const pct = g(() => hole.score / HS.total * 100, 0);
@@ -515,7 +523,7 @@
   }
   function gridTick(){
     if (!XNet.online || !connected || hiddenPage || !gridOK || !db || quitting) return;
-    if (!liveMode(g(() => mode, 'orbit')) || isTitle()){ leaveCell(); return; }
+    if (!liveMode(g(() => mode, 'orbit')) || isTitle() || seat !== 'in'){ leaveCell(); return; }
     const t = performance.now(), s = snd.sample(myState(), t), meta = metaOf(s), cell = PR.cellKeep(myCell, s.x, s.z);
     let crowd = 0; for (const r of remotes.values()) if (r.cell && liveMode(r.d.mode) && fresh(r)) crowd++;
     s.crowd = crowd;
@@ -535,7 +543,7 @@
   const onSet = new Set();                              // /on 里的 uid：在线人数
   let legacyRef = null, onListen = null;
   function viewCenter(){
-    if (!XNet.online || !connected || hiddenPage || sleeping || isTitle()) return null;
+    if (!XNet.online || !connected || hiddenPage || sleeping || isTitle() || seat !== 'in') return null;
     const m = g(() => mode, 'orbit');
     if (liveMode(m)){ if (myCell) return myCell; const s = myState(); return PR.cellOf(s.x, s.z); }
     if (m === 'orbit'){ const tg = g(() => controls.target, null); if (tg) return (viewCell = PR.cellKeep(viewCell, tg.x, tg.z)); }
@@ -1025,9 +1033,10 @@
   }
   let lastPushed = '';
   async function cloudPush(){
-    if (!XNet.online || !XNet.account.google || sleeping) return;
+    if (!XNet.online || !XNet.account.google || (sleeping && sleepWhy !== 'queue')) return;
     const o = localBlob(), str = JSON.stringify(o);
     if (str === lastPushed || str.length > 30000) return;
+    borrowNet();
     try {
       await timeout(db.ref('saves/' + XNet.uid).set({data:str, score:Math.round(blobScore(o)), ts:firebase.database.ServerValue.TIMESTAMP}), 15000, '上传云存档');
       lastPushed = str;
@@ -1035,6 +1044,7 @@
   }
   async function cloudSync(){                             // 返回 true 表示用云端进度覆盖了本机并刷新了页面
     if (!XNet.online || !XNet.account.google) return false;
+    borrowNet();
     try {
       const v = (await timeout(db.ref('saves/' + XNet.uid).once('value'), 10000, '读取云存档')).val();
       if (v && typeof v.data === 'string'){
@@ -1107,27 +1117,103 @@
   const SLEEP = XNet.sleepAfter = {hidden:60000, title:60000};   // 测试时可以改短
   let sleeping = false, lastInput = performance.now(), hiddenAt = 0;
   XNet.sleeping = false;
-  function sleep(why){
+  let sleepWhy = '';                                    // 'hidden' | 'title' | 'queue'
+  function sleep(why, reason){
     if (sleeping || !db || quitting || !XNet.online) return;
-    sleeping = XNet.sleeping = true;
+    sleeping = XNet.sleeping = true; sleepWhy = reason || 'hidden';
+    if (seat === 'in') seat = 'none';                   // 座位跟着连接走：断开以后回来要重新看一次人数
     syncSubs();
     try { db.goOffline(); } catch(e){}
-    console.info('[XNet] 断开连接，省一个名额：' + why);
+    console.info('[XNet] 断开连接：' + why);
     recount(); emit();
   }
-  function wake(){
+  /* force：排队时只有定时查空位、排行榜这些一次性的读写才连上，点屏幕不连 */
+  function wake(force){
     lastInput = performance.now();
     if (!sleeping || !db) return;
+    if (sleepWhy === 'queue' && force !== true) return;
     sleeping = XNet.sleeping = false;
     try { db.goOnline(); } catch(e){}
     console.info('[XNet] 重新连上');
     syncSubs(); emit();
   }
-  XNet.wake = wake;
+  XNet.wake = () => wake();
+  /* 排队时临时借用一下连接（排行榜、昵称、云存档），用完 15 秒没人再用就断开 */
+  let borrowT = 0;
+  function borrowNet(){
+    if (seat !== 'queue') return;
+    if (sleeping) wake(true);
+    clearTimeout(borrowT);
+    borrowT = setTimeout(() => { if (seat === 'queue' && !sleeping && !seatBusy) sleep('排队中，用完了', 'queue'); }, 15000);
+  }
+
+  /* ---------- 在线人数上限（软上限，满了排队） ----------
+     只有进了游戏（不在开场画面）才占一个座位（/on/{uid}）。进游戏时读一次 /config/maxOnline（没有就用 MAX_ONLINE）和 /on 的人数：
+     没满就照常联机；满了就单机玩：不写位置、不收别人，断开连接，弹一张小卡片，每 30–60 秒（随机）连上看一眼有没有空位，有就自动连上。
+     排队时排行榜、昵称、云存档照常：要用的时候临时连上，用完断开。几个人同时进来可能会稍微超出几个，这是允许的。
+     默认 80：人群压测（80 个假人挤在一起）画面和流量都还顺；要调就在 Firebase 控制台改 /config/maxOnline，不用重新发布。 */
+  const MAX_ONLINE = 80;
+  let joinOn = () => {};                                // 占座位：写 /on/{uid}（start() 里连上数据库以后才有）
+  const SEAT_RETRY = XNet.seatRetry = {min:30000, max:60000};     // 测试时可以改短
+  let seat = 'none', maxOnline = MAX_ONLINE, lastCount = 0, seatBusy = false, seatRetryT = 0;
+  XNet.seat = () => ({seat, maxOnline, lastCount});
+  async function checkSeat(){
+    if (seatBusy || !db) return;
+    seatBusy = true;
+    try {
+      try { const v = +(await timeout(db.ref('config/maxOnline').once('value'), 10000, '读取人数上限')).val(); if (v >= 1 && v <= 100000) maxOnline = Math.floor(v); } catch(e){}
+      let n = 0;
+      try { (await timeout(db.ref('on').once('value'), 10000, '读取在线人数')).forEach(c => { if (c.key !== XNet.uid) n++; }); }
+      catch(e){ n = -1; }                                // 读不到人数：照常进，不因为这个挡人
+      if (isTitle() || hiddenPage || quitting) return;   // 读的时候又回开场画面、切走了：下次进游戏再看
+      lastCount = Math.max(0, n) + 1;
+      if (n < maxOnline){
+        const was = seat === 'queue'; seat = 'in'; clearTimeout(seatRetryT); clearTimeout(borrowT); queueCard(false);
+        if (sleeping) wake(true);
+        if (connected) joinOn();
+        if (was) g(() => toast('已连上', `校园里现在有 ${lastCount} 人`, 2600));
+      } else {
+        seat = 'queue';
+        queueCard(true, n);
+        sleep(`在线 ${n}/${maxOnline}，满员排队`, 'queue');
+        clearTimeout(seatRetryT);
+        seatRetryT = setTimeout(retrySeat, SEAT_RETRY.min + Math.random() * (SEAT_RETRY.max - SEAT_RETRY.min));
+      }
+      recount(); emit();
+    } finally { seatBusy = false; }
+  }
+  function retrySeat(){
+    if (seat !== 'queue') return;
+    if (hiddenPage || isTitle()){ seatRetryT = setTimeout(retrySeat, SEAT_RETRY.min); return; }
+    wake(true); checkSeat();
+  }
+  /* 满员时的小卡片：默认「单机先玩」（15 秒后自己收起来），或者「换个时间再来」回开场画面 */
+  function queueCard(show, n){
+    let el = document.getElementById('xnet-queue');
+    if (!show){ if (el) el.hidden = true; return; }
+    if (!el){
+      el = document.createElement('div'); el.id = 'xnet-queue'; el.setAttribute('role', 'status');
+      el.style.cssText = 'position:fixed;left:50%;bottom:96px;transform:translateX(-50%);z-index:60;width:min(360px,calc(100vw - 32px));box-sizing:border-box;padding:12px 14px;border-radius:12px;background:#fffdf7;color:#1d2733;box-shadow:0 6px 24px rgba(0,0,0,.25);font:14px/1.55 system-ui,sans-serif';
+      el.innerHTML = '<div data-t style="margin-bottom:10px"></div><div style="display:flex;gap:8px;justify-content:flex-end">' +
+        '<button type="button" data-later style="font:inherit;padding:6px 12px;border-radius:8px;border:1px solid #c9ced6;background:#fff;color:#1d2733">换个时间再来</button>' +
+        '<button type="button" data-solo style="font:inherit;padding:6px 12px;border-radius:8px;border:0;background:#c0532c;color:#fff">单机先玩</button></div>';
+      el.addEventListener('click', e => {
+        if (e.target.closest('[data-solo]')) el.hidden = true;
+        else if (e.target.closest('[data-later]')){
+          el.hidden = true; g(() => XUI.openTitle());
+          g(() => toast('换个时间再来', '晚上人最多，上午和深夜一般有空位；留在这里也会自动排队', 3600));
+        }
+      });
+      document.body.appendChild(el);
+    }
+    el.querySelector('[data-t]').textContent = `现在校园里人太多了（${n}/${maxOnline}），你先单机逛逛，有空位会自动帮你连上`;
+    el.hidden = false;
+    clearTimeout(el._t); el._t = setTimeout(() => { el.hidden = true; }, 15000);
+  }
 
   /* 下线：格子里的自己、/on、旧 /presence 都删掉（换账号、退出前） */
   async function leaveAll(){
-    quitting = true;
+    quitting = true; clearTimeout(seatRetryT);
     const ps = [];
     if (myCell && db){ const ref = db.ref(cellPath(myCell)); myCell = null; myMeta = null; snd.reset(); ps.push(ref.remove()); }
     if (onRef) ps.push(onRef.remove());
@@ -1160,13 +1246,13 @@
       db.ref('.info/serverTimeOffset').on('value', s => { serverOffset = +s.val() || 0; });
       await settleName();                                   // 先注册好昵称，再上线和交成绩
       presRef = db.ref('presence/' + me.uid); lookRef = db.ref('looks/' + me.uid); onRef = db.ref('on/' + me.uid);
-      const joinOn = () => quitting ? null : onRef.onDisconnect().remove().then(() => onRef.set(TS())).catch(e => { if (isDenied(e)) goLegacy('写入 /on 被拒绝', e); });
+      joinOn = () => quitting ? null : onRef.onDisconnect().remove().then(() => onRef.set(TS())).catch(e => { if (isDenied(e)) goLegacy('写入 /on 被拒绝', e); });
       db.ref('.info/connected').on('value', s => {
         connected = !!s.val();
         if (connected){
           if (gridOK){
             myCell = null; myMeta = null; snd.reset();      // 断线时服务器已经删掉了旧条目：整条重写
-            if (!hiddenPage) joinOn();
+            if (!hiddenPage && seat === 'in') joinOn();       // 开场画面、排队中不占座位
           } else presRef.onDisconnect().remove().then(() => { lastSent = null; sendLegacy(); }).catch(e => fail('onDisconnect 失败', e));
           lookRef.onDisconnect().remove().catch(() => {}); lastLook = null;
         }
@@ -1188,13 +1274,15 @@
       };
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden'){ hiddenAt = performance.now(); away(); }
-        else { wake(); if (hiddenPage){ hiddenPage = false; if (gridOK){ if (connected) joinOn(); } else sendLegacy(); syncSubs(); } }
+        else { wake(); if (hiddenPage){ hiddenPage = false; if (gridOK){ if (connected && seat === 'in') joinOn(); } else sendLegacy(); syncSubs(); } }
       });
       for (const ev of ['pointerdown', 'keydown', 'touchstart', 'wheel']) window.addEventListener(ev, () => { if (document.visibilityState !== 'hidden') wake(); else lastInput = performance.now(); }, {capture:true, passive:true});
       setInterval(() => {
         const t = performance.now();
-        if (hiddenPage && document.visibilityState === 'hidden' && t - hiddenAt > SLEEP.hidden) sleep('切到后台超过 ' + SLEEP.hidden / 1000 + ' 秒');
-        else if (!hiddenPage && isTitle() && t - lastInput > SLEEP.title) sleep('开场画面 ' + SLEEP.title / 1000 + ' 秒没操作');
+        if (hiddenPage && document.visibilityState === 'hidden' && t - hiddenAt > SLEEP.hidden) sleep('切到后台超过 ' + SLEEP.hidden / 1000 + ' 秒', 'hidden');
+        else if (!hiddenPage && isTitle() && t - lastInput > SLEEP.title) sleep('开场画面 ' + SLEEP.title / 1000 + ' 秒没操作', 'title');
+        /* 进了游戏还没座位：看一眼人数（排队中由 retrySeat 定时看） */
+        if (gridOK && XNet.online && connected && !sleeping && !hiddenPage && !quitting && !isTitle() && seat === 'none') checkSeat();
       }, 2000);
       window.addEventListener('pagehide', away);
       requestAnimationFrame(frame);

@@ -70,7 +70,7 @@
      b 是假玩家（会在上面记 snd、cell、meta），o = {name, mode, x, z, y, h, car?, color, fx?, ride?, rs?, duel?, ds?} */
   function write(b, o){
     const PR = XNet.proto, Mk = window.__mock, TS = {'.sv':'timestamp'}, t = performance.now();
-    if (!b.snd){ b.snd = PR.sender(); Mk.put('on/' + b.uid, TS); Mk.disc.set('on/' + b.uid, 1); }
+    if (!b.snd){ b.snd = PR.sender(); Mk.put('on/' + b.uid, TS); Mk.botDisc.set('on/' + b.uid, 1); }
     const s = b.snd.sample({x:o.x, z:o.z, y:o.y, h:o.h, car:o.car || null, duel:o.duel || null}, t);
     s.crowd = b.crowd || 0;
     const meta = {n:o.name, m:o.mode === 'walk' ? 'w' : 'n'};
@@ -80,8 +80,8 @@
     const cell = PR.cellKeep(b.cell, o.x, o.z), path = c => 'pres/' + c + '/' + b.uid;
     if (cell !== b.cell || !b.meta){
       const up = {}; up[path(cell)] = Object.assign({p:PR.encP(s), t:TS}, meta);
-      if (b.cell && b.cell !== cell){ up[path(b.cell)] = null; Mk.disc.delete(path(b.cell)); }
-      Mk.update('', up); Mk.disc.set(path(cell), 1);
+      if (b.cell && b.cell !== cell){ up[path(b.cell)] = null; Mk.botDisc.delete(path(b.cell)); }
+      Mk.update('', up); Mk.botDisc.set(path(cell), 1);
       b.cell = cell; b.meta = meta; b.snd.sent(s, t, true, true); return;
     }
     let diff = null;
@@ -97,7 +97,7 @@
   /* 下线（切到菜单、黑洞）：从格子里删掉，/on 留着 */
   function leave(b){
     const Mk = window.__mock;
-    if (b.cell){ Mk.put('pres/' + b.cell + '/' + b.uid, null); Mk.disc.delete('pres/' + b.cell + '/' + b.uid); }
+    if (b.cell){ Mk.put('pres/' + b.cell + '/' + b.uid, null); Mk.botDisc.delete('pres/' + b.cell + '/' + b.uid); }
     b.cell = null; b.meta = null; if (b.snd) b.snd.reset();
   }
   window.XCrowdModel = {SPOTS, rng, make, step, oldSender, wrap, write, leave};
