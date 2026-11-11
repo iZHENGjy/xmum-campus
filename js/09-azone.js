@@ -387,13 +387,13 @@ function azSyncFlat(){
   for (const r of AZ.roads){ r.attr.array.set(AZ.flat ? r.flat : r.lift); r.attr.needsUpdate = true; }
   for (const c of AZ.cols) c.dead = AZ.flat;
 }
-/* the little fountain in front of the name stone outside the gate (js/10-world.js): a spray, only while someone is near enough to see it */
+/* the jets in the pool at the foot of the name stone, outside the gate (js/10-world.js): spray off the top of the arcs, only while someone is near enough to see it */
 let azFountAcc = 0;
 function azFountain(dt){
-  const G = GATE_PLAZA, cp = camera.position;
-  if (Math.abs(cp.x - G.sx) > 140 || Math.abs(cp.z - G.fz) > 140){ azFountAcc = 0; return; }
-  azFountAcc += dt * 14;
-  while (azFountAcc > 1){ azFountAcc--; const a = Math.random() * 6.283, r = .25 + Math.random() * .45; spawnPart('dust', G.sx, 2.5, G.fz, .3, {vx:Math.cos(a) * r, vy:1.1 + Math.random() * .9, vz:Math.sin(a) * r, g:9, life:.75, op:.65, grow:.5, color:'#e9f7ff'}); }
+  const G = GATE_FRONT, cp = camera.position, zm = (G.pz0 + .35 + G.pz1 - .75) / 2;
+  if (Math.abs(cp.x - GX) > 140 || Math.abs(cp.z - zm) > 140){ azFountAcc = 0; return; }
+  azFountAcc += dt * 18;
+  while (azFountAcc > 1){ azFountAcc--; const a = Math.random() * 6.283, r = .15 + Math.random() * .3; spawnPart('dust', GX + (((Math.random() * 9) | 0) - 4) * 1.2, 1.35, zm, .22, {vx:Math.cos(a) * r, vy:.4 + Math.random() * .6, vz:Math.sin(a) * r, g:9, life:.6, op:.6, grow:.4, color:'#e9f7ff'}); }
 }
 /* every object that was put down at a fixed height (a ring at y = .1, a label at 6.5 m) is lifted by the ground under it; if its owner moves it, the new height is the base */
 const azTrackMap = new WeakMap(); let azScanT = 0;
