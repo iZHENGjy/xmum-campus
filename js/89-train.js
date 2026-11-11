@@ -1,9 +1,10 @@
 /* XMUM 校园漫游 · ERL 小火车：Salak Tinggi 站、坐车过场、「坐车去远处独立场景」的框架 XTrain
  *
  * 车站：真实的 Salak Tinggi 站（ERL KLIA Transit）在校门东南约 1.06 km（OSM way 165373122，换算到游戏里 x≈1130, z≈700，在地图东边界外）。
- *   位置还没最终定（东南角给了汽车游乐园二园，地图边界也还在商量），所以整座车站是一个能整体平移、转向的组：只改下面的 PLACE 一处，
- *   地形压平、清树、碰撞体、小地图、列车轨道、过场里的走位和镜头都跟着走。现在暂放在游乐园北边、油棕园公路东边的窄长条（站中心 x 765, z 575）。
- *   轨道是一条直线，两头自动找隧道口：地面比站台高出 7 m 的地方（东边的小山），或者离别的路 18 m 的地方（西边的油棕园公路）；车开进隧道就看不见了。
+ *   东南角给了汽车游乐园二园；仓库主人定在它北边的窄长条（x 660–1150、z 500–630，油棕园公路东边），地图边界同时扩到 x 1150 / z 1260。
+ *   整座车站是一个能整体平移、转向的组：只改下面的 PLACE 一处，地形压平、清树、碰撞体、小地图、列车轨道、过场里的走位和镜头都跟着走。
+ *   现在站中心 x 950, z 565，地面 y 11；进站路从油棕园公路（649, 511）往东接到站前。
+ *   轨道是一条直线，两头自动找隧道口：地面比站台高出 7 m、离别的路 18 m、或离地图边缘 12 m 的地方（现在东头在地图边缘，西头在油棕园公路前）；车开进隧道就看不见了。
  *   地形是等山上的树都种好以后才压平的（和 js/92-bigjump.js 的 TG.flattenLate 同一个思路），压平的地方的树清掉，已有马路底下的地面一点不动。
  * 外观：地面站，两个岛式站台、四条轨道（中间两条停 KLIA Transit，外侧两条给不停站的 KLIA Ekspres 通过），站台上是波浪形雨棚，
  *   站厅（售票柜台、售票机、闸机，2025–26 翻新后的紫色标识）在北边，人行天桥跨过轨道下到两个站台，西边 5 层 Park & Ride 停车楼，有带顶的天桥连站厅。
@@ -126,10 +127,10 @@
   /* WHERE IT STANDS: the one place to change when the site is final. x, z: the middle of the platforms on the track centre line;
      y: platform-area ground height (the land round it is levelled to this); rot: turns the whole station (0 = tracks run east–west,
      hall on the north side); road: the access road's points from its junction up to the forecourt (the forecourt part is added below).
-     Provisional site (2026-11): the narrow strip north of the 汽车游乐园二园, east of the 油棕园公路 at x ≈ 650. The map's east edge
-     (MAP.x1 820) cuts through the east end of the platforms for now; the tracks run into a tunnel under the hill to the east, and
-     into a tunnel just short of the 油棕园公路 to the west. */
-  const PLACE = {x:765, z:575, y:11, rot:0, road:[[650, 521]]};
+     Site (owner's call, 2026-11-12): the narrow strip x 660–1150, z 500–630 north of the 汽车游乐园二园, east of the 油棕园公路 (x ≈ 650),
+     with the map widened to x 1150 / z 1260 (js/12-terrain.js). The tracks run east on an embankment into a tunnel at the map edge,
+     and west into a tunnel just short of the 油棕园公路. */
+  const PLACE = {x:950, z:565, y:11, rot:0, road:[[649, 511]]};
   /* Everything below is drawn in the station's own frame (the old layout: platform middle at 705, 1060) inside one group,
      which PLACE moves and turns; T / TI convert between that frame and the world. */
   const SX = 705, SZ = 1060, SY = PLACE.y, RT = SY + .35, PY = SY + 1.4;
@@ -148,10 +149,11 @@
   const DOOR_D = [SX, 1015], [DX, DZ] = T(SX, 1015), DOOR = {x:DX, z:DZ};   /* the purple ring outside the front doors */
   const PAD_D = {x0:600, x1:815, z0:985, z1:1095, fall:36};                  /* levelled ground, in the station's frame */
   const ROADW = PLACE.road.concat([T(600, 1006), T(800, 1006)]);            /* access road, world */
-  /* how far the tracks run each way before they go into a tunnel: up to where the land rises 7 m above the station, or 18 m short of
-     another road (they would have to pass under it), at most 420 m; the trains run on out of sight beyond */
+  /* how far the tracks run each way before they go into a tunnel: up to where the land rises 7 m above the station, 18 m short of
+     another road (they would have to pass under it), or 12 m short of the map edge; at most 420 m; the trains run on out of sight beyond */
   const nearRoad = (x, z, m) => OUT_ROADS.some(r => r.p.some((p, q) => q < r.p.length - 1 && segDist(x, z, p, r.p[q + 1]) < r.w / 2 + (m == null ? 18 : m)));
-  const reach = dir => { for (let d = 70; d < 420; d += 4){ const [x, z] = T(SX + dir * d, SZ); if (terrainY(x, z) > SY + 7 || nearRoad(x, z)) return d; } return 420; };
+  const nearEdge = (x, z) => x < MAP.x0 + 12 || x > MAP.x1 - 12 || z < MAP.z0 + 12 || z > MAP.z1 - 12;
+  const reach = dir => { for (let d = 70; d < 420; d += 4){ const [x, z] = T(SX + dir * d, SZ); if (terrainY(x, z) > SY + 7 || nearRoad(x, z) || nearEdge(x, z)) return d; } return 420; };
   const END = {e:reach(1), w:reach(-1)}, RUN = 320;
   /* the track alignment in the station's frame: a straight line, west (toward KLIA) is -x */
   const alignD = (off, a, b) => [[SX + (a == null ? END.e + RUN : a), SZ + off], [SX - (b == null ? END.w + RUN : b), SZ + off]];
@@ -344,7 +346,7 @@
       for (const s of [-1, 1]) kBox(b, Math.min(x, x - dir * 8), SY - .5, SZ + s * 19 - (s > 0 ? 0 : 1.2), Math.max(x, x - dir * 8), SY + 4, SZ + s * 19 + (s > 0 ? 1.2 : 0), '#a9a397');
       /* the cover: how far it can run before another road or the land itself takes over */
       let len = 0; for (let d = 4; d <= 40; d += 4){ if ([-19, 0, 19].some(o => nearRoad(...T(x + dir * d, SZ + o), 4))) break; len = d; }
-      if (len){ const x2 = x + dir * len; kBox(b, Math.min(x, x2), SY - .5, SZ - 19, Math.max(x, x2), H - .2, SZ + 19, '#4a7a3a', 'ny'); }
+      if (len){ const x2 = x + dir * len; kBox(b, Math.min(x, x2), Math.min(0, gyD(x2, SZ)) - .1, SZ - 19, Math.max(x, x2), H - .2, SZ + 19, '#4a7a3a', 'ny'); }
     }
     /* fences along the corridor */
     for (const off of [-16.8, 16.8]) for (let x = XW + 1; x < XE - 1; x += 6){ const z = SZ + off; if (gyD(x, z) < SY - 1.2) continue;

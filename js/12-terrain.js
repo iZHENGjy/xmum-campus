@@ -3,7 +3,7 @@
 /* Everything placed here uses private generators or pure noise, never rnd(), so the campus layout that later files place stays put. */
 
 /* ---------- map bounds: the campus hedge ring stays a wall, open only where the road leaves the main gate ---------- */
-Object.assign(MAP, {x0:-1080, x1:820, z0:-560, z1:1180});
+Object.assign(MAP, {x0:-1080, x1:1150, z0:-560, z1:1260});
 const CAMPUS_R = {x0:-603, x1:603, z0:-278, z1:265};
 const GATE_GAP = [GX - 16, GX + 16];
 MAP.wall = (x, z, r) => {
