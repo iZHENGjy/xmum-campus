@@ -371,7 +371,7 @@ addLabel('Bell Avenue 商业街', 276, 20, 335);
    a lane runs right round it, KIP Sentral's shop offices stand across the back lane, KIP CORE's two towers rise on a podium to the south-east,
    and the Prima Apartment blocks sit across the hill road (which plays Jalan Kota Warisan). Only the distance from campus is squeezed. */
 const kipInfo = {name:'KIP 购物中心', tag:'商场', spawn:[-640, 915, Math.PI],
-  desc:'照雪邦 KIPMall Kota Warisan 按 OpenStreetMap 的轮廓 1:1 搭的两层商场：北面朝停车场，正中是挂着 KIPMALL 红字的大门，西北角是炸鸡店和 Gate A 玻璃门厅，屋顶铺着太阳能板。里面有超市、亲子乐园、美食广场。真实距离大约 1.5–2 公里，这里压缩成从校门开车半分钟，要翻过一道山坡。'};
+  desc:'照雪邦 KIPMall Kota Warisan 按 OpenStreetMap 的轮廓 1:1 搭的两层商场：北面朝停车场，正中是挂着 KIPMALL 红字的大门，西北角是炸鸡店和 Gate A 玻璃门厅，屋顶铺着太阳能板。里面有超市、亲子乐园、美食广场。真实离校门直线大约 1.3 公里（开车要绕更远），这里压缩成从校门开车半分钟，要翻过一道山坡。'};
 const sentralInfo = {name:'KIP Sentral 店屋', tag:'商业', spawn:[-735.5, 1060, 0],
   desc:'KIP 商场后巷对面的一排排三层店屋（KIP Sentral），门口斜着停车，楼上多是小旅馆和诊所。这里搭了离商场最近的第一排，四栋，照真实的街道 Jalan Warisan Sentral 1、2、4 排开。'};
 const coreInfo = {name:'KIP CORE Sentral', tag:'公寓', spawn:[-650, 1062, Math.PI / 2],

@@ -18,7 +18,7 @@ MAP.wall = (x, z, r) => {
 /* Jalan Sunsuria runs east–west right outside the south hedge as two one-way carriageways with a planted median.
    Bell Avenue is one long block of back-to-back shophouses just south of it, starting opposite the main gate and running
    ~270 m east to the Bell Suites tower; the Taman Warisan Megah terraces lie behind it. KIP mall and 麦当当 are south-west:
-   really 1.5–2 km away, here compressed to about a 30 s drive over a ridge. Pads are flat (y = 0) so nothing ever floats.
+   really about 1.2–1.3 km from the gate as the crow flies (OSM), longer by road; here compressed to about a 30 s drive over a ridge. Pads are flat (y = 0) so nothing ever floats.
    Round KIP the plan is traced at full size about the mall centre (real x ≈ game x + 662, real z ≈ game z − 979): the mall with the
    lanes round it, the first row of KIP Sentral shop offices and KIP CORE to the south, Prima Apartment across the hill road. */
 const OUT_PADS = [
