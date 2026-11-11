@@ -344,6 +344,9 @@ function endHole(){
   $('#hendS').textContent = bits.join(' · ') + '。'
     + (names.length ? ` 吞下了 ${names.slice(0, 5).join('、')}${names.length > 5 ? ' 等 ' + names.length + ' 处' : ''}。` : '')
     + (record ? (best ? ` 之前最好 ${best.toFixed(1)}%。` : '') : best ? ` 最好成绩 ${best.toFixed(1)}%。` : '');
+  /* 改装零件（js/93-tuning-ui.js）：吞掉的东西回收成材料，按名次给 */
+  const oldLoot = $('#hend .tn-loot'); if (oldLoot) oldLoot.remove();
+  if (window.XParts){ const loot = XParts.reward('hole', place - 1, `黑洞第 ${place} 名`); if (loot.length) $('#hendS').insertAdjacentHTML('afterend', XParts.chips(loot)); }
   HH.cd.hidden = HH.bar.hidden = true; HH.call.hidden = true;
   $('#htime').classList.remove('hurry');
   $('#hend').hidden = false; place === 1 ? sfx.ding() : sfx.fail(); if (record) setTimeout(() => sfx.sparkle(), 300);

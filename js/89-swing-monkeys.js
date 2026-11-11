@@ -119,6 +119,8 @@ function swLanded(){
   gxCallout(`${tier} · ${d} 米`, wet ? '一头扎进湖里' : rec && prev != null ? '新纪录！' : prev != null && d < prev ? `纪录 ${Math.round(prev)} 米` : d < 30 ? '飞到 30 米有成就' : '飞得真远', '#ffc93c');
   if (d >= 15) for (let i = 0; i < 10; i++) spawnPart('dust', nw.x + (rnd() - .5) * 3, nw.y + .5 + rnd() * 2, nw.z + (rnd() - .5) * 3, .5, {vx:(rnd() - .5) * 5, vy:3 + rnd() * 4, vz:(rnd() - .5) * 5, g:9, life:1, op:1, color:'#ffd24a'});
   if (d >= 30){ unlock('swingfar'); gxChime(2); }
+  /* 改装零件（js/93-tuning-ui.js）：按距离分档，有冷却和每日上限，零件弹在屏幕上 */
+  if (window.XParts) XParts.reward('swing', d >= 40 ? 0 : d >= 30 ? 1 : d >= 15 ? 2 : 3, `秋千飞跃 ${d} 米`);
 }
 /* called instead of the normal walking update while 奶娃 is on the seat */
 function swFoot(dt){
@@ -590,7 +592,8 @@ function mkWarEnd(win, title, sub){
   const pay = Math.round(40 + left * .8) + [40, 20, 8][medal] + 25 * w.lv;
   const next = medal ? ` · 再快 ${Math.ceil(w.limit * MK_MEDAL[medal - 1] - left)} 秒就是${GX_MEDAL[medal - 1]}` : '';      /* what the next medal takes */
   sess.acts++; sess.medals++; earn(pay); saveGame(); unlock('monkeywar'); if (medal === 0) unlock('gold');
-  toast(`${GX_MEDAL[medal]} · 猴子大战`, `还剩 ${Math.round(left)} 秒${rec && prev != null ? ' · 新纪录！' : ''} · +RM ${pay}${next}`, 4200);
+  const loot = window.XParts ? XParts.reward('monkey', medal, '猴子大战' + GX_MEDAL[medal]) : [];   /* 改装零件, js/93-tuning-ui.js */
+  toast(`${GX_MEDAL[medal]} · 猴子大战`, `还剩 ${Math.round(left)} 秒${rec && prev != null ? ' · 新纪录！' : ''} · +RM ${pay}${next}${loot.length ? ' · 改装：' + XParts.text(loot) : ''}`, 4200);
   gxCallout(GX_MEDAL[medal], '猴山大王', ['#e3b95a', '#b8c2cc', '#c98a55'][medal]);
   for (let i = 0; i < 5; i++) tone('triangle', 523 * Math.pow(1.19, i), 523 * Math.pow(1.19, i), .18, .13, i * .09);
 }

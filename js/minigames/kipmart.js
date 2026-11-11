@@ -455,6 +455,7 @@ XMini.register((() => {
 
   return {
     id:'kipmart', name:'KIP 超市大乱斗', icon:'🛒', color:ME_C,
+    parts:'kipmart',                 // 改装零件掉落表：js/42-tuning.js 的 TN_DROPS.kipmart，按奖牌发，结算面板显示（js/93-tuning-ui.js）
     desc:'推着购物车抢货、撞人、结账，和 AI 顾客比谁分高',
     intro:'抢清单上的三样东西（头顶有箭头），推到收银台结账才算分，凑齐一张清单再加 5 分。按「冲撞」撞别人，他车里的东西会掉出来，掉一件你加 1 分；别人蓄力时地上有红线，躲开他就撞货架。90 秒后分数最高的赢，赢了升到更难的场次。',
     controls:{move:true, a:'冲撞'},

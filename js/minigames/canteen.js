@@ -155,6 +155,7 @@ XMini.register((() => {
   ];
   return {
     id:'canteen', name:'食堂端盘子', icon:'🍛', color:'#ff8a3d',
+    parts:'canteen',                 // 改装零件掉落表：js/42-tuning.js 的 TN_DROPS.canteen，按奖牌发，结算面板显示（js/93-tuning-ui.js）
     desc:'D6 午高峰，端着盘子穿过人群，五个模式',
     modes:MODES,
     controls:{move:true},

@@ -283,7 +283,10 @@ function dtUpdate(dt, px, pz, sp, free){
     const pay = (40 + j.route * .035 + j.t) * j.mult * (.4 + .6 * j.intact) * outCred() + (j.perfect ? 8 : 0), n = opAdd('o_dt');
     sess.deliv++; prog.life.deliv++; earn(pay); sfx.ding(); gxCallout(j.night ? '夜宵送达！' : '送达！', `+RM ${Math.round(pay)}`, '#ffc72c'); if (j.intact > .95) opFanfare(); if (j.recovered) unlock('back');
     for (let i = 0; i < 8; i++) spawnPart('heart', j.to.x + (rnd() - .5) * 4, 2 + rnd() * 2, j.to.z + (rnd() - .5) * 4, .9, {vy:2.5, life:1.4, op:1, color:'#ff6fa3'});
-    toast((j.night ? '夜宵送达 ' : '得来速送达 ') + j.to.name, `+RM ${pay.toFixed(2)} · 餐品 ${Math.round(j.intact * 100)}%${j.intact > .95 ? '，一滴没洒' : ''}${j.perfect ? ' · 含窗口小费' : ''}`, 3400);
+    /* 改装零件 (js/93-tuning-ui.js): a perfect run is the top grade; a night order adds a 霓虹灯管 */
+    const loot = window.XParts ? XParts.reward('drive', j.perfect && j.intact > .95 ? 0 : j.intact > .8 ? 1 : 2, j.night ? '送夜宵' : '得来速') : [];
+    if (j.night && window.XParts && XParts.grant('neon', 1, '送夜宵')) loot.push({id:'neon', n:1});
+    toast((j.night ? '夜宵送达 ' : '得来速送达 ') + j.to.name, `+RM ${pay.toFixed(2)} · 餐品 ${Math.round(j.intact * 100)}%${j.intact > .95 ? '，一滴没洒' : ''}${j.perfect ? ' · 含窗口小费' : ''}${loot.length ? ' · 改装：' + XParts.text(loot) : ''}`, 3400);
     unlock('deliv1'); if (prog.life.deliv >= 25) unlock('deliv25'); if (n >= 5) unlock('dthru'); if (j.night) unlock('supper');
     dtEnd();
   } else if (j.t <= 0){ sfx.fail(); toast(j.m.name + '凉透了', '超时了，这单没拿到钱。回得来速可以再点', 2800); dtEnd(); }
@@ -404,7 +407,8 @@ function teaEnd(quit){
   let pay = (medal < 3 ? TEA_PAY[medal] : 8) + score; if (rec && prev != null) pay += 15;
   sess.acts++; if (medal < 3) sess.medals++;
   earn(pay); saveGame();
-  toast(medal < 3 ? `${GX_MEDAL[medal]} · 蜜雪冰橙打工` : '下班了', `做了 ${g.cups} 杯（${g.perfect} 杯完美）· ${score} 分${rec ? (prev != null ? ' · 新纪录！' : '') : ` · 纪录 ${prev} 分`} · 工钱 +RM ${pay}`, 3800);
+  const loot = window.XParts ? XParts.reward('tea', medal, '打工' + (GX_MEDAL[medal] || '')) : [];   /* 改装零件, js/93-tuning-ui.js */
+  toast(medal < 3 ? `${GX_MEDAL[medal]} · 蜜雪冰橙打工` : '下班了', `做了 ${g.cups} 杯（${g.perfect} 杯完美）· ${score} 分${rec ? (prev != null ? ' · 新纪录！' : '') : ` · 纪录 ${prev} 分`} · 工钱 +RM ${pay}${loot.length ? ' · 改装：' + XParts.text(loot) : ''}`, 3800);
   if (medal < 3){ gxCallout(GX_MEDAL[medal], score + ' 分', OP_MEDAL_C[medal]); opFanfare(); } else sfx.ding();
   if (medal === 0){ unlock('gold'); unlock('tea'); }
 }
@@ -622,7 +626,9 @@ function thCatch(){
   const n = opAdd('o_thief'), who = TH.who, o = TH.own, quick = !o && TH.carry && TH.t > TH.t0 * .6, pay = TH.bounty + (quick ? 15 : 0), done = n % TH_LIST.length;
   earn(pay); opFanfare(); camShake = Math.max(camShake, .5); if (!REDUCED) gxSlow = .35; addStunt('抓住小偷', 300);
   for (let i = 0; i < 8; i++) spawnPart('heart', TH.x + (rnd() - .5) * 4, 2 + rnd() * 2, TH.z + (rnd() - .5) * 4, .9, {vy:2.5, life:1.4, op:1, color:'#ff6fa3'});
-  const board = done ? `通缉榜 ${done} / ${TH_LIST.length}` : '通缉榜清空了，下一轮的小偷跑得更快';
+  /* 改装零件 (js/93-tuning-ui.js): a 涡轮 for every thief, clearing the whole board adds a 图纸 and a 赛道引擎核心 */
+  const loot = window.XParts ? XParts.reward('thief', done ? 1 : 0, done ? '抓住小偷' : '清空 Bell 通缉榜') : [];
+  const board = (done ? `通缉榜 ${done} / ${TH_LIST.length}` : '通缉榜清空了，下一轮的小偷跑得更快') + (loot.length ? ' · 改装：' + XParts.text(loot) : '');
   if (o){
     TH.own = null; o.stolen = false; o.recovered = true; o.t += 10;
     toastEl.classList.remove('show'); gxCallout('外卖拿回来了！', '接着送，顾客多等你 10 秒', '#55d08a'); opLater('抓住了 ' + who.name, `外卖拿回来了，接着送 · 悬赏 +RM ${pay} · ${board}`, 3800);

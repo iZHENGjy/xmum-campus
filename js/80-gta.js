@@ -17,7 +17,7 @@ const ACH = [
   ['busted', '进局子', '第一次被保安抓住', 10], ['star5', '五星通缉', '保安警戒拉满五颗星', 50], ['escape4', '溜了溜了', '四星以上甩掉保安', 80],
   ['lake', '飞进湖里', '开着车飞进湖里', 30], ['eject', '人车分离', '车祸把奶娃甩飞出去', 20], ['air2', '空中飞人', '一次飞跃超过 2 秒', 40],
   ['combo5k', '连击大师', '一次连击超过 5,000 分', 60], ['early8', '早八不迟到', '跑完早八冲刺', 30], ['gold', '金牌车手', '任意挑战拿到金牌', 80],
-  ['taxi5', '五星好评', '顺风车拿到五星评价', 40], ['allcars', '集齐五辆车', '车行五辆车全部买下', 200], ['tuned', '改装狂人', '任意一项改装到满级', 60],
+  ['taxi5', '五星好评', '顺风车拿到五星评价', 40], ['allcars', '集齐车行', '车行里的车全部买下', 200], ['tuned', '改装狂人', '任意一项改装到满级', 60],
   ['rich', '小富婆', '钱包超过 RM 2,000', 0], ['exam', '期末救星', '成功抢救期末卷', 50], ['soak', '落汤保安', '用水枪淋湿保安', 20]
 ];
 /* later files add their own achievements with achAdd(); achSaved keeps what the save file had, so those are restored too */
@@ -178,7 +178,8 @@ function updateChase(dt){
     if (!indoor && minD < (driving ? 5.5 : 3.2) && mySp < 4) bustT += dt * (driving ? 1 : 1.6); else bustT = Math.max(0, bustT - dt);
     if (bustT > 1.5){ busted(); return; }
     if (indoor || minD > (inForest ? 70 : 150)){ calmT += dt * (inForest ? 1.6 : 1); if (calmT > 6){ calmT = 0; heat = Math.floor(heat) - 1 + .5; if (heat < 1){
-      heat = 0; despawnChasers(); toast('甩掉了保安', chasePeak >= 4 ? `从 ${chasePeak} 星警戒里溜了` : '警戒解除'); sfx.ding(); if (chasePeak >= 4) unlock('escape4'); chasePeak = 0; } } }
+      heat = 0; despawnChasers(); const loot = window.XParts ? XParts.reward('escape', chasePeak >= 4 ? 0 : chasePeak === 3 ? 1 : chasePeak === 2 ? 2 : 3, `甩掉 ${chasePeak} 星保安`) : [];   /* 改装零件, js/93-tuning-ui.js */
+      toast('甩掉了保安', (chasePeak >= 4 ? `从 ${chasePeak} 星警戒里溜了` : '警戒解除') + (loot.length ? ' · 改装：' + XParts.text(loot) : '')); sfx.ding(); if (chasePeak >= 4) unlock('escape4'); chasePeak = 0; } } }
     else calmT = 0;
     sirenT -= dt; if (sirenT <= 0){ sirenT = .42; sirenHi = !sirenHi; tone('triangle', sirenHi ? 900 : 680, sirenHi ? 900 : 680, .38, .035); }
   } else heat = Math.max(0, heat - dt * .05);
@@ -200,7 +201,9 @@ function bankStunt(){
   const pts = Math.round(stunt.pts), raw = pts / 50, pay = raw <= 40 ? raw : 40 + Math.sqrt(raw - 40) * 4; stunt.total += pts; earn(pay);
   sess.bestCombo = Math.max(sess.bestCombo, pts); if (pts >= 5000) unlock('combo5k');
   $('#stunt').textContent = stunt.total.toLocaleString();
-  if (pts >= 300){ toast(`特技 +${pts.toLocaleString()}`, `换成 RM ${pay.toFixed(2)}`, 1600); sfx.ding(); }
+  /* 改装零件（js/93-tuning-ui.js）：连击越高档越好，有冷却和每日上限 */
+  const loot = window.XParts && pts >= 1000 ? XParts.reward('stunt', pts >= 5000 ? 0 : pts >= 2500 ? 1 : 2, `特技 ${pts.toLocaleString()} 分`) : [];
+  if (pts >= 300){ toast(`特技 +${pts.toLocaleString()}`, `换成 RM ${pay.toFixed(2)}${loot.length ? ' · 改装：' + XParts.text(loot) : ''}`, 1600); sfx.ding(); }
   stunt.pts = 0; stunt.mult = 1; stunt.label = '';
 }
 function updateStunt(dt, sp){
@@ -241,7 +244,9 @@ const SHOP = [
   {kind:'myvi',  name:'Perodua Myvi', desc:'大马国民小车，皮实好停', price:60,   color:'#c0392b'},
   {kind:'p911',  name:'保时洁 911',   desc:'后置引擎，过弯很灵',     price:500,  color:'#f0eee8'},
   {kind:'mase',  name:'玛莎拉弟 GT',  desc:'意式长车头，声浪好听',   price:900,  color:'#1f3a6b'},
+  {kind:'moto',  name:'疾风 R 运动摩托', desc:'两个轮子，压着弯过弯，起步最猛，但一撞就飞', price:1100, color:'#e9ecef'},
   {kind:'lambo', name:'兰博鸡尼',     desc:'楔形车身，全校最快',     price:1600, color:'#f2c230'},
+  {kind:'gwag',  name:'铁方越野',     desc:'方盒子硬派越野，高、重、抗撞；能改升高、大轮胎、行李架和绞盘', price:2200, color:'#55604a'},
   {kind:'rr',    name:'劳斯来斯',     desc:'又长又稳又抗撞，奶娃坐进去像老板', price:3000, color:'#2b2b2e'}
 ];
 const owned = new Set(); let myCar = null;

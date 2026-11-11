@@ -126,10 +126,11 @@ function checkCPs(px, pz){
     if (!cp.done && Math.hypot(px - cp.x, pz - cp.z) < 3.6){
       cp.done = true; collected++; cp.chip.classList.add('on');
       $('#cnt').textContent = collected + ' / ' + CPS.length; $('#barfill').style.width = (collected / CPS.length * 100) + '%';
+      const loot = window.XParts ? XParts.reward('checkin', 0, '今天第一次打卡') : [], lt = loot.length ? ' · 改装：' + XParts.text(loot) : '';   /* 改装零件：每天第一次，js/93-tuning-ui.js */
       if (collected === CPS.length && !finished){
         finished = true; const t = Math.round((performance.now() - walkStart) / 1000);
-        toast('全部打卡完成', `用时 ${Math.floor(t / 60)} 分 ${t % 60} 秒`, 5000);
-      } else toast('打卡成功 · ' + cp.name, `${collected} / ${CPS.length}`);
+        toast('全部打卡完成', `用时 ${Math.floor(t / 60)} 分 ${t % 60} 秒${lt}`, 5000);
+      } else toast('打卡成功 · ' + cp.name, `${collected} / ${CPS.length}${lt}`);
     }
   }
 }

@@ -274,7 +274,8 @@ function sprayClear(){
   money -= fee; moneyChanged();
   const peak = Math.max(chasePeak, st);
   heat = 0; calmT = 0; chasePeak = 0; despawnChasers();
-  sfx.ding(); toast('换了一身漆，保安认不出你了', `警戒解除 · 加急喷漆费 ${fmtRM(fee)}`, 2800);
+  const loot = window.XParts ? XParts.reward('spray', 0, '喷漆甩掉警戒') : [];   /* 改装零件, js/93-tuning-ui.js */
+  sfx.ding(); toast('换了一身漆，保安认不出你了', `警戒解除 · 加急喷漆费 ${fmtRM(fee)}${loot.length ? ' · 改装：' + XParts.text(loot) : ''}`, 2800);
   if (peak >= 4) unlock('escape4');
   return fee;
 }
@@ -352,7 +353,8 @@ function sprayFrame(now){
     R.cleared = true; const fee = Math.min(money, R.fee), peak = Math.max(chasePeak, R.stars);
     money -= fee; moneyChanged(); heat = 0; calmT = 0; chasePeak = 0; despawnChasers(); G.cd = Date.now() + SPRAY_CD * 1000; G.done = true;
     sfx.ding(); if (peak >= 4) unlock('escape4');
-    R.msg = [`换成了${WD_PAINT[R.paint].name}，保安认不出你了`, `警戒解除 · 喷漆费 ${fmtRM(fee)}（每星 RM ${SPRAY_FEE}）`];
+    const loot = window.XParts ? XParts.reward('spray', 0, '喷漆甩掉警戒') : [];   /* 改装零件, js/93-tuning-ui.js */
+    R.msg = [`换成了${WD_PAINT[R.paint].name}，保安认不出你了`, `警戒解除 · 喷漆费 ${fmtRM(fee)}（每星 RM ${SPRAY_FEE}）${loot.length ? ' · 改装：' + XParts.text(loot) : ''}`];
   }
   if (t > 3.85){
     spray.run = null; sprayDoor(G, 0); document.body.classList.remove('sp-run');
