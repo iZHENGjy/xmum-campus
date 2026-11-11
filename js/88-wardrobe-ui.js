@@ -212,9 +212,9 @@ function wardFrame(now){
   const dt = Math.min(.05, (now - (wardLast || now)) / 1000); wardLast = now;
   if (!ward.drag && !REDUCED) ward.yaw += dt * .25;
   if (ward.pose > 0){ ward.pose -= dt; nw.t += dt; if (ward.pose <= 0 && nw.state === 'pose') nw.state = 'idle'; }
-  const t = wardTarget(), W = window.innerWidth, H = window.innerHeight, wide = W > 760;
-  /* keep the subject in the part of the screen the panel leaves free */
-  const r = wardEl.getBoundingClientRect(), ox = wide ? Math.round(r.width / 2 + 8) : 0, oy = wide ? 0 : Math.round(Math.min(H * .6, H - r.top) / 2);
+  const t = wardTarget(), W = window.innerWidth, H = window.innerHeight, r = wardEl.getBoundingClientRect();
+  /* keep the subject in the part of the screen the panel leaves free; a side panel (computers, phones held sideways) or a bottom sheet (phones upright) */
+  const wide = r.top < H * .3, ox = wide ? Math.round(r.width / 2 + 8) : 0, oy = wide ? 0 : Math.round(Math.min(H * .6, H - r.top) / 2);
   const key = W + 'x' + H + ':' + ox + ',' + oy;
   if (key !== ward.view){ ward.view = key; camera.setViewOffset(W, H, ox, oy, W, H); }
   const d = t.d * (wide ? 1 : Math.min(2.4, .9 / Math.max(.3, 1 - Math.min(H * .6, H - r.top) / H)));   /* phones: back off so it fits above the sheet */

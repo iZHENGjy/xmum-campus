@@ -660,7 +660,8 @@
     $r('rdPow').textContent = R.on ? '⏻ 关电台' : '⏻ 开电台';
   }
   const vz = $r('rdViz').getContext('2d'), vbins = new Uint8Array(32);
-  let secShown = '', hearShown = '', topY = -1;
+  let secShown = '', hearShown = '', topY = -1, wasFlat = false;
+  const LANDSCAPE = matchMedia('(max-height:520px) and (min-width:561px)');
   function hudTick(car){
     const show = car && !g(() => document.body.classList.contains('titled'), false);
     actBtn.hidden = !car; document.body.classList.toggle('rd-car', car);
@@ -673,7 +674,10 @@
     const vis = show || !!h; if (hudEl.hidden === vis) hudEl.hidden = !vis;
     /* phones: just under the top card (its height changes with what it shows), the panel under the strip;
        computers: the panel right above the strip (the strip moves up when the 🔊 line shows under it) */
-    if (vis && TOUCH){
+    /* phones held sideways (css/style.css「手机横屏 2.0」): the strip sits at the bottom next to the stick, so the panel opens above it like on a computer */
+    const flat = TOUCH && LANDSCAPE.matches;
+    if (flat !== wasFlat){ wasFlat = flat; topY = -1; hudEl.style.top = panel.style.top = panel.style.bottom = panel.style.maxHeight = ''; }
+    if (vis && TOUCH && !flat){
       const tb = document.querySelector('.topbar'), y = Math.round(tb ? tb.getBoundingClientRect().bottom + 8 : 120);
       if (y !== topY){ topY = y; hudEl.style.top = y + 'px'; panel.style.top = (y + 52) + 'px'; panel.style.maxHeight = `calc(100% - ${y + 64}px)`; }
     } else if (show && !panel.hidden){

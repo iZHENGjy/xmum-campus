@@ -837,38 +837,7 @@ body.wd-open #dmBag,body.wd-open #dmLoot,body.wd-open #dmPad{display:none!import
 .brand.min h1{font-size:15px;white-space:nowrap}
 .brand.min .prog{font-size:11.5px;white-space:nowrap;gap:5px}
 @media (prefers-reduced-motion: reduce){ .brand-tog svg{transition:none} }
-/* ---------- 手机横屏（矮屏）：游戏里的 HUD 和竖屏一样收成顶上一条，不压住摇杆和右下按钮 ---------- */
-@media (max-height:520px) and (min-width:561px){
-  body.naiwa .brand{display:none}
-  body.naiwa .side{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:var(--gap);row-gap:6px;align-items:start;justify-items:start}
-  body.naiwa .ctrls{grid-column:2;grid-row:1;justify-self:end;flex-direction:row;align-items:center;padding:4px}
-  body.naiwa .crow-sub{flex:none}
-  body.naiwa .seg-time{display:none}
-  body.naiwa .menu span{display:none}
-  body.naiwa .menu{padding:0 9px}
-  body.naiwa .gstat{grid-column:1;grid-row:1 / span 2;width:min(100%,430px);grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1.2fr) minmax(0,.7fr) minmax(0,1.3fr);column-gap:8px;row-gap:2px;padding:5px 9px}
-  body.naiwa .grow{flex-direction:column;align-items:flex-start;gap:0}
-  body.naiwa .grow span{font-size:10px}
-  body.naiwa .grow b{font-size:13px;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-  body.naiwa .grow b.stars{font-size:10.5px!important;letter-spacing:0}
-  body.naiwa .grow b.water{font-size:10px;letter-spacing:-.5px}
-  #gstat .grow:nth-child(4){display:none}
-  body.naiwa #gstat .mission{grid-column:1 / 4;grid-row:2;font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-top:4px;margin-top:0;align-self:center}
-  body.naiwa #gstat .gbtn{grid-row:2;margin:0;min-height:26px;padding:0 4px;font-size:11px;width:auto;white-space:nowrap;align-self:end}
-  body.naiwa #gstat #garageBtn{grid-column:4}
-  body.naiwa #gstat #gxPauseBtn{grid-column:5}
-  body.naiwa #gstat #wardBtn,body.naiwa #gstat .gx-long{display:none}
-  body.naiwa #hstat .mission{grid-column:1 / -1}
-  #hlist{display:none}
-  body.naiwa #mini{grid-column:2;grid-row:2;justify-self:end;width:84px;height:84px;border-width:2px}
-  body.naiwa #compass{left:calc(var(--safe-l) + var(--edge));transform:none;top:calc(var(--safe-t) + 92px);bottom:auto;font-size:12px;padding:4px 10px 4px 6px;max-width:40%}
-  body.naiwa #compass svg{width:20px;height:20px}
-  body.naiwa #prompt{bottom:calc(var(--safe-b) + 14px);font-size:12.5px;max-width:42%}
-  body.naiwa #combo{top:34%;bottom:auto;font-size:16px}
-  body.naiwa #gxach{top:calc(var(--safe-t) + 104px)}
-  /* B1 游戏厅（css/arcade.css）：顶上那条靠左放，右边留给菜单和模式切换 */
-  body.arc-in #arcBar{left:calc(var(--safe-l) + var(--edge));transform:none;top:calc(var(--safe-t) + 12px);max-width:calc(100% - 300px - var(--safe-l) - var(--safe-r))}
-}
+/* 手机横屏（矮屏）的 HUD 在文件末尾「手机横屏 2.0」一段 */
 /* ---------- 矮的桌面窗口和横放的平板：三个按钮排成一行、小地图小一号，小地图不再压到右下的操作按钮 ---------- */
 @media (min-height:521px) and (max-height:820px) and (min-width:761px){
   body.naiwa #gstat{grid-template-columns:repeat(3,minmax(0,1fr))}
@@ -1117,3 +1086,188 @@ body.wd-open #radio,body.sp-run #radio,body.titled #radio{display:none!important
   .rd-btn{padding:9px 10px}
 }
 @media (prefers-reduced-motion:reduce){ .rd-strip{transition:none} }
+
+/* ========== 手机横屏 2.0（矮屏，宽 ≥ 561、高 ≤ 520）：上面一条细长条，任务和电台挪到左下摇杆旁边，中间留给画面 ==========
+   --ls-joy 摇杆直径、--ls-btn 右下按钮高度，都跟着屏幕高度缩放。刘海在左右两边：所有贴边的东西都加 --safe-l / --safe-r。 */
+@media (max-height:520px) and (min-width:561px){
+  :root{--edge:10px;--ls-joy:clamp(92px,30vh,116px);--ls-btn:clamp(40px,12.6vh,50px);--ls-low:calc(var(--safe-b) + 10px)}
+  .topbar{top:calc(var(--safe-t) + 6px)}
+  .chips,.note{display:none}
+  .brand{padding:8px 12px}
+  .brand h1{font-size:18px}
+  .title{margin:2px 0 6px}
+
+  /* --- 顶上一条：左边钱包 · 车速 · 警戒 · 车况 · 水枪 · 车行 · 暂停，右边菜单和视角，小地图挂在视角下面 --- */
+  body.naiwa .brand{display:none}
+  body.naiwa .side{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:var(--gap);row-gap:6px;align-items:start;justify-items:start}
+  body.naiwa .ctrls{grid-column:2;grid-row:1;justify-self:end;flex-direction:row;align-items:center;gap:4px;padding:3px}
+  body.naiwa .crow{gap:4px}
+  body.naiwa .crow-sub{flex:none}
+  body.naiwa .seg-time{display:none}
+  body.naiwa .menu{height:30px;padding:0 8px}
+  body.naiwa .menu span{display:none}
+  body.naiwa .seg-mode button{height:26px;padding:0 8px;font-size:12.5px}
+  body.naiwa #online{height:22px;padding:0 8px;font-size:11px}
+  body.naiwa .gstat{grid-column:1;grid-row:1;width:auto;max-width:100%;display:flex;align-items:center;gap:10px;padding:3px 5px 3px 10px;min-height:38px;
+    -webkit-backdrop-filter:none;backdrop-filter:none;background:var(--panel-solid)}   /* no backdrop filter: the task line inside is position:fixed and must not be trapped in this box */
+  body.naiwa .grow{flex-direction:column;align-items:flex-start;gap:0;flex:none;min-width:0}
+  body.naiwa .grow span{font-size:9.5px;line-height:1.2}
+  body.naiwa .grow b{font-size:13.5px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  body.naiwa .grow b.stars{font-size:10.5px!important;letter-spacing:0}
+  body.naiwa .grow b.water{font-size:10px;letter-spacing:-.5px}
+  #gstat .grow:nth-child(4){display:none}
+  body.naiwa #gstat .gbtn{flex:none;width:auto;margin:0;min-height:30px;padding:0 9px;font-size:12px;white-space:nowrap}
+  body.naiwa #gstat #garageBtn{margin-left:2px}
+  body.naiwa #gstat #wardBtn,body.naiwa #gstat .gx-long,#hlist{display:none}
+  body.naiwa #mini{grid-column:2;grid-row:2;justify-self:end;width:76px;height:76px;border-width:2px}
+
+  /* --- 任务一行和指南针：叠在摇杆上方的两个小胶囊 --- */
+  body.naiwa .gstat .mission{position:fixed;z-index:6;left:calc(var(--safe-l) + 12px);bottom:calc(var(--ls-low) + var(--ls-joy) + 8px);margin:0;padding:3px 11px;
+    max-width:min(44vw,340px);box-sizing:border-box;font-size:12px;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    border:1px solid var(--line);border-radius:999px;background:var(--panel-solid);box-shadow:0 4px 14px var(--shadow);pointer-events:none}
+  body.naiwa .gstat .mission.urgent,body.naiwa .gstat .mission.dm-urgent{border-color:var(--tile)}
+  body.naiwa #compass{left:calc(var(--safe-l) + 12px);transform:none;top:auto;bottom:calc(var(--ls-low) + var(--ls-joy) + 8px + 28px);max-width:min(44vw,340px);box-sizing:border-box;
+    font-size:12px;padding:2px 4px 2px 5px;gap:6px}
+  body.naiwa #compass svg{width:18px;height:18px}
+  body.naiwa #compass #cdist{min-width:0;overflow:hidden;text-overflow:ellipsis}
+  body #ofTog{min-height:26px;font-size:11.5px;padding:0 8px;order:0}
+
+  /* --- 摇杆和右下按钮：按屏幕高度缩放；按钮排成三列两行，右边中间留空 --- */
+  #joy{width:var(--ls-joy);height:var(--ls-joy);left:calc(var(--safe-l) + 14px);bottom:var(--ls-low)}
+  #knob{width:40%;height:40%}
+  #acts{right:calc(var(--safe-r) + 12px);bottom:var(--ls-low);grid-template-columns:repeat(3,auto);gap:6px}
+  #acts button{min-width:calc(var(--ls-btn) * 1.32);min-height:var(--ls-btn);padding:3px 8px;gap:1px;border-radius:12px}
+  #acts button b{font-size:14px}
+  #acts #act-w,body.rd-car #act-w{grid-column:auto}
+  #acts #act-soc{min-height:32px;padding:3px 10px}
+  body.arc-in #acts{grid-template-columns:repeat(2,auto)}
+
+  /* --- 提示、连击、成就：都放在顶上那条下面，画面中间不压东西 --- */
+  #prompt{bottom:var(--ls-low);font-size:12.5px;padding:5px 13px;max-width:min(46%,420px)}
+  body.rd-car #prompt{bottom:calc(var(--ls-low) + 52px)}
+  body.naiwa #combo{top:calc(var(--safe-t) + 54px);bottom:auto;font-size:16px;padding:4px 14px 5px}
+  #gxcall{top:30%;font-size:26px}
+  #gxach{top:calc(var(--safe-t) + 54px)}
+  #toast{top:34%}
+
+  /* --- 车载电台：摇杆右边贴底的一小条，点开的面板在它上面（js/95-radio.js 横屏时不再把它挂到顶上） --- */
+  #radio{left:calc(var(--safe-l) + 14px + var(--ls-joy) + 12px);right:auto;transform:none;top:auto;bottom:var(--ls-low);align-items:flex-start;max-width:min(300px,38vw)}
+  .rd-strip{padding:4px 9px 4px 6px;gap:7px}
+  .rd-fq{min-width:34px}
+  .rd-fq b{font-size:15px}
+  .rd-txt b{font-size:12px}
+  .rd-txt span{font-size:11.5px;max-width:min(130px,18vw)}
+  #rdViz{width:36px;height:18px}
+  .rd-hear{font-size:11px;padding:2px 9px}
+  .rd-panel{left:calc(var(--safe-l) + 14px + var(--ls-joy) + 12px);transform:none;top:auto;bottom:calc(var(--ls-low) + 50px);width:min(340px,46vw);max-height:calc(100% - 70px);padding:10px;gap:8px}
+  .rd-btn{padding:7px 10px}
+
+  /* --- 接单卡片：顶上那条下面横着排，几份并排 --- */
+  body #offer{top:calc(var(--safe-t) + 52px);bottom:auto;width:max-content;max-width:min(680px,calc(100% - 24px));padding:6px 8px 8px}
+  body #offer .of-h{margin-bottom:5px}
+  body #offer:not(.one) .of-h span{display:block}
+  body .of-opts{flex-direction:row;gap:6px}
+  body .of-opt{flex:1 1 0;min-width:0;min-height:44px;padding:5px 9px 6px}
+  body .of-opt b{display:block;font-size:13.5px}
+  body .of-opt span.risk{display:block;margin-left:0}
+
+  /* --- 玩家互动和喊话（js/96-social.js）、豪车展位（94-showcase）、留言墙（97-wall）--- */
+  body #socStat{top:calc(var(--safe-t) + 52px);font-size:12px}
+  body #socCard{top:calc(var(--safe-t) + 52px)}
+  body #socMenu,body #socSheet{top:calc(var(--safe-t) + 52px);bottom:auto;max-height:calc(100% - 60px - var(--safe-t) - var(--safe-b));overflow:auto;overscroll-behavior:contain}
+  body #socMenu .sm-g{grid-template-columns:repeat(3,1fr)}
+  body .ss-emo button{min-height:38px;font-size:20px}
+  body .ss-ph{grid-template-columns:repeat(4,1fr)}
+  body #wlPanel{left:auto;right:calc(var(--safe-r) + 10px);top:calc(var(--safe-t) + 8px);bottom:auto;width:min(380px,52vw);max-width:none;max-height:calc(100% - 16px - var(--safe-t) - var(--safe-b));padding:10px 14px}
+  body #wlPanel.kb{top:var(--wl-top,8px);max-height:var(--wl-h,50vh);width:min(520px,calc(100% - 24px))}
+  body #wlPanel textarea{min-height:76px}
+  body #scCard,body #scMy{left:auto;right:calc(var(--safe-r) + 10px);top:calc(var(--safe-t) + 8px);bottom:auto;width:min(340px,48vw);max-width:none;max-height:calc(100% - 16px - var(--safe-t) - var(--safe-b));padding:12px 14px}
+
+  /* --- 衣橱、喷漆店、改装车间：右边一竖条（和电脑一样），左边留着看车和奶娃 --- */
+  #ward,#tune{left:auto;right:calc(var(--safe-r) + 8px);top:calc(var(--safe-t) + 8px);bottom:calc(var(--safe-b) + 8px);width:min(400px,54vw);height:auto;padding:10px 12px 8px}
+  #ward .shop-h,#tune .shop-h{margin-bottom:6px}
+  #ward .shop-h h2,#tune .shop-h h2{font-size:17px}
+  .wd-tabs{margin-bottom:6px}
+  .wd-tabs button{min-height:30px}
+  .wd-grid{grid-template-columns:repeat(auto-fill,minmax(84px,1fr))}
+  body.wd-open #toast{left:calc((100% - min(400px,54vw) - 16px) / 2);top:calc(var(--safe-t) + 40px)}
+  body.wd-open #tnGain{left:calc((100% - min(400px,54vw) - 16px) / 2)}
+  .tn-stats{margin-bottom:5px}
+  .tn-q{margin-bottom:5px}
+  /* 改装车间东西多：整块面板一起滚，关闭按钮和底下的「下单」一直钉在面板里 */
+  #tune{overflow-y:auto;overscroll-behavior:contain}
+  #tune>*{flex:none}
+  #tune .tn-list{overflow:visible;margin:0;padding:0 0 4px}
+  #tune>.x{position:sticky;top:-2px;align-self:flex-end;margin:-4px -6px -30px 0;z-index:2;background:var(--panel-solid)}
+  #tune .wd-foot{position:sticky;bottom:-8px;z-index:1;margin:6px -12px -8px;padding:7px 12px 8px;background:var(--panel-solid)}
+
+  /* --- 车行、暂停战绩、黑洞结算、排行榜、玩法、反馈：几乎占满整屏高度，里面滚动，标题和关闭按钮不动 --- */
+  #shop,#gxpause{max-height:calc(100% - 16px - var(--safe-t) - var(--safe-b));padding:12px 14px 10px}
+  #shop{width:min(620px,calc(100% - 24px - var(--safe-l) - var(--safe-r)))}
+  #shop .shop-h,#gxpause .shop-h{margin-bottom:8px}
+  .shop-h h2{font-size:19px}
+  .shop-f{margin-top:8px;padding-top:7px}
+  .car{padding:8px 10px;gap:10px}
+  .st{grid-template-columns:auto minmax(0,1fr) auto minmax(0,1fr);gap:3px 8px;max-width:380px;margin-top:3px}
+  #gxpBody{margin-bottom:8px}
+  #gxpBody h3{margin:8px 0 5px}
+  .gxp-tiles{grid-template-columns:repeat(4,1fr)}
+  #hend{max-height:calc(100% - 16px);padding:12px 18px 12px}
+  #hend h2{font-size:20px;margin:4px 0 6px}
+  dialog.sheet{max-height:calc(100% - 16px - var(--safe-t) - var(--safe-b));padding:12px 14px 12px}
+  dialog.sheet[open]{overflow:hidden}
+  dialog.sheet .sheet-h{margin-bottom:8px;flex:none}
+  dialog.sheet .tabs{flex:none;margin-bottom:8px}
+  dialog.sheet .tabs button{height:30px}
+  #lbBody,#howto .how{min-height:0;overflow:auto;overscroll-behavior:contain;flex:1 1 auto}
+  #fb[open]{overflow:auto}
+  #howto{width:min(720px,calc(100% - 24px))}
+
+  /* --- B1 游戏厅（css/arcade.css）：顶上那条靠左，右边留给菜单和视角 --- */
+  body.arc-in #arcBar{left:calc(var(--safe-l) + var(--edge));transform:none;top:calc(var(--safe-t) + 6px);max-width:calc(100% - 300px - var(--safe-l) - var(--safe-r))}
+  body #mgHud{top:calc(var(--safe-t) + 6px)}
+  body #beHud,body #kmBar{top:calc(var(--safe-t) + 50px)}
+}
+/* 横屏的标题页：左边大标题，右边昵称、三种玩法和按钮，一屏放下 */
+@media (max-height:520px) and (min-width:561px){
+  #title{background:linear-gradient(100deg,var(--scrim) 0%,var(--scrim) 60%,color-mix(in srgb,var(--scrim) 80%,transparent) 100%)}
+  .t-wrap{width:100%;max-width:none;display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);grid-template-rows:auto auto 1fr auto;column-gap:clamp(18px,4vw,40px);row-gap:10px;
+    padding:calc(var(--safe-t) + 12px) calc(var(--safe-r) + 18px) calc(var(--safe-b) + 10px) calc(var(--safe-l) + 24px)}
+  .t-head{grid-column:1;grid-row:1 / 4;align-self:center}
+  .t-foot{grid-column:1;grid-row:4;align-self:end;margin:0;font-size:10.5px}
+  .t-name{grid-column:2;grid-row:1;max-width:none;gap:4px}
+  .t-modes{grid-column:2;grid-row:2;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .t-more{grid-column:2;grid-row:3 / 5;align-content:flex-start;align-self:start;gap:6px}
+  .t-kicker{font-size:11px}
+  .t-title{font-size:clamp(44px,17vh,72px);margin-top:6px}
+  .t-eave{margin-top:6px;height:14px}
+  .t-seal{top:18px;width:44px;height:44px;font-size:15px;padding:3px}
+  .t-tag{font-size:13px;line-height:1.55;margin-top:8px}
+  .t-name label{font-size:11px}
+  #tName{font-size:16px;padding:7px 12px}
+  #tDice{padding:0 12px;font-size:12.5px}
+  .t-acct{margin-top:2px}
+  .t-namehint{font-size:11.5px}
+  .t-card{gap:3px;padding:8px 9px 9px;border-radius:var(--r-md)}
+  .t-card .t-ic{width:36px;height:21px;margin:0}
+  .t-card b{font-size:14px;letter-spacing:.02em;line-height:1.25}
+  .t-desc,.t-no{display:none}
+  .t-btn{height:32px;padding:0 11px;font-size:12.5px;gap:5px}
+  .t-btn svg{width:14px;height:14px}
+  .t-fb .fb-need{display:none}
+  .t-gfx{margin-left:0;gap:6px;font-size:12px}
+  .seg-gfx{height:32px;padding:2px}
+  .seg-gfx button{height:28px;padding:0 10px;font-size:12px}
+}
+
+/* ---------- 全屏按钮和竖屏的「横过来玩」提示（js/ui-screen.js） ---------- */
+#tFull .out{display:none}
+#tFull[aria-pressed="true"] .in{display:none}
+#tFull[aria-pressed="true"] .out{display:inline}
+.t-fs-hint{flex-basis:100%;font-size:12px;line-height:1.5;color:var(--ink);background:var(--tile-soft);border-radius:var(--r-sm);padding:5px 10px}
+#rotTip{position:fixed;z-index:6;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:7px;padding:5px 6px 5px 10px;border-radius:999px;
+  font:inherit;font-size:12.5px;color:var(--ink);background:var(--panel-solid);cursor:pointer;white-space:nowrap;animation:rotIn .3s ease-out;touch-action:manipulation}
+#rotTip svg{width:20px;height:20px;color:var(--tile);flex:none}
+#rotTip i{font-style:normal;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--chip);color:var(--muted);font-size:15px;line-height:1}
+@keyframes rotIn{from{opacity:0;transform:translate(-50%,-6px)}to{opacity:1;transform:translateX(-50%)}}
+@media (prefers-reduced-motion: reduce){ #rotTip{animation:none} }
