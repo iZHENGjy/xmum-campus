@@ -1,34 +1,40 @@
-/* XMUM 校园漫游 · 豪车展台：陈华春音乐厅（Tan Hua Choon Auditorium）门前扩出一片石砖广场，一排旋转展台常年停着玩家最贵的车。
-   - 每个展台停一辆车，带完整的喷漆、贴花和改装外观；前面立牌写车主昵称、车型和整车价值。越豪华越靠中间、越靠前：
-     第 1 名在前排正中（台子最大最高），2~5 名往两边排开，6~9 名在后排更高的台子上。
-   - 豪华程度 = 车价 + 这辆车的改装价值 + 车上的喷漆和贴花。改装价值优先用 tuneCarValue(kind)（改装系统提供的话），
-     没有就按 js/42-tuning.js 的 tnWorth 把这辆车造好的零件加起来。
-   - 联机：自己最贵的那辆车写到 /showcase/{uid} = {name, car, look, value, ts}（规则在 database.rules.json：只能写自己的，
-     名字必须是 users/{uid}/name 里注册的昵称，大小有限），读的时候按 value 取前几名。没注册昵称的不上传，但自己这边照样参与排位。
-   - 离线或预览版：自己的车和几辆「示范」车一起排位；联机时示范车只用来填空位，永远排在真实玩家后面。
-   - 走近展台按 F（手机点「看车」）看详情：车型、车主、价值构成、改装清单。自己的车上了前排有提示和成就。
-   - 性能：台子、灯带、光柱、地面光斑全部实例化（每样一个 draw call），立牌共用一张贴图合成一个网格；展车是车行的低模，
-     离远了隐藏细节件，再远整片不画。流畅档只摆前排 5 辆、没有光柱，标准 7 辆，高清 9 辆。
-   位置全在下面几个常量里：广场中心、朝向（本地 +z 朝外，对着马路）、大小；合并音乐厅新模型以后只改这里就能挪。 */
+/* XMUM 校园漫游 · 豪车展台：陈华春音乐厅（Tan Hua Choon Auditorium）门前扩出一片石砖广场，7 个车模展位扇形排开，
+   常年站着全服最有钱的 7 个奶娃和他们的爱车。
+   - 每个展位是一个台子：正面名牌写名次、昵称和总资产；台上前面站着玩家的奶娃（穿自己选的装扮，摆车模姿势），
+     侧边的转盘上停着他的车（带完整的喷漆、贴花和改装外观，慢慢转）。
+   - 排位按总资产（js/80-gta.js netWorth，跟「总资产」排行榜一个口径），名牌上显示的就是排位用的数。
+     第 1 名在正中，台子最高、最靠前；2、3 名在两边，往外依次到 6、7 名。
+   - 玩家自己定制展位：展示哪辆车（默认最贵那辆）、哪套装扮（跟着衣橱走，或者单独存一套展台装扮）、哪个姿势。
+     入口：在展台广场按 F（手机点「展位」）打开「我的展位」；走到自己的展位前按 F 看详情，里面也有按钮。
+   - 装饰：每个台子前面一对开业花篮，前三名是双层大花篮，台前还有一排花；夜里定时放烟花，有人新上台、名次变了也放一发。
+   - 联机：/showcase/{uid} = {name, car, look, wear, pose, value, ts}（规则在 database.rules.json：只能写自己的，
+     名字必须是 users/{uid}/name 里注册的昵称，各字段有格式和长度限制），读的时候按 value 取前几名。
+     没注册昵称的不上传，但自己这边照样参与排位。
+   - 离线或预览版：自己和几个「示范」奶娃一起排位，自己保证在台上；联机时示范只用来填空位，永远排在真实玩家后面。
+   - 性能：台子、灯带、转盘、光斑、光柱、花朵全部实例化，名牌共用一张贴图；7 个低模奶娃 + 7 辆车行低模车，
+     离远了隐藏车的细节件、奶娃不再摆动作，再远整片不画。流畅档花少一半、没有光柱、烟花只在有人上榜时放、粒子少。
+   位置全在下面几个常量里：广场中心、朝向（本地 +z 朝外，对着马路）、大小、扇形；合并音乐厅新模型以后只改这里就能挪。 */
 'use strict';
 const SC_X = -75, SC_Z = 185, SC_ROT = .165;      /* 广场中心（世界坐标）和朝向：跟门前的棕榈步道平行，正面朝南边的马路 */
 const SC_HW = 21, SC_HD = 10.5;                    /* 半宽、半深（米） */
-/* 展台，按名次排：[本地 x, 本地 z, 半径, 台高] */
-const SC_SLOTS = [
-  [0, 2.6, 3.5, .8],
-  [8.2, 2, 3.2, .55], [-8.2, 2, 3.2, .55], [16.2, .4, 3.2, .55], [-16.2, .4, 3.2, .55],
-  [4.2, -5.7, 3.2, 1.05], [-4.2, -5.7, 3.2, 1.05], [12.4, -6.3, 3.2, 1.05], [-12.4, -6.3, 3.2, 1.05]
-];
-const SC_FRONT = 5;                                /* 前排几个（成就算前排） */
-const SC_KEY = 'xmum-showcase-v1', SC_LOOK_RE = /^[a-z0-9_,]{0,60}$/, SC_MAX = 1e6;
+/* 扇形：展位排在以 (0, cz) 为圆心、半径 r 的弧上，相邻两个隔 step 弧度；圆心在广场后面，所以中间那个最靠前 */
+const SC_FAN = {r:22, cz:-18.2, step:.285};
+const SC_BW = 5.8, SC_BD = 6.4;                    /* 一个展台的宽、深 */
+const SC_N = 7, SC_TOP = 3;                        /* 7 个位置；前三名的台子更隆重 */
+const SC_HGT = [1.3, 1.1, 1.1, .95, .95, .8, .8];  /* 台高，按名次 */
+const SC_CAR_S = .9;                               /* 展车按九成大小摆（车模的意思），最长的劳斯来斯也转得开 */
+const SC_KEY = 'xmum-showcase-v1', SC_LOOK_RE = /^[a-z0-9_,]{0,60}$/, SC_WEAR_RE = /^[a-z0-9_,]{0,100}$/, SC_MAX = 1e7;
+const SC_POSES = {auto:'轮换', hip:'叉腰', wave:'挥手', cheer:'欢呼', show:'介绍爱车', flex:'秀肌肉'};
+const SC_CYCLE = ['hip', 'wave', 'show', 'cheer', 'flex'];
 const scW = (lx, lz) => [SC_X + lx * Math.cos(SC_ROT) + lz * Math.sin(SC_ROT), SC_Z - lx * Math.sin(SC_ROT) + lz * Math.cos(SC_ROT)];
 const scFmt = v => 'RM ' + Math.round(+v || 0).toLocaleString();
 const scShop = k => (typeof SHOP !== 'undefined' && SHOP.find(s => s.kind === k)) || null;
-const scCarName = k => (scShop(k) || {}).name || (CAR_T[k] || {}).name || k;
+const scCarName = k => k ? (scShop(k) || {}).name || (CAR_T[k] || {}).name || k : '';
 const scEsc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;'}[c]));
+const scOkCar = k => !!(scShop(k) && TN_KINDS.includes(k));
 
-/* ---------- 价值 ---------- */
-/* look 字符串：喷漆 id、d_贴花、tk 改装段（js/42-tuning.js tnToken），逗号分开，跟 /looks 一个格式 */
+/* ---------- value ---------- */
+/* look 字符串（车的外观）：喷漆 id、d_贴花、tk 改装段（js/42-tuning.js tnToken），逗号分开，跟 /looks 一个格式 */
 function scParse(look){
   const ids = String(look || '').split(','), p = ids.find(x => typeof WD_PAINT !== 'undefined' && WD_PAINT[x] && x !== 'stock'), d = ids.find(x => /^d_/.test(x) && WD_DECAL[x.slice(2)]);
   return {paint:p || 'stock', decal:d ? d.slice(2) : 'none', fit:tnFromToken(look) || tnFit(null)};
@@ -44,47 +50,67 @@ function scModsRM(kind){
 }
 /* what is fitted on one of my cars (read only: tnCar() would add an empty entry to the tuning save) */
 const scFitOf = kind => tnFit(typeof tune !== 'undefined' && tune.cars && tune.cars[kind] ? tune.cars[kind].fit : null);
-/* 自己最贵的那辆：{kind, look, value, price, mods, paintRM} */
+/* 一辆车（任何人的）大概值多少：车价 + 装上的改装件 + 喷漆贴花，只用来在详情卡上说明 */
+function scCarRM(kind, look){
+  if (!kind) return {price:0, mods:0, paintRM:0, total:0};
+  const L = scParse(look), price = (scShop(kind) || {}).price || 0, mods = scFitRM(L.fit), paintRM = scPaintRM(L.paint, L.decal);
+  return {price, mods, paintRM, total:price + mods + paintRM};
+}
+/* 我的一辆车：{kind, look, price, mods, paintRM, total} */
+function scMyCarOf(kind){
+  const w = (typeof wardSave !== 'undefined' && wardSave.cars[kind]) || {p:'stock', d:'none'};
+  const price = scShop(kind).price, mods = scModsRM(kind), paintRM = scPaintRM(w.p, w.d);
+  return {kind, look:scLook(w.p, w.d, scFitOf(kind)), price, mods, paintRM, total:price + mods + paintRM};
+}
+function scMyCars(){
+  if (typeof owned === 'undefined') return [];
+  return [...owned].filter(scOkCar).map(scMyCarOf).sort((a, b) => b.total - a.total || b.price - a.price);
+}
+const scWorth = () => { try { return Math.max(0, typeof netWorth === 'function' ? +netWorth() || 0 : +money || 0); } catch(e){ return 0; } };
+/* 展台装扮：只留自己有的（衣橱里卖掉的东西不会再穿出来） */
+function scWearClean(str){
+  const l = wdLookParse(str);
+  for (const s in l) if (l[s] && l[s] !== WD_DEFAULT[s] && !(typeof wardSave !== 'undefined' && wardSave.own.has(l[s]))) l[s] = WD_DEFAULT[s];
+  return wdLookStr(l);
+}
+const scWearNow = () => typeof wardSave !== 'undefined' ? wdLookStr(wardSave.look) : '';
+/* 我在展台上的样子：{kind, look, wear, pose, value, car} */
 function scMine(){
-  if (typeof owned === 'undefined') return null;
-  let best = null;
-  for (const kind of owned){
-    if (!scShop(kind) || !TN_KINDS.includes(kind)) continue;
-    const w = (typeof wardSave !== 'undefined' && wardSave.cars[kind]) || {p:'stock', d:'none'};
-    const fit = scFitOf(kind);
-    const price = scShop(kind).price, mods = scModsRM(kind), paintRM = scPaintRM(w.p, w.d), value = price + mods + paintRM;
-    if (!best || value > best.value || (value === best.value && price > best.price)) best = {kind, look:scLook(w.p, w.d, fit), value, price, mods, paintRM};
-  }
-  return best;
+  const cars = scMyCars(), pick = SCX.cfg.car && cars.find(c => c.kind === SCX.cfg.car), car = pick || cars[0] || null;
+  const wear = SCX.cfg.wear != null ? scWearClean(SCX.cfg.wear) : scWearNow();
+  return {kind:car ? car.kind : '', look:car ? car.look : '', wear, pose:SC_POSES[SCX.cfg.pose] ? SCX.cfg.pose : 'auto', value:scWorth(), car};
 }
 
-/* ---------- 示范车：离线时陪你排位，联机时只填空位 ---------- */
+/* ---------- 示范：离线时陪你排位，联机时只填空位 ---------- */
 const SC_DEMOS = [
-  {name:'金色传说', kind:'rr', paint:'gilt', decal:'none', fit:{rim:'dish', rimc:'gold', size:'s1', low:'l1', drl:'bar', exh:'dual'}},
-  {name:'星空夜跑', kind:'lambo', paint:'obsid', decal:'galaxy', fit:{rim:'glow', size:'s2', wide:'wide', lip:'canard', skirt:'skirt', diff:'diff', hood:'scoop', aero:'carbon', wing:'swan', neon:'kit', neonc:'purple', drl:'fang', exh:'quad', low:'l2', camber:'c3'}},
-  {name:'赛道日', kind:'p911', paint:'pearlw', decal:'stripes', fit:{rim:'forged', rimc:'black', lip:'canard', wing:'gt', aero:'carbon', low:'l2', camber:'c3', exh:'quad'}},
-  {name:'霓虹之夜', kind:'mase', paint:'mpurp', decal:'none', fit:{rim:'turbine', rimc:'gun', neon:'kit', neonc:'pink', drl:'quad', skirt:'skirt', low:'l1'}},
-  {name:'火焰小钢炮', kind:'myvi', paint:'tomato', decal:'flames', fit:{rim:'mesh', rimc:'black', lip:'lip', wing:'duck', exh:'dual'}},
-  {name:'西瓜冰', kind:'myvi', paint:'stock', decal:'melon', fit:{rim:'mesh', rimc:'white'}},
-  {name:'老板座驾', kind:'rr', paint:'stock', decal:'none', fit:{rimc:'black', drl:'bar'}},
-  {name:'蓝调 GT', kind:'mase', paint:'mblue', decal:'none', fit:{rimc:'gun', low:'l1'}},
-  {name:'奶娃 07', kind:'p911', paint:'naiwa', decal:'xmum', fit:{}}
-].map((d, i) => {
-  const fit = tnFit(d.fit), price = scShop(d.kind).price, mods = scFitRM(fit), paintRM = scPaintRM(d.paint, d.decal);
-  return {uid:'demo' + i, name:d.name, kind:d.kind, look:scLook(d.paint, d.decal, fit), value:price + mods + paintRM, price, mods, paintRM, demo:true};
-});
+  {name:'金色传说', value:15800, wear:'gold,big,emperor,mian,shades,chain,furcape', pose:'show', kind:'rr', paint:'gilt', decal:'none', fit:{rim:'dish', rimc:'gold', size:'s1', low:'l1', drl:'bar', exh:'dual'}},
+  {name:'星空夜跑', value:9600, wear:'galaxy,slim,hero,shades,cape', pose:'cheer', kind:'lambo', paint:'obsid', decal:'galaxy', fit:{rim:'glow', size:'s2', wide:'wide', lip:'canard', skirt:'skirt', diff:'diff', hood:'scoop', aero:'carbon', wing:'swan', neon:'kit', neonc:'purple', drl:'fang', exh:'quad', low:'l2', camber:'c3'}},
+  {name:'赛道日', value:5200, wear:'white,shirt,glasses,bowtie,coffee', pose:'hip', kind:'p911', paint:'pearlw', decal:'stripes', fit:{rim:'forged', rimc:'black', lip:'canard', wing:'gt', aero:'carbon', low:'l2', camber:'c3', exh:'quad'}},
+  {name:'霓虹之夜', value:3100, wear:'pink,detective,fedora,chain', pose:'wave', kind:'mase', paint:'mpurp', decal:'none', fit:{rim:'turbine', rimc:'gun', neon:'kit', neonc:'pink', drl:'quad', skirt:'skirt', low:'l1'}},
+  {name:'火焰小钢炮', value:1200, wear:'orange,chubby,redvest,policecap', pose:'flex', kind:'myvi', paint:'tomato', decal:'flames', fit:{rim:'mesh', rimc:'black', lip:'lip', wing:'duck', exh:'dual'}},
+  {name:'奶娃 07', value:900, wear:'bag', pose:'hip', kind:'p911', paint:'naiwa', decal:'xmum', fit:{}},
+  {name:'西瓜冰', value:480, wear:'xmumblue,melon,boba', pose:'wave', kind:'myvi', paint:'stock', decal:'melon', fit:{rim:'mesh', rimc:'white'}}
+].map((d, i) => ({uid:'demo' + i, name:d.name, kind:d.kind, look:scLook(d.paint, d.decal, tnFit(d.fit)), wear:wdLookStr(wdLookParse(d.wear)), pose:d.pose, value:d.value, demo:true}));
 
 /* ---------- state ---------- */
 const SCX = {
   remote:null,          /* 联机读到的前几名（不含自己），null = 还没读到 / 离线 */
   list:[],              /* 现在台子上的：按名次，空位是 null */
-  n:SC_SLOTS.length, k:-1, vis:true, fine:true, mode:'',
-  near:-1, prompt:'', fLbl:false, open:-1,
-  mineKey:'', fetchT:0, pushT:0, sent:'', warned:false,
-  save:{best:0, kind:''}
+  sig:null,             /* 上一次每个位置是谁（名次变了放烟花） */
+  k:-1, vis:true, fine:true, anim:true, mode:'',
+  near:-1, onPlaza:false, prompt:'', fLbl:false, open:-1, my:false,
+  mineKey:'', fetchT:0, pushT:0, sent:'', sentV:0, warned:false,
+  fwT:8, save:{best:0, kind:''}, cfg:{car:'', pose:'auto', wear:null}
 };
-try { const d = JSON.parse(localStorage.getItem(SC_KEY) || 'null'); if (d) SCX.save = {best:Math.max(0, d.best | 0), kind:String(d.kind || '')}; } catch(e){}
-const scWrite = () => { try { localStorage.setItem(SC_KEY, JSON.stringify(SCX.save)); } catch(e){} };
+try {
+  const d = JSON.parse(localStorage.getItem(SC_KEY) || 'null');
+  if (d){
+    SCX.save = {best:Math.max(0, d.best | 0), kind:String(d.kind || '')};
+    const c = d.cfg || {};
+    SCX.cfg = {car:/^[a-z0-9]{0,12}$/.test(c.car || '') ? c.car || '' : '', pose:SC_POSES[c.pose] ? c.pose : 'auto', wear:typeof c.wear === 'string' && SC_WEAR_RE.test(c.wear) ? c.wear : null};
+  }
+} catch(e){}
+const scWrite = () => { try { localStorage.setItem(SC_KEY, JSON.stringify(Object.assign({cfg:SCX.cfg}, SCX.save))); } catch(e){} };
 
 /* ---------- the plaza ---------- */
 const scRoot = new THREE.Group(); scRoot.position.set(SC_X, 0, SC_Z); scRoot.rotation.y = SC_ROT; scene.add(scRoot);
@@ -106,95 +132,106 @@ const scPave = new THREE.MeshStandardMaterial({map:scSetts, roughness:.85, polyg
 const scKerb = M('#d9d4c8', {roughness:.7, polygonOffset:true, polygonOffsetFactor:-5, polygonOffsetUnits:-20});
 const scCarpet = M('#8e1d22', {roughness:.95, polygonOffset:true, polygonOffsetFactor:-7, polygonOffsetUnits:-28});
 if (typeof regWet === 'function'){ regWet(scPave, .3); regWet(scKerb, .3); }
+
+/* the seven booths on the fan, in rank order: 1 in the middle, 2 on the left (seen from the road), 3 on the right, and so on outwards */
+const scSlots = Array.from({length:SC_N}, (_, i) => {
+  const a = i ? (i % 2 ? -1 : 1) * Math.ceil(i / 2) * SC_FAN.step : 0;
+  const lx = SC_FAN.r * Math.sin(a), lz = SC_FAN.cz + SC_FAN.r * Math.cos(a) + (i ? 0 : .6), h = SC_HGT[i];
+  /* the 奶娃 stands at the front on the side towards the middle, the car turns beside it on the outer side */
+  const sd = a < 0 ? -1 : 1, fx = -1.75 * sd, fz = 2.05, cx = .7 * sd, cz = -.6;
+  const m = new THREE.Matrix4().compose(new THREE.Vector3(lx, 0, lz), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), a), new THREE.Vector3(1, 1, 1));
+  const g = new THREE.Group(); g.position.set(lx, 0, lz); g.rotation.y = a; scRoot.add(g);
+  const tt = new THREE.Group(); tt.position.set(cx, h + .05, cz); tt.rotation.y = i * .9 + .6; g.add(tt);
+  const fg = new THREE.Group(); fg.position.set(fx, h, fz); g.add(fg);
+  /* booth-local point → plaza-local → world */
+  const toPlaza = (x, z) => [lx + x * Math.cos(a) + z * Math.sin(a), lz - x * Math.sin(a) + z * Math.cos(a)];
+  const [wx, wz] = scW(...toPlaza(0, 0));
+  return {i, a, lx, lz, h, sd, fx, fz, cx, cz, m, g, tt, fg, toPlaza, wx, wz, car:null, key:'', fig:null, wear:null, pose:null, P:null, cols:[]};
+});
 {
   const flat = (geo, mat, y) => { const m = new THREE.Mesh(geo, mat); m.rotation.x = -Math.PI / 2; m.position.y = y; m.receiveShadow = true; scRoot.add(m); return m; };
   flat(new THREE.ShapeGeometry(scRound(SC_HW + .6, SC_HD + .6, 5.6), 6), scKerb, .045);
   flat(new THREE.ShapeGeometry(scRound(SC_HW, SC_HD, 5), 6), scPave, .05);
   /* red carpet from the road up to the champion */
-  const z0 = SC_SLOTS[0][1] + SC_SLOTS[0][2] + .2, z1 = SC_HD + .5, cg = new THREE.PlaneGeometry(3, z1 - z0); cg.translate(0, -(z0 + z1) / 2, 0);
+  const z0 = scSlots[0].lz + SC_BD / 2 + .25, z1 = SC_HD + .5, cg = new THREE.PlaneGeometry(3, z1 - z0); cg.translate(0, -(z0 + z1) / 2, 0);
   flat(cg, scCarpet, .055);
 }
+/* booth-local transform → matrix for an instance (or a geometry) in the plaza group */
+const scQ = new THREE.Quaternion(), scY = new THREE.Vector3(0, 1, 0);
+function scMat(s, x, y, z, sx, sy, sz, ry){
+  const l = new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), scQ.setFromAxisAngle(scY, ry || 0), new THREE.Vector3(sx, sy, sz));
+  return new THREE.Matrix4().multiplyMatrices(s.m, l);
+}
 
-/* pedestals: a stepped drum, a light band round the top, a glow on the ground and (标准 / 高清) a faint light column. One InstancedMesh each. */
-const SC_N = SC_SLOTS.length;
-const scDrumGeo = geoMerge([new THREE.CylinderGeometry(1, 1.06, 1, 40).translate(0, .5, 0), new THREE.CylinderGeometry(1.1, 1.12, .12, 40).translate(0, .06, 0)]);
-const scDrum = new THREE.InstancedMesh(scDrumGeo, M('#e9e6df', {roughness:.32, metalness:.15}), SC_N);
+/* the booths: a dark step, a white block with a light band round the top edge, a dark glossy turntable with a gold rim.
+   One InstancedMesh each; the ground glow, the spot under the 奶娃 and (标准 / 高清, front three) the light columns too. */
+const scBox = new THREE.BoxGeometry(1, 1, 1).translate(0, .5, 0);
+const scIM = (geo, mat, n, shadow) => { const m = new THREE.InstancedMesh(geo, mat, n); m.frustumCulled = false; if (shadow){ m.castShadow = true; m.receiveShadow = true; } scRoot.add(m); return m; };
+const scStep = scIM(scBox, M('#2a2c33', {roughness:.45, metalness:.35}), SC_N, true);
+const scBlock = scIM(scBox, M('#ece8df', {roughness:.32, metalness:.12}), SC_N, true);
 const scBandMat = new THREE.MeshBasicMaterial({color:'#ffffff', toneMapped:false});
-const scBand = new THREE.InstancedMesh(new THREE.CylinderGeometry(1.012, 1.012, .07, 40, 1, true).translate(0, -.09, 0), scBandMat, SC_N);
+const scBand = scIM(scBox, scBandMat, SC_N);
+const scDisc = scIM(new THREE.CylinderGeometry(1, 1, 1, 40).translate(0, .5, 0), M('#1c1e24', {roughness:.22, metalness:.55}), SC_N, true);
+const scRim = scIM(new THREE.TorusGeometry(1, .012, 6, 56).rotateX(Math.PI / 2), M('#d9b25a', {roughness:.3, metalness:.85}), SC_N);
 const scPoolTex = scTex(128, 128, (g, w) => { const gr = g.createRadialGradient(w / 2, w / 2, w * .2, w / 2, w / 2, w / 2); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.5, 'rgba(255,255,255,.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, w); });
 const scPoolMat = new THREE.MeshBasicMaterial({map:scPoolTex, transparent:true, opacity:0, blending:THREE.AdditiveBlending, depthWrite:false, fog:false, polygonOffset:true, polygonOffsetFactor:-10, polygonOffsetUnits:-40});
-const scPool = new THREE.InstancedMesh(new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2), scPoolMat, SC_N);
+const scPool = scIM(new THREE.PlaneGeometry(2, 2).rotateX(-Math.PI / 2), scPoolMat, SC_N * 2);
 const scBeamTex = scTex(4, 128, (g, w, h) => { const gr = g.createLinearGradient(0, h, 0, 0); gr.addColorStop(0, 'rgba(255,255,255,.9)'); gr.addColorStop(.25, 'rgba(255,255,255,.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
 const scBeamMat = new THREE.MeshBasicMaterial({map:scBeamTex, transparent:true, opacity:0, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide, fog:false});
-const scBeam = new THREE.InstancedMesh(new THREE.CylinderGeometry(.92, 1, 1, 32, 1, true).translate(0, .5, 0), scBeamMat, SC_N);
-scDrum.castShadow = true; scDrum.receiveShadow = true;
-for (const m of [scDrum, scBand, scPool, scBeam]){ m.frustumCulled = false; scRoot.add(m); }
+const scBeam = scIM(new THREE.CylinderGeometry(.92, 1, 1, 32, 1, true).translate(0, .5, 0), scBeamMat, SC_TOP);
 scPool.renderOrder = 2; scBeam.renderOrder = 3;
 const SC_GOLD = new THREE.Color('#ffcf6a'), SC_SILVER = new THREE.Color('#dfe9ff'), SC_BRONZE = new THREE.Color('#ffb48a'), SC_COOL = new THREE.Color('#a9dcff');
-const scBandCol = i => i === 0 ? SC_GOLD : i === 1 || i === 2 ? SC_SILVER : i < SC_FRONT ? SC_BRONZE : SC_COOL;
-
-/* turntables (the cars sit on them) and the colliders */
-const scSlots = SC_SLOTS.map(([lx, lz, r, h], i) => {
-  const tt = new THREE.Group(); tt.position.set(lx, h, lz); tt.rotation.y = i * .9; scRoot.add(tt);
-  const [wx, wz] = scW(lx, lz);
-  return {i, lx, lz, r, h, wx, wz, tt, car:null, key:'', col:addCircle(wx, wz, r + .1)};
-});
+const scBandCol = i => i === 0 ? SC_GOLD : i === 1 ? SC_SILVER : i === 2 ? SC_BRONZE : SC_COOL;
 function scLayout(){
-  const m = new THREE.Matrix4(), on = i => i < SCX.n, beam = XQ.cfg.glow;
+  const beam = XQ.cfg.glow;
   for (const s of scSlots){
-    const k = on(s.i) ? 1 : 0;
-    m.makeScale(s.r * k, s.h * k, s.r * k).setPosition(s.lx, 0, s.lz); scDrum.setMatrixAt(s.i, m);
-    m.makeScale(s.r * k, k, s.r * k).setPosition(s.lx, s.h, s.lz); scBand.setMatrixAt(s.i, m);
-    m.makeScale(s.r * 1.9 * k, k, s.r * 1.9 * k).setPosition(s.lx, .07, s.lz); scPool.setMatrixAt(s.i, m);
-    m.makeScale(s.r * k * (beam ? 1 : 0), (s.i ? 6 : 8.5) * k, s.r * k * (beam ? 1 : 0)).setPosition(s.lx, s.h, s.lz); scBeam.setMatrixAt(s.i, m);
-    scBand.setColorAt(s.i, scBandCol(s.i)); scPool.setColorAt(s.i, scBandCol(s.i)); scBeam.setColorAt(s.i, scBandCol(s.i));
-    s.tt.visible = !!k;
+    const i = s.i, h = s.h;
+    scStep.setMatrixAt(i, scMat(s, 0, 0, 0, SC_BW + .5, .15, SC_BD + .5));
+    scBlock.setMatrixAt(i, scMat(s, 0, 0, 0, SC_BW, h, SC_BD));
+    scBand.setMatrixAt(i, scMat(s, 0, h - .11, 0, SC_BW + .04, .05, SC_BD + .04));
+    scDisc.setMatrixAt(i, scMat(s, s.cx, h, s.cz, 2.75, .05, 2.75));
+    scRim.setMatrixAt(i, scMat(s, s.cx, h + .05, s.cz, 2.77, 1, 2.77));
+    scPool.setMatrixAt(i, scMat(s, 0, .07, .6, SC_BW * .85, 1, SC_BD * .75));
+    scPool.setMatrixAt(SC_N + i, scMat(s, s.fx, h + .012, s.fz, 1.15, 1, 1.15));
+    if (i < SC_TOP) scBeam.setMatrixAt(i, scMat(s, s.cx, h, s.cz, beam ? 2.75 : 0, beam ? (i ? 6.5 : 9) : 0, beam ? 2.75 : 0));
+    const c = scBandCol(i); scBand.setColorAt(i, c); scPool.setColorAt(i, c); scPool.setColorAt(SC_N + i, c); if (i < SC_TOP) scBeam.setColorAt(i, c);
   }
-  for (const im of [scDrum, scBand, scPool, scBeam]){ im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; }
-  scColliders();
-}
-/* pedestals that are put away (流畅档的后排) and the whole plaza in 黑洞 mode leave no invisible walls behind */
-function scColliders(){
-  for (const s of scSlots){
-    const want = s.i < SCX.n && SCX.mode !== 'hole', at = colliders.indexOf(s.col);
-    if (want && at < 0) colliders.push(s.col); else if (!want && at >= 0) colliders.splice(at, 1);
-  }
+  for (const im of [scStep, scBlock, scBand, scDisc, scRim, scPool, scBeam]){ im.instanceMatrix.needsUpdate = true; if (im.instanceColor) im.instanceColor.needsUpdate = true; }
 }
 
-/* the signs: one canvas holds all of them (2 columns x 8 rows of 512 x 128), one merged mesh shows them on little lecterns */
-const scAtlasC = document.createElement('canvas'); scAtlasC.width = 1024; scAtlasC.height = 1024;
+/* colliders: every booth is a box (with its step), the two flower stands in front are posts; none of them in 黑洞 mode */
+const SC_STAND_X = SC_BW / 2 - .15, SC_STAND_Z = SC_BD / 2 + .72;
+for (const s of scSlots){
+  s.cols.push({t:0, cx:s.wx, cz:s.wz, hx:SC_BW / 2 + .25, hz:SC_BD / 2 + .25, c:Math.cos(SC_ROT + s.a), s:Math.sin(SC_ROT + s.a)});
+  for (const sx of [-1, 1]){ const [px, pz] = scW(...s.toPlaza(sx * SC_STAND_X, SC_STAND_Z)); s.cols.push({t:1, cx:px, cz:pz, r:.5}); }
+}
+const scAllCols = () => scSlots.reduce((a, s) => a.concat(s.cols), []).concat(SCX.bannerCol ? [SCX.bannerCol] : []);
+function scColliders(){
+  const want = SCX.mode !== 'hole';
+  for (const c of scAllCols()){ const at = colliders.indexOf(c); if (want && at < 0) colliders.push(c); else if (!want && at >= 0) colliders.splice(at, 1); }
+}
+
+/* the name plates on the front of the booths: one canvas holds all of them (2 columns x 4 rows of 512 x 128), one merged mesh shows them */
+const scAtlasC = document.createElement('canvas'); scAtlasC.width = 1024; scAtlasC.height = 512;
 const scAtlas = new THREE.CanvasTexture(scAtlasC); scAtlas.anisotropy = ANISO;
 const scSignMat = new THREE.MeshBasicMaterial({map:scAtlas, toneMapped:false});
+const scTrimMat = M('#24262b', {roughness:.4, metalness:.6});
 {
-  const faces = [], posts = [], SW = 2.5, SH = SW / 4;
+  const faces = [], frames = [];
   for (const s of scSlots){
-    const col = s.i % 2, row = s.i >> 1, u0 = col * .5, u1 = u0 + .5, v1 = 1 - row / 8, v0 = v1 - 1 / 8, z = s.lz + s.r + .75, tilt = -.42;
-    const g = new THREE.PlaneGeometry(SW, SH), uv = g.attributes.uv;
+    const col = s.i % 2, row = s.i >> 1, u0 = col * .5, u1 = u0 + .5, v1 = 1 - row / 4, v0 = v1 - 1 / 4;
+    const ph = Math.min(.74, s.h - .27), pw = ph * 4, py = .2 + (s.h - .2) / 2, pz = SC_BD / 2;
+    const g = new THREE.PlaneGeometry(pw, ph), uv = g.attributes.uv;
     for (let k = 0; k < uv.count; k++) uv.setXY(k, uv.getX(k) ? u1 : u0, uv.getY(k) ? v1 : v0);
-    g.rotateX(tilt); g.translate(s.lx, .95, z + .02); faces.push(g);
-    posts.push(new THREE.BoxGeometry(SW + .14, SH + .14, .06).rotateX(tilt).translate(s.lx, .95, z - .025), new THREE.BoxGeometry(.12, .8, .12).translate(s.lx, .4, z - .12),
-      new THREE.BoxGeometry(.7, .05, .4).translate(s.lx, .025, z - .12));
+    g.applyMatrix4(scMat(s, 0, py, pz + .05, 1, 1, 1)); faces.push(g);
+    frames.push(new THREE.BoxGeometry(pw + .12, ph + .12, .05).applyMatrix4(scMat(s, 0, py, pz + .005, 1, 1, 1)));
   }
-  const faceGeo = geoMergeUV(faces), postGeo = geoMerge(posts);
-  scRoot.add(new THREE.Mesh(faceGeo, scSignMat));
-  const pm = new THREE.Mesh(postGeo, M('#24262b', {roughness:.4, metalness:.6})); pm.castShadow = true; scRoot.add(pm);
-  /* merged non-indexed, in slot order: each sign face is 6 vertices (18 floats), each lectern 3 boxes of 36 (324 floats) */
-  SCX.faceGeo = faceGeo; SCX.postGeo = postGeo;
-}
-function scSignShow(){
-  /* collapse the hidden slots' signs to a point (cheaper than splitting the mesh) */
-  const fp = SCX.faceGeo.attributes.position, pp = SCX.postGeo.attributes.position;
-  if (!SCX.face0){ SCX.face0 = fp.array.slice(); SCX.post0 = pp.array.slice(); }
-  for (const s of scSlots){
-    const on = s.i < SCX.n;
-    for (let k = s.i * 18; k < s.i * 18 + 18; k++) fp.array[k] = on ? SCX.face0[k] : 0;
-    for (let k = s.i * 324; k < s.i * 324 + 324; k++) pp.array[k] = on ? SCX.post0[k] : 0;
-  }
-  fp.needsUpdate = pp.needsUpdate = true;
+  scRoot.add(new THREE.Mesh(geoMergeUV(faces), scSignMat));
+  const fm = new THREE.Mesh(geoMerge(frames), scTrimMat); scRoot.add(fm);
 }
 function scRoundRect(g, x, y, w, h, r){ g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
 function scDrawSigns(){
-  const g = scAtlasC.getContext('2d'); g.clearRect(0, 0, 1024, 1024);
+  const g = scAtlasC.getContext('2d'); g.clearRect(0, 0, 1024, 512);
   const F = '"Noto Sans SC",sans-serif';
   for (const s of scSlots){
     const e = SCX.list[s.i], x = (s.i % 2) * 512, y = (s.i >> 1) * 128;
@@ -202,8 +239,8 @@ function scDrawSigns(){
     const bg = g.createLinearGradient(0, 0, 0, 128); bg.addColorStop(0, '#1d2230'); bg.addColorStop(1, '#10131b'); g.fillStyle = bg; g.fillRect(0, 0, 512, 128);
     const ac = '#' + scBandCol(s.i).getHexString(); g.fillStyle = ac; g.fillRect(0, 0, 512, 5); g.fillRect(0, 123, 512, 5);
     /* rank badge */
-    g.fillStyle = s.i < 3 ? ac : '#2f3647'; g.beginPath(); g.arc(62, 64, 42, 0, 7); g.fill();
-    g.fillStyle = s.i < 3 ? '#1a1a1a' : '#e8edf5'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `900 ${s.i < 9 ? 50 : 40}px ${F}`; g.fillText(String(s.i + 1), 62, 67);
+    g.fillStyle = s.i < SC_TOP ? ac : '#2f3647'; g.beginPath(); g.arc(62, 64, 42, 0, 7); g.fill();
+    g.fillStyle = s.i < SC_TOP ? '#1a1a1a' : '#e8edf5'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = `900 52px ${F}`; g.fillText(String(s.i + 1), 62, 67);
     g.textAlign = 'left';
     if (e){
       let nx = 124;
@@ -213,13 +250,15 @@ function scDrawSigns(){
       }
       g.fillStyle = '#ffffff'; g.font = `700 38px ${F}`; let nm = e.name; while (g.measureText(nm).width > 496 - nx && nm.length > 1) nm = nm.slice(0, -1);
       g.fillText(nm, nx, 38);
-      g.font = `500 26px ${F}`; g.fillStyle = '#aab4c4'; g.fillText(scCarName(e.kind), 124, 92);
-      const cw = g.measureText(scCarName(e.kind)).width;
-      g.font = `900 30px ${F}`; g.fillStyle = ac; g.textAlign = 'right'; g.fillText(scFmt(e.value), 496, 92);
-      if (cw > 496 - 124 - g.measureText(scFmt(e.value)).width - 12){ /* very long car names: the value wins */ }
+      g.font = `500 22px ${F}`; g.fillStyle = '#8f9ab0'; g.fillText('总资产', 124, 93);
+      const vx = 124 + g.measureText('总资产 ').width;
+      g.font = `900 34px ${F}`; g.fillStyle = ac; g.fillText(scFmt(e.value), vx, 93);
+      const vEnd = vx + g.measureText(scFmt(e.value)).width, cn = e.kind ? scCarName(e.kind) : '还没有车';
+      g.font = `500 22px ${F}`; g.fillStyle = '#aab4c4'; g.textAlign = 'right';
+      if (g.measureText(cn).width < 496 - vEnd - 14) g.fillText(cn, 496, 93);   /* long car names give way to the number */
     } else {
       g.fillStyle = '#c9d1de'; g.font = `700 34px ${F}`; g.fillText('虚位以待', 124, 46);
-      g.fillStyle = '#8590a3'; g.font = `500 22px ${F}`; g.fillText(window.XNet && XNet.online ? '买车改装，冲上全服豪车榜' : '联机后全服最贵的车停在这里', 124, 90);
+      g.fillStyle = '#8590a3'; g.font = `500 22px ${F}`; g.fillText(window.XNet && XNet.online ? '全服总资产前七名站上展台' : '联机后全服最有钱的七位站在这里', 124, 90);
     }
     g.restore();
   }
@@ -233,18 +272,154 @@ function scDrawSigns(){
     g.fillStyle = '#e3b95a'; g.fillRect(0, 0, w, 8); g.fillRect(0, h - 8, w, 8);
     g.textAlign = 'center'; g.textBaseline = 'middle';
     g.font = '900 104px "Noto Serif SC","Noto Sans SC",serif'; g.fillStyle = '#f3d68c'; g.fillText('豪 车 展 台', w / 2, 104);
-    g.font = '500 34px "Noto Sans SC",sans-serif'; g.fillStyle = '#c3cad6'; g.fillText('XMUM AUTO SALON · 按整车价值排位，越豪华越靠前', w / 2, 196);
+    g.font = '500 34px "Noto Sans SC",sans-serif'; g.fillStyle = '#c3cad6'; g.fillText('XMUM AUTO SALON · 全服总资产前七名，人和爱车一起上台', w / 2, 196);
   };
   const t = scTex(1024, 256, draw);
-  /* the web font may arrive after this file runs: draw the banner and the signs again once it is there */
+  /* the web font may arrive after this file runs: draw the banner and the plates again once it is there */
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { draw(t.image.getContext('2d'), 1024, 256); t.needsUpdate = true; if (SCX.list.length) scDrawSigns(); });
-  const W = 8.4, H = W / 4, z = -SC_HD + 1, y = 3.2;
+  const W = 8.4, H = W / 4, z = -SC_HD + 1, y = 3.6;
   const board = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshBasicMaterial({map:t, toneMapped:false})); board.position.set(0, y, z + .06); scRoot.add(board);
   const frame = new THREE.Mesh(geoMerge([new THREE.BoxGeometry(W + .3, H + .3, .1).translate(0, y, z), new THREE.BoxGeometry(.22, y + H / 2, .22).translate(-W / 2 - .1, (y + H / 2) / 2, z - .1),
-    new THREE.BoxGeometry(.22, y + H / 2, .22).translate(W / 2 + .1, (y + H / 2) / 2, z - .1)]), M('#24262b', {roughness:.4, metalness:.6}));
+    new THREE.BoxGeometry(.22, y + H / 2, .22).translate(W / 2 + .1, (y + H / 2) / 2, z - .1)]), scTrimMat);
   frame.castShadow = true; scRoot.add(frame);
-  const [bx, bz] = scW(0, z - .1); addBox(bx, bz, W / 2 + .3, .3, SC_ROT);
+  const [bx, bz] = scW(0, z - .1); SCX.bannerCol = {t:0, cx:bx, cz:bz, hx:W / 2 + .3, hz:.3, c:Math.cos(SC_ROT), s:Math.sin(SC_ROT)};
 }
+
+/* ---------- flowers: a pair of opening-day flower stands in front of every booth (two tiers for the front three) and a flower bed along their step ---------- */
+const scStandMat = M('#b8934a', {roughness:.35, metalness:.7}), scRibbonMat = M('#c4262e', {roughness:.6, side:THREE.DoubleSide});
+{
+  const legs = [], ribbons = [];
+  for (const s of scSlots){
+    const top = s.i < SC_TOP, H = top ? 2.05 : 1.45;
+    for (const sx of [-1, 1]){
+      const x = sx * SC_STAND_X, z = SC_STAND_Z;
+      for (let k = 0; k < 3; k++){
+        const an = k * 2.094 + .5, ox = Math.cos(an) * .32, oz = Math.sin(an) * .32;
+        const leg = new THREE.CylinderGeometry(.02, .025, H + .04, 5); leg.rotateZ(-ox * .18); leg.rotateX(oz * .18); leg.translate(x + ox / 2, H / 2, z + oz / 2);
+        legs.push(leg.applyMatrix4(s.m));
+      }
+      legs.push(new THREE.CylinderGeometry(.3, .16, .2, 10).translate(x, H - .05, z).applyMatrix4(s.m));
+      if (top) legs.push(new THREE.CylinderGeometry(.24, .13, .16, 10).translate(x, H - .78, z).applyMatrix4(s.m));
+      /* two red ribbons hanging from the arrangement, a little turned out */
+      for (const r of [-1, 1]) ribbons.push(new THREE.PlaneGeometry(.14, top ? 1.25 : .85).translate(0, -(top ? .62 : .42), 0).rotateY(r * .35)
+        .translate(x + r * .22, H - .12, z + .3).applyMatrix4(s.m));
+    }
+  }
+  const lm = new THREE.Mesh(geoMerge(legs), scStandMat); lm.castShadow = true; scRoot.add(lm);
+  scRoot.add(new THREE.Mesh(geoMerge(ribbons), scRibbonMat));
+}
+const SC_FLORA = [
+  ['#d92b3a', '#f4c430', '#ffffff', '#e8485a'],    /* 1: red and gold */
+  ['#f39ab9', '#ffffff', '#f6d3e1', '#e46b9a'],    /* 2: pink and white */
+  ['#9c6ad8', '#ffffff', '#f2a65a', '#c8a5f0'],    /* 3: violet, white, apricot */
+  ['#f07f2a', '#f4c430', '#ffffff', '#e8485a', '#f39ab9']
+];
+const SC_LEAF = new THREE.Color('#3f8a3a');
+const SC_BLOOMS = 1800;
+const scBloom = scIM(new THREE.IcosahedronGeometry(1, 0), M('#ffffff', {roughness:.75}), SC_BLOOMS);
+scBloom.castShadow = false;
+function scFlowers(){
+  const dense = XQ.cfg.particles >= .5, mm = new THREE.Matrix4(), q = new THREE.Quaternion(), col = new THREE.Color();
+  let n = 0;
+  const put = (s, x, y, z, r, c, flat) => {
+    if (n >= SC_BLOOMS) return;
+    q.setFromAxisAngle(scY, x * 7 + z * 3);
+    mm.compose(new THREE.Vector3(x, y, z), q, new THREE.Vector3(r * (flat ? 1.5 : 1), r * (flat ? .35 : .8), r * (flat ? 1.5 : 1)));
+    scBloom.setMatrixAt(n, new THREE.Matrix4().multiplyMatrices(s.m, mm)); scBloom.setColorAt(n, flat ? SC_LEAF : col.set(c)); n++;
+  };
+  for (const s of scSlots){
+    const top = s.i < SC_TOP, H = top ? 2.05 : 1.45, pal = SC_FLORA[Math.min(3, s.i)], rr = mkRng(77 + s.i * 13);
+    const pick = () => pal[rr() * pal.length | 0];
+    for (const sx of [-1, 1]){
+      const x0 = sx * SC_STAND_X, z0 = SC_STAND_Z;
+      /* a dome of blooms (fibonacci sphere, upper part), leaves round its base; a second ring lower down for the front three */
+      const dome = (y0, R, cnt) => {
+        const c = dense ? cnt : cnt >> 1;
+        for (let k = 0; k < c; k++){
+          const t = (k + .5) / c, yy = 1 - t * 1.25, rad = Math.sqrt(Math.max(0, 1 - yy * yy)), th = k * 2.39996;
+          put(s, x0 + Math.cos(th) * rad * R, y0 + yy * R * .8, z0 + Math.sin(th) * rad * R, .085 + rr() * .045, pick());
+        }
+        for (let k = 0; k < (dense ? 10 : 6); k++){ const th = k / (dense ? 10 : 6) * 6.283; put(s, x0 + Math.cos(th) * R * .95, y0 - R * .3, z0 + Math.sin(th) * R * .95, .14, null, true); }
+      };
+      dome(H + .12, top ? .5 : .38, top ? 80 : 46);
+      if (top) dome(H - .68, .36, 40);
+    }
+    /* flower bed on the step, in front of the plate, front three only */
+    if (top) for (let k = 0, c = dense ? 54 : 26; k < c; k++){
+      const t = k / (c - 1), x = (t - .5) * (SC_BW - .5), z = SC_BD / 2 + .12 + (k % 2) * .14;
+      if (k % 3 === 0) put(s, x, .2, z, .12, null, true);
+      put(s, x, .25 + rr() * .05, z, .075 + rr() * .03, pick());
+    }
+  }
+  scBloom.count = n; scBloom.instanceMatrix.needsUpdate = true; if (scBloom.instanceColor) scBloom.instanceColor.needsUpdate = true;
+}
+
+/* ---------- fireworks ---------- */
+const SC_FW = {cap:900, n:0, rockets:[], pos:null, col:null, v:null, life:null, max:null, base:null};
+SC_FW.pos = new Float32Array(SC_FW.cap * 3); SC_FW.col = new Float32Array(SC_FW.cap * 3); SC_FW.v = new Float32Array(SC_FW.cap * 3);
+SC_FW.life = new Float32Array(SC_FW.cap); SC_FW.max = new Float32Array(SC_FW.cap); SC_FW.base = new Float32Array(SC_FW.cap * 3);
+const scFwGeo = new THREE.BufferGeometry();
+scFwGeo.setAttribute('position', new THREE.BufferAttribute(SC_FW.pos, 3).setUsage(THREE.DynamicDrawUsage));
+scFwGeo.setAttribute('color', new THREE.BufferAttribute(SC_FW.col, 3).setUsage(THREE.DynamicDrawUsage));
+scFwGeo.setDrawRange(0, 0);
+const scDot = scTex(64, 64, (g, w) => { const gr = g.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.35, 'rgba(255,255,255,.8)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, w); });
+const scFwMat = new THREE.PointsMaterial({size:.55, map:scDot, vertexColors:true, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, fog:false, toneMapped:false});
+const scFw = new THREE.Points(scFwGeo, scFwMat); scFw.frustumCulled = false; scFw.visible = false; scFw.renderOrder = 4; scRoot.add(scFw);
+const SC_FW_COLS = ['#ffd36a', '#ff5a6e', '#7fd4ff', '#b48cff', '#7cf0a0', '#ffffff', '#ff9a3c'];
+function scSpark(x, y, z, vx, vy, vz, life, c){
+  const F = SC_FW; if (F.n >= F.cap) return; const i = F.n++, j = i * 3;
+  F.pos[j] = x; F.pos[j + 1] = y; F.pos[j + 2] = z; F.v[j] = vx; F.v[j + 1] = vy; F.v[j + 2] = vz;
+  F.life[i] = F.max[i] = life; F.base[j] = c.r; F.base[j + 1] = c.g; F.base[j + 2] = c.b;
+}
+/* one rocket from behind booth i (or a random spot behind the fan) */
+function scFire(i, big){
+  if (!scRoot.visible) return;
+  const s = scSlots[i] || scSlots[0], back = s.toPlaza((Math.random() - .5) * 3, -SC_BD / 2 - 1.5);
+  const c1 = new THREE.Color(SC_FW_COLS[Math.random() * SC_FW_COLS.length | 0]), c2 = Math.random() < .5 ? new THREE.Color('#ffffff') : c1.clone().offsetHSL(.12, 0, 0);
+  SC_FW.rockets.push({x:back[0], y:s.h + .5, z:back[1], vy:big ? 21 : 18, t:0, at:big ? 1.25 : 1 + Math.random() * .25, c1, c2,
+    n:Math.round((big ? 150 : 100) * XQ.pick(.4, .75, 1)), ring:Math.random() < .3});
+  scFw.visible = true;
+}
+function scBurst(r){
+  for (let k = 0; k < r.n; k++){
+    let vx, vy, vz;
+    if (r.ring){ const th = k / r.n * 6.283; vx = Math.cos(th); vy = Math.sin(th) * .35 + .15; vz = Math.sin(th); }
+    else { const u = Math.random() * 2 - 1, th = Math.random() * 6.283, q = Math.sqrt(1 - u * u); vx = q * Math.cos(th); vy = u; vz = q * Math.sin(th); }
+    const sp = 7 + Math.random() * 2.5;
+    scSpark(r.x, r.y, r.z, vx * sp, vy * sp + 1, vz * sp, 1.3 + Math.random() * .8, k % 3 ? r.c1 : r.c2);
+  }
+  /* a soft, distant thump; never loud, and only when you are close enough to see it */
+  if (typeof tone === 'function' && Math.hypot(camera.position.x - SC_X, camera.position.z - SC_Z) < 120) try { tone('sine', 110, 45, .35, .025); } catch(e){}
+}
+function scFwStep(dt){
+  const F = SC_FW, G = 4.5, drag = Math.exp(-1.6 * dt), day = scFwMat.blending !== THREE.AdditiveBlending;
+  for (let k = F.rockets.length - 1; k >= 0; k--){
+    const r = F.rockets[k]; r.t += dt; r.y += r.vy * dt; r.vy -= 3 * dt;
+    scSpark(r.x + (Math.random() - .5) * .1, r.y, r.z + (Math.random() - .5) * .1, (Math.random() - .5) * .6, -1.5, (Math.random() - .5) * .6, .45, SC_FW_TRAIL);
+    if (r.t >= r.at){ scBurst(r); F.rockets.splice(k, 1); }
+  }
+  for (let i = 0; i < F.n; i++){
+    F.life[i] -= dt;
+    if (F.life[i] <= 0){
+      const last = --F.n; if (i !== last){
+        const a = i * 3, b = last * 3;
+        for (let c = 0; c < 3; c++){ F.pos[a + c] = F.pos[b + c]; F.v[a + c] = F.v[b + c]; F.base[a + c] = F.base[b + c]; }
+        F.life[i] = F.life[last]; F.max[i] = F.max[last];
+      }
+      i--; continue;
+    }
+    const j = i * 3;
+    F.v[j] *= drag; F.v[j + 2] *= drag; F.v[j + 1] = F.v[j + 1] * drag - G * dt;
+    F.pos[j] += F.v[j] * dt; F.pos[j + 1] += F.v[j + 1] * dt; F.pos[j + 2] += F.v[j + 2] * dt;
+    /* at night a spark fades to black (= invisible when added); by day the dots are drawn over the sky, so they keep their colour to the end */
+    const f = F.life[i] / F.max[i], b = day ? 1 : f > .3 ? 1 : f / .3, tw = (day ? .88 : .75) + (day ? .12 : .25) * Math.sin(F.life[i] * 40 + i);
+    F.col[j] = F.base[j] * b * tw; F.col[j + 1] = F.base[j + 1] * b * tw; F.col[j + 2] = F.base[j + 2] * b * tw;
+  }
+  scFwGeo.setDrawRange(0, F.n);
+  scFwGeo.attributes.position.needsUpdate = true; scFwGeo.attributes.color.needsUpdate = true;
+  if (!F.n && !F.rockets.length) scFw.visible = false;
+}
+const SC_FW_TRAIL = new THREE.Color('#ffc27a');
 
 /* ---------- the cars ---------- */
 function scDrop(s){
@@ -252,13 +427,13 @@ function scDrop(s){
   s.tt.remove(s.car.root); s.car.paint.dispose(); s.car = null; s.key = '';
 }
 function scBuild(s, e){
-  const key = e ? e.kind + '|' + e.look : '';
+  const key = e && e.kind ? e.kind + '|' + e.look : '';
   if (key === s.key) return;
-  scDrop(s); s.key = key; if (!e) return;
+  scDrop(s); s.key = key; if (!key) return;
   const stock = (scShop(e.kind) || {}).color || '#888888';
   const c = makeCar(e.kind, stock, 0, 0, 0);
   const i = cars.indexOf(c); if (i >= 0) cars.splice(i, 1);    /* scenery only: no physics, no traffic, nobody can drive it off */
-  scene.remove(c.root); s.tt.add(c.root); c.root.position.set(0, .01, 0); c.root.rotation.set(0, 0, 0);
+  scene.remove(c.root); s.tt.add(c.root); c.root.position.set(0, .01, 0); c.root.rotation.set(0, 0, 0); c.root.scale.setScalar(SC_CAR_S);
   const L = scParse(e.look);
   try { carPaint(c, L.paint, L.decal, stock); } catch(err){}
   try { tnApply(c, L.fit); } catch(err){}
@@ -267,49 +442,120 @@ function scBuild(s, e){
   s.car = c; SCX.k = -1;
 }
 
-/* ---------- who stands where ---------- */
-function scRank(){
-  const mine = scMine(), online = !!(window.XNet && XNet.online);
-  const me = mine ? Object.assign({uid:online ? XNet.uid : 'me', name:(online && XNet.claimedName && XNet.claimedName()) || scMyName(), mine:true}, mine) : null;
-  let real = [], fill = [];
-  if (online && SCX.remote){
-    real = SCX.remote.filter(r => r.uid !== XNet.uid);
-    if (me) real.push(me);
-    fill = SC_DEMOS.slice().sort((a, b) => b.value - a.value);
-  } else {
-    real = SC_DEMOS.concat(me ? [me] : []);
+/* ---------- the 奶娃 on the booths: their own look, a car-show pose ---------- */
+/* arm angles as in js/30-naiwa.js animNaiwa (left arm; the right one mirrors z). near = the arm on the car's side */
+const SC_ARM = {
+  rest:{sx:-.32, sz:.36, ex:-1.22, ez:-.32},
+  hip:{sx:.05, sz:.95, ex:-.35, ez:-1.3},          /* elbows out, hands on the hips (clear of even the chubbiest belly) */
+  up:{sx:-.1, sz:2.75, ex:-.3, ez:0},
+  wave:{sx:-.35, sz:2.45, ex:-1.75, ez:-.2},
+  show:{sx:-.62, sz:1.2, ex:-.28, ez:.12},
+  flex:{sx:-.1, sz:1.42, ex:0, ez:1.75}             /* both upper arms out, forearms up: the arms are too short to fold across the belly */
+};
+/* target for one pose at time T: {near, far, ry (turn towards the car), roll, lean, lift, legs (stance), mouth} */
+function scPoseAt(pose, T, ph){
+  const A = SC_ARM, o = {near:A.hip, far:A.hip, ry:0, roll:0, lean:-.04, lift:0, legs:.09, mouth:.018};
+  if (pose === 'hip'){ o.roll = .05 * Math.sin(T * .9 + ph); o.ry = .1 * Math.sin(T * .45 + ph); }
+  else if (pose === 'wave'){ o.far = Object.assign({}, A.wave, {ez:-.2 + .38 * Math.sin(T * 7 + ph)}); o.roll = -.06; o.mouth = .035; o.ry = .12; }
+  else if (pose === 'cheer'){
+    const b = Math.abs(Math.sin(T * 3.4 + ph));
+    o.near = Object.assign({}, A.up, {sz:A.up.sz + .14 * Math.sin(T * 6.8 + ph)}); o.far = Object.assign({}, A.up, {sz:A.up.sz - .14 * Math.sin(T * 6.8 + ph)});
+    o.lift = b * .1; o.mouth = .075; o.lean = -.1; o.legs = .05;
   }
-  real.sort((a, b) => b.value - a.value || (a.ts || 0) - (b.ts || 0));
-  const out = real.slice(0, SCX.n);
-  /* offline your own car is always on show: if the demos crowd it out, it takes the last place */
-  if (!(online && SCX.remote) && me && !out.includes(me)) out[SCX.n - 1] = me;
-  for (const d of fill){ if (out.length >= SCX.n) break; out.push(d); }
-  while (out.length < SC_N) out.push(null);
-  return out.slice(0, SC_N).map((e, i) => i < SCX.n ? e : null);
+  else if (pose === 'show'){ o.near = A.show; o.ry = .32; o.roll = .05; o.lean = -.03; o.mouth = .03; }
+  else if (pose === 'flex'){ const f = .12 * Math.sin(T * 2.6 + ph); o.near = Object.assign({}, A.flex, {ez:A.flex.ez + f}); o.far = Object.assign({}, A.flex, {ez:A.flex.ez - f}); o.lean = -.08; o.legs = .13; o.mouth = .03; }
+  return o;
 }
+const SC_PK = ['sx', 'sz', 'ex', 'ez'];
+function scFigure(s, e){
+  const wear = e ? e.wear || '' : null;
+  if (wear === s.wear) return;
+  s.wear = wear;
+  if (wear == null){ if (s.fig) s.fig.root.visible = false; return; }
+  if (!s.fig){ s.fig = makeNaiwa(); s.fg.add(s.fig.root); }
+  try { nwDress(s.fig, wdLookParse(wear), {shadow:XQ.atLeast('mid')}); } catch(err){ console.warn('[showcase] 换装失败', err); }
+  s.fig.root.visible = true;
+  s.P = null; scGlowFig(s, Math.max(0, SCX.k));
+}
+/* after dark the 奶娃 are lit as if by the booth spotlights: every material of the figure glows a little in its own colour.
+   Each figure has its own materials (js/32-wardrobe.js builds them per item); the glowing skins keep their own emissive map. */
+function scGlowFig(s, k){
+  if (!s.fig) return;
+  s.fig.root.traverse(m => {
+    if (!m.isMesh) return;
+    for (const x of [].concat(m.material)) if (x && x.emissive && !x.emissiveMap){
+      if (x.map) x.emissive.setScalar(.1 * k);                  /* printed skins (星空, 鎏金…): a little light, or the print washes out */
+      else x.emissive.copy(x.color).multiplyScalar(.25 * k);
+    }
+  });
+}
+function scAnimFig(s, dt, T){
+  const N = s.fig, e = SCX.list[s.i]; if (!N || !N.root.visible || !e) return;
+  let pose = e.pose;
+  if (!SC_POSES[pose] || pose === 'auto') pose = SC_CYCLE[Math.floor((T + s.i * 2.7) / 6.5) % SC_CYCLE.length];
+  const t = scPoseAt(pose, T, s.i * 1.7), near = s.sd > 0, k = s.P ? 1 - Math.exp(-dt * 5) : 1;
+  /* the car is on the figure's +x (left arm) side when sd > 0 */
+  const tl = near ? t.near : t.far, tr = near ? t.far : t.near;
+  const P = s.P || (s.P = {L:{}, R:{}, ry:0, roll:0, lean:0, lift:0, legs:0, mouth:.018});
+  for (const q of SC_PK){ P.L[q] = (P.L[q] == null ? tl[q] : P.L[q] + (tl[q] - P.L[q]) * k); P.R[q] = (P.R[q] == null ? tr[q] : P.R[q] + (tr[q] - P.R[q]) * k); }
+  for (const q of ['ry', 'roll', 'lean', 'lift', 'legs', 'mouth']){ const v = q === 'ry' ? t.ry * s.sd : q === 'roll' ? t.roll * s.sd : t[q]; P[q] += (v - P[q]) * k; }
+  const [aL, aR] = N.arms, [eL, eR] = N.elbows, [lL, lR] = N.legs;
+  aL.rotation.set(P.L.sx, 0, P.L.sz); aR.rotation.set(P.R.sx, 0, -P.R.sz);
+  eL.rotation.set(P.L.ex, 0, P.L.ez); eR.rotation.set(P.R.ex, 0, -P.R.ez);
+  lL.rotation.set(0, 0, P.legs); lR.rotation.set(0, 0, -P.legs);
+  N.body.rotation.set(P.lean, 0, P.roll); N.body.position.y = P.lift + Math.sin(T * 2 + s.i) * .006;
+  N.root.rotation.y = P.ry;
+  N.mouth.scale.y = Math.max(.018, P.mouth * .9);
+  const blink = ((T + s.i * .9) % 3.7) < .12 ? .1 : 1; N.eyes[0].scale.y = N.eyes[1].scale.y = blink;
+}
+
+/* ---------- who stands where ---------- */
 function scMyName(){
   try { if (window.XUI && typeof XUI.playerName === 'function'){ const n = String(XUI.playerName() || ''); if (n) return n; } } catch(e){}
   try { return localStorage.getItem('xmum-name') || '我'; } catch(e){ return '我'; }
 }
+function scRank(){
+  const mine = scMine(), online = !!(window.XNet && XNet.online);
+  const me = Object.assign({uid:online ? XNet.uid : 'me', name:(online && XNet.claimedName && XNet.claimedName()) || scMyName(), mine:true}, mine);
+  let real, fill = [];
+  if (online && SCX.remote){
+    real = SCX.remote.filter(r => r.uid !== XNet.uid).concat([me]);
+    fill = SC_DEMOS.slice().sort((a, b) => b.value - a.value);
+  } else real = SC_DEMOS.concat([me]);
+  real.sort((a, b) => b.value - a.value || (a.ts || 0) - (b.ts || 0));
+  const out = real.slice(0, SC_N);
+  /* offline you are always on show: if the demos crowd you out, you take the last place */
+  if (!(online && SCX.remote) && !out.includes(me)) out[SC_N - 1] = me;
+  for (const d of fill){ if (out.length >= SC_N) break; out.push(d); }
+  while (out.length < SC_N) out.push(null);
+  return out;
+}
 function scRefresh(){
   SCX.list = scRank();
-  for (const s of scSlots) scBuild(s, SCX.list[s.i]);
+  for (const s of scSlots){ const e = SCX.list[s.i]; scBuild(s, e); scFigure(s, e); }
   scDrawSigns();
+  /* someone new on a booth, or a place changed hands: one rocket from each booth that changed (two at most) */
+  const sig = SCX.list.map(e => e ? e.uid : '');
+  if (SCX.sig){ let n = 0; for (let i = 0; i < SC_N && n < 2; i++) if (sig[i] !== SCX.sig[i] && sig[i]){ setTimeout(() => scFire(i, i === 0), n * 600); n++; } }
+  SCX.sig = sig;
+  if (SCX.my) scMyRender();
 }
-/* my car made the display: a toast when it gets a better place than last time, and the achievement for the front row */
+/* I made the display: a toast when I get a better place than last time, and the achievement for the front three */
 function scCheckMine(){
   const i = SCX.list.findIndex(e => e && e.mine); if (i < 0) return;
   const rank = i + 1, e = SCX.list[i];
-  if (rank <= SC_FRONT && typeof unlock === 'function') unlock('showcase');
+  if (rank <= SC_TOP && typeof unlock === 'function') unlock('showcase');
   if (!SCX.save.best || rank < SCX.save.best || e.kind !== SCX.save.kind){
-    const first = !SCX.save.best;
+    const first = !SCX.save.best, better = SCX.save.best && rank < SCX.save.best;
     SCX.save = {best:rank, kind:e.kind}; scWrite();
-    if (typeof toast === 'function') toast(first ? `你的${scCarName(e.kind)}上了豪车展台` : `你的${scCarName(e.kind)}排到第 ${rank} 名`,
-      `陈华春音乐厅门前 · 第 ${rank} 名 · ${scFmt(e.value)}`, 3000);
+    if (SCX.my && !better && !first) return;   /* a car picked in 我的展位: you are looking at it already */
+    if (typeof toast === 'function') toast(first ? '你上了豪车展台' : better ? `你在豪车展台排到第 ${rank} 名` : `你的展位换上了${scCarName(e.kind) || '新造型'}`,
+      `陈华春音乐厅门前 · 第 ${rank} 名 · 总资产 ${scFmt(e.value)}`, 3000);
     if (typeof sfx !== 'undefined' && sfx.sparkle) sfx.sparkle();
+    if (better || first) for (let k = 0; k < 3; k++) setTimeout(() => scFire(i, k === 2), k * 450);
   }
 }
-if (typeof achAdd === 'function') achAdd([['showcase', '豪车上展', '自己的车停上陈华春音乐厅门前豪车展台的前排（前五名）', 30]]);
+if (typeof achAdd === 'function') achAdd([['showcase', '豪车上展', '自己的奶娃和爱车站上陈华春音乐厅门前豪车展台的前三名', 30]]);
 
 /* ---------- online: /showcase/{uid} ---------- */
 const scDb = () => firebase.app().database();
@@ -319,89 +565,162 @@ async function scFetch(){
   try {
     const snap = await scDb().ref('showcase').orderByChild('value').limitToLast(SC_N + 3).once('value'), out = [];
     snap.forEach(c => {
-      const v = c.val() || {}, kind = String(v.car || ''), look = String(v.look || '');
-      if (!scShop(kind) || !TN_KINDS.includes(kind) || !SC_LOOK_RE.test(look) || typeof v.name !== 'string' || !v.name) return;
-      out.push({uid:c.key, name:v.name.slice(0, 16), kind, look, value:Math.max(0, Math.min(SC_MAX, +v.value || 0)), ts:+v.ts || 0});
+      const v = c.val() || {}, kind = String(v.car || ''), look = String(v.look || ''), wear = String(v.wear || '');
+      if ((kind && !scOkCar(kind)) || !SC_LOOK_RE.test(look) || !SC_WEAR_RE.test(wear) || typeof v.name !== 'string' || !v.name) return;
+      out.push({uid:c.key, name:v.name.slice(0, 16), kind, look:kind ? look : '', wear, pose:SC_POSES[v.pose] ? v.pose : 'auto', value:Math.max(0, Math.min(SC_MAX, +v.value || 0)), ts:+v.ts || 0});
     });
     SCX.remote = out; scRefresh();
   } catch(e){ if (!SCX.warned){ SCX.warned = true; console.warn('[showcase] 读取豪车展台失败', e); } }
 }
-/* my best car goes up when it changes (at most once a minute); only with a registered nickname, the rules check it */
+/* my booth goes up when it changes: a new car / look / pose at most every 8 seconds, a changed 总资产 (more than 1 %) at most once a minute.
+   Only with a registered nickname: the rules check it. */
 async function scPush(){
   if (!scOnline()) return;
   const name = XNet.claimedName ? XNet.claimedName() : ''; if (!name) return;
-  const m = scMine(); if (!m) return;
-  const value = Math.min(SC_MAX, Math.round(m.value)), key = [name, m.kind, m.look, value].join('|');
-  if (key === SCX.sent || Date.now() - SCX.pushT < 60000) return;
-  SCX.pushT = Date.now();
+  const m = scMine(), value = Math.min(SC_MAX, Math.round(m.value)), key = [name, m.kind, m.look, m.wear, m.pose].join('|'), now = Date.now();
+  const moved = Math.abs(value - SCX.sentV) > Math.max(20, SCX.sentV * .01);
+  if (key === SCX.sent ? !(moved && now - SCX.pushT > 60000) : now - SCX.pushT < 8000) return;
+  SCX.pushT = now;
   try {
-    await scDb().ref('showcase/' + XNet.uid).set({name, car:m.kind, look:m.look, value, ts:firebase.database.ServerValue.TIMESTAMP});
-    SCX.sent = key;
+    await scDb().ref('showcase/' + XNet.uid).set({name, car:m.kind, look:m.look, wear:m.wear, pose:m.pose, value, ts:firebase.database.ServerValue.TIMESTAMP});
+    SCX.sent = key; SCX.sentV = value;
   } catch(e){ if (!SCX.warned){ SCX.warned = true; console.warn('[showcase] 写入豪车展台失败（规则还没发布？）', e); } }
 }
 
-/* ---------- details on F ---------- */
+/* ---------- panels: details on F, and 我的展位 ---------- */
 { const st = document.createElement('style'); st.textContent = `
-#scCard{position:fixed;z-index:7;right:12px;top:calc(var(--safe-t, 0px) + 70px);width:300px;max-width:calc(100% - 24px);max-height:calc(100% - 180px);overflow:auto;box-sizing:border-box;
+#scCard,#scMy{position:fixed;z-index:7;right:12px;top:calc(var(--safe-t, 0px) + 70px);width:310px;max-width:calc(100% - 24px);max-height:calc(100% - 180px);overflow:auto;box-sizing:border-box;
   padding:14px 16px 14px;border-top:3px solid var(--gold, #e3b95a);background:var(--panel-solid)}
-#scCard[hidden]{display:none}
-#scCard h2{font-family:var(--display);font-size:20px;margin:6px 28px 2px 0;letter-spacing:.03em}
-#scCard .sc-own{font-size:13px;color:var(--muted);margin:0 0 10px}
-#scCard .sc-own b{color:var(--ink)}
+#scCard[hidden],#scMy[hidden]{display:none}
+#scCard h2,#scMy h2{font-family:var(--display);font-size:20px;margin:6px 28px 2px 0;letter-spacing:.03em}
+#scCard .sc-own,#scMy .sc-own{font-size:13px;color:var(--muted);margin:0 0 10px}
+#scCard .sc-own b,#scMy .sc-own b{color:var(--ink)}
 #scCard .sc-val{font-family:var(--display);font-size:24px;font-weight:900;color:var(--tile);font-variant-numeric:tabular-nums;margin:0}
 #scCard .sc-parts{font-size:12px;color:var(--muted);margin:2px 0 10px;line-height:1.6;font-variant-numeric:tabular-nums}
-#scCard h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:10px 0 5px;font-weight:500}
+#scCard h3,#scMy h3{font-size:12px;letter-spacing:.06em;color:var(--muted);margin:10px 0 5px;font-weight:500}
 #scCard ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:5px}
 #scCard li{font-size:12px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);background:var(--card-bg)}
 #scCard li.r{border-color:#7442c2}#scCard li.l{border-color:#e3b95a;background:rgba(227,185,90,.14)}
-#scCard .sc-note{font-size:12px;color:var(--muted);line-height:1.6;margin:10px 0 0}
-#scCard .sc-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
-@media (max-width:760px){ #scCard{right:12px;left:12px;width:auto;max-width:none;top:auto;bottom:calc(var(--safe-b, 0px) + 200px);max-height:42vh;padding:12px 14px} #scCard h2{font-size:18px} }`; document.head.appendChild(st); }
-const scCard = document.createElement('div'); scCard.className = 'panel'; scCard.id = 'scCard'; scCard.hidden = true; scCard.setAttribute('role', 'dialog'); scCard.setAttribute('aria-label', '展车详情');
-document.body.appendChild(scCard);
-function scClose(){ if (scCard.hidden) return; scCard.hidden = true; SCX.open = -1; }
+#scCard .sc-note,#scMy .sc-note{font-size:12px;color:var(--muted);line-height:1.6;margin:10px 0 0}
+#scCard .sc-row,#scMy .sc-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+#scMy .sc-chips{display:flex;flex-wrap:wrap;gap:6px}
+#scMy .sc-chip{font:inherit;font-size:12px;line-height:1.3;padding:5px 10px;min-height:30px;border-radius:999px;border:1px solid var(--line);background:var(--card-bg);color:var(--ink);cursor:pointer}
+#scMy .sc-chip small{color:var(--muted);margin-left:4px;font-variant-numeric:tabular-nums}
+#scMy .sc-chip.on{background:var(--gold, #e3b95a);border-color:var(--gold, #e3b95a);color:var(--on-accent, #1a1a1a)}
+#scMy .sc-chip.on small{color:inherit;opacity:.75}
+#scMy .sc-slot{display:grid;grid-template-columns:38px 1fr;gap:6px;align-items:start;margin-top:6px}
+#scMy .sc-slot > span{font-size:12px;color:var(--muted);padding-top:7px}
+@media (max-width:760px){ #scCard,#scMy{right:12px;left:12px;width:auto;max-width:none;top:auto;bottom:calc(var(--safe-b, 0px) + 200px);max-height:46vh;padding:12px 14px} #scCard h2,#scMy h2{font-size:18px} }`; document.head.appendChild(st); }
+const scPanel = (id, label) => { const p = document.createElement('div'); p.className = 'panel'; p.id = id; p.hidden = true; p.setAttribute('role', 'dialog'); p.setAttribute('aria-label', label); document.body.appendChild(p); return p; };
+const scCard = scPanel('scCard', '展位详情'), scMyEl = scPanel('scMy', '我的展位');
+/* phones: sit just above the action buttons, whatever their size */
+function scPlace(p){
+  const acts = document.getElementById('acts'), r = acts && !acts.hidden ? acts.getBoundingClientRect() : null;
+  p.style.bottom = innerWidth <= 760 && r && r.height ? Math.round(innerHeight - r.top + 8) + 'px' : '';
+}
+function scClose(){ scCard.hidden = true; SCX.open = -1; scMyEl.hidden = true; SCX.my = false; }
+const scWearNames = wear => { const l = wdLookParse(wear); return Object.keys(WD_DEFAULT).map(s => l[s]).filter(id => id && id !== 'classic' && id !== 'std').map(id => WD.byId[id]).filter(Boolean); };
 function scOpen(i){
   const e = SCX.list[i]; if (!e) return;
-  SCX.open = i;
-  const L = scParse(e.look), fit = e.mine ? scFitOf(e.kind) : L.fit, price = (scShop(e.kind) || {}).price || 0;
-  const mods = e.mods != null ? e.mods : null, paintRM = e.paintRM != null ? e.paintRM : scPaintRM(L.paint, L.decal);
-  const items = TN_SLOTS.map(sl => TN.byKey[sl.id + '.' + fit[sl.id]]).filter(it => it && it.id !== TN.stock[it.slot]);
-  const P = WD_PAINT[L.paint] || WD_PAINT.stock, D = WD_DECAL[L.decal] || WD_DECAL.none;
-  const who = e.demo ? `示范车「${scEsc(e.name)}」` : e.mine ? '你' + (e.name && e.name !== '我' ? '（' + scEsc(e.name) + '）' : '') : scEsc(e.name);
-  const parts = mods != null ? `车价 ${scFmt(price)} · 改装 ${scFmt(mods)} · 喷漆贴花 ${scFmt(paintRM)}` : `车价 ${scFmt(price)} · 改装和喷漆 ${scFmt(Math.max(0, e.value - price))}`;
+  scClose(); SCX.open = i;
+  const cr = e.mine && e.car ? e.car : scCarRM(e.kind, e.look), L = scParse(e.look), fit = e.mine && e.kind ? scFitOf(e.kind) : L.fit;
+  const items = e.kind ? TN_SLOTS.map(sl => TN.byKey[sl.id + '.' + fit[sl.id]]).filter(it => it && it.id !== TN.stock[it.slot]) : [];
+  const P = WD_PAINT[L.paint] || WD_PAINT.stock, D = WD_DECAL[L.decal] || WD_DECAL.none, wear = scWearNames(e.wear);
+  const who = e.demo ? `示范「${scEsc(e.name)}」` : e.mine ? '你' + (e.name && e.name !== '我' ? '（' + scEsc(e.name) + '）' : '') : scEsc(e.name);
   let note = '';
-  if (e.mine) note = scOnline() ? (XNet.claimedName && XNet.claimedName() ? '这是你最贵的一辆，全服玩家路过都能看到。' : '先在标题页注册昵称，你的车才会上全服展台。')
-    : '这是你最贵的一辆。联机时会和全服玩家一起排位。';
-  else if (e.demo) note = scOnline() ? '示范车只用来填空位，真实玩家永远排在它前面。' : '离线时你的车和示范车一起排位，比它们豪华就往中间站。';
+  if (e.mine) note = scOnline() ? (XNet.claimedName && XNet.claimedName() ? '全服玩家路过都能看到你的展位。' : '先在标题页注册昵称，你的展位才会上全服展台。') : '联机时会和全服玩家一起按总资产排位。';
+  else if (e.demo) note = scOnline() ? '示范只用来填空位，真实玩家永远排在它前面。' : '离线时你和示范一起排位，总资产比它们高就往中间站。';
   scCard.innerHTML = `<button class="x" aria-label="关闭">×</button><span class="tag">豪车展台 · 第 ${i + 1} 名</span>
-    <h2>${scEsc(scCarName(e.kind))}</h2><p class="sc-own">车主 <b>${who}</b></p>
-    <p class="sc-val">${scFmt(e.value)}</p><p class="sc-parts">${parts}</p>
-    <h3>外观</h3><ul><li class="${P.tier || 'n'}">${scEsc(P.name)}${P.fin && WD_FIN[P.fin] ? ' · ' + WD_FIN[P.fin].n : ''}</li>${D.id !== 'none' ? `<li class="${D.tier || 'n'}">贴花 · ${scEsc(D.name)}</li>` : ''}</ul>
-    <h3>改装 ${items.length ? items.length + ' 件' : ''}</h3><ul>${items.length ? items.map(it => `<li class="${it.tier}">${scEsc((TN_SLOTS.find(s => s.id === it.slot) || {}).name || '')} · ${scEsc(it.name)}</li>`).join('') : '<li>原厂</li>'}</ul>
+    <h2>${who}</h2><p class="sc-own">姿势 <b>${SC_POSES[e.pose] || '轮换'}</b></p>
+    <p class="sc-val">${scFmt(e.value)}</p><p class="sc-parts">总资产（现金 + 买过的车、改装、衣橱、喷漆和周边，按原价算）</p>
+    <h3>装扮</h3><ul>${wear.length ? wear.map(it => `<li class="${it.tier || 'n'}">${scEsc(it.name)}</li>`).join('') : '<li>原味奶黄，什么都没穿</li>'}</ul>
+    ${e.kind ? `<h3>展车 · ${scEsc(scCarName(e.kind))} · ${scFmt(cr.total)}</h3><p class="sc-parts" style="margin:0 0 5px">车价 ${scFmt(cr.price)} · 改装 ${scFmt(cr.mods)} · 喷漆贴花 ${scFmt(cr.paintRM)}</p>
+    <ul><li class="${P.tier || 'n'}">${scEsc(P.name)}${P.fin && WD_FIN[P.fin] ? ' · ' + WD_FIN[P.fin].n : ''}</li>${D.id !== 'none' ? `<li class="${D.tier || 'n'}">贴花 · ${scEsc(D.name)}</li>` : ''}${items.map(it => `<li class="${it.tier}">${scEsc((TN_SLOTS.find(s => s.id === it.slot) || {}).name || '')} · ${scEsc(it.name)}</li>`).join('')}</ul>`
+      : '<h3>展车</h3><ul><li>还没有车</li></ul>'}
     ${note ? `<p class="sc-note">${note}</p>` : ''}
-    ${e.mine ? `<div class="sc-row">${window.XTune ? '<button class="btn" data-sc="tune">去改装车间</button>' : ''}${window.XWard ? '<button class="btn" data-sc="paint">去喷漆店</button>' : ''}</div>` : ''}`;
-  scCard.hidden = false;
-  /* phones: sit just above the action buttons, whatever their size */
-  const acts = document.getElementById('acts'), r = acts && !acts.hidden ? acts.getBoundingClientRect() : null;
-  scCard.style.bottom = innerWidth <= 760 && r && r.height ? Math.round(innerHeight - r.top + 8) + 'px' : '';
+    ${e.mine ? '<div class="sc-row"><button class="btn buy" data-sc="my">布置我的展位</button></div>' : ''}`;
+  scCard.hidden = false; scPlace(scCard);
   if (typeof sfx !== 'undefined' && sfx.ding) sfx.ding();
+}
+/* 我的展位: which car, which look, which pose. Every tap shows on your booth straight away and is saved. */
+function scMyOpen(){ scClose(); SCX.my = true; scMyRender(); scMyEl.hidden = false; scPlace(scMyEl); if (typeof sfx !== 'undefined' && sfx.ding) sfx.ding(); }
+function scMyRender(){
+  const top = scMyEl.scrollTop;   /* re-drawn when the list changes (your 总资产 goes up while it is open): keep the scroll */
+  const i = SCX.list.findIndex(e => e && e.mine), m = scMine(), cars = scMyCars(), c = SCX.cfg;
+  const chip = (attr, val, on, label, sub) => `<button type="button" class="sc-chip${on ? ' on' : ''}" ${attr}="${scEsc(val)}" aria-pressed="${on}">${label}${sub ? `<small>${sub}</small>` : ''}</button>`;
+  const autoCar = cars[0];
+  let carRow = cars.length ? chip('data-car', '', !c.car || !cars.some(x => x.kind === c.car), '最贵那辆', autoCar ? scEsc(scCarName(autoCar.kind)) : '')
+    + cars.map(x => chip('data-car', x.kind, c.car === x.kind, scEsc(scCarName(x.kind)), scFmt(x.total))).join('') : '<span class="sc-note" style="margin:0">还没有车，去车行买一辆就能停上来</span>';
+  const poses = Object.keys(SC_POSES).map(p => chip('data-pose', p, m.pose === p, SC_POSES[p])).join('');
+  const fixed = c.wear != null;
+  let wearHtml = chip('data-wmode', 'follow', !fixed, '跟着衣橱走') + chip('data-wmode', 'fixed', fixed, '展台专用一套');
+  wearHtml = `<div class="sc-chips">${wearHtml}</div>`;
+  if (fixed){
+    const l = wdLookParse(m.wear);
+    for (const [slot, sname] of WD_SLOTS){
+      const own = WD_ITEMS.filter(it => it.slot === slot && (it.id === WD_DEFAULT[slot] || wardSave.own.has(it.id)));
+      if (!own.length) continue;
+      const opt = slot !== 'skin' && slot !== 'shape';
+      if (!opt && own.length < 2) continue;
+      wearHtml += `<div class="sc-slot"><span>${sname}</span><div class="sc-chips">${opt ? chip('data-wear', slot + ':', !l[slot], '不戴') : ''}${own.map(it => chip('data-wear', slot + ':' + it.id, l[slot] === it.id, scEsc(it.name))).join('')}</div></div>`;
+    }
+    wearHtml += `<div class="sc-row" style="margin-top:8px"><button type="button" class="btn" data-sc="copy">换成现在穿的这身</button></div>`;
+  }
+  const where = i >= 0 ? `现在第 <b>${i + 1}</b> 名 · 总资产 <b>${scFmt(m.value)}</b>` : `总资产 <b>${scFmt(m.value)}</b> · 前七名才上台`;
+  const note = scOnline() ? (XNet.claimedName && XNet.claimedName() ? '改了马上存好，几秒内同步给全服玩家。' : '先在标题页注册昵称，你的展位才会上全服展台。') : '离线时你一定在台上；联机后和全服玩家一起按总资产排位。';
+  scMyEl.innerHTML = `<button class="x" aria-label="关闭">×</button><span class="tag">豪车展台</span><h2>我的展位</h2><p class="sc-own">${where}</p>
+    <h3>展示的车</h3><div class="sc-chips">${carRow}</div>
+    <h3>姿势</h3><div class="sc-chips">${poses}</div>
+    <h3>装扮</h3>${wearHtml}
+    <p class="sc-note">${note}</p>
+    <div class="sc-row">${window.XWard ? '<button type="button" class="btn" data-sc="ward">去衣橱</button>' : ''}${window.XTune ? '<button type="button" class="btn" data-sc="tune">去改装车间</button>' : ''}${window.XWard ? '<button type="button" class="btn" data-sc="paint">去喷漆店</button>' : ''}</div>`;
+  scMyEl.scrollTop = top;
+}
+function scCfg(ch){
+  Object.assign(SCX.cfg, ch); scWrite();
+  SCX.mineKey = ''; scRefresh();
+  if (typeof sfx !== 'undefined' && sfx.click) sfx.click(); else if (typeof tone === 'function') try { tone('square', 660, 660, .04, .03); } catch(e){}
+  if (scOnline()) scPush();
+}
+function scGo(what){
+  scClose(); if (typeof ac === 'function') ac();
+  if (what === 'tune' && window.XTune) XTune.open(); else if (what === 'paint' && window.XWard) XWard.open('car'); else if (what === 'ward' && window.XWard) XWard.open('naiwa');
 }
 scCard.addEventListener('click', e => {
   if (e.target.closest('.x')){ scClose(); return; }
   const b = e.target.closest('[data-sc]'); if (!b) return;
-  scClose(); if (typeof ac === 'function') ac();
-  if (b.dataset.sc === 'tune' && window.XTune) XTune.open(); else if (b.dataset.sc === 'paint' && window.XWard) XWard.open('car');
+  if (b.dataset.sc === 'my') scMyOpen(); else scGo(b.dataset.sc);
 });
-document.addEventListener('keydown', e => { if (!scCard.hidden && e.code === 'Escape'){ e.preventDefault(); e.stopImmediatePropagation(); scClose(); } }, true);
-const scNear = () => {
+scMyEl.addEventListener('click', e => {
+  if (e.target.closest('.x')){ scClose(); return; }
+  const b = e.target.closest('button'); if (!b) return;
+  const d = b.dataset;
+  if (d.car != null) scCfg({car:d.car});
+  else if (d.pose) scCfg({pose:d.pose});
+  else if (d.wmode) scCfg({wear:d.wmode === 'fixed' ? (SCX.cfg.wear != null ? SCX.cfg.wear : scWearNow()) : null});
+  else if (d.wear != null){
+    const [slot, id] = d.wear.split(':'), l = wdLookParse(scMine().wear);
+    l[slot] = id || null; scCfg({wear:wdLookStr(wdLook(l))});
+  }
+  else if (d.sc === 'copy') scCfg({wear:scWearNow()});
+  else if (d.sc) scGo(d.sc);
+});
+document.addEventListener('keydown', e => { if ((!scCard.hidden || !scMyEl.hidden) && e.code === 'Escape'){ e.preventDefault(); e.stopImmediatePropagation(); scClose(); } }, true);
+const scLocal = (x, z) => { const dx = x - SC_X, dz = z - SC_Z, c = Math.cos(SC_ROT), s = Math.sin(SC_ROT); return [dx * c - dz * s, dx * s + dz * c]; };
+function scNear(){
+  SCX.onPlaza = SCX.carNear = false;
   if (mode !== 'naiwa' || driving || nw.state === 'fly' || gx.paused) return -1;
+  const [lx, lz] = scLocal(nw.x, nw.z); SCX.onPlaza = Math.abs(lx) < SC_HW + 1 && Math.abs(lz) < SC_HD + 2;
+  if (!SCX.onPlaza) return -1;
+  /* a car parked on the plaza: F gets you in, as everywhere else (js/90-main.js asks roomTryF first) */
+  SCX.carNear = typeof nearestCar === 'function' && !!nearestCar(); if (SCX.carNear) return -1;
   let best = -1, bd = 1e9;
-  for (const s of scSlots){ if (s.i >= SCX.n || !SCX.list[s.i]) continue; const d = Math.hypot(nw.x - s.wx, nw.z - s.wz) - s.r; if (d < 2.6 && d < bd){ bd = d; best = s.i; } }
+  for (const s of scSlots){ if (!SCX.list[s.i]) continue; const d = Math.hypot(nw.x - s.wx, nw.z - s.wz); if (d < 6.4 && d < bd){ bd = d; best = s.i; } }
   return best;
-};
+}
 
 /* ---------- per frame ---------- */
-function scFrame(dt){
+function scFrame(dt, T){
   if (mode !== SCX.mode){ SCX.mode = mode; scColliders(); if (mode !== 'naiwa') scClose(); }
   const dx = camera.position.x - SC_X, dz = camera.position.z - SC_Z, d = Math.hypot(dx, dz);
   const vis = mode !== 'hole' && d < XQ.pick(200, 280, 360);
@@ -409,19 +728,32 @@ function scFrame(dt){
   if (!vis) return;
   const fine = d < XQ.pick(55, 80, 110);
   if (fine !== SCX.fine){ SCX.fine = fine; for (const s of scSlots) if (s.car){ s.car.fineOn = fine; for (const m of s.car.fine) m.visible = fine; } }
-  for (const s of scSlots) if (s.car) s.tt.rotation.y += dt * (s.i ? .22 : .3);
-  /* after dark: brighter light bands, glowing pools and columns, and the paint lit as if by spotlights */
+  for (const s of scSlots) if (s.car) s.tt.rotation.y += dt * (s.i ? .2 : .26);
+  if (d < XQ.pick(70, 110, 150)) for (const s of scSlots) scAnimFig(s, dt, T);
+  /* after dark: brighter light bands, glowing pools and columns, the paint lit as if by spotlights */
   const k = Math.round(Math.min(1, typeof cur !== 'undefined' ? cur.lamp || 0 : 0) * 50) / 50;
   if (k !== SCX.k){
     SCX.k = k;
     scBandMat.color.setScalar(.55 + .75 * k);
-    scPoolMat.opacity = .12 + .6 * k; scBeamMat.opacity = .25 * k;
-    for (const s of scSlots) if (s.car) s.car.paint.emissiveIntensity = .22 * k;
+    scPoolMat.opacity = .1 + .6 * k; scBeamMat.opacity = .25 * k;
+    for (const s of scSlots){ if (s.car) s.car.paint.emissiveIntensity = .22 * k; scGlowFig(s, k); }
+    /* fireworks glow at night; by day they are bright confetti dots (additive dots vanish against the sky) */
+    const add = k > .35; if ((scFwMat.blending === THREE.AdditiveBlending) !== add){ scFwMat.blending = add ? THREE.AdditiveBlending : THREE.NormalBlending; scFwMat.size = add ? .55 : .95; scFwMat.needsUpdate = true; }
   }
+  /* a rocket now and then after dark while someone is around (not on 流畅) */
+  if (k > .5 && XQ.cfg.glow && d < 220 && !(typeof gx !== 'undefined' && gx.paused)){
+    SCX.fwT -= dt;
+    if (SCX.fwT <= 0){
+      SCX.fwT = 14 + Math.random() * 12;
+      const n = 1 + (Math.random() * 3 | 0);
+      for (let j = 0; j < n; j++) setTimeout(() => scFire(Math.random() < .4 ? 0 : Math.random() * SC_N | 0, j === n - 1), j * 700);
+    }
+  }
+  if (scFw.visible && dt > 0) scFwStep(Math.min(dt, .05));
 }
-/* refresh: my own entry every few seconds (cheap; rebuilds only what changed), the online list every two minutes while anywhere near */
+/* refresh: my own booth every few seconds (cheap; rebuilds only what changed), the online list every two minutes while anywhere near */
 setInterval(() => {
-  const m = scMine(), key = m ? m.kind + '|' + m.look + '|' + Math.round(m.value) : '';
+  const m = scMine(), key = [m.kind, m.look, m.wear, m.pose, Math.round(m.value)].join('|');
   if (key !== SCX.mineKey){ SCX.mineKey = key; scRefresh(); }
   if (mode === 'naiwa' && !gx.paused) scCheckMine();
   if (scOnline()){
@@ -431,7 +763,11 @@ setInterval(() => {
   }
 }, 4000);
 window.addEventListener('xnet', () => { if (scOnline() && !SCX.remote){ SCX.fetchT = Date.now(); scFetch(); } });
-XQ.onChange(() => { SCX.n = XQ.pick(SC_FRONT, 7, SC_N); scLayout(); scSignShow(); if (SCX.list.length) scRefresh(); });
+XQ.onChange(() => {
+  scLayout(); scFlowers();
+  SC_FW.cap = XQ.pick(300, 600, 900); SC_FW.n = Math.min(SC_FW.n, SC_FW.cap);
+  for (const s of scSlots) if (s.fig) s.fig.root.traverse(x => { if (x.isMesh) x.castShadow = XQ.atLeast('mid'); });
+});
 
 /* ---------- hook into the game (js/80-gta.js gx, js/90-main.js doF and frame) ---------- */
 {
@@ -440,30 +776,38 @@ XQ.onChange(() => { SCX.n = XQ.pick(SC_FRONT, 7, SC_N); scLayout(); scSignShow()
     update(dt, px, pz){
       base.update(dt, px, pz);
       const i = scNear(); SCX.near = i; SCX.prompt = '';
+      let lbl = '';
       if (i >= 0){
         const e = SCX.list[i];
-        SCX.prompt = (TOUCH ? '点「看车」' : '按 F ') + '看' + (e.mine ? '你的' : e.demo ? `示范车「${e.name}」` : `${e.name} 的`) + `${scCarName(e.kind)} · 第 ${i + 1} 名`;
-        const b = actF.querySelector('b'); if (b.textContent !== '看车') b.textContent = '看车';
-      } else if (SCX.fLbl) updateActs();
-      SCX.fLbl = i >= 0;
-      if (SCX.open >= 0){ const s = scSlots[SCX.open]; if (!s || Math.hypot(nw.x - s.wx, nw.z - s.wz) > s.r + 7 || driving) scClose(); }
+        SCX.prompt = (TOUCH ? '点「看看」' : '按 F ') + '看' + (e.mine ? '你的展位' : e.demo ? `示范「${e.name}」` : `${e.name} 的展位`) + ` · 第 ${i + 1} 名`;
+        lbl = '看看';
+      } else if (SCX.onPlaza && !SCX.carNear && !base.prompt()){
+        SCX.prompt = (TOUCH ? '点「展位」' : '按 F ') + '布置我的展位：选车、装扮和姿势'; lbl = '展位';
+      }
+      if (lbl){ const b = actF.querySelector('b'); if (b.textContent !== lbl) b.textContent = lbl; }
+      else if (SCX.fLbl) updateActs();
+      SCX.fLbl = !!lbl;
+      if (SCX.open >= 0){ const s = scSlots[SCX.open]; if (!s || Math.hypot(nw.x - s.wx, nw.z - s.wz) > 12 || driving) scClose(); }
+      if (SCX.my && (!SCX.onPlaza || driving)) scClose();
     },
     prompt(){ return base.prompt() || SCX.prompt; },
     mini(dot){ base.mini(dot); dot(SC_X, SC_Z, '#e3b95a', 4); },
     leave(){ scClose(); SCX.prompt = ''; if (SCX.fLbl){ SCX.fLbl = false; updateActs(); } base.leave(); },
-    frame(dt, T){ if (base.frame) base.frame(dt, T); scFrame(dt); }
+    frame(dt, T){ if (base.frame) base.frame(dt, T); scFrame(dt, T); }
   });
   const baseF = typeof window.roomTryF === 'function' ? window.roomTryF : null;
   window.roomTryF = function(){
     const i = scNear();
     if (i >= 0){ if (SCX.open === i) scClose(); else scOpen(i); return true; }
+    if (SCX.onPlaza && !SCX.carNear && !(base.prompt && base.prompt())){ if (SCX.my) scClose(); else scMyOpen(); return true; }
     return baseF ? baseF() : false;
   };
 }
+scColliders();
 setTimeout(scRefresh, 0);
 
-/* for testing (预览版和本地测试页): XShowcase.list, .refresh(), .fake(n) adds n fake online entries, .goto() puts 奶娃 in front of the champion */
+/* for testing (预览版和本地测试页): XShowcase.list, .refresh(), .my() opens 我的展位, .fire(i) a rocket from booth i, .goto() puts 奶娃 in front of the champion */
 window.XShowcase = {
-  get list(){ return SCX.list; }, refresh:scRefresh, mine:scMine, demos:SC_DEMOS, fetch:scFetch,
-  goto(){ const [x, z] = scW(0, SC_HD + 4); nw.x = x; nw.z = z; nw.h = SC_ROT + Math.PI; if (typeof camYaw !== 'undefined') camYaw = SC_ROT; }
+  get list(){ return SCX.list; }, get cfg(){ return SCX.cfg; }, refresh:scRefresh, mine:scMine, demos:SC_DEMOS, fetch:scFetch, my:scMyOpen, fire:scFire,
+  goto(){ const [x, z] = scW(0, SC_HD + 3); nw.x = x; nw.z = z; nw.h = SC_ROT + Math.PI; if (typeof camYaw !== 'undefined') camYaw = SC_ROT; }
 };
