@@ -1052,3 +1052,68 @@ body.wd-open #tnGain{top:auto;bottom:calc(var(--safe-b) + 24px);left:calc((100% 
   .tn-stats b{font-size:12.5px}
   .tn-inv .tn-p{min-width:42px}
 }
+
+/* ---------- 车载电台（js/95-radio.js）：左下角一条车机小屏（手机放在上方中间），点开是面板 ---------- */
+#radio,.rd-panel{box-sizing:border-box}
+#radio{position:fixed;z-index:7;left:calc(var(--safe-l) + 16px);bottom:calc(var(--safe-b) + 16px);display:flex;flex-direction:column;align-items:flex-start;gap:6px;max-width:min(360px,calc(100vw - 32px));--rd:#ff5fa8}
+#radio[hidden],#rdPanel[hidden]{display:none}
+.rd-strip{display:flex;align-items:center;gap:10px;min-width:0;max-width:100%;padding:6px 10px 6px 8px;border-radius:12px;border:1px solid rgba(255,255,255,.1);cursor:pointer;text-align:left;
+  background:rgba(12,15,20,.82);color:var(--rd);box-shadow:0 6px 18px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.06);font:inherit;transition:box-shadow .2s,border-color .2s}
+.rd-strip:hover{border-color:color-mix(in srgb,var(--rd) 50%,transparent)}
+.rd-strip:focus-visible{outline:2px solid var(--rd);outline-offset:2px}
+.rd-fq{display:flex;flex-direction:column;align-items:center;line-height:1;font-variant-numeric:tabular-nums;min-width:40px}
+.rd-fq small{font-size:9px;opacity:.7;letter-spacing:.08em}
+.rd-fq b{font:700 17px/1.1 ui-monospace,Consolas,monospace;text-shadow:0 0 8px color-mix(in srgb,var(--rd) 45%,transparent)}
+.rd-txt{display:flex;flex-direction:column;min-width:0;line-height:1.25}
+.rd-txt b{font-size:13px;color:#eef1f5;white-space:nowrap}
+.rd-txt span{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px}
+#rdViz{width:48px;height:24px;flex:none}
+.rd-tags{display:flex;gap:2px;font-style:normal;font-size:13px}
+.rd-tags i{font-style:normal}
+#radio.rd-off .rd-strip{opacity:.78}
+#radio.rd-off #rdViz{display:none}
+#radio.rd-onair .rd-strip{border-color:color-mix(in srgb,var(--rd) 65%,transparent);box-shadow:0 0 0 1px color-mix(in srgb,var(--rd) 35%,transparent),0 6px 18px rgba(0,0,0,.25)}
+#radio.rd-flash .rd-strip{box-shadow:0 0 0 2px var(--rd),0 0 18px color-mix(in srgb,var(--rd) 55%,transparent)}
+#radio.rd-hearonly .rd-strip{display:none}
+.rd-hear{padding:4px 10px;border-radius:999px;background:rgba(12,15,20,.72);color:#eef1f5;font-size:12px;line-height:1.5;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+.rd-panel{position:fixed;z-index:8;left:calc(var(--safe-l) + 16px);bottom:calc(var(--safe-b) + 74px);width:min(360px,calc(100vw - 32px));max-height:calc(100vh - 120px);overflow:auto;
+  padding:12px;border-radius:14px;background:rgba(14,17,23,.94);color:#eef1f5;border:1px solid rgba(255,255,255,.1);box-shadow:0 14px 40px rgba(0,0,0,.4);display:flex;flex-direction:column;gap:10px;font-size:13px;--rd:#ff5fa8}
+.rd-ph{display:flex;align-items:center;gap:8px}
+.rd-ph b{font-size:15px}
+.rd-key{font-size:11px;color:#9aa3b2;border:1px solid rgba(255,255,255,.14);border-radius:6px;padding:0 6px}
+.rd-x{margin-left:auto;width:30px;height:30px;border-radius:8px;border:0;background:rgba(255,255,255,.08);color:inherit;font-size:18px;line-height:1;cursor:pointer}
+.rd-presets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.rd-pre{display:flex;flex-direction:column;align-items:flex-start;gap:1px;min-width:0;padding:7px 8px;border-radius:10px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:inherit;font:inherit;text-align:left;cursor:pointer}
+.rd-pre small{font:12px ui-monospace,Consolas,monospace;color:#9aa3b2}
+.rd-pre b{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.rd-pre[aria-pressed="true"]{border-color:var(--pc);background:color-mix(in srgb,var(--pc) 16%,transparent)}
+.rd-pre[aria-pressed="true"] small{color:var(--pc)}
+.rd-now{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;color:var(--rd);font-size:12.5px}
+.rd-now span:last-child{color:#9aa3b2}
+.rd-row{display:flex;gap:6px;flex-wrap:wrap}
+.rd-btn{flex:1 1 auto;padding:7px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);color:inherit;font:inherit;font-size:12.5px;cursor:pointer;white-space:nowrap}
+.rd-btn[aria-pressed="true"]{border-color:var(--rd);color:var(--rd);background:color-mix(in srgb,var(--rd) 12%,transparent)}
+.rd-btn:focus-visible,.rd-pre:focus-visible,.rd-x:focus-visible,.rd-panel input:focus-visible{outline:2px solid var(--rd);outline-offset:2px}
+.rd-air{display:flex;align-items:center;gap:10px;padding:8px;border-radius:10px;background:rgba(255,255,255,.04)}
+.rd-air .rd-btn{flex:none}
+.rd-air span{font-size:11.5px;color:#aab2c0;line-height:1.4}
+.rd-airbtn[aria-pressed="true"]{background:var(--rd);color:#111;border-color:var(--rd)}
+.rd-vol{display:grid;grid-template-columns:auto minmax(0,1fr) 40px;align-items:center;gap:8px}
+.rd-vol input{width:100%;accent-color:var(--rd)}
+.rd-vol output{text-align:right;font-variant-numeric:tabular-nums;color:#aab2c0}
+.rd-chk{display:flex;gap:8px;align-items:flex-start;color:#cfd5de;font-size:12.5px;line-height:1.4;cursor:pointer}
+.rd-chk input{margin-top:2px;accent-color:var(--rd)}
+.rd-off{color:#ff8a80}
+#acts #act-m{order:-1}
+body.rd-car #act-w{grid-column:auto}   /* in the car the water gun is off anyway: 电台 shares its row so the button stack stays as tall as before */
+#acts #act-m.rd-act-on{border-color:color-mix(in srgb,var(--rd) 70%,var(--line))}
+#acts #act-m.rd-act-on b{color:var(--rd);text-shadow:0 0 1px rgba(0,0,0,.35)}
+body.wd-open #radio,body.sp-run #radio,body.titled #radio{display:none!important}
+@media (pointer:coarse){
+  #radio{left:50%;transform:translateX(-50%);bottom:auto;top:calc(var(--safe-t) + 190px);align-items:center}
+  .rd-strip{padding:5px 9px 5px 7px;gap:8px}
+  .rd-txt span{max-width:150px}
+  .rd-panel{left:50%;transform:translateX(-50%);bottom:auto;top:calc(var(--safe-t) + 242px);max-height:calc(100% - 260px)}
+  .rd-btn{padding:9px 10px}
+}
+@media (prefers-reduced-motion:reduce){ .rd-strip{transition:none} }

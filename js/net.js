@@ -17,6 +17,8 @@
  *   XNet.signInGoogle()  → Promise<'linked'|'switched'>；游客身份直接升级成 Google 账号（uid 不变）；
  *                          这个 Google 账号以前在别的设备用过，就切换过去并拉取它的云存档（会刷新页面）
  *   XNet.signOut()       退出 Google，回到新的游客身份（会刷新页面）
+ *   XNet.now()           服务器时间（ms，本机时钟 + 服务器时差；离线就是 Date.now()）
+ *   XNet.peer(uid)       别的玩家现在在哪：{x, z, y, car:是否在开车, name, fresh:最近 6 秒有更新}，没有这个人为 null（车载电台 js/95-radio.js 用来算外放距离）
  * 状态变化时会在 window 上派发 'xnet' 事件。
  *
  * 数据库路径：
@@ -26,6 +28,7 @@
  *   /saves/{uid} = {data, score, ts}   只有 Google 登录的人才有：本机所有 xmum-* 存档的 JSON，双向同步，进度多的一边为准
  *   /looks/{uid} = "pink,santa,melon,mblue,d_flames,tk0300…"   奶娃穿戴、自己车的喷漆和改装（js/88-wardrobe-ui.js 的 XWard.lookStr()，改装段由 js/93-tuning-ui.js 加上），
  *                  只在变化时写一次；单独一个节点，规则还没发布时写入失败也不影响 presence
+ *   /radio/{uid} = {s, k, t, l}         车载电台外放：台号、曲目种子、这首开始的服务器时间、单曲循环；只在外放时存在（js/95-radio.js 读写，规则见 database.rules.json）
  *   /names/{昵称小写} = {uid, name, ts}  昵称先到先得，永久归主人：只有主人能改名放出或删掉（ts 是最近一次上线）
  *   /users/{uid} = {name, key}          自己现在注册的昵称；排行榜规则要求成绩上的名字和这里一致，防止冒充
  *   XNet.claimedName()   已注册的昵称（还没注册或离线时为 ''）
@@ -33,7 +36,6 @@
  * 给玩家互动（js/96-social.js，接口写在 docs/social.md）用的几个钩子：
  *   XNet.extra = () => ({fx, ride, rs, duel, ds, dnd})   presence 里多带的字段（只认 SOCIAL_KEYS 里的，变了会马上同步）
  *   XNet.peers()          Map uid -> {d:presence, seen, g:幽灵（没画出来时为 null）}，只读
- *   XNet.now()            服务器时间（毫秒）
  *   XNet.ref(path)        数据库引用（离线时 null）
  *   XNet.afterGhosts(dt)  每帧所有幽灵摆好位置以后调一次，用来改姿势、把乘客放到车上
  */
@@ -44,7 +46,7 @@
     online:false, uid:null, playersOnline:0, account:{google:false, email:null, name:null},
     top:async () => [], submit:async () => false, miniTop:async () => [], miniSubmit:async () => false,
     signInGoogle:async () => { throw new Error('联机未开启'); }, signOut:async () => {},
-    peers:() => new Map(), now:() => Date.now(), ref:() => null,
+    now:() => Date.now(), peer:() => null, peers:() => new Map(), ref:() => null,
     ready:Promise.resolve(false)
   };
   const cfg = window.XMUM_FIREBASE;
@@ -447,6 +449,15 @@
     }
     if (typeof XNet.afterGhosts === 'function') g(() => XNet.afterGhosts(dt, now));
   }
+
+  /* ---------- 给别的模块看的：服务器时间和别人的位置（画出来的平滑位置优先） ---------- */
+  XNet.now = () => Date.now() + serverOffset;
+  XNet.peer = uid => {
+    const r = remotes.get(uid); if (!r || !r.d) return null;
+    const d = r.d, G = r.g, vis = !!(G && G.vis);
+    return {x:vis ? G.x : +d.x || 0, z:vis ? G.z : +d.z || 0, y:vis ? G.y : +d.y || 0, car:d.mode === 'naiwa' && !!d.car, name:String(d.name || '?'),
+      fresh:(d.mode === 'naiwa' || d.mode === 'walk') && performance.now() - r.seen < STALE_DRAW};
+  };
 
   /* ---------- 云存档（只给 Google 登录的人） ---------- */
   const SAVE_KEY = k => /^xmum-/.test(k) && k !== 'xmum-guest' && k !== 'xmum-restored';
