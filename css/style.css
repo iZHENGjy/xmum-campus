@@ -617,6 +617,10 @@ body.titled #labels{opacity:0}
 #wardMoney{font-family:var(--display);font-size:15px;font-weight:700;color:var(--gold)}
 .wd-tabs{display:flex;gap:4px;overflow-x:auto;margin:0 -4px 10px;padding:0 4px 2px;scrollbar-width:none;flex:none}
 .wd-tabs::-webkit-scrollbar{display:none}
+.wd-tabs.more-r{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent)}
+.wd-tabs.more-l{-webkit-mask-image:linear-gradient(90deg,transparent,#000 36px);mask-image:linear-gradient(90deg,transparent,#000 36px)}
+.wd-tabs.more-l.more-r{-webkit-mask-image:linear-gradient(90deg,transparent,#000 36px,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(90deg,transparent,#000 36px,#000 calc(100% - 36px),transparent)}
+@media (pointer:fine){.wd-tabs{cursor:grab}.wd-tabs.dragging,.wd-tabs.dragging button{cursor:grabbing}}
 .wd-tabs button{flex:none;min-height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink);font-size:13px;cursor:pointer}
 .wd-tabs button[aria-selected="true"]{background:var(--tile);border-color:var(--tile);color:var(--on-accent)}
 .wd-grid{flex:1;min-height:0;overflow:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:6px;align-content:start;margin:0 -4px;padding:2px 4px 4px;overscroll-behavior:contain}
