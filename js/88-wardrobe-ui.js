@@ -4,6 +4,37 @@
    存档：localStorage 'xmum-wardrobe-v1'（Google 登录的人由 js/net.js 跟其他 xmum-* 键一起云同步）。
    对外：window.XWard = {open(kind), close(), on, lookStr()} */
 'use strict';
+/* the pill tab rows (.wd-tabs: 衣橱, 改装车间 …) scroll sideways with the scrollbar hidden. Fingers can swipe them, a mouse could not:
+   drag them with the mouse, turn the wheel to move them sideways, and fade the edge that has more tabs behind it */
+(function wdTabScroll(){
+  const edge = el => { const m = el.scrollWidth - el.clientWidth > 2; el.classList.toggle('more-l', m && el.scrollLeft > 2); el.classList.toggle('more-r', m && el.scrollLeft < el.scrollWidth - el.clientWidth - 2); };
+  let drag = null;
+  document.addEventListener('pointerdown', e => {
+    const el = e.pointerType === 'mouse' && e.button === 0 && e.target.closest && e.target.closest('.wd-tabs');
+    if (el && el.scrollWidth > el.clientWidth + 2) drag = {el, x:e.clientX, s:el.scrollLeft, moved:false};
+  });
+  document.addEventListener('pointermove', e => {
+    if (!drag) return; const dx = e.clientX - drag.x;
+    if (Math.abs(dx) > 5) drag.moved = true;
+    if (drag.moved){ drag.el.scrollLeft = drag.s - dx; drag.el.classList.add('dragging'); }
+  });
+  document.addEventListener('pointerup', () => { if (drag){ drag.el.classList.remove('dragging'); if (drag.moved){ const el = drag.el; el.dataset.dragged = '1'; setTimeout(() => delete el.dataset.dragged, 0); } } drag = null; });
+  document.addEventListener('click', e => { const el = e.target.closest && e.target.closest('.wd-tabs'); if (el && el.dataset.dragged){ e.stopPropagation(); e.preventDefault(); } }, true);   /* a drag is not a tap on the tab under the mouse */
+  document.addEventListener('wheel', e => {
+    const el = e.target.closest && e.target.closest('.wd-tabs'); if (!el || el.scrollWidth <= el.clientWidth + 2) return;
+    const d = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY; if (!d) return;
+    el.scrollLeft += d; e.preventDefault();
+  }, {passive:false});
+  document.addEventListener('scroll', e => { if (e.target.classList && e.target.classList.contains('wd-tabs')) edge(e.target); }, true);
+  /* tabs are re-rendered often: keep the chosen one in view and the edge fades right */
+  const mo = new MutationObserver(ms => { const seen = new Set(); for (const m of ms){ const el = m.target.closest && m.target.closest('.wd-tabs'); if (!el || seen.has(el)) continue; seen.add(el);
+    const on = el.querySelector('[aria-selected="true"]'); if (on && el.scrollWidth > el.clientWidth){ const l = on.offsetLeft - el.offsetLeft, r = l + on.offsetWidth; if (l < el.scrollLeft) el.scrollLeft = l - 16; else if (r > el.scrollLeft + el.clientWidth) el.scrollLeft = r - el.clientWidth + 16; }
+    edge(el); } });
+  /* only the tab rows themselves are watched (the HUD changes every frame); the panels are all built by the time the page has loaded */
+  const watch = () => document.querySelectorAll('.wd-tabs').forEach(el => { if (!el.dataset.wdWatch){ el.dataset.wdWatch = '1'; mo.observe(el, {childList:true, subtree:true, attributes:true, attributeFilter:['aria-selected']}); } });
+  if (document.readyState === 'complete') setTimeout(watch, 0); else window.addEventListener('load', watch);
+  window.addEventListener('resize', () => document.querySelectorAll('.wd-tabs').forEach(edge));
+})();
 const WD_KEY = 'xmum-wardrobe-v1';
 const wardSave = {own:new Set(['classic', 'std']), look:wdLook(null), pOwn:new Set(['stock', 'd_none']), cars:{}, spent:0};
 function wardWrite(){
