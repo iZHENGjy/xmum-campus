@@ -94,13 +94,34 @@ function loopNoise(a, secs, pink){
   for (let i = 0; i < x; i++){ const t = i / x * Math.PI / 2; d[i] = raw[i] * Math.sin(t) + raw[n + i] * Math.cos(t); }
   return buf;
 }
+/* phones: iOS plays Web Audio through the ringer channel, so with the silent switch on the game is mute. Ask for media playback
+   (navigator.audioSession, Safari 16.4+); older iOS needs a looping silent <audio> started from a tap to do the same. iOS also
+   only counts touchend / click as a gesture (not pointerdown) and leaves the context 'interrupted' after a call or app switch. */
+const IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+let acKeep = null;
+function acSession(){
+  try { if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback'; } catch(e){}
+  if (!IOS || acKeep || navigator.audioSession) return;
+  try {
+    const sr = 8000, n = sr / 4, buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf), w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+    acKeep = new Audio(URL.createObjectURL(new Blob([buf], {type:'audio/wav'}))); acKeep.loop = true; acKeep.setAttribute('playsinline', '');
+    const p = acKeep.play(); if (p && p.catch) p.catch(() => { acKeep = null; });
+  } catch(e){ acKeep = null; }
+}
 function ac(){
   if (!AC){ try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ AC = null; } }
-  if (AC && AC.state === 'suspended') AC.resume();
+  if (AC && AC.state !== 'running' && AC.state !== 'closed') AC.resume();
+  if (AC && soundOn){ acSession(); if (acKeep && acKeep.paused) acKeep.play().catch(() => {}); }
+  else if (acKeep && !acKeep.paused) acKeep.pause();
   if (AC && !noiseBuf) noiseBuf = loopNoise(AC, 1, false);
   if (AC && !laughClip.tried) loadLaugh(AC);
   return soundOn ? AC : null;
 }
+/* unlock on the gestures every phone accepts, and come back after a call or an app switch (only once audio has been started) */
+for (const ev of ['touchend', 'click', 'keydown']) document.addEventListener(ev, () => { if (AC && soundOn && AC.state !== 'running') ac(); }, {passive:true, capture:true});
+document.addEventListener('visibilitychange', () => { if (!document.hidden && AC && soundOn && AC.state !== 'running') AC.resume(); });
 /* 奶娃's real laugh (clip from Bilibili BV1auFZzaE4W, see README credits); synth fallback until/unless it loads */
 const laughClip = {tried:false, buf:null, src:null};
 function loadLaugh(a){

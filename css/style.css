@@ -1308,3 +1308,13 @@ body.wd-open #radio,body.sp-run #radio,body.titled #radio{display:none!important
 #rotTip i{font-style:normal;display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--chip);color:var(--muted);font-size:15px;line-height:1}
 @keyframes rotIn{from{opacity:0;transform:translate(-50%,-6px)}to{opacity:1;transform:translateX(-50%)}}
 @media (prefers-reduced-motion: reduce){ #rotTip{animation:none} }
+
+/* ---------- 手机上的时间 / 天气按钮：顶上那条放不下时间切换，换成一个圆按钮，点开四个选项（js/16-ambient.js 的 todBtn） ---------- */
+#todBtn{display:none}
+@media (max-width:560px), (max-height:520px) and (min-width:561px){
+  body.naiwa #todBtn{display:inline-flex;align-items:center;justify-content:center;height:30px;min-width:30px;padding:0 6px;border-radius:999px;border:1px solid var(--line);background:var(--card-bg);color:var(--ink);font-size:15px;line-height:1;cursor:pointer;box-shadow:0 1px 3px var(--shadow)}
+  body.naiwa .seg-time.pop{display:flex;position:absolute;top:calc(100% + 6px);right:0;z-index:30;padding:4px;gap:2px;background:var(--card-bg);border:1px solid var(--line);border-radius:999px;box-shadow:0 4px 14px var(--shadow)}
+  body.naiwa .seg-time.pop button{height:30px;padding:0 11px;font-size:13px}
+  body.naiwa .panel.tod-open{z-index:31}
+}
+@media (max-width:560px){ body.naiwa .crow-sub{position:relative} }

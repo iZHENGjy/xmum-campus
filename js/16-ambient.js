@@ -121,6 +121,23 @@ function setRain(on, instant){
   if (rainBtn) rainBtn.setAttribute('aria-pressed', String(!!on));
 }
 if (rainBtn) rainBtn.addEventListener('click', () => setRain(wx.target < .5));
+/* phones in a game hide the time switch to keep the top strip short; this one round button stands in for it:
+   it shows the current sky (☀ 🌇 🌙, plus 🌧 while it rains) and opens the four choices under it */
+const todBtn = (() => {
+  const seg = document.querySelector('.seg-time'); if (!seg) return null;
+  const b = document.createElement('button'); b.type = 'button'; b.id = 'todBtn'; b.setAttribute('aria-label', '时间和天气'); b.setAttribute('aria-expanded', 'false');
+  seg.parentNode.insertBefore(b, seg);
+  const ICON = {day:'☀️', dusk:'🌇', night:'🌙'};
+  const sync = () => { const on = seg.querySelector('[data-t][aria-pressed="true"]'); b.textContent = (ICON[on ? on.dataset.t : 'day'] || '☀️') + (rainBtn && rainBtn.getAttribute('aria-pressed') === 'true' ? '🌧' : ''); };
+  const panel = seg.closest('.panel');   /* the panels blur what is behind them, so each one paints as a layer of its own: lift ours while the choices are open */
+  const setOpen = open => { seg.classList.toggle('pop', open); if (panel) panel.classList.toggle('tod-open', open); b.setAttribute('aria-expanded', String(open)); };
+  const close = () => setOpen(false);
+  b.addEventListener('click', e => { e.stopPropagation(); setOpen(!seg.classList.contains('pop')); });
+  seg.addEventListener('click', e => { if (e.target.closest('button')) setTimeout(() => { sync(); close(); }, 0); });
+  document.addEventListener('pointerdown', e => { if (seg.classList.contains('pop') && !seg.contains(e.target) && e.target !== b) close(); });
+  new MutationObserver(sync).observe(seg, {subtree:true, attributes:true, attributeFilter:['aria-pressed']});
+  sync(); return b;
+})();
 /* Rain (was: 1 s of white noise looped, which ticked at the loop seam and repeated every second, at .07). Now a 6 s pink-noise bed (softer than white hiss, loops without a click, see loopNoise in js/20-fx.js) rolled off above ~3.6 kHz,
    with the low rumble cut, plus a faint, slowly drifting bright layer for the patter. The level follows wx.rain (which itself eases over
    5 s) through a 1.2 s smoothing, so it fades in when the shower starts and out when it stops. */
