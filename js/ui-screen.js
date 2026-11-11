@@ -9,13 +9,15 @@
   const get = k => { try { return localStorage.getItem(k); } catch(e){ return null; } };
   const put = (k, v) => { try { localStorage.setItem(k, v); } catch(e){} };
   const standalone = matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;
-  const canFs = !!(D.fullscreenEnabled || D.webkitFullscreenEnabled);
+  /* inside WeChat / QQ / other apps, web fullscreen is flaky (it can leave the page not taking taps): no fullscreen there at all */
+  const embedded = /MicroMessenger|QQ\/|Weibo|FBAN|FBAV|Instagram|Line\/|DingTalk|AlipayClient|XiaoHongShu|aweme|Bytedance/i.test(navigator.userAgent);
+  const canFs = !embedded && !!(D.fullscreenEnabled || D.webkitFullscreenEnabled);
   const iOS = /iPhone|iPod/.test(navigator.userAgent) || (/iPad|Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1 && !canFs);
   const fsEl = () => D.fullscreenElement || D.webkitFullscreenElement || null;
 
   /* ---------- 全屏按钮（标题页按钮行，排在「反馈」前面） ---------- */
   const more = D.querySelector('#title .t-more');
-  if (more && !standalone && (canFs || iOS)){
+  if (more && !standalone && !embedded && (canFs || iOS)){
     const btn = D.createElement('button'); btn.type = 'button'; btn.className = 't-btn'; btn.id = 'tFull';
     btn.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path class="in" d="M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>'
       + '<path class="out" d="M6 2v4H2M14 6h-4V2M10 14v-4h4M2 10h4v4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>全屏</span>';
