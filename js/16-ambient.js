@@ -95,7 +95,7 @@ function updateCats(dt, T){
     }
     const walking = c.state === 'walk', loaf = c.state === 'loaf';
     const bob = walking ? Math.abs(Math.sin(T * c.sp * 7 + c.ph)) * .03 : 0, breathe = 1 + Math.sin(T * 2 + c.ph) * .015;
-    _cp.set(c.x, bob, c.z); _cq.setFromAxisAngle(UP, c.h);
+    _cp.set(c.x, bob + azY(c.x, c.z), c.z); _cq.setFromAxisAngle(UP, c.h);   /* on the A zone's podium and slopes too (js/09-azone.js) */
     if (!walking) _cq2.setFromAxisAngle(_ax.set(1, 0, 0), loaf ? 0 : -.38), _cq.multiply(_cq2);
     _cs.set(1.3, (loaf ? .62 : 1) * breathe * 1.3, loaf ? 1.36 : 1.3);
     _cb.compose(_cp, _cq, _cs); catIm.setMatrixAt(i, _cb);

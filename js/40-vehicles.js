@@ -2,7 +2,8 @@
 'use strict';
 /* ---------- ramps ---------- */
 const rampMat = M('#e1b12c', {roughness:.6});
-const RAMPS = [[228, 36, Math.PI, 11, 6, 3.2], [360, 150, Math.PI, 11, 6, 3.2], [192, 190, Math.PI / 2, 12, 7, 3], [-564, 30, Math.PI, 11, 7, 3.2]].map(([x, z, h, L, W, H]) => {
+const RAMPS = [[350, -5, -Math.PI / 2, 11, 6, 3.2],   /* the lake ramp: on the east shore, off the east road (the lake ring road now runs where it used to be) */
+  [360, 150, Math.PI, 11, 6, 3.2], [192, 190, Math.PI / 2, 12, 7, 3], [-564, 30, Math.PI, 11, 7, 3.2]].map(([x, z, h, L, W, H]) => {
   const r = {x, z, fx:Math.sin(h), fz:Math.cos(h), L, W, H};
   const sh = new THREE.Shape(); sh.moveTo(-L / 2, 0); sh.lineTo(L / 2, 0); sh.lineTo(L / 2, H); sh.closePath();
   const g = new THREE.ExtrudeGeometry(sh, {depth:W, bevelEnabled:false}); g.translate(0, 0, -W / 2);

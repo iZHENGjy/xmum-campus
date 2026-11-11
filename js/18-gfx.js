@@ -403,7 +403,7 @@ function gfxRender(dt, T){
   /* facade lighting (washMat, js/00-core.js) comes up with the lamps; 流畅 leaves it off */
   { const k = XQ.cfg.glow ? Math.min(1, lamp) : 0, won = k > .03; washMat.color.setScalar(k * .8); if (won !== gfxWashOn){ gfxWashOn = won; for (const m of washMeshes) m.visible = won; } }
   gfxAviTick(lamp, T);
-  if (typeof gateNight === 'function') gateNight(lamp);   /* js/42-gate.js: booth windows, lawn bollards, hotel sign */
+  if (typeof gateNight === 'function') gateNight(lamp);   /* js/42-gate.js: booth windows, lawn bollards, stair lanterns */
   if (typeof NW !== 'undefined'){
     if (!gfxNwBlob){ gfxNwBlob = gfxBlob(2.2, 2.2); NW.root.add(gfxNwBlob); }
     gfxNwBlob.visible = !renderer.shadowMap.enabled; gfxNwBlob.position.y = .07 - NW.root.position.y + (typeof groundAt === 'function' ? Math.max(0, groundAt(NW.root.position.x, NW.root.position.z)) : 0);
