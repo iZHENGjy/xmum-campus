@@ -336,5 +336,7 @@
 <script src="js/stats.js?v=21"></script>
 <script src="js/feedback.js?v=21"></script>
 <script src="js/hud-brand.js?v=21"></script>
+<!-- 预览版测试模式（无限金币和道具）：只有部署预览版时注入的 guard 设了 XMUM_PREVIEW、并且在 /preview/ 下才加载，正式版不会下载这个文件 -->
+<script>if (window.XMUM_PREVIEW === true && /\/preview\//.test(location.pathname)) document.write('<script src="js/preview-cheats.js?v=21"><\/script>');</script>
 </body>
 </html>
