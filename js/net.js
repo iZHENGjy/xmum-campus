@@ -1036,6 +1036,7 @@
     let s = 0;
     try { const d = JSON.parse(o['xmum-gta-v1'] || 'null') || {}; s += (+d.money || 0) + (Array.isArray(d.owned) ? d.owned.length : 0) * 500 + (+d.stunt || 0) / 50; } catch(e){}
     try { s += +(JSON.parse(o['xmum-wardrobe-v1'] || 'null') || {}).spent || 0; } catch(e){}
+    try { s += +(JSON.parse(o['xmum-house-v1'] || 'null') || {}).spent || 0; } catch(e){}   // 买房装修花掉的钱（js/89-house.js），不然买了房云端进度反而像变少了
     return s + (+o['xmum-hole2-best'] || 0) * 10 + (+o['xmum-hole-best'] || 0) * 10;
   }
   let lastPushed = '';

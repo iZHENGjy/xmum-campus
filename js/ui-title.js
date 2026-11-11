@@ -100,7 +100,7 @@ const UI_BOARDS = {
   hole2: {fmt:v => (+v || 0).toFixed(1) + '%', what:'黑洞 2.0（有道具和连吞）一局吞掉校园的最高比例', local:() => +uiGet('xmum-hole2-best') || 0, empty:'还没玩过黑洞 2.0，去吞一局'},
   hole:  {fmt:v => (+v || 0).toFixed(1) + '%', what:'旧版黑洞的成绩，已停止更新，留作纪念', local:() => +uiGet('xmum-hole-best') || 0, empty:'没有旧版黑洞的成绩'},
   stunt: {fmt:v => Math.round(+v || 0).toLocaleString() + ' 分', what:'奶娃累计特技分', local:() => +uiGta().stunt || 0, empty:'还没攒到特技分，去漂移一下'},
-  rich:  {fmt:v => 'RM ' + (+v || 0).toFixed(2), what:'奶娃总资产：现金加上买过的车、改装、水枪、衣橱、喷漆和宿舍周边，按原价算', local:() => typeof netWorth === 'function' ? netWorth() : +uiGta().money || 0, empty:'还没有资产，去送外卖'}
+  rich:  {fmt:v => 'RM ' + (+v || 0).toFixed(2), what:'奶娃总资产：现金加上买过的车、改装、水枪、衣橱、喷漆、宿舍周边、房子和装修，按原价算', local:() => typeof netWorth === 'function' ? netWorth() : +uiGta().money || 0, empty:'还没有资产，去送外卖'}
 };
 /* 小游戏榜（B1 游戏厅，js/91-arcade.js）：board 写成 'mini:<gameId>'，定义来自 XMini.board(id)；'mini' 表示上次看的那个小游戏 */
 let lbMini = '';
