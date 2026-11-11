@@ -32,6 +32,12 @@
  *   /names/{昵称小写} = {uid, name, ts}  昵称先到先得，永久归主人：只有主人能改名放出或删掉（ts 是最近一次上线）
  *   /users/{uid} = {name, key}          自己现在注册的昵称；排行榜规则要求成绩上的名字和这里一致，防止冒充
  *   XNet.claimedName()   已注册的昵称（还没注册或离线时为 ''）
+ *
+ * 给玩家互动（js/96-social.js，接口写在 docs/social.md）用的几个钩子：
+ *   XNet.extra = () => ({fx, ride, rs, duel, ds, dnd})   presence 里多带的字段（只认 SOCIAL_KEYS 里的，变了会马上同步）
+ *   XNet.peers()          Map uid -> {d:presence, seen, g:幽灵（没画出来时为 null）}，只读
+ *   XNet.ref(path)        数据库引用（离线时 null）
+ *   XNet.afterGhosts(dt)  每帧所有幽灵摆好位置以后调一次，用来改姿势、把乘客放到车上
  */
 'use strict';
 (() => {
@@ -40,7 +46,7 @@
     online:false, uid:null, playersOnline:0, account:{google:false, email:null, name:null},
     top:async () => [], submit:async () => false, miniTop:async () => [], miniSubmit:async () => false,
     signInGoogle:async () => { throw new Error('联机未开启'); }, signOut:async () => {},
-    now:() => Date.now(), peer:() => null,
+    now:() => Date.now(), peer:() => null, peers:() => new Map(), ref:() => null,
     ready:Promise.resolve(false)
   };
   const cfg = window.XMUM_FIREBASE;
@@ -50,6 +56,7 @@
   const SEND_MS = 200, IDLE_HEARTBEAT = 2000, HIDDEN_HEARTBEAT = 4000;
   const STALE_DRAW = 6000, STALE_COUNT = 15000, MAX_GHOSTS = 20, MAP = 700;
   let db = null, me = null, warned = false, serverOffset = 0, connected = false;
+  const SOCIAL_KEYS = ['fx', 'ride', 'rs', 'duel', 'ds', 'dnd'];   /* presence 里互动用的字段（js/96-social.js），规则在 database.rules.json */
   const best = {hole:-1, stunt:-1, rich:-1};            // 服务器上自己的最好成绩（-1 = 未知）
   const remotes = new Map();                            // uid -> {d, seen, g}
   const looks = new Map();                              // uid -> 穿戴字符串
@@ -301,6 +308,8 @@
     s.x = clampM(s.x); s.z = clampM(s.z); s.y = clampM(s.y); s.h = Math.round(wrapA(s.h) * 1000) / 1000;
     if (!/^#[0-9a-fA-F]{6}$/.test(s.color)) s.color = '#f1c84b';
     if (!s.car) delete s.car;
+    const ex = typeof XNet.extra === 'function' && !XNet.socialDenied ? g(() => XNet.extra(), null) : null;
+    if (ex && typeof ex === 'object') for (const k of SOCIAL_KEYS) if (ex[k] != null && ex[k] !== '' && ex[k] !== false) s[k] = ex[k];
     return s;
   }
   let lastSent = null, lastSentAt = 0, presRef = null, hiddenPage = false, lookRef = null, lastLook = null;
@@ -316,12 +325,19 @@
     sendLook();
     const s = myState(), t = performance.now(), live = s.mode === 'naiwa' || s.mode === 'walk';
     const changed = !lastSent || s.mode !== lastSent.mode || s.car !== lastSent.car || s.name !== lastSent.name || s.color !== lastSent.color
+      || SOCIAL_KEYS.some(k => s[k] !== lastSent[k])
       || (live && (Math.abs(s.x - lastSent.x) + Math.abs(s.z - lastSent.z) + Math.abs(s.y - lastSent.y) > .05 || Math.abs(wrapA(s.h - lastSent.h)) > .02));
     if (!changed && t - lastSentAt < (live ? IDLE_HEARTBEAT : HIDDEN_HEARTBEAT)) return;
     lastSent = s; lastSentAt = t;
     const out = Object.assign({}, s, {t:firebase.database.ServerValue.TIMESTAMP});
-    if (!live){ delete out.car; }                           // 其他模式只留心跳，别人不画
-    presRef.set(out).catch(e => { if (String(e && e.code || e).includes('PERMISSION')) fail('presence 写入被规则拒绝', e); });
+    if (!live){ delete out.car; for (const k of SOCIAL_KEYS) if (k !== 'dnd') delete out[k]; }   // 其他模式只留心跳，别人不画
+    presRef.set(out).catch(e => {
+      if (!String(e && e.code || e).includes('PERMISSION')) return;
+      if (!XNet.socialDenied && SOCIAL_KEYS.some(k => k in out)){   // 规则还没发布互动字段：不带它们重来，互动功能关掉，联机照常
+        XNet.socialDenied = true; lastSent = null; console.warn('[XNet] 数据库规则还不认识互动字段（需要重新发布 database.rules.json），先关掉玩家互动'); emit(); return;
+      }
+      fail('presence 写入被规则拒绝', e);
+    });
   }
 
   /* ---------- 其他玩家（幽灵） ---------- */
@@ -431,6 +447,7 @@
         G.L.pos.set(G.x, G.y + 3.4, G.z);
       }
     }
+    if (typeof XNet.afterGhosts === 'function') g(() => XNet.afterGhosts(dt, now));
   }
 
   /* ---------- 给别的模块看的：服务器时间和别人的位置（画出来的平滑位置优先） ---------- */
@@ -551,6 +568,8 @@
         const v = s.val(); best[b] = v && typeof v.value === 'number' ? v.value : 0;
       }))), 15000, '读取数据库');
       XNet.online = true;
+      XNet.peers = () => remotes; XNet.now = () => Date.now() + serverOffset;
+      XNet.ref = p => (XNet.online && db ? db.ref(p) : null);
       db.ref('.info/serverTimeOffset').on('value', s => { serverOffset = +s.val() || 0; });
       await settleName();                                   // 先注册好昵称，再上线和交成绩
       presRef = db.ref('presence/' + me.uid); lookRef = db.ref('looks/' + me.uid);

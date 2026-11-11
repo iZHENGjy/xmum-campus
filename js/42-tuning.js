@@ -285,7 +285,9 @@ const TN_DROPS = {
   spray:   {name:'喷漆车间', cd:300, day:3, g:[[['lacq', 1]], [], [], []]},
   stunt:   {name:'特技连击', cd:90, day:8, g:[[['lacq', 1], ['tyre', 1, .5], ['nos', 1, .3]], [['lacq', 1], ['tyre', 1, .15]], [['lacq', 1]], []]},
   nearmiss:{name:'惊险擦车', cd:90, day:6, g:[[['lacq', 1]], [], [], []]},
-  checkin: {name:'每日打卡', day:1, g:[[['rim|lacq', 1]], [], [], []]}
+  checkin: {name:'每日打卡', day:1, g:[[['rim|lacq', 1]], [], [], []]},
+  /* 当面挑战（js/96-social.js）：0 = 赢，1 = 对方认输或中途跑了，2 = 平局，3 = 输了。同一个对手每天最多 3 次有奖（js/96-social.js 里数），全部对手加起来每天 10 次 */
+  duel:    {name:'当面挑战', day:10, g:[[['turbo', 1], ['nos', 1], ['cf', 1, .4], ['ti', 1, .05]], [['nos', 1], ['lacq', 1]], [['lacq', 1]], []]}
 };
 const TN_BP_POOL = {
   dorm:['bp_wide', 'bp_swan', 'bp_plasma', 'bp_drift'],

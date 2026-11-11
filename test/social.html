@@ -1,0 +1,45 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>XMUM 互动测试</title>
+<script>
+/* 本地测试玩家互动（js/96-social.js），不连任何服务器：
+ *   读取 ../index.html，把 js/firebase-config.js 换成 test/firebase-shared.js（假的 firebase，同一个浏览器的几个页面共用一份数据）。
+ *   每个页面是一个玩家，存档也分开（localStorage 加了「xmum-mock-{p}:」前缀，不会碰正式存档）。
+ *
+ * 两个人互测：开两个浏览器「窗口」并排（不要用同一个窗口的两个标签页：看不见的标签页会自动下线）
+ *   /test/social.html?p=a        玩家 a（默认叫「阿明」）
+ *   /test/social.html?p=b        玩家 b（默认叫「小红」）
+ * 一个人测：/test/social.html?bots  旁边多两个本地假玩家（陪练小明、司机阿华），控制台 XBots.* 见 test/social-bots.js
+ * 其他参数：&name=昵称  &awake（标签页切到后台也不下线，只给自动化测试用）  &title（停在开场画面）  &frame=390x844（手机尺寸）
+ *   &run=<js>（加载 1.5 秒后执行，摆截图用）
+ * 预览版上也能用：https://izhengjy.github.io/xmum-campus/preview/test/social.html?p=a
+ */
+const Q = new URLSearchParams(location.search);
+const FR = Q.get('frame');
+if (FR){
+  const [w, h] = FR.split('x').map(Number); Q.delete('frame');
+  document.write(`<body style="margin:0;background:#222"><iframe src="social.html?${Q}" style="width:${w}px;height:${h}px;border:0;display:block"></iframe></body>`);
+} else {
+  const P = (Q.get('p') || 'a').replace(/[^a-z0-9]/gi, '').slice(0, 8) || 'a';
+  const NAME = Q.get('name') || ({a:'阿明', b:'小红', c:'阿华', d:'DDL战士'}[P] || '玩家' + P);
+  const pre = `<script>(() => {
+  const real = window.localStorage, PFX = ${JSON.stringify('xmum-mock-' + P + ':')};
+  const keys = () => { const o = []; for (let i = 0; i < real.length; i++){ const k = real.key(i); if (k && k.startsWith(PFX)) o.push(k.slice(PFX.length)); } return o; };
+  Object.defineProperty(window, 'localStorage', {configurable:true, value:{getItem:k => real.getItem(PFX + k), setItem:(k, v) => real.setItem(PFX + k, String(v)), removeItem:k => real.removeItem(PFX + k),
+    clear:() => keys().forEach(k => real.removeItem(PFX + k)), key:i => keys()[i] ?? null, get length(){ return keys().length; }}});
+  localStorage.setItem('xmum-name', ${JSON.stringify(NAME)});
+  ${Q.has('awake') ? "Object.defineProperty(document, 'visibilityState', {get:() => 'visible'}); Object.defineProperty(document, 'hidden', {get:() => false});" : ''}
+})();<\/script>`;
+  fetch('../index.html', {cache:'no-store'}).then(r => r.text()).then(html => {
+    html = html.replace(/<head>/i, '<head><base href="../">' + pre)
+      .replace(/<script src="js\/firebase-config\.js[^"]*"><\/script>/, '<script src="test/firebase-shared.js?nc=' + Date.now() + '"><\/script>')
+      .replace(/<script src="js\/stats\.js[^"]*"><\/script>/, '')
+      .replace(/(src="(?:js|test)\/[^"?]+\.js)\?v=(\d+)"/g, '$1?v=$2&nc=' + Date.now() + '"');
+    if (Q.has('bots')) html = html.replace(/(<script src="js\/96-social\.js[^"]*"><\/script>)/, '$1<script src="test/social-bots.js?nc=' + Date.now() + '"><\/script>');
+    const run = Q.get('run'), go = !Q.has('title');
+    const tail = (go ? 'setTimeout(() => { try { XUI.closeTitle("naiwa"); } catch(e){} }, 900);' : '') + (run ? 'setTimeout(() => { (0, eval)(' + JSON.stringify(run).replace(/</g, '\u003c') + '); }, 1500);' : '');
+    if (tail) html = html.replace(/<\/body>/i, '<script>' + tail + '<\/script></body>');
+    document.open(); document.write(html); document.close();
+  });
+}
+</script>
