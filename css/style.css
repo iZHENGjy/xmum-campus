@@ -1096,6 +1096,7 @@ body.wd-open #radio,body.sp-run #radio,body.titled #radio{display:none!important
   .brand{padding:8px 12px}
   .brand h1{font-size:18px}
   .title{margin:2px 0 6px}
+  #mini{width:96px;height:96px;border-width:2px}
 
   /* --- 顶上一条：左边钱包 · 车速 · 警戒 · 车况 · 水枪 · 车行 · 暂停，右边菜单和视角，小地图挂在视角下面 --- */
   body.naiwa .brand{display:none}
