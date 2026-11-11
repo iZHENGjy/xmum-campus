@@ -133,16 +133,27 @@ function azBuild(){
       if (T[k]) c.copy(cPave).lerp(cPave2, hash2(i * 3 + 1, j * 7 + 2) * .8); else c.copy(cGrass).lerp(cGrass2, vnoise(x / 9, z / 9));
       col.push(c.r, c.g, c.b); return map[k];
     };
+    const idxP = [];   /* cells paved all round go to their own mesh, which carries the paving pattern */
     for (let j = 0; j < nz - 1; j++) for (let i = 0; i < nx - 1; i++){
       const a = j * nx + i, b = a + 1, cc = a + nx, d = cc + 1;
       if (Y[a] < .02 && Y[b] < .02 && Y[cc] < .02 && Y[d] < .02) continue;
       const xm = x0 + (i + .5) * C, zm = z0 + (j + .5) * C;
       const hc = C / 2; if (hole(xm - hc, zm - hc) || hole(xm + hc, zm - hc) || hole(xm - hc, zm + hc) || hole(xm + hc, zm + hc)) continue;
       if (hidden(xm - C / 2, zm - C / 2) && hidden(xm + C / 2, zm - C / 2) && hidden(xm - C / 2, zm + C / 2) && hidden(xm + C / 2, zm + C / 2)) continue;
-      idx.push(v(a), v(cc), v(b), v(b), v(cc), v(d));
+      (T[a] && T[b] && T[cc] && T[d] ? idxP : idx).push(v(a), v(cc), v(b), v(b), v(cc), v(d));
     }
-    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
+    const uv = new Float32Array(pos.length / 3 * 2); for (let k = 0; k < uv.length / 2; k++){ uv[k * 2] = pos[k * 3] / 6; uv[k * 2 + 1] = pos[k * 3 + 2] / 6; }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx.concat(idxP)); g.computeVertexNormals();
+    g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+    const gP = new THREE.BufferGeometry(); for (const k of ['position', 'color', 'normal', 'uv']) gP.setAttribute(k, g.attributes[k]); gP.setIndex(idxP); g.setIndex(idx);
+    /* the paving on top: granite slabs 0.75 m square in rows, each its own shade, fine joints (the texture is 6 m; mipmaps fade the joints out with distance) */
+    const pc = document.createElement('canvas'); pc.width = pc.height = 256; const pg = pc.getContext('2d'), pr = mkRng(6507), S8 = 256 / 8;
+    pg.fillStyle = '#bdb7ac'; pg.fillRect(0, 0, 256, 256);
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++){ const l = 245 + (pr() * 11) | 0; pg.fillStyle = `rgb(${l},${l - 2},${l - 6})`; pg.fillRect(c * S8 + 1, r * S8 + 1, S8 - 2, S8 - 2); }
+    pg.fillStyle = 'rgba(150,142,128,.55)'; for (const k of [0, 4]){ pg.fillRect(0, k * S8, 256, 2); pg.fillRect(k * S8, 0, 2, 256); }   /* a heavier joint every 3 m */
+    const pt = new THREE.CanvasTexture(pc); pt.wrapS = pt.wrapT = THREE.RepeatWrapping; pt.anisotropy = ANISO;
     const m = new THREE.Mesh(g, regWet(M('#ffffff', {vertexColors:true, roughness:.92}), .55)); m.receiveShadow = true; scene.add(m); AZ.meshes.push(m);
+    const mp = new THREE.Mesh(gP, regWet(M('#ffffff', {vertexColors:true, map:pt, roughness:.88}), .5)); mp.receiveShadow = true; scene.add(mp); AZ.meshes.push(mp);
   }
   /* q: a quad turned to face `dir` (whatever order its corners come in) */
   const P2 = [], lamps = [], q = (a, b, c, e, col, dir) => {
@@ -173,8 +184,14 @@ function azBuild(){
       }
       const mid = at(u, SD / 2 - .15, 0), c = addBox(mid[0], mid[2], .5, SD / 2 + .45, Math.atan2(-f.tz, f.tx)); AZ.cols.push(c);
       if (f.grand){
-        const pp = at(u, SD + 1.1, 0); P2.push(geoTint(new THREE.BoxGeometry(1.7, 1.5, 1.7).translate(pp[0], .75, pp[2]), '#958e82'), geoTint(new THREE.BoxGeometry(2, .2, 2).translate(pp[0], 1.6, pp[2]), '#c4bdaf'));
-        lamps.push(new THREE.BoxGeometry(.7, .6, .7).translate(pp[0], 2, pp[2])); P2.push(geoTint(new THREE.BoxGeometry(.9, .1, .9).translate(pp[0], 2.35, pp[2]), '#3a3d42'));
+        /* lantern pier: a moulded granite pier, an iron lantern with corner posts under a pyramid hood */
+        const pp = at(u, SD + 1.1, 0), X = pp[0], Z = pp[2];
+        P2.push(geoTint(new THREE.BoxGeometry(1.9, .3, 1.9).translate(X, .15, Z), '#a39b8e'), geoTint(new THREE.BoxGeometry(1.45, 1.3, 1.45).translate(X, .95, Z), '#b9b1a2'),
+          geoTint(new THREE.BoxGeometry(1.55, .1, 1.55).translate(X, 1.4, Z), '#a39b8e'), geoTint(new THREE.BoxGeometry(1.8, .2, 1.8).translate(X, 1.55, Z), '#d3ccbe'),
+          geoTint(new THREE.BoxGeometry(.8, .12, .8).translate(X, 1.71, Z), '#2a2c30'), geoTint(new THREE.ConeGeometry(.64, .42, 4).rotateY(Math.PI / 4).translate(X, 2.73, Z).toNonIndexed(), '#2a2c30'),
+          geoTint(new THREE.SphereGeometry(.08, 8, 6).translate(X, 2.98, Z).toNonIndexed(), '#c9982e'));
+        for (const sx of [-1, 1]) for (const sz of [-1, 1]) P2.push(geoTint(new THREE.BoxGeometry(.07, .78, .07).translate(X + sx * .3, 2.15, Z + sz * .3), '#2a2c30'));
+        lamps.push(new THREE.BoxGeometry(.54, .7, .54).translate(X, 2.13, Z));
         gatePools.push([pp[0], .1, pp[2] + 1.5, 6]); AZ.cols.push(addBox(pp[0], pp[2], .9, .9, 0));
       }
     }

@@ -40,21 +40,21 @@ azBuild();
     if (z + r > 260 && z - r < 267) for (const o of SOUTH_OPEN) if (x - r > o.x - o.w / 2 && x + r < o.x + o.w / 2) return false;
     return w0(x, z, r);
   }; }
-/* the planter under the name stone is a little wider than the box the scenery was placed round */
-{ const c = addBox(GATE_PLAZA.sx, GATE_PLAZA.sz + .2, 15.4, 1.4, 0), st = structures.find(s => s.info === gateInfo); if (st) st.cols.push(c); }   /* eaten with the stone */
 
 /* wrought-iron railing as real bars (a texture of bars shimmered and turned to moiré a few metres away): square uprights every 16 cm, each with a gilded
    spear tip, a rail top and bottom, and a band of rings under the top rail. Runs along x at depth z; y0 = top of the plinth, h = height of the bars. */
-const ironBarGeo = geoTint(new THREE.CylinderGeometry(.024, .024, 1, 4, 1, true).rotateY(Math.PI / 4).translate(0, .5, 0).toNonIndexed(), '#17191c');
-const ironTipGeo = geoTint(new THREE.ConeGeometry(.055, .2, 4, 1, true).rotateY(Math.PI / 4).toNonIndexed(), '#c9982e');
-const ironRingGeo = geoTint(new THREE.TorusGeometry(.07, .014, 3, 8).toNonIndexed(), '#17191c');
+const ironBarGeo = geoTint(new THREE.CylinderGeometry(.028, .028, 1, 3, 1, true).translate(0, .5, 0).toNonIndexed(), '#17191c');   /* three-sided: 6 triangles a bar */
+const ironTipGeo = geoTint(new THREE.ConeGeometry(.06, .2, 3, 1, true).toNonIndexed(), '#c9982e');
+const ironRingGeo = geoTint(new THREE.TorusGeometry(.07, .014, 3, 6).toNonIndexed(), '#17191c');
+const ironMeshes = [];   /* the bars cast shadows on 高清 only */
+XQ.onChange(() => { for (const m of ironMeshes) m.castShadow = XQ.tier > 1; });
 function ironRail(list, xa, xb, z, y0, h, sp){
   sp = sp || .16;
   const len = Math.abs(xb - xa), n = Math.max(1, Math.round(len / sp)), x0 = Math.min(xa, xb), d = len / n;
   for (let i = 0; i < n; i++){
     const x = x0 + (i + .5) * d;
     list.push(ironBarGeo.clone().scale(1, h, 1).translate(x, y0, z), ironTipGeo.clone().translate(x, y0 + h + .1, z));
-    if (i % 2 === 0 && i < n - 1) list.push(ironRingGeo.clone().translate(x + d, y0 + h - .32, z));
+    if (XQ.tier > 1 && i % 2 === 0 && i < n - 1) list.push(   /* rings: 高清 only */ironRingGeo.clone().translate(x + d, y0 + h - .32, z));
   }
   for (const y of [y0 + .1, y0 + h - .2, y0 + h - .44]) tbox(list, len, .05, .055, x0 + len / 2, y, z, '#17191c');
 }
@@ -68,7 +68,7 @@ function ironRail(list, xa, xb, z, y0, h, sp){
     for (let k = 0; k <= nb; k++){
       const x = xa + k * bay;
       tbox(P2, .86, 2.9, .86, x, 1.45, ZF, '#e4ddd0'); tbox(P2, 1.02, .22, 1.02, x, 2.98, ZF, '#f2ede3'); tbox(P2, .62, .16, .62, x, 3.17, ZF, '#e4ddd0');
-      P2.push(geoTint(new THREE.SphereGeometry(.2, 10, 8).translate(x, 3.42, ZF).toNonIndexed(), '#c9982e'));
+      P2.push(geoTint(new THREE.SphereGeometry(.2, 8, 6).translate(x, 3.42, ZF).toNonIndexed(), '#c9982e'));
       if (k < nb) ironRail(rail, x + .43, x + bay - .43, ZF, .58, 2.05);
     }
   }
@@ -86,7 +86,7 @@ function ironRail(list, xa, xb, z, y0, h, sp){
   }
   const am = new THREE.Mesh(geoMerge(apron), asphalt); am.position.y = .045; am.receiveShadow = true; scene.add(am);
   const m = new THREE.Mesh(geoMerge(P2), decoMat); m.castShadow = m.receiveShadow = true; scene.add(m);
-  const rm = new THREE.Mesh(geoMerge(rail), decoMat); rm.castShadow = true; scene.add(rm);
+  const rm = new THREE.Mesh(geoMerge(rail), decoMat); rm.castShadow = XQ.tier > 1; ironMeshes.push(rm); scene.add(rm);
   scene.add(new THREE.Mesh(geoMerge(glow), gateLampMat));
 })();
 
@@ -113,7 +113,7 @@ function ironRail(list, xa, xb, z, y0, h, sp){
     addBox(GX + s * (IN + OUTX) / 2, ZF, (OUTX - IN) / 2 + .2, .4, 0);
   }
   tbox(P2, IN * 2 + 14, .05, .14, GX, .06, ZF - .75, '#2a2c30');   /* the track the leaves run on */
-  { const fm = new THREE.Mesh(geoMerge(iron), decoMat); fm.castShadow = true; scene.add(fm); }
+  { const fm = new THREE.Mesh(geoMerge(iron), decoMat); fm.castShadow = XQ.tier > 1; ironMeshes.push(fm); scene.add(fm); }
 
   /* a Roman column: square plinth, moulded base, tapering shaft, flared capital under a square abacus (4.8 m in all) */
   const column = (x, z) => {
@@ -174,6 +174,8 @@ function gateClearRun(){
   gateCleared = true;
   /* the old inner fence (js/10-world.js FENCE_GHOST) only stood in while the scenery was placed */
   for (const c of FENCE_GHOST){ const i = colliders.indexOf(c); if (i >= 0) colliders.splice(i, 1); for (const st of structures){ const j = st.cols.indexOf(c); if (j >= 0) st.cols.splice(j, 1); } }
+  /* the planter under the name stone is a little wider than the box the scenery was placed round (eaten with the stone) */
+  { const c = addBox(GATE_PLAZA.sx, GATE_PLAZA.sz + .2, 15.4, 1.4, 0), st = structures.find(s => s.info === gateInfo); if (st) st.cols.push(c); }
   /* a campus cat whose spot is now inside a block that was turned moves to the front of it */
   if (typeof cats !== 'undefined') for (const k of cats) for (const c of LATE_REAL){
     const dx = k.hx - c.cx, dz = k.hz - c.cz, lx = dx * c.c - dz * c.s, lz = dx * c.s + dz * c.c;
