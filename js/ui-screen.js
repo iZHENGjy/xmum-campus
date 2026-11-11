@@ -37,6 +37,23 @@
     });
     D.addEventListener('fullscreenchange', sync); D.addEventListener('webkitfullscreenchange', sync);
     sync();
+    /* 自己点了「退出全屏」：以后进游戏不再自动全屏；再点「全屏」就恢复 */
+    btn.addEventListener('click', () => put('xmum-autofs', fsEl() ? '0' : '1'), true);
+  }
+
+  /* ---------- 手机：点模式卡片进游戏时顺手全屏（安卓等支持的浏览器；这一下点击就是浏览器要求的用户操作） ---------- */
+  if (TOUCH && canFs && !standalone) D.addEventListener('click', e => {
+    if (fsEl() || get('xmum-autofs') === '0' || !(e.target.closest && e.target.closest('#title [data-go="naiwa"], #title [data-go="hole"]'))) return;
+    try { const p = de.requestFullscreen ? de.requestFullscreen({navigationUI:'hide'}) : de.webkitRequestFullscreen(); if (p && p.catch) p.catch(() => {}); } catch(err){}
+  }, true);
+
+  /* ---------- 手机：不让页面被放大。双击放大由 css 的 touch-action:manipulation 挡掉，安卓的双指放大由 viewport 的 user-scalable=no 挡掉，
+     iPhone 的 Safari 不认 user-scalable=no，要拦它自己的 gesture 事件。万一已经放大了（老页面、系统设置），给一句怎么恢复 ---------- */
+  if (TOUCH){
+    for (const ev of ['gesturestart', 'gesturechange']) D.addEventListener(ev, e => e.preventDefault(), {passive:false});
+    D.addEventListener('dblclick', e => e.preventDefault(), {passive:false});
+    const vv = window.visualViewport;
+    if (vv){ let told = false; vv.addEventListener('resize', () => { if (vv.scale > 1.05 && !told && typeof toast === 'function'){ told = true; toast('画面被放大了', '两根手指捏一下就能缩回去', 2600); } else if (vv.scale <= 1.05) told = false; }); }
   }
 
   /* ---------- 竖屏提示：只在触屏、竖着、进了游戏（开车或黑洞）时出现 ---------- */
