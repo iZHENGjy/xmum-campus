@@ -18,10 +18,13 @@ MAP.wall = (x, z, r) => {
 /* Jalan Sunsuria runs east–west right outside the south hedge as two one-way carriageways with a planted median.
    Bell Avenue is one long block of back-to-back shophouses just south of it, starting opposite the main gate and running
    ~270 m east to the Bell Suites tower; the Taman Warisan Megah terraces lie behind it. KIP mall and 麦当当 are south-west:
-   really 1.5–2 km away, here compressed to about a 30 s drive over a ridge. Pads are flat (y = 0) so nothing ever floats. */
+   really 1.5–2 km away, here compressed to about a 30 s drive over a ridge. Pads are flat (y = 0) so nothing ever floats.
+   Round KIP the plan is traced at full size about the mall centre (real x ≈ game x + 662, real z ≈ game z − 979): the mall with the
+   lanes round it, the first row of KIP Sentral shop offices and KIP CORE to the south, Prima Apartment across the hill road. */
 const OUT_PADS = [
   {id:'bell', x0:-45, x1:545, z0:288, z1:470, fall:55},
-  {id:'kip',  x0:-778, x1:-490, z0:864, z1:1076, fall:70},
+  {id:'kip',  x0:-822, x1:-490, z0:864, z1:1160, fall:70},
+  {id:'prima', x0:-490, x1:-274, z0:888, z1:1012, fall:45},
   {id:'mcd',  x0:-503, x1:-406, z0:1065, z1:1137, fall:45}
 ];
 const OUT_ROADS = [
@@ -45,6 +48,22 @@ const OUT_ROADS = [
   {id:'resE', kind:'lane', w:5, line:[[322, 363], [322, 459]]},
   {id:'kip',  kind:'main', w:11, flatAfterZ:700, ctrl:[[-62, 289], [-64, 345], [-95, 430], [-185, 505], [-300, 570], [-420, 630], [-500, 705], [-530, 790], [-527, 880], [-505, 960], [-498, 1040], [-511, 1110], [-520, 1148]]},
   /* 油棕园公路 (js/92-racing.js track): from 麦当当 east through the hills and the oil-palm estate back up to Jalan Sunsuria */
+  /* round KIP mall (OSM customer service roads) and the KIP Sentral grid behind it (Jalan Warisan Sentral 1–4 and two service alleys) */
+  {id:'kipW', kind:'lane', w:8, line:[[-786, 917], [-786, 1030]]},
+  {id:'kipE', kind:'lane', w:7, line:[[-539.5, 917], [-539.5, 1030]]},
+  {id:'kipS', kind:'lane', w:7, line:[[-806, 1030], [-502, 1030]]},
+  {id:'sen1', kind:'lane', w:7, line:[[-806, 1030], [-806, 1125]]},
+  {id:'sen2', kind:'lane', w:7, line:[[-735.5, 1047], [-735.5, 1125]]},
+  {id:'sen3', kind:'lane', w:7, line:[[-806, 1047], [-667, 1047]]},
+  {id:'sen4', kind:'lane', w:7, line:[[-667, 1030], [-667, 1125]]},
+  {id:'sen5', kind:'lane', w:6, line:[[-806, 1125], [-667, 1125]]},
+  {id:'senA', kind:'lane', w:4.5, line:[[-770.5, 1047], [-770.5, 1125]]},
+  {id:'senB', kind:'lane', w:4.5, line:[[-700.5, 1047], [-700.5, 1125]]},
+  /* Prima Apartment: its private service ring (OSM 400447252) and spine (400447246), reached from the hill road opposite the mall */
+  {id:'primaR', kind:'lane', w:5, line:[[-465.2, 981.5], [-459.3, 983.5], [-380.6, 957.3], [-365.5, 954.1], [-283.1, 953.1], [-279.5, 947.8], [-279.1, 899.4], [-291.5, 893],
+    [-392.4, 905.8], [-474.7, 916.7], [-482.2, 926.8], [-481.8, 937.6], [-465.2, 981.5]]},
+  {id:'primaS', kind:'lane', w:5, line:[[-392.4, 905.8], [-387.7, 930.3], [-380.6, 957.3]]},
+  {id:'primaIn', kind:'lane', w:6, line:[[-509, 932], [-482, 932]]},
   {id:'estate', kind:'main', w:10, ctrl:[[-505, 1152], [-380, 1160], [-220, 1140], [-60, 1100], [100, 1050], [260, 985], [410, 905], [545, 820], [625, 700], [650, 560], [640, 420], [632, 330], [630, 293]]}
 ];
 OUT_ROADS.forEach(r => {
