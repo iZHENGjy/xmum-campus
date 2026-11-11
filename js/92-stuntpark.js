@@ -17,7 +17,9 @@
   if (typeof RAMPS === 'undefined' || typeof PARK_PAD === 'undefined' || !TG.flattenLate) return;
   const PI2 = Math.PI * 2, ROAD_Z = 266;                        /* north edge of Jalan Sunsuria (artN) */
   const PB = {x0:PARK_PAD.x0 - 10, x1:PARK_PAD.x1 + 8, z0:PARK_PAD.z0 - 10, z1:ROAD_Z + 2};   /* where the park's own physics apply */
-  const inPark = (x, z) => x > PB.x0 && x < PB.x1 && z > PB.z0 && z < PB.z1;
+  const BOXES = [PB], inBox = (B, x, z) => x > B.x0 && x < B.x1 && z > B.z0 && z < B.z1;
+  const inPark = (x, z) => BOXES.some(B => inBox(B, x, z));   /* this park, and the boxes js/92-f1park.js adds (the physics below apply in all of them) */
+  const inWest = (x, z) => inBox(PB, x, z);                    /* this park only (its prompts, the figure-8, the doughnuts) */
 
   /* ---------- layout (every lane runs north, i.e. toward -z) ---------- */
   const CX = -920;                                               /* big jump */
@@ -31,7 +33,8 @@
   const MOUND = {x:L1, zs:125, hw:4, len:50, f:u => { for (let i = 1; i < MOUND_P.length; i++){ const [u0, y0] = MOUND_P[i - 1], [u1, y1] = MOUND_P[i]; if (u <= u1) return y0 + (y1 - y0) * (u - u0) / (u1 - u0); } return 0; }};
   const SHAPES = [ROLL, MOUND];
   const LP = {x:-822, z:150, R:8, w:7, hw:2.8, g:20};            /* the loop: entry at (x, z), exit lane w m east */
-  const LP_MIN = Math.sqrt(5 * LP.g * LP.R);                      /* entry speed that just makes it round (≈ 102 km/h) */
+  const lpMin = lp => Math.sqrt(5 * lp.g * lp.R), LP_MIN = lpMin(LP);   /* entry speed that just makes it round (≈ 102 km/h) */
+  const LOOPS = [LP];   /* every loop runs north: entry at (x, z), exit lane w m east (js/92-f1park.js adds more) */
   const SK = {x:-975, z:140, r:20};                               /* drift circle, joined to the big-jump run-up by a short spur */
   const FW = {x:-978, z:205, y:18.5, r:14};                       /* Ferris wheel */
   const F8 = {x:-900, z:-368, A:90, B:42, hw:6};                  /* figure-8: x = x + B sin 2t, z = z + A sin t */
@@ -263,31 +266,31 @@
   }
 
   /* ---------- car physics in the park: the loop ride, solid sides on the ramps, falling off edges ---------- */
-  function loopPose(c, th){
+  function loopPose(c, th, LP){
     const s = Math.sin(th), co = Math.cos(th);
     c.x = LP.x + LP.w * th / PI2; c.y = LP.R * (1 - co); c.z = LP.z - LP.R * s;
     c.pitch = -th; c.root.position.set(c.x, c.y, c.z); c.root.rotation.set(-th, c.h, 0);
   }
   function loopStep(c, dt){
-    const L = c.loopRide;
+    const L = c.loopRide, LP = L.lp;
     let v = Math.sqrt(Math.max(0, L.v0 * L.v0 - 2 * LP.g * LP.R * (1 - Math.cos(L.th))));
     if (L.dir > 0 && !L.ok && (v < 1.5 || (L.th > Math.PI / 2 && v * v < LP.g * LP.R * -Math.cos(L.th) + 6))){
       L.dir = -1;
-      if (c === driving && typeof gxCallout === 'function') gxCallout('速度不够！', `至少 ${Math.ceil(LP_MIN * 3.6)} km/h 才转得过去`, '#e8412c');
+      if (c === driving && typeof gxCallout === 'function') gxCallout('速度不够！', `至少 ${Math.ceil(lpMin(LP) * 3.6)} km/h 才转得过去`, '#e8412c');
     }
     v = Math.max(v, 1.5); L.th += L.dir * v * dt / LP.R;
     for (const w of c.wheels) w.rotation.x += L.dir * v / c.T.r * dt;
     c.vx = 0; c.vz = -Math.cos(L.th) * v * L.dir; c.air = false; c.vy = 0; c.lastVy = 0; c.slip = 0;
     if (L.th >= PI2){
-      c.loopRide = null; loopPose(c, PI2); c.x = LP.x + LP.w; c.y = 0; c.pitch = 0; c.vz = -L.v0; c.root.position.set(c.x, 0, c.z); c.root.rotation.set(0, c.h, 0);
+      c.loopRide = null; loopPose(c, PI2, LP); c.x = LP.x + LP.w; c.y = 0; c.pitch = 0; c.vz = -L.v0; c.root.position.set(c.x, 0, c.z); c.root.rotation.set(0, c.h, 0);
       if (c === driving){
         const n = (prog.best.loops | 0) + 1; prog.best.loops = n; saveGame(); addStunt('360° 大回环', 600);
         if (window.XPark.onLoop) window.XPark.onLoop(n, Math.round(L.v0 * 3.6));
         if (typeof gxCallout === 'function') gxCallout('360° 大回环！', `进环 ${Math.round(L.v0 * 3.6)} km/h · 一共转过 ${n} 圈`, '#e8412c');
       }
     } else if (L.th <= 0){
-      c.loopRide = null; loopPose(c, 0); c.z = LP.z + .6; c.pitch = 0; c.vz = v; c.root.position.set(c.x, 0, c.z); c.root.rotation.set(0, c.h, 0);
-    } else loopPose(c, L.th);
+      c.loopRide = null; loopPose(c, 0, LP); c.z = LP.z + .6; c.pitch = 0; c.vz = v; c.root.position.set(c.x, 0, c.z); c.root.rotation.set(0, c.h, 0);
+    } else loopPose(c, L.th, LP);
   }
   {
     const base = updateCar;
@@ -298,8 +301,8 @@
       if (!inPark(px, pz) && !inPark(c.x, c.z)) return r;
       /* into the loop: crossing the entry line, inside the lane, heading north and moving forward */
       const vf = c.vx * Math.sin(c.h) + c.vz * Math.cos(c.h);
-      if (c === driving && !c.air && pz >= LP.z && c.z < LP.z && Math.abs(c.x - LP.x) < LP.hw && Math.cos(c.h - Math.PI) > .6 && vf > 2){
-        c.h = Math.PI; c.loopRide = {th:Math.max(0, (LP.z - c.z) / LP.R), v0:vf, dir:1, ok:vf >= LP_MIN + .3}; loopPose(c, c.loopRide.th); return r;
+      if (c === driving && !c.air && Math.cos(c.h - Math.PI) > .6 && vf > 2) for (const LP of LOOPS) if (pz >= LP.z && c.z < LP.z && Math.abs(c.x - LP.x) < LP.hw){
+        c.h = Math.PI; c.loopRide = {lp:LP, th:Math.max(0, (LP.z - c.z) / LP.R), v0:vf, dir:1, ok:vf >= lpMin(LP) + .3}; loopPose(c, c.loopRide.th, LP); return r;
       }
       const dist = Math.hypot(c.x - px, c.z - pz), g = groundAt(c.x, c.z);
       if (g - py > .55 + .75 * dist && py > groundAt(px, pz) - .3){   /* (a car that somehow started inside a ramp just pops out on top, as before) */
@@ -328,31 +331,34 @@
   if (typeof GX_MORE !== 'undefined') GX_MORE.push({id:'bigjump', name:'汽车游乐园 · 大跳台', fmt:v => `最远 ${Math.round(v)} 米`},
     {id:'loops', name:'汽车游乐园 · 大回环', fmt:v => `转过 ${Math.round(v)} 圈`}, {id:'parkLap', name:'汽车游乐园 · 8 字赛道', fmt:v => `最快一圈 ${fmtT(v)}`});
   const call = (t, s) => { if (typeof gxCallout === 'function' && !(typeof gxA !== 'undefined' && gxA.act)) gxCallout(t, s, '#e8412c'); };
-  const onBig = c => { const u = (c.x - BIG.x) * BIG.fx + (c.z - BIG.z) * BIG.fz, v = (c.x - BIG.x) * BIG.fz - (c.z - BIG.z) * BIG.fx; return Math.abs(v) < BIG.W / 2 && u > -BIG.L / 2 && u < BIG.L / 2 + 1; };
+  /* jumps whose distance is measured (from the lip): this park's big jump; js/92-f1park.js adds its own with its own record and hook */
+  const JUMPS = [{r:BIG, key:'bigjump', name:'大跳台', on:(d, rec, kmh) => { if (window.XPark.onJump) window.XPark.onJump(d, rec, kmh); }}];
+  const onJump = c => JUMPS.find(({r}) => { const u = (c.x - r.x) * r.fx + (c.z - r.z) * r.fz, v = (c.x - r.x) * r.fz - (c.z - r.z) * r.fx; return Math.abs(v) < r.W / 2 && u > -r.L / 2 && u < r.L / 2 + 1; }) || null;
   const best = k => prog.best[k];
   function parkUpdate(dt){
     PS.msg = '';
     const c = driving;
     if (!c){
       PS.fly = null; PS.onBig = false; PS.lap = null; PS.donut = 0;
-      if (typeof nw !== 'undefined' && inPark(nw.x, nw.z)) PS.msg = '汽车游乐园：开车来玩 · 大跳台、大回环、飞跃峡谷、8 字赛道';
+      if (typeof nw !== 'undefined' && inWest(nw.x, nw.z)) PS.msg = '汽车游乐园：开车来玩 · 大跳台、大回环、飞跃峡谷、8 字赛道';
       return;
     }
     if (!inPark(c.x, c.z)){ PS.fly = null; PS.lap = null; PS.donut = 0; return; }
     const sp = Math.hypot(c.vx, c.vz);
     /* big jump distance */
     if (PS.fly && PS.fly.car !== c) PS.fly = null;
-    if (c.air){ if (!PS.fly && PS.onBig) PS.fly = {car:c, v0:sp}; }
+    if (c.air){ if (!PS.fly && PS.onBig) PS.fly = {car:c, v0:sp, j:PS.onBig}; }
     else if (PS.fly){
-      const d = (c.x - BIG.x) * BIG.fx + (c.z - BIG.z) * BIG.fz - BIG.L / 2, f = PS.fly; PS.fly = null;
+      const J = PS.fly.j, r0 = J.r, d = (c.x - r0.x) * r0.fx + (c.z - r0.z) * r0.fz - r0.L / 2, f = PS.fly; PS.fly = null;
       if (d > 3){
-        const dist = Math.round(d), prev = best('bigjump'), rec = prev == null || dist > prev;
-        if (rec){ prog.best.bigjump = dist; saveGame(); }
-        if (window.XPark.onJump) window.XPark.onJump(dist, rec, Math.round(f.v0 * 3.6));   /* big screen and crowd (js/92-stuntpark-deco.js) */
-        call(`大跳台 ${dist} 米`, rec ? (prev == null ? '第一跳！纪录已保存' : `新纪录！上次 ${prev} 米`) : `起飞 ${Math.round(f.v0 * 3.6)} km/h · 纪录 ${prev} 米`);
+        const dist = Math.round(d), prev = best(J.key), rec = prev == null || dist > prev;
+        if (rec){ prog.best[J.key] = dist; saveGame(); }
+        J.on(dist, rec, Math.round(f.v0 * 3.6));   /* big screen and crowd (js/92-stuntpark-deco.js, js/92-f1park.js) */
+        call(`${J.name} ${dist} 米`, rec ? (prev == null ? '第一跳！纪录已保存' : `新纪录！上次 ${prev} 米`) : `起飞 ${Math.round(f.v0 * 3.6)} km/h · 纪录 ${prev} 米`);
       }
     }
-    PS.onBig = !c.air && onBig(c);
+    PS.onBig = !c.air && onJump(c);
+    if (!inWest(c.x, c.z)){ PS.lap = null; PS.donut = 0; return; }   /* the rest is this park's own */
     /* figure-8 lap: start / finish line, then all five checkpoints (either way round), then the line again */
     let gi = -1; for (let i = 0; i < F8G.length; i++) if (Math.hypot(c.x - F8G[i][0], c.z - F8G[i][1]) < F8.hw + 4){ gi = i; break; }
     if (gi !== PS.gateIn && gi >= 0){
@@ -401,6 +407,6 @@
     updateOutskirts = function(dt, T){ base(dt, T); if (camera.position.distanceTo(FWS.wheel.position) < 1100) fwTurn(dt); };
   }
   /* the dressing (js/92-stuntpark-deco.js) builds on these; onJump / onLoop / onLap are set there; the rest is for tests */
-  window.XPark = {BIG, GAPK, ROLL, MOUND, LP, LP_MIN, SK, FW, F8, F8G, f8At, LIP, LAND, RUN, PB, CX, L1, L1HW, S:PS, cleared, loopStep, fmtT,
+  window.XPark = {BOXES, SHAPES, LOOPS, JUMPS, lpMin, call, solid, sample, kickProf, inPark, BIG, GAPK, ROLL, MOUND, LP, LP_MIN, SK, FW, F8, F8G, f8At, LIP, LAND, RUN, PB, CX, L1, L1HW, S:PS, cleared, loopStep, fmtT,
     kit:{mk, tri, quad, flat, ribbon, toGeo, UPN, RED, WHITE, ASPH, PAINT, YEL, DARK}};
 })();

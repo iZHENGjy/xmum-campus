@@ -25,7 +25,11 @@ const OUT_PADS = [
   {id:'bell', x0:-45, x1:545, z0:288, z1:470, fall:55},
   {id:'kip',  x0:-822, x1:-490, z0:864, z1:1160, fall:70},
   {id:'prima', x0:-490, x1:-274, z0:888, z1:1012, fall:45},
-  {id:'mcd',  x0:-503, x1:-406, z0:1065, z1:1137, fall:45}
+  {id:'mcd',  x0:-503, x1:-406, z0:1065, z1:1137, fall:45},
+  /* 汽车游乐园二园 (js/92-f1park.js): the Sepang-style circuit and the stunt zone, south-east of Bell Avenue. The oil-palm estate road
+     crosses it and becomes the circuit's back straight: its profile is sampled after this pad is levelled, so it comes down to the floor too.
+     Kept within z 1195: online positions only reach ±1200 m (js/net.js). */
+  {id:'park2', x0:-230, x1:1070, z0:675, z1:1195, fall:45}
 ];
 /* 汽车游乐园 (js/92-stuntpark.js): a level block west of the campus, from Jalan Sunsuria north toward the map edge (big jump on x = -920).
    Not in OUT_PADS: it is levelled later by TG.flattenLate (below), after js/13-outskirts.js has planted the hill trees on the
@@ -222,6 +226,9 @@ function terrainY(x, z){
   for (let k = 0; k < N; k++) H[k] -= .06;
   TG.Y = H; TG.RW = RW; TG.RD = RD;
 })();
+/* the map reaches further east and south for 汽车游乐园二园 (set only now, so the hills above are shaped by the old edge and stay as they were;
+   the height grid ends at x 1156) */
+MAP.x1 = 1150; MAP.z1 = 1260;
 
 /* ---------- drawn hills: one mesh per ninth of the map (frustum-culled), plus the campus forest (hidden in black-hole mode) ---------- */
 const terrMat = regWet(M('#b4b4b4', {vertexColors:true, roughness:.95}), .62);   /* grey, not white: the hills' vertex greens were clipping to neon in full sun */
