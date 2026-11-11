@@ -29,7 +29,7 @@ const gateClear = [];   /* [x0, z0, x1, z1]: trees, lamps and benches inside the
 })();
 /* the A zone: podium, stairs, walls, garage, the covered walk, the lakeside pavilions; the blocks are lifted onto it (js/09-azone.js) */
 azBuild();
-/* the plaza with the name stone, west of the gate, lies outside the hedge: open it (its three hedges are walls) */
+/* the plaza with the name stone, west of the gate, lies outside the hedge: open it (its three hedges are walls); the gaps in the south hedge are open too */
 { const G = GATE_PLAZA, w0 = MAP.wall;
   MAP.wall = (x, z, r) => {
     if (x + r > G.x0 - 1.5 && x - r < G.x1 + 1 && z + r > G.z0 - 1 && z - r < G.z1 + 1.5){
@@ -37,45 +37,83 @@ azBuild();
       if (x - r < G.x0 + 1.5 || x + r > G.x1 - 1) return true;
       return false;
     }
+    if (z + r > 260 && z - r < 267) for (const o of SOUTH_OPEN) if (x - r > o.x - o.w / 2 && x + r < o.x + o.w / 2) return false;
     return w0(x, z, r);
   }; }
+
+/* wrought-iron railing as real bars (a texture of bars shimmered and turned to moiré a few metres away): square uprights every 16 cm, each with a gilded
+   spear tip, a rail top and bottom, and a band of rings under the top rail. Runs along x at depth z; y0 = top of the plinth, h = height of the bars. */
+const ironBarGeo = geoTint(new THREE.CylinderGeometry(.028, .028, 1, 3, 1, true).translate(0, .5, 0).toNonIndexed(), '#17191c');   /* three-sided: 6 triangles a bar */
+const ironTipGeo = geoTint(new THREE.ConeGeometry(.06, .2, 3, 1, true).toNonIndexed(), '#c9982e');
+const ironRingGeo = geoTint(new THREE.TorusGeometry(.07, .014, 3, 6).toNonIndexed(), '#17191c');
+const ironMeshes = [];   /* the bars cast shadows on 高清 only */
+XQ.onChange(() => { for (const m of ironMeshes) m.castShadow = XQ.tier > 1; });
+function ironRail(list, xa, xb, z, y0, h, sp){
+  sp = sp || .16;
+  const len = Math.abs(xb - xa), n = Math.max(1, Math.round(len / sp)), x0 = Math.min(xa, xb), d = len / n;
+  for (let i = 0; i < n; i++){
+    const x = x0 + (i + .5) * d;
+    list.push(ironBarGeo.clone().scale(1, h, 1).translate(x, y0, z), ironTipGeo.clone().translate(x, y0 + h + .1, z));
+    if (XQ.tier > 1 && i % 2 === 0 && i < n - 1) list.push(   /* rings: 高清 only */ironRingGeo.clone().translate(x + d, y0 + h - .32, z));
+  }
+  for (const y of [y0 + .1, y0 + h - .2, y0 + h - .44]) tbox(list, len, .05, .055, x0 + len / 2, y, z, '#17191c');
+}
+
+/* ---------- the south boundary either side of the gate: the railing on a granite plinth between cream piers; the gaps in the hedge further along ---------- */
+(function(){
+  const ZF = 263.5, P2 = [], rail = [], glow = [];
+  for (const [xa, xb] of SOUTH_RAIL){
+    const len = xb - xa, nb = Math.max(1, Math.round(len / 8.5)), bay = len / nb;
+    tbox(P2, len, .5, .62, (xa + xb) / 2, .25, ZF, '#b9b1a2'); tbox(P2, len, .08, .72, (xa + xb) / 2, .54, ZF, '#cfc8bb');
+    for (let k = 0; k <= nb; k++){
+      const x = xa + k * bay;
+      tbox(P2, .86, 2.9, .86, x, 1.45, ZF, '#e4ddd0'); tbox(P2, 1.02, .22, 1.02, x, 2.98, ZF, '#f2ede3'); tbox(P2, .62, .16, .62, x, 3.17, ZF, '#e4ddd0');
+      P2.push(geoTint(new THREE.SphereGeometry(.2, 8, 6).translate(x, 3.42, ZF).toNonIndexed(), '#c9982e'));
+      if (k < nb) ironRail(rail, x + .43, x + bay - .43, ZF, .58, 2.05);
+    }
+  }
+  /* the gaps: a short drive across the verge from the ring road to Jalan Sunsuria, a granite pier with a lamp each side where the hedge stops */
+  const apron = [];
+  for (const o of SOUTH_OPEN){
+    const xa = o.x - o.w / 2, xb = o.x + o.w / 2;
+    apron.push(new THREE.PlaneGeometry(o.w - .6, 13.8).rotateX(-Math.PI / 2).translate(o.x, 0, 259.5));
+    for (const e of [xa - .55, xb + .55]){
+      tbox(P2, 1, 2.1, 1.1, e, 1.05, ZF, '#d8d1c4'); tbox(P2, 1.2, .18, 1.3, e, 2.19, ZF, '#ece6da');
+      glow.push(new THREE.BoxGeometry(.42, .42, .42).translate(e, 2.49, ZF)); P2.push(geoTint(new THREE.BoxGeometry(.56, .08, .56).translate(e, 2.74, ZF), '#3a3d42'));
+      gatePools.push([e, .1, ZF - 1.5, 4]);
+    }
+    gateClear.push([xa - 1, 252, xb + 1, 268]);
+  }
+  const am = new THREE.Mesh(geoMerge(apron), asphalt); am.position.y = .045; am.receiveShadow = true; scene.add(am);
+  const m = new THREE.Mesh(geoMerge(P2), decoMat); m.castShadow = m.receiveShadow = true; scene.add(m);
+  const rm = new THREE.Mesh(geoMerge(rail), decoMat); rm.castShadow = XQ.tier > 1; ironMeshes.push(rm); scene.add(rm);
+  scene.add(new THREE.Mesh(geoMerge(glow), gateLampMat));
+})();
 
 /* ---------- the gate: black wrought iron with gilded spear tips, slid open; the same railing either side; IN and OUT boards; a row of cones down the middle ----------
    It stands in the opening of the boundary hedge (z = 263.5), where the road from Jalan Sunsuria comes in. Behind it, a flat-roofed porch on white Roman columns
    to each side of the road: the east one shelters the guard booth, whose big windows are lit at night. Nothing here reaches the perimeter road (z < 252), so the race line is clear. */
 (function(){
   const ZF = 263.5, IN = 6.6, OUTX = 16, P2 = [], glass = [], WHITE = '#eee8dc', IRON = '#17191c', GOLD = '#c9982e';
-  const iron = paint => { const c = document.createElement('canvas'); c.width = 256; c.height = 128; paint(c.getContext('2d')); const t = new THREE.CanvasTexture(c); t.wrapS = THREE.RepeatWrapping; t.anisotropy = ANISO;
-    return new THREE.MeshStandardMaterial({map:t, alphaTest:.5, side:THREE.DoubleSide, roughness:.5, metalness:.45}); };
-  const spear = (g, x, y, h) => { g.fillStyle = '#d8a93a'; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 4.5, y + h * .55); g.lineTo(x + 1.6, y + h); g.lineTo(x - 1.6, y + h); g.lineTo(x - 4.5, y + h * .55); g.closePath(); g.fill(); };
-  /* railing: upright bars between two rails, every bar ending in a gilded spear, a ring between each pair under the top rail */
-  const fenceMat = iron(g => {
-    g.fillStyle = IRON; g.fillRect(0, 30, 256, 6); g.fillRect(0, 108, 256, 7);
-    for (let i = 0; i < 8; i++){ const x = i * 32 + 16; g.fillStyle = IRON; g.fillRect(x - 2.5, 20, 5, 108); spear(g, x, 2, 20); g.strokeStyle = IRON; g.lineWidth = 2.5; g.beginPath(); g.arc(x + 16, 46, 7, 0, 7); g.stroke(); }
-  });
-  /* gate leaf: a heavier frame, the bars rising to an arch in the middle, gilded tips along the arch and a gilded roundel */
-  const leafMat = iron(g => {
-    const top = x => 34 - 26 * Math.sin(Math.PI * x / 256);
-    g.fillStyle = IRON; g.fillRect(0, 26, 7, 102); g.fillRect(249, 26, 7, 102); g.fillRect(0, 118, 256, 10); g.fillRect(0, 76, 256, 5);
-    for (let x = 0; x < 256; x += 2) g.fillRect(x, top(x + 1) + 14, 2, 5);
-    for (let i = 0; i < 12; i++){ const x = i * 21 + 12; g.fillStyle = IRON; g.fillRect(x - 2.2, top(x) + 12, 4.4, 116); spear(g, x, top(x) - 4, 17); }
-    g.strokeStyle = '#d8a93a'; g.lineWidth = 3; g.beginPath(); g.arc(128, 98, 13, 0, 7); g.stroke(); g.beginPath(); g.arc(128, 98, 5, 0, 7); g.stroke();
-  });
-  const fence = [], leaves = [];
+  /* railing: the same bars as along the frontage, between iron posts; the leaf: a heavier frame, the bars rising to an arch, gilded tips, a gilded roundel */
+  const iron = [];
   for (const s of [-1, 1]){
     const xa = GX + s * (IN + .25), xb = GX + s * (OUTX - .2), len = Math.abs(xb - xa);
-    const fp = new THREE.PlaneGeometry(len, 2.75), uv = fp.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setX(i, uv.getX(i) * len / 5.2);
-    fence.push(fp.translate((xa + xb) / 2, .35 + 1.375, ZF).toNonIndexed());
     tbox(P2, len, .35, .5, (xa + xb) / 2, .175, ZF, '#b9b1a2');
-    for (let k = 0; k <= 3; k++) tbox(P2, .16, 2.6, .16, xa + (xb - xa) * k / 3, 1.65, ZF, IRON);
-    /* the leaf, rolled back behind the railing on its track */
-    leaves.push(new THREE.PlaneGeometry(6.5, 3.1).translate(GX + s * (IN + .5 + 3.25), 1.6, ZF - .75).toNonIndexed());
+    for (let k = 0; k <= 3; k++){ tbox(P2, .16, 2.6, .16, xa + (xb - xa) * k / 3, 1.65, ZF, IRON); if (k < 3) ironRail(iron, xa + (xb - xa) * k / 3 + s * .08, xa + (xb - xa) * (k + 1) / 3 - s * .08, ZF, .35, 2.3); }
+    /* the leaf, rolled back behind the railing on its track: frame, a middle rail, 21 bars up to the arch, the arch itself in short pieces, the roundel */
+    const lx0 = GX + s * (IN + .5), lx1 = lx0 + s * 6.5, zl = ZF - .75, top = t => 2.55 + .55 * Math.sin(Math.PI * t), LX = t => lx0 + (lx1 - lx0) * t;
+    for (const t of [0, 1]) tbox(iron, .11, 2.95, .11, LX(t), 1.6, zl, IRON);
+    tbox(iron, 6.5, .14, .08, (lx0 + lx1) / 2, .2, zl, IRON); tbox(iron, 6.5, .08, .07, (lx0 + lx1) / 2, 1.42, zl, IRON);
+    for (let i = 1; i < 22; i++){ const t = i / 22, x = LX(t), h = top(t) - .2; iron.push(ironBarGeo.clone().scale(1.3, h, 1.3).translate(x, .2, zl), ironTipGeo.clone().scale(1.2, 1.2, 1.2).translate(x, .2 + h + .12, zl)); }
+    for (let i = 0; i < 16; i++){ const t0 = i / 16, t1 = (i + 1) / 16; iron.push(geoTint(rodGeo(.04, .04, [LX(t0), top(t0) - .3, zl], [LX(t1), top(t1) - .3, zl], 4).toNonIndexed(), IRON)); }
+    for (const r of [.36, .14]) iron.push(geoTint(new THREE.TorusGeometry(r, .035, 4, 20).translate(LX(.5), .82, zl).toNonIndexed(), GOLD));
     /* gate post with a gilded ball */
     tbox(P2, .55, 3.5, .55, GX + s * IN, 1.75, ZF, IRON); P2.push(geoTint(new THREE.SphereGeometry(.26, 10, 8).translate(GX + s * IN, 3.72, ZF).toNonIndexed(), GOLD));
     addBox(GX + s * (IN + OUTX) / 2, ZF, (OUTX - IN) / 2 + .2, .4, 0);
   }
   tbox(P2, IN * 2 + 14, .05, .14, GX, .06, ZF - .75, '#2a2c30');   /* the track the leaves run on */
-  const fm = new THREE.Mesh(geoMergeUV(fence), fenceMat), lm = new THREE.Mesh(geoMergeUV(leaves), leafMat); fm.castShadow = lm.castShadow = true; scene.add(fm, lm);
+  { const fm = new THREE.Mesh(geoMerge(iron), decoMat); fm.castShadow = XQ.tier > 1; ironMeshes.push(fm); scene.add(fm); }
 
   /* a Roman column: square plinth, moulded base, tapering shaft, flared capital under a square abacus (4.8 m in all) */
   const column = (x, z) => {
@@ -134,6 +172,10 @@ azBuild();
 let gateCleared = false;
 function gateClearRun(){
   gateCleared = true;
+  /* the old inner fence (js/10-world.js FENCE_GHOST) only stood in while the scenery was placed */
+  for (const c of FENCE_GHOST){ const i = colliders.indexOf(c); if (i >= 0) colliders.splice(i, 1); for (const st of structures){ const j = st.cols.indexOf(c); if (j >= 0) st.cols.splice(j, 1); } }
+  /* the planter under the name stone is a little wider than the box the scenery was placed round (eaten with the stone) */
+  { const c = addBox(GATE_PLAZA.sx, GATE_PLAZA.sz + .2, 15.4, 1.4, 0), st = structures.find(s => s.info === gateInfo); if (st) st.cols.push(c); }
   /* a campus cat whose spot is now inside a block that was turned moves to the front of it */
   if (typeof cats !== 'undefined') for (const k of cats) for (const c of LATE_REAL){
     const dx = k.hx - c.cx, dz = k.hz - c.cz, lx = dx * c.c - dz * c.s, lz = dx * c.s + dz * c.c;

@@ -76,8 +76,15 @@ const FOUNT = P(1385, 405);
   const [x, z] = FOUNT;
   const ring = new THREE.Mesh(new THREE.TorusGeometry(4.6, .35, 8, 40), granite); ring.rotation.x = Math.PI / 2; ring.position.set(x, .15, z); scene.add(ring);
   const spout = new THREE.Mesh(new THREE.CylinderGeometry(.35, .6, 1.6, 12), granite); spout.position.set(x, .7, z); scene.add(spout);
-  const jet = new THREE.Mesh(new THREE.ConeGeometry(.9, 7, 16, 1, true), new THREE.MeshBasicMaterial({color:'#e6f6ff', transparent:true, opacity:.45, depthWrite:false, side:THREE.DoubleSide}));
-  jet.position.set(x, 4.6, z); jet.rotation.x = Math.PI; scene.add(jet);
+  /* water: a tall central jet that thins as it rises and opens at the top, and eight jets arching in from the ring */
+  const W = [new THREE.CylinderGeometry(.1, .32, 5.6, 10, 1, true).translate(0, 4.2, 0), new THREE.CylinderGeometry(.75, .12, .9, 12, 1, true).translate(0, 7.3, 0)];
+  for (let k = 0; k < 8; k++){
+    const a = k / 8 * Math.PI * 2, c = Math.cos(a), s = Math.sin(a), pts = [];
+    for (let i = 0; i <= 8; i++){ const t = i / 8, r = 4.2 - 3.2 * t; pts.push(new THREE.Vector3(c * r, .3 + 2.6 * 4 * t * (1 - t), s * r)); }
+    W.push(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 10, .06, 4, false));
+  }
+  const jet = new THREE.Mesh(geoMerge(W), new THREE.MeshBasicMaterial({color:'#e6f6ff', transparent:true, opacity:.45, depthWrite:false, side:THREE.DoubleSide}));
+  jet.position.set(x, 0, z); scene.add(jet);
 })();
 let fountAcc = 0;
 function updateFountain(dt){

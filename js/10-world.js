@@ -203,7 +203,14 @@ function bridgeY(x, z){
   }
   /* piers under the deck, stone abutments at both ends */
   for (const t of [.2, .4, .6, .8]){ const u = L * t, h = dk(u) + .4; for (const s of [-1, 1]){ const p = W3(u, 0, s * (hw - .9)); parts.push(geoTint(new THREE.BoxGeometry(.8, h, .8).translate(p[0], h / 2 - .9, p[2]), '#a39b8e')); } boxAt(.6, .5, hw * 2 - 1, u, dk(u) - .75, 0, '#a39b8e'); }
-  for (const u of [-.8, L + .8]) boxAt(2, .55, hw * 2 + 2, u, .05, 0, '#b9b1a2');
+  /* a granite landing at each end, flush with the deck and ramping down to the path, a little wider than the deck (it used to be a slab standing proud of both) */
+  for (const [u0, e] of [[0, -1], [L, 1]]){
+    const u1 = u0 + e * 2.8, y0 = dk(u0) + .005, y1 = .12, w0 = hw + .32, w1 = hw + .7;
+    const both = (a, b, c, d2, col) => { quad(a, b, c, d2, col); quad(d2, c, b, a, col); };   /* a few quads: both windings rather than working out which way each one faces */
+    both(W3(u0, y0, -w0), W3(u0, y0, w0), W3(u1, y1, w1), W3(u1, y1, -w1), '#c2b9a8');
+    for (const v of [-1, 1]) both(W3(u0, -.4, v * w0), W3(u1, -.4, v * w1), W3(u1, y1, v * w1), W3(u0, y0, v * w0), '#9a9284');
+    both(W3(u1, -.4, -w1), W3(u1, -.4, w1), W3(u1, y1, w1), W3(u1, y1, -w1), '#9a9284');
+  }
   const m = new THREE.Mesh(geoMerge(parts), decoMat); m.castShadow = m.receiveShadow = true; m.userData.info = info; pickables.push(m); scene.add(m);
   scene.add(new THREE.Mesh(geoMerge(lamps), furLampMat));
   /* the balustrades stop people and cars from going over the side */
@@ -369,14 +376,28 @@ const fieldInfo = {name:'田径场', tag:'运动', desc:'Field & Track：红色�
   addLabel('田径场', FIELD.x, 8, FIELD.z);
 })();
 
-/* ---------- south gate: the name stone outside the gate (in a small plaza let into the hedge west of the opening, a fountain in front of it) + iron fence ---------- */
-const [GX] = P(1180, 0), FENCE_Z = 214;
+/* ---------- south gate: the name stone outside the gate (in a small plaza let into the hedge west of the opening, a fountain in front of it) ---------- */
+const [GX] = P(1180, 0), FENCE_Z = 214;   /* FENCE_Z: where the old inner fence ran; scenery is still kept back from it, so the layout stays put */
 const GATE_PLAZA = {x0:GX - 52, x1:GX - 17.2, z0:254, z1:263.5, sx:GX - 34, sz:257, fz:260.8};   /* outside the boundary: js/42-gate.js opens it in MAP.wall */
+/* the south boundary (z = 263.5): wrought-iron railing on a granite plinth either side of the gate, the hedge everywhere else, and gaps in the hedge
+   where you can drive straight out onto Jalan Sunsuria (opposite the KIP turn-off and the Bell Avenue driveway, and a few more). js/42-gate.js draws
+   the railing and the gaps and opens the gaps in MAP.wall. */
+const SOUTH_RAIL = [[GX - 100, GATE_PLAZA.x0], [GX + 17.8, GX + 66]];   /* east: from the brick gate pillar (js/13-outskirts.js) */
+const SOUTH_OPEN = [-470, -265, -62, 264, 455].map(x => ({x, w:12}));
+/* the iron fence that used to run 50 m inside the hedge (it cut across the road at both ends and was in the way everywhere): gone. Its colliders stay
+   while the trees and props are scattered, so they land exactly where they did, and js/42-gate.js takes them out afterwards. */
+const FENCE_GHOST = [];
 const gateInfo = {name:'南门（正门）', tag:'正门', spawn:[96, 238, 0],
   desc:'学校正门。出门右手边是黑色花岗岩校碑，刻着中英文校名，碑前有个小喷泉。进门先经过陈嘉庚像，再沿中轴线走上大台阶到 A3。'};
 structBlock(function(){
   const {sx, sz, fz} = GATE_PLAZA;
-  const wall = box(28, 3.4, 1.6, darkStone, sx, 2.2, sz); const cap = box(29, .4, 2.2, granite, sx, 4.1, sz); box(31, .5, 4.6, granite, sx, .25, sz + .9);
+  /* the black wall stands on a granite planter, so the name reads above the fountain and the cars; lighter granite piers close both ends */
+  const SP = [];
+  tbox(SP, 30.4, .9, 2.7, sx, .45, sz + .2, '#a7a093'); tbox(SP, 30.8, .14, 3, sx, .97, sz + .2, '#c3bcae');
+  tbox(SP, 28.4, .5, .9, sx, 1.27, sz + 1.05, '#3f6f34');   /* clipped shrubs along the front of the planter */
+  for (const e of [-1, 1]){ tbox(SP, 1.5, 4.3, 1.9, sx + e * 14.6, 3.19, sz, '#b9b1a2'); tbox(SP, 1.8, .3, 2.2, sx + e * 14.6, 5.49, sz, '#cfc8bb'); }
+  const sp = new THREE.Mesh(geoMerge(SP), decoMat); sp.castShadow = sp.receiveShadow = true; scene.add(sp);
+  const wall = box(27.7, 3.4, 1.3, darkStone, sx, 2.74, sz); const cap = box(28, .32, 1.7, granite, sx, 4.6, sz);
   const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 112; const g = cv.getContext('2d');
   const paint = () => {
     g.fillStyle = '#2f3337'; g.fillRect(0, 0, 1024, 112); g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -385,32 +406,24 @@ structBlock(function(){
   };
   paint();
   const t = new THREE.CanvasTexture(cv); t.anisotropy = ANISO;
-  const plaque = new THREE.Mesh(new THREE.PlaneGeometry(26, 2.9), new THREE.MeshStandardMaterial({map:t, roughness:.4}));
-  plaque.position.set(sx, 2.25, sz + .82); scene.add(plaque);
+  const plaque = new THREE.Mesh(new THREE.PlaneGeometry(26, 2.9), new THREE.MeshStandardMaterial({map:t, roughness:.4, polygonOffset:true, polygonOffsetFactor:-2, polygonOffsetUnits:-8}));
+  plaque.position.set(sx, 2.74, sz + .67); scene.add(plaque);
   document.fonts && document.fonts.ready.then(() => { paint(); t.needsUpdate = true; });
-  /* the little fountain: a round stone basin, a pedestal bowl, a jet (spray: js/09-azone.js) */
-  const basin = new THREE.Mesh(geoMerge([geoTint(new THREE.CylinderGeometry(2.5, 2.6, .55, 32, 1, true).translate(0, .27, 0).toNonIndexed(), '#b7b0a4'), geoTint(new THREE.TorusGeometry(2.5, .16, 6, 32).rotateX(Math.PI / 2).translate(0, .56, 0).toNonIndexed(), '#cfc8bb'),
-    geoTint(new THREE.CylinderGeometry(.22, .35, 1.3, 12).translate(0, .65, 0).toNonIndexed(), '#b7b0a4'), geoTint(new THREE.CylinderGeometry(.8, .35, .3, 16).translate(0, 1.35, 0).toNonIndexed(), '#cfc8bb')]), decoMat);
-  basin.position.set(sx, 0, fz); scene.add(basin);
-  const pool = new THREE.Mesh(new THREE.CircleGeometry(2.45, 32), waterMat); pool.rotation.x = -Math.PI / 2; pool.position.set(sx, .45, fz); scene.add(pool);
-  const jet = new THREE.Mesh(new THREE.ConeGeometry(.45, 2.6, 12, 1, true), new THREE.MeshBasicMaterial({color:'#e6f6ff', transparent:true, opacity:.45, depthWrite:false, side:THREE.DoubleSide}));
-  jet.position.set(sx, 2.75, fz); jet.rotation.x = Math.PI; scene.add(jet);
-  [wall, cap, plaque, basin].forEach(m => { m.userData.info = gateInfo; pickables.push(m); });
-  addBox(sx, sz + .4, 14.6, 1.4, 0); addCircle(sx, fz, 2.7);
+  /* the little fountain, clear of the planter: a round stone basin, a pedestal with two bowls, water spilling from the lower one, a low jet (spray: js/09-azone.js) */
+  const lathe = (pts, seg) => new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg).toNonIndexed();
+  const basin = new THREE.Mesh(geoMerge([geoTint(lathe([[2.02, .44], [2.02, .52], [2.32, .56], [2.36, .5], [2.3, .06], [2.4, 0]], 36), '#c9c2b5'),
+    geoTint(lathe([[.26, .3], [.2, .5], [.17, .95], [.3, 1.02], [.8, 1.1], [.84, 1.18], [.7, 1.16], [.2, 1.2], [.13, 1.5], [.4, 1.56], [.43, 1.62], [.3, 1.6], [.07, 1.64], [.04, 1.8]], 20), '#d3ccbf'),
+    geoTint(new THREE.CylinderGeometry(2.1, 2.1, .4, 36, 1, true).translate(0, .22, 0).toNonIndexed(), '#8f887c')]), decoMat);
+  basin.castShadow = basin.receiveShadow = true; basin.position.set(sx, 0, fz); scene.add(basin);
+  const pool = new THREE.Mesh(new THREE.CircleGeometry(2.04, 36), waterMat); pool.rotation.x = -Math.PI / 2; pool.position.set(sx, .44, fz); scene.add(pool);
+  const waterFx = new THREE.MeshBasicMaterial({color:'#e6f6ff', transparent:true, opacity:.4, depthWrite:false, side:THREE.DoubleSide});
+  const jet = new THREE.Mesh(geoMerge([new THREE.CylinderGeometry(.82, 1.02, .66, 24, 1, true).translate(0, .8, 0), new THREE.CylinderGeometry(.42, .5, .36, 16, 1, true).translate(0, 1.36, 0),
+    new THREE.CylinderGeometry(.03, .08, .8, 8, 1, true).translate(0, 2.2, 0)]), waterFx);
+  jet.position.set(sx, 0, fz); scene.add(jet);
+  [wall, cap, plaque, basin, sp].forEach(m => { m.userData.info = gateInfo; pickables.push(m); });
+  addBox(sx, sz + .4, 14.6, 1.4, 0); addCircle(sx, fz, 2.7);   /* the old box, so the scenery lands where it did; js/42-gate.js adds the wider planter's */
   addLabel('校碑', sx, 7.5, sz, true);
-  const fc = document.createElement('canvas'); fc.width = 64; fc.height = 64; const f = fc.getContext('2d');
-  /* black bars between two rails, each ending in a gilded spear tip (the same railing as at the gate, js/42-gate.js) */
-  f.fillStyle = '#17191c'; f.fillRect(0, 14, 64, 4); f.fillRect(0, 52, 64, 4); for (let i = 0; i < 8; i++) f.fillRect(i * 8 + 3, 10, 2.5, 54);
-  f.fillStyle = '#d8a93a'; for (let i = 0; i < 8; i++){ const x = i * 8 + 4.25; f.beginPath(); f.moveTo(x, 0); f.lineTo(x + 2.6, 6); f.lineTo(x + 1, 11); f.lineTo(x - 1, 11); f.lineTo(x - 2.6, 6); f.closePath(); f.fill(); }
-  const ft = new THREE.CanvasTexture(fc); ft.wrapS = THREE.RepeatWrapping;
-  const fenceMat = new THREE.MeshStandardMaterial({map:ft, alphaTest:.5, transparent:false, side:THREE.DoubleSide, roughness:.5, metalness:.4});
-  for (const [x0, x1] of [[-585, GX - 30], [GX + 30, 590]]){
-    const len = x1 - x0, tx = ft.clone(); tx.needsUpdate = true; tx.repeat.set(len / 2.2, 1);
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(len, 2.2), fenceMat.clone()); m.material.map = tx;
-    m.position.set((x0 + x1) / 2, 1.1, FENCE_Z); m.castShadow = true; scene.add(m);
-    addBox((x0 + x1) / 2, FENCE_Z, len / 2, .4, 0);
-    for (const px of [x0, x1]) box(1.2, 2.8, 1.2, darkStone, px, 1.4, FENCE_Z);
-  }
+  for (const [x0, x1] of [[-585, GX - 30], [GX + 30, 590]]) FENCE_GHOST.push(addBox((x0 + x1) / 2, FENCE_Z, (x1 - x0) / 2, .4, 0));
   addLabel('南门（正门）', GX, 9, 258);
 })();
 /* Tan Kah Kee statue */
@@ -467,7 +480,10 @@ const LAWN_ARC = {};   /* the smoothed curve of the promenade, shared with js/42
 (function(){
   const hedge = M('#3f6f34', {roughness:.95});
   const G = GATE_PLAZA;   /* west of the gate the hedge steps back round the plaza with the name stone */
-  for (const [x, z, w, d] of [[0, -276.5, 1206, 3], [(G.x0 - 603) / 2, 263.5, G.x0 + 603, 3], [(GX + 619) / 2, 263.5, 587 - GX, 3], [-601.5, -6.5, 3, 540], [601.5, -6.5, 3, 540],
+  /* the south side: hedge from corner to corner, except the railing either side of the gate, the plaza and the gate, and the gaps you can drive through */
+  const cuts = SOUTH_RAIL.concat([[G.x0, SOUTH_RAIL[1][0]]],SOUTH_OPEN.map(o => [o.x - o.w / 2, o.x + o.w / 2])).sort((a, b) => a[0] - b[0]), south = [];
+  let sx0 = -603; for (const [a, b] of cuts){ if (a > sx0 + .5) south.push([(sx0 + a) / 2, 263.5, a - sx0, 3]); sx0 = Math.max(sx0, b); } south.push([(sx0 + 603) / 2, 263.5, 603 - sx0, 3]);
+  for (const [x, z, w, d] of [[0, -276.5, 1206, 3], ...south, [-601.5, -6.5, 3, 540], [601.5, -6.5, 3, 540],
     [(G.x0 + G.x1) / 2, G.z0, G.x1 - G.x0 + 2, 2], [G.x0, (G.z0 + G.z1) / 2, 3, G.z1 - G.z0 + 1.5], [G.x1, (G.z0 + G.z1) / 2, 2, G.z1 - G.z0]]){ const m = box(w, 1.8, d, hedge, x, .9, z); m.castShadow = false; }
 })();
 
