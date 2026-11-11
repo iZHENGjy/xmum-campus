@@ -965,6 +965,17 @@ body.wd-open #tnGain{top:auto;bottom:calc(var(--safe-b) + 24px);left:calc((100% 
 .tn-inv{display:flex;overflow-x:auto;scrollbar-width:none;gap:4px;padding-bottom:2px}
 .tn-inv::-webkit-scrollbar{display:none}
 .tn-inv .tn-p{flex:none;min-width:48px}
+/* more parts off the edge (核 and 钛 sit last): fade that edge; a mouse drags the row (js/88-wardrobe-ui.js) */
+.tn-inv.more-r{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 40px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 40px),transparent)}
+.tn-inv.more-l{-webkit-mask-image:linear-gradient(90deg,transparent,#000 40px);mask-image:linear-gradient(90deg,transparent,#000 40px)}
+.tn-inv.more-l.more-r{-webkit-mask-image:linear-gradient(90deg,transparent,#000 40px,#000 calc(100% - 40px),transparent);mask-image:linear-gradient(90deg,transparent,#000 40px,#000 calc(100% - 40px),transparent)}
+@media (pointer:fine){.tn-inv{cursor:grab}.tn-inv.dragging,.tn-inv.dragging button{cursor:grabbing}}
+/* under the price chips: where each missing recipe / part drops, one line each (a div, so the phone's one-line clamp on .wd-sel span leaves it alone) */
+.tn-where{font-size:12px;line-height:1.45;color:var(--muted);margin-top:4px;max-height:7.4em;overflow-y:auto;overscroll-behavior:contain}
+.tn-where em{display:block;font-style:normal;font-weight:700;color:var(--ink)}
+.tn-where b{color:var(--ink);font-weight:600}
+@media (max-width:760px){.tn-where{max-height:5.9em}}
+@media (max-height:520px){.tn-where{max-height:2.95em}}   /* a phone held sideways: the footer is pinned, so two lines and scroll the rest */
 .tn-p.r-r{border-color:color-mix(in srgb,#3f8ee6 55%,var(--line))}
 .tn-p.r-l{border-color:var(--gold);box-shadow:0 0 0 1px color-mix(in srgb,var(--gold) 40%,transparent),0 0 10px color-mix(in srgb,var(--gold) 35%,transparent)}
 .tn-p.zero{opacity:.55}
