@@ -10,9 +10,12 @@ const AUDI = (() => {
 })();
 /* local (x across the front, z out of the front) -> world */
 const audiW = (lx, lz) => [AUDI.x + lx * Math.cos(AUDI.rot) + lz * Math.sin(AUDI.rot), AUDI.z - lx * Math.sin(AUDI.rot) + lz * Math.cos(AUDI.rot)];
-/* the plaza in front, in the building's frame: from the steps to the kerb of the road (its east edge stays clear of the A-row podium) */
+/* the plaza in front, in the building's frame: from the steps to the road (its east edge stays clear of the A-row podium).
+   The road runs past at an angle (its pavement edge is z ≈ 61.6 + .69 x here): the south-west corner is cut along it so the setts
+   stop at the pavement instead of lying over it, and an 8 m walk on the door's axis carries the plaza (and the showcase's red carpet) out to it. */
 const AUDI_PLAZA = (() => {
-  const loc = [[-25, 7], [21.5, 7], [21.5, 30], [17.5, 51], [-25, 51]];
+  const kerb = x => 61.6 + .6926 * x;
+  const loc = [[-25, 7], [21.5, 7], [21.5, 30], [17.5, 51], [4, 51], [4, kerb(4)], [-4, kerb(-4)], [-4, 51], [-15.6, 51], [-25, 44.5]];
   const [cx, cz] = audiW(-3.5, 33);
   /* x, z, rot: centre and heading of the open part (local +z toward the road), hw / hd: half width and depth of the clear flat area */
   return {x:cx, z:cz, rot:AUDI.rot, hw:21, hd:17, poly:loc.map(([a, b]) => audiW(a, b))};
@@ -73,7 +76,9 @@ const audiInfo = {name:'陈华春音乐厅', tag:'礼堂', floors:4, spawn:[...a
   for (const px of [-18.6, -12.3, -7.3, 7.3, 12.3, 18.6]){
     const t = tAt(px);
     onArc(stone, t, 1.3, 4.3, 1.1, 3.9, .5 + .55, '#e2dbcd'); onArc(stone, t, 1.3, 3.9, .4, 3.6, 1.65 + .2, '#ebe5d9');
-    onArc(stone, t, 1.3, 3.4, HF - 2.9, 3.1, 1.85 + (HF - 2.9) / 2, '#f0ebe1');
+    /* the shaft is battered like the real piers: wider at the foot (3.7 x 3.35 m), narrowing to 3.25 x 2.95 m under the capital */
+    { const H = HF - 2.9, [x, z] = arcAt(t, 1.3), fr = new THREE.CylinderGeometry(Math.SQRT2 * .88, Math.SQRT2, H, 4, 1).rotateY(Math.PI / 4).toNonIndexed();
+      fr.computeVertexNormals(); stone.push(geoTint(fr.scale(1.85, 1, 1.675).rotateY(t).translate(x, 1.85 + H / 2, z), '#f0ebe1')); }
     onArc(stone, t, 1.3, 3.8, .55, 3.5, HF - .85, '#e6dfd2');
   }
   /* glass between the pillars: tall dark-blue strips, broken by two stone bands */
