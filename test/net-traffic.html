@@ -1,0 +1,164 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>联机流量估算</title>
+<style>
+  body{font:14px/1.6 system-ui,sans-serif;margin:16px;color:#1d2733;background:#f6f8fa;max-width:1100px}
+  h1{font-size:20px;margin:0 0 4px} p{margin:6px 0;color:#445}
+  table{border-collapse:collapse;margin:12px 0;background:#fff;font-variant-numeric:tabular-nums}
+  th,td{border:1px solid #d5dbe1;padding:4px 9px;text-align:right} th{background:#eef2f6} td:first-child,th:first-child{text-align:left}
+  .good{color:#127a3a;font-weight:600} .note{font-size:12.5px;color:#667}
+  button{font:inherit;padding:4px 12px}
+</style>
+<h1>联机流量估算（改前 / 改后）</h1>
+<p>不连任何服务器：用 <code>test/crowd-model.js</code> 的假玩家走 10 分钟（模拟时间），每个人按改前（<code>/presence</code>，每 200 毫秒检查、动了就整条重发）和改后（<code>js/net.js</code> 的 <code>XNet.proto</code>：分格 + 航位推算 + 只发变了的字段）两套规则发位置，
+数每个客户端从服务器收到多少字节。每条按 Firebase 线上格式 <code>{"t":"d","d":{"a":…,"b":{"p":路径,"d":数据}}}</code> 算，外加 34 字节 WebSocket + TLS 外层；自己每写一次服务器回一条确认（约 44 字节）。</p>
+<p class="note">「只降频精简」= 改后的发送规则和数据格式，但还是人人收全部（看分格省了多少）。「改后」= 实际做法：只收周围 3×3 格（100 米一格），在菜单/黑洞/后台时不收。uid 按真实的 28 个字符算。</p>
+<p><button id="go">重新跑</button> <span id="st"></span></p>
+<div id="out"></div>
+<script>window.XMUM_FIREBASE = null;</script>
+<script src="../js/net.js"></script>
+<script src="crowd-model.js"></script>
+<script>
+'use strict';
+(() => {
+  const PR = XNet.proto, M = XCrowdModel, OVER = 34, ACK = 44;
+  const enc = new TextEncoder(), B = s => enc.encode(s).length + OVER;
+  const msg = (a, p, d) => JSON.stringify({t:'d', d:{a, b:{p, d}}});
+  const NAMES = ['阿明', '小红', '阿华', 'DDL战士', '游客1234', 'Ken', '奶茶续命', '图书馆钉子户', 'Mei', '宿舍长'];
+  const uidOf = (rnd) => { const c = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'; let s = ''; for (let i = 0; i < 28; i++) s += c[(rnd() * c.length) | 0]; return s; };
+  const LOOK = 'pink,santa,melon,mblue,d_flames,tk0300';
+
+  /* 一次模拟：返回 {old, flat, grid}，每个是 {perClient KB/s 平均, total KB/s} */
+  function run(N, scene, T, seed){
+    const rnd = M.rng(seed), spots = M.SPOTS[scene];
+    const A = [];
+    for (let i = 0; i < N; i++){
+      const a = M.make(i, spots, rnd);
+      a.uid = uidOf(rnd); a.name = NAMES[i % NAMES.length]; a.old = M.oldSender();
+      a.snd = PR.sender(); a.cell = null; a.meta = null;           // 改后（分格）
+      a.snd2 = PR.sender(); a.meta2 = null;                          // 只降频精简（不分格）
+      a.vis = new Set();
+      A.push(a);
+    }
+    const rx = {old:new Float64Array(N), flat:new Float64Array(N), grid:new Float64Array(N)};
+    const cells = new Map();                                         // 格 -> Map(uid -> 条目)
+    const entry = (k) => { if (!cells.has(k)) cells.set(k, new Map()); return cells.get(k); };
+    const subsOf = a => a.live && a.cell ? new Set(PR.around(a.cell)) : new Set();
+    const dt = .1, steps = Math.round(T / dt);
+    let tNow = 0;
+    for (let n = 0; n < steps; n++){
+      tNow = n * dt * 1000;
+      for (const a of A) M.step(a, dt, spots, rnd);
+      /* 改前：每 200 毫秒；人人监听整个 /presence（菜单、后台也在收） */
+      if (n % 2 === 0) for (let i = 0; i < N; i++){
+        const a = A[i], o = a.old(a, tNow, a.name, a.uid); if (!o) continue;
+        const b = B(msg('d', 'presence/' + a.uid, o));
+        rx.old[i] += ACK + OVER;
+        for (let j = 0; j < N; j++) if (j !== i) rx.old[j] += b;
+      }
+      /* 改后两种：每 100 毫秒 */
+      for (let i = 0; i < N; i++){
+        const a = A[i];
+        const s0 = {x:a.x, z:a.z, y:a.y, h:a.h, car:a.car};
+        const meta = {n:a.name, m:'n'}; if (a.car) meta.k = a.car;
+        /* 只降频精简：同样的发送规则，人人收全部 */
+        if (a.live){
+          const s = a.snd2.sample(Object.assign({}, s0), tNow);
+          let why = !a.meta2 ? 'full' : null, diff = null;
+          if (a.meta2){ for (const k in meta) if (meta[k] !== a.meta2[k]) (diff = diff || {})[k] = meta[k]; for (const k in a.meta2) if (!(k in meta)) (diff = diff || {})[k] = null; why = a.snd2.decide(s, tNow, !!diff); }
+          if (why){
+            const up = why === 'full' ? Object.assign({p:PR.encP(s), t:Date.now()}, meta) : Object.assign({}, diff || {});
+            if (why !== 'beat' && why !== 'full') up.p = PR.encP(s);
+            if (why === 'beat' || (why !== 'full' && a.snd2.needT(tNow))) up.t = Date.now();
+            a.snd2.sent(s, tNow, 'p' in up, 't' in up); a.meta2 = meta;
+            const b = B(msg(why === 'full' ? 'd' : 'm', 'pres/' + a.uid, up));
+            rx.flat[i] += ACK + OVER;
+            for (let j = 0; j < N; j++) if (j !== i && A[j].live) rx.flat[j] += b;
+          }
+        } else if (a.meta2){ a.meta2 = null; a.snd2.reset(); const b = B(msg('d', 'pres/' + a.uid, null)); for (let j = 0; j < N; j++) if (j !== i && A[j].live) rx.flat[j] += b; }
+        /* 改后：分格 */
+        const listeners = (k, self) => { const out = []; for (let j = 0; j < N; j++) if (j !== self && A[j].live && A[j].cell && PR.around(A[j].cell).includes(k)) out.push(j); return out; };
+        if (!a.live){
+          if (a.cell){
+            const b = B(msg('d', 'pres/' + a.cell + '/' + a.uid, null));
+            for (const j of listeners(a.cell, i)) rx.grid[j] += b;
+            entry(a.cell).delete(a.uid); a.cell = null; a.meta = null; a.snd.reset(); rx.grid[i] += ACK + OVER;
+          }
+          continue;
+        }
+        const s = a.snd.sample(Object.assign({}, s0), tNow), cell = PR.cellKeep(a.cell, s.x, s.z);
+        s.crowd = a.crowd || 0;
+        if (cell !== a.cell || !a.meta){
+          const full = Object.assign({p:PR.encP(s), t:Date.now()}, meta), up = {}; up['pres/' + cell + '/' + a.uid] = full;
+          const old = a.cell; if (old && old !== cell) up['pres/' + old + '/' + a.uid] = null;
+          const b = B(msg('m', '', up)), who = new Set(listeners(cell, i).concat(old ? listeners(old, i) : []));
+          for (const j of who) rx.grid[j] += b;
+          rx.grid[i] += ACK + OVER;
+          if (old) entry(old).delete(a.uid);
+          entry(cell).set(a.uid, full);
+          const before = subsOf(a); a.cell = cell; a.meta = meta; a.snd.sent(s, tNow, true, true);
+          for (const k of subsOf(a)) if (!before.has(k)){                // 视野挪了：新订阅的格先收一份整的
+            const c = cells.get(k), o = {}; if (c) for (const [u, e] of c) if (u !== a.uid) o[u] = e;
+            rx.grid[i] += B(msg('d', 'pres/' + k, Object.keys(o).length ? o : null));
+          }
+          continue;
+        }
+        let diff = null;
+        for (const k in meta) if (meta[k] !== a.meta[k]) (diff = diff || {})[k] = meta[k];
+        for (const k in a.meta) if (!(k in meta)) (diff = diff || {})[k] = null;
+        const why = a.snd.decide(s, tNow, !!diff); if (!why) continue;
+        const up = diff || {};
+        if (why !== 'beat') up.p = PR.encP(s);
+        if (why === 'beat' || a.snd.needT(tNow)) up.t = Date.now();
+        a.snd.sent(s, tNow, 'p' in up, 't' in up); a.meta = meta;
+        const e = entry(a.cell).get(a.uid); for (const k in up) if (up[k] == null) delete e[k]; else e[k] = up[k];
+        const b = B(msg('m', 'pres/' + a.cell + '/' + a.uid, up));
+        for (const j of listeners(a.cell, i)) rx.grid[j] += b;
+        rx.grid[i] += ACK + OVER;
+      }
+      /* 新进视野的人：读一次他的 /looks（穿戴） */
+      if (n % 5 === 0) for (const a of A){
+        const sub = subsOf(a), now = new Set();
+        for (const b of A) if (b !== a && b.cell && sub.has(b.cell)) now.add(b.uid);
+        for (const u of now) if (!a.vis.has(u)) rx.grid[a.i] += B(msg('d', 'looks/' + u, LOOK));
+        a.vis = now; a.crowd = now.size;
+      }
+    }
+    const sum = v => v.reduce((x, y) => x + y, 0), out = {};
+    for (const k of ['old', 'flat', 'grid']) out[k] = {per:sum(rx[k]) / N / T / 1024, total:sum(rx[k]) / T / 1024};
+    let live = 0; for (const a of A) if (a.live) live++;
+    return out;
+  }
+
+  const fmt = (v, d = 2) => v.toFixed(d), gbh = kbs => kbs * 1024 * 3600 / 1e9;
+  function go(){
+    const st = document.getElementById('st'), outEl = document.getElementById('out');
+    st.textContent = '计算中…'; outEl.innerHTML = '';
+    setTimeout(() => {
+      const t0 = performance.now(), res = [];
+      const scenes = {tight:'挤在一起（A3 广场 100 米内）', campus:'校园里（教学楼、宿舍、B1 之间走动）', map:'全图（再加 Bell Avenue、KIP、麦当当）'};
+      for (const scene of Object.keys(scenes)) for (const N of [10, 20, 50]){
+        const r = run(N, scene, 600, 1000 + N);
+        res.push({scene, N, r});
+      }
+      let html = '';
+      for (const scene of Object.keys(scenes)){
+        html += `<h3>${scenes[scene]}</h3><table><tr><th>同时在线</th><th>改前 每人下载</th><th>只降频精简</th><th>改后 每人下载</th><th>改前 总下载</th><th>改后 总下载</th><th>改后 / 改前</th></tr>`;
+        for (const x of res.filter(x => x.scene === scene)){
+          const {old, flat, grid} = x.r;
+          html += `<tr><td>${x.N} 人</td><td>${fmt(old.per)} KB/s</td><td>${fmt(flat.per)} KB/s</td><td>${fmt(grid.per)} KB/s</td>` +
+            `<td>${fmt(gbh(old.total), 3)} GB/小时</td><td>${fmt(gbh(grid.total), 3)} GB/小时</td><td class="good">${fmt(grid.total / old.total * 100, 1)}%（约 1/${fmt(old.total / grid.total, 1)}）</td></tr>`;
+        }
+        html += '</table>';
+      }
+      outEl.innerHTML = html;
+      st.textContent = `算完了（${((performance.now() - t0) / 1000).toFixed(1)} 秒）`;
+      window.RESULT = res.map(x => ({scene:x.scene, N:x.N, oldPer:+fmt(x.r.old.per, 3), flatPer:+fmt(x.r.flat.per, 3), gridPer:+fmt(x.r.grid.per, 3), oldGBh:+fmt(gbh(x.r.old.total), 4), gridGBh:+fmt(gbh(x.r.grid.total), 4), ratio:+fmt(x.r.old.total / x.r.grid.total, 2)}));
+    }, 30);
+  }
+  document.getElementById('go').onclick = go;
+  window.simRun = run;                                   // 控制台调参用：simRun(人数, 'tight'|'campus'|'map', 秒, 种子)
+  go();
+})();
+</script>

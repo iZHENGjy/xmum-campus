@@ -24,13 +24,15 @@
   }
   const send = (b, to, type, data) => M().ref('social/' + to).push({from:b.uid, type, ts:TS, data:JSON.stringify(data || {})});
   const fx = (b, kind, i) => { b.fxSeq = (b.fxSeq + 1) % 10000; b.fx = kind + i + '-' + b.fxSeq; b.fxAt = Date.now(); };
+  /* 和真玩家一样走新协议（js/net.js 的 XNet.proto，写入见 test/crowd-model.js）：/pres/{格}/{uid}，航位推算决定发不发；?oldrules 时写旧的 /presence */
   function pres(b){
     const o = {name:b.name, mode:'naiwa', x:+b.x.toFixed(2), z:+b.z.toFixed(2), y:+(b.y || 0).toFixed(2), h:+Math.atan2(Math.sin(b.h), Math.cos(b.h)).toFixed(3), color:b.color, t:TS};
     if (b.car && !b.ride) o.car = b.car;
     if (b.fx && Date.now() - b.fxAt < 8000) o.fx = b.fx;
     if (b.ride){ o.ride = b.ride; o.rs = b.rs; }
     if (b.duel && b.duel.run){ o.duel = b.duel.opp; if (b.duel.g === 'stunt') o.ds = Math.round(b.duel.ds); }
-    M().put('presence/' + b.uid, o);
+    if (!XNet.netInfo || !XNet.netInfo().gridOK){ M().put('presence/' + b.uid, o); M().disc.set('presence/' + b.uid, 1); return; }
+    XCrowdModel.write(b, o);
   }
   /* ---- messages ---- */
   function inbox(b){

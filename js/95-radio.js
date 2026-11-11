@@ -13,7 +13,8 @@
  * 一首歌 = (台号 s, 种子 k)。songOf(s, k) 决定调、速度、和弦走向、两段旋律、歌名，所以联机只要同步几个数字，
  * 别人的电脑按同样的种子合成同一首。下一首的种子 = nextSeed(k)，别人也能自己往下接。
  *   联机：/radio/{uid} = {s:台 0–2, k:种子, t:这首开始的服务器时间(ms), l:单曲循环}，只在外放时存在，断线自动删除
- *         （规则见 database.rules.json：只能写自己的，字段和范围有限制）。位置用 presence 里已有的（XNet.peer）。
+ *         （规则见 database.rules.json：只能写自己的，字段和范围有限制）。位置用 presence 里已有的（XNet.peer）；
+ *         只订阅附近 150 米内开着车的人的 /radio/{uid}，不监听整个 /radio。
  *   离线（预览版没有数据库）：同一个浏览器里开两个窗口，用 BroadcastChannel 互相听（只为测试外放）。
  *
  * 音量：走 js/20-fx.js 的同一个 AudioContext 和 soundOn（标题页的声音开关）；总音量比引擎低一点，
@@ -415,9 +416,11 @@
   /* js/net.js loads after this file: wait for XNet, then for it to connect */
   const hookNet = (n = 0) => { if (window.XNet && XNet.ready) XNet.ready.then(netUp); else if (n < 60) setTimeout(() => hookNet(n + 1), 250); };
   setTimeout(hookNet, 0);
+  /* 只听附近开着车的人的 /radio/{uid}（以前监听整个 /radio）：XNet.peers() 本来就只有附近几格的人，再限 150 米内 */
+  const LISTEN_R = 150;
   const netUp = ok => g(() => {
     if (!ok || !XNet.online || !window.firebase || !firebase.database) return;
-    const db = firebase.database(), all = db.ref('radio');
+    const db = firebase.database(), subs = new Map();   /* uid -> [ref, cb] */
     fbRef = db.ref('radio/' + XNet.uid);
     db.ref('.info/connected').on('value', s => { if (s.val()){ fbRef.onDisconnect().remove().catch(() => {}); lastPub = null; publish(); } });
     const put = s => {
@@ -425,7 +428,15 @@
       if (!v || typeof v !== 'object' || !validSong(v.s, v.k) || typeof v.t !== 'number'){ peers.delete(s.key); return; }
       peers.set(s.key, {s:v.s, k:v.k, t:v.t - srvOff(), l:v.l === true, fb:true});
     };
-    all.on('child_added', put, () => {}); all.on('child_changed', put, () => {}); all.on('child_removed', s => peers.delete(s.key), () => {});
+    setInterval(() => g(() => {
+      const want = new Set(), me = online() ? listenerPos() : null;
+      if (me) for (const uid of XNet.peers().keys()){
+        const q = XNet.peer(uid);
+        if (q && q.fresh && q.car && Math.hypot(q.x - me.x, q.z - me.z) < LISTEN_R) want.add(uid);
+      }
+      for (const [uid, S] of subs) if (!want.has(uid)){ S[0].off('value', S[1]); subs.delete(uid); peers.delete(uid); }
+      for (const uid of want) if (!subs.has(uid)){ const ref = db.ref('radio/' + uid); subs.set(uid, [ref, ref.on('value', put, () => {})]); }
+    }), 1000);
   });
 
   /* ---------- hearing other cars ---------- */

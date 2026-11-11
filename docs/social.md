@@ -59,8 +59,9 @@
 
 **改了 `database.rules.json`，需要重新发布规则。** 没发布之前，presence 多带的字段会被拒绝：`js/net.js` 会去掉这些字段重写一次，把玩家互动整个关掉（`XNet.socialDenied`），联机和排行榜照常。最好还是**先发布规则，再发布代码**。
 
-### presence 里多的字段（`/presence/{uid}`）
-`js/net.js` 的 `XNet.extra` 钩子，变了马上同步，没变不多写。
+### presence 里多的字段（新协议 `/pres/{格}/{uid}`，旧的 `/presence/{uid}` 也一样）
+`js/net.js` 的 `XNet.extra` 钩子，变了马上同步（只 update 变了的字段），没变不多写。
+位置同步按 100 米分格，只收附近 3×3 格的人；`XNet.follow` 返回的人（挑战对手、司机、乘客）跑远了也继续收。
 
 | 字段 | 类型 | 意思 |
 |---|---|---|
@@ -77,7 +78,7 @@
 ```
 规则：
 - 只有收件人能读自己的收件箱。
-- 新建：`from` 必须是自己，`type` 在白名单里，`ts` 是服务器时间，收件人必须在线（`/presence/{收件人}` 存在）。不能改已有的消息。
+- 新建：`from` 必须是自己，`type` 在白名单里，`ts` 是服务器时间，收件人必须在线（`/on/{收件人}` 或旧的 `/presence/{收件人}` 存在）。不能改已有的消息。
 - 删除：收件人、发件人，或者任何人删 2 分钟以前的（清理）。
 - 收件人读到就删；45 秒以前的消息直接删掉不处理。
 
@@ -109,7 +110,8 @@ XSocial.answer(uid, 'coop', ok, why, extra)   // 一般用不到：卡片会自�
 - 对局中途对方掉线：看 `XSocial.peer(uid)` 是否还 `live`，或在 presence 里放一个字段（要加规则）。
 - 其他：`XSocial.emote(i)`、`XSocial.say(i)`、`XSocial.openMenu(uid)`、`XSocial.openSheet()`、`XSocial.openWheel()`、`XSocial.block(uid, name)`、`XSocial.setDnd(bool)`、`XSocial.riding`、`XSocial.passengers`、`XSocial.duel`、`XSocial.emotes / phrases / games / seats`。
 
-`js/net.js` 为这个文件加的钩子：`XNet.extra`、`XNet.peers()`、`XNet.now()`、`XNet.ref(path)`、`XNet.afterGhosts(dt)`（见文件头注释）。
+`js/net.js` 为这个文件加的钩子：`XNet.extra`、`XNet.follow`、`XNet.peers()`、`XNet.fresh(r)`、`XNet.now()`、`XNet.ref(path)`、`XNet.afterGhosts(dt)`（见文件头注释）。
+`XNet.peers()` 里 `oneWay` 为真的是还开着旧页面的人（他们看不见新版本的人），`XSocial.peer()` 对他们返回 null，不跟他们互动。
 
 ## 本地测试
 

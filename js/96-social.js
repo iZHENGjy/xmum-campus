@@ -87,14 +87,16 @@
   };
 
   /* ---------- 别的玩家 ---------- */
+  /* 还在线吗：新协议停着不动 30 秒才一次心跳，所以问 net.js（XNet.fresh）；旧页面的人（oneWay）看不见我们，不跟他们互动 */
+  const isFresh = r => (typeof XNet.fresh === 'function' ? XNet.fresh(r) : performance.now() - r.seen < 6000);
   function peer(uid){
-    const r = XNet.peers().get(uid); if (!r || !r.d) return null;
-    const d = r.d, fresh = performance.now() - r.seen < 6000;
+    const r = XNet.peers().get(uid); if (!r || !r.d || r.oneWay) return null;
+    const d = r.d, fresh = isFresh(r);
     const live = fresh && (d.mode === 'naiwa' || d.mode === 'walk');
     const G = r.g && r.g.vis ? r.g : null;
     return {uid, r, d, G, live, name:String(d.name || '?').slice(0, 16), car:d.mode === 'naiwa' && d.car && G && G.car ? G.car : null};
   }
-  function riders(uid){ let n = 0; for (const [u, r] of XNet.peers()) if (r.d && r.d.ride === uid && performance.now() - r.seen < 6000) n++; return n; }
+  function riders(uid){ let n = 0; for (const [u, r] of XNet.peers()) if (r.d && !r.oneWay && r.d.ride === uid && isFresh(r)) n++; return n; }
   /* distance from a point to a ghost: to its car's outline when it is driving */
   function distTo(p, x, z){
     const G = p.G; if (!G) return 1e9;
@@ -479,7 +481,7 @@ body.wd-open #socStat,body.wd-open #socMenu,body.wd-open #socCard,body.wd-open #
       const was = S.lastFx.get(uid);
       if (was === fx) continue;
       S.lastFx.set(uid, fx);
-      if (was === undefined || !fx || blocked(uid) || performance.now() - r.seen > 3000) continue;
+      if (was === undefined || !fx || r.oneWay || blocked(uid) || performance.now() - r.seen > 3000) continue;
       const m = /^([es])(\d{1,2})-/.exec(fx); if (!m) continue;
       const kind = m[1], i = +m[2];
       if (kind === 'e' ? !EMOTES[i] : !PHRASES[i]) continue;
@@ -844,6 +846,15 @@ body.wd-open #socStat,body.wd-open #socMenu,body.wd-open #socCard,body.wd-open #
     if (S.ride){ o.ride = S.ride.uid; o.rs = S.ride.seat; }
     if (S.duel && S.duel.phase !== 'wait' && S.duel.phase !== 'done'){ o.duel = S.duel.opp; if (S.duel.g === 'stunt') o.ds = Math.min(1e7, Math.round(S.duel.myS)); }
     if (store.dnd) o.dnd = true;
+    return o;
+  };
+
+  /* 这些人跑出附近几格也继续听他们的位置（js/net.js 只订阅附近的格子）：挑战对手、自己坐的车的司机、车上的乘客 */
+  XNet.follow = () => {
+    if (!S.on) return null;
+    const o = [...S.pax.keys()];
+    if (S.ride) o.push(S.ride.uid);
+    if (S.duel && S.duel.opp) o.push(S.duel.opp);
     return o;
   };
 
