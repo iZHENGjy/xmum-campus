@@ -204,10 +204,29 @@ function uiSyncAcct(){
     acctBtn.hidden = true;
   } else {
     acctEl.classList.remove('on');
-    acctText.textContent = '游客身份，进度只存在这台设备';
+    acctText.textContent = uiHasProgress() ? '你的进度只存在这台设备，换手机、清缓存就没了。用 Google 登录，进度存到云端' : '游客身份，进度只存在这台设备';
     acctBtnText.textContent = '用 Google 登录'; acctBtn.dataset.act = 'in';
   }
+  acctEl.classList.toggle('nudge', !N.account.google && !UI_EMBEDDED && uiHasProgress());
 }
+/* worth protecting: some money, a car or a few achievements */
+function uiHasProgress(){
+  try { const d = JSON.parse(localStorage.getItem('xmum-gta-v1') || 'null'); return !!d && ((+d.money || 0) >= 200 || (d.owned || []).length > 0 || Object.keys(d.ach || {}).length >= 2); } catch(e){ return false; }
+}
+/* opened inside WeChat / QQ / other apps: a clear banner on the title page. Their built-in browser cannot do Google login and may wipe saved data,
+   and no web page can open the system browser by itself, so point at the app's own ··· menu (top right) */
+if (UI_EMBEDDED) (() => {
+  const KEY = 'xmum-embed-tip';
+  try { if (sessionStorage.getItem(KEY)) return; } catch(e){}
+  const app = /MicroMessenger/i.test(navigator.userAgent) ? '微信' : /QQ\//i.test(navigator.userAgent) ? 'QQ' : 'App';
+  const bar = document.createElement('div'); bar.id = 'embedTip'; bar.setAttribute('role', 'note');
+  bar.innerHTML = '<div><b></b><span></span></div><button type="button">知道了</button><i aria-hidden="true">↗</i>';
+  bar.querySelector('b').textContent = '在' + app + '里玩，进度可能会丢';
+  bar.querySelector('span').textContent = '点右上角「···」→「在浏览器打开」，可以全屏，还能用 Google 登录保存进度';
+  bar.querySelector('button').addEventListener('click', () => { bar.remove(); try { sessionStorage.setItem(KEY, '1'); } catch(e){} });
+  const put = () => { const t = document.getElementById('title'); (t || document.body).appendChild(bar); };
+  if (document.body) put(); else document.addEventListener('DOMContentLoaded', put);
+})();
 function uiLoginError(e){
   const c = String(e && e.code || '');
   if (/popup-closed|cancelled-popup/.test(c)) return '登录已取消';

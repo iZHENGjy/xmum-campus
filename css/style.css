@@ -1376,3 +1376,18 @@ body #offer.mini{top:auto;left:auto;right:calc(var(--safe-r) + 12px);bottom:calc
 @media (prefers-reduced-motion: reduce){ .of-pill{animation:none} }
 
 .t-foot a.t-classic{color:inherit;text-decoration:underline;text-underline-offset:2px}
+
+/* ---------- 在微信 / QQ 等 App 里打开：标题页顶上的提示条（js/ui-title.js），箭头指向右上角的「···」 ---------- */
+#embedTip{position:fixed;top:calc(env(safe-area-inset-top, 0px) + 8px);left:max(10px, env(safe-area-inset-left, 0px));right:max(10px, env(safe-area-inset-right, 0px));z-index:60;
+  display:flex;align-items:center;gap:10px;padding:10px 44px 10px 14px;border-radius:14px;background:var(--tile);color:var(--on-accent);box-shadow:0 8px 24px var(--shadow);font-size:13px;line-height:1.45}
+#embedTip div{flex:1;min-width:0}
+#embedTip b{display:block;font-size:14px;font-weight:700}
+#embedTip span{opacity:.92}
+#embedTip button{flex:none;height:30px;padding:0 12px;border-radius:999px;border:1px solid rgba(255,255,255,.7);background:transparent;color:inherit;font:inherit;font-weight:600;cursor:pointer}
+#embedTip i{position:absolute;top:2px;right:12px;font-style:normal;font-size:26px;font-weight:700;animation:embedNudge 1.2s ease-in-out infinite}
+@keyframes embedNudge{0%,100%{transform:translate(0,0)}50%{transform:translate(3px,-3px)}}
+@media (prefers-reduced-motion: reduce){ #embedTip i{animation:none} }
+body:not(.titled) #embedTip{display:none}
+/* 有进度但没登录：账号那一行亮一点 */
+.t-acct.nudge{color:var(--ink);background:var(--tile-soft);border-radius:12px;padding:8px 10px}
+.t-acct.nudge .t-acct-btn{border-color:var(--tile);color:var(--tile);font-weight:600}
