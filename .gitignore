@@ -5,3 +5,6 @@ node_modules/
 xmum-campus.html
 
 tmp-candidates/
+
+# leaderboard snapshot, made at deploy (.github/boards-snapshot.py)
+data/boards.json

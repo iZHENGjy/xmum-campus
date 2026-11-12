@@ -746,7 +746,7 @@ function mgFinish(score, o){
   const net = arcEl('p', 'mg-net'); lines.push(net);
   const run = MG.run, N = window.XNet;
   if (!g.board) net.hidden = true;
-  else if (!N || !N.online || !N.miniSubmit) net.textContent = '联机未开启，成绩只保存在本机';
+  else if (!N || !N.online || !N.miniSubmit) net.textContent = N && N.offText ? N.offText() : '联机未开启，成绩只保存在本机';
   else if (!has || !(mgToBoard(g, v) > 0)) net.textContent = '这局没有成绩，不上榜';
   else {
     net.textContent = '正在提交成绩…';

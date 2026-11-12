@@ -124,6 +124,33 @@ function uiDate(ts){
   const d = new Date(t < 1e12 ? t * 1000 : t); if (isNaN(d)) return '';
   return (d.getMonth() + 1) + '/' + d.getDate();
 }
+function uiRows(list, rows, B){
+  list.textContent = '';
+  rows = Array.isArray(rows) ? rows : [];
+  if (!rows.length){ list.append(uiEl('li', 'lb-wait', '还没人上榜，去当第一个')); }
+  rows.forEach((r, i) => {
+    const li = uiEl('li', uiClean(r && r.name) === uiName ? 'me' : '');
+    li.append(uiEl('span', 'lb-n', String(i + 1)), uiEl('span', 'lb-name', uiClean(r && r.name) || '匿名'),
+      uiEl('span', 'lb-d', uiDate(r && r.ts)), uiEl('b', 'lb-v', B.fmt(r && r.value)));
+    list.append(li);
+  });
+}
+function uiAgo(ts){
+  const m = Math.round((Date.now() - ts) / 60000);
+  return m < 1 ? '刚刚' : m < 60 ? m + ' 分钟前' : m < 1440 ? Math.round(m / 60) + ' 小时前' : uiDate(ts);
+}
+/* 连不上数据库（国内不开 VPN）：看部署时抓的快照（js/net.js 的 XNet.mirrorTop），自己的成绩先存本机 */
+function uiMirrorBoard(board, B, net, req){
+  const off = uiEl('div', 'lb-off'); off.append(uiEl('b', null, net.offText()));
+  const note = uiEl('p', 'lb-what', ''), list = uiEl('ol', 'lb-list'); list.append(uiEl('li', 'lb-wait', '读取排行榜快照…'));
+  lbBody.append(off, note, list);
+  net.mirrorTop(board, 20).then(m => {
+    if (req !== lbReq) return;
+    if (!m){ list.textContent = ''; list.append(uiEl('li', 'lb-wait', '这个榜暂时没有快照')); }
+    else { note.textContent = `下面是 ${uiAgo(m.ts)} 的全服排行榜（大约每 15 分钟更新）。连上联机才能上榜。`; uiRows(list, m.rows, B); }
+    lbBody.append(uiLocalCard(board));
+  });
+}
 function renderBoard(board){
   if (board === 'mini') board = uiBoardDef(lbMini) ? lbMini : uiMiniBoards()[0] || 'mini';
   const mini = /^mini/.test(board), tab = mini ? 'mini' : board;
@@ -147,6 +174,7 @@ function renderBoard(board){
   lbBody.append(uiEl('p', 'lb-what', B.what));
   const net = window.XNet;
   if (!net || !net.online || typeof net.top !== 'function'){
+    if (net && typeof net.mirrorTop === 'function' && typeof net.offText === 'function'){ uiMirrorBoard(board, B, net, req); return; }
     const off = uiEl('div', 'lb-off'); off.append(uiEl('b', null, '联机未开启，成绩只保存在本机'));
     lbBody.append(off, uiLocalCard(board)); return;
   }
@@ -154,15 +182,7 @@ function renderBoard(board){
   lbBody.append(list);
   Promise.race([B.top ? B.top(20) : net.top(board, 20), new Promise((_, no) => setTimeout(() => no(new Error('timeout')), 8000))]).then(rows => {
     if (req !== lbReq) return;
-    list.textContent = '';
-    rows = Array.isArray(rows) ? rows : [];
-    if (!rows.length){ list.append(uiEl('li', 'lb-wait', '还没人上榜，去当第一个')); }
-    rows.forEach((r, i) => {
-      const li = uiEl('li', uiClean(r && r.name) === uiName ? 'me' : '');
-      li.append(uiEl('span', 'lb-n', String(i + 1)), uiEl('span', 'lb-name', uiClean(r && r.name) || '匿名'),
-        uiEl('span', 'lb-d', uiDate(r && r.ts)), uiEl('b', 'lb-v', B.fmt(r && r.value)));
-      list.append(li);
-    });
+    uiRows(list, rows, B);
     lbBody.append(uiLocalCard(board));
   }).catch(() => {
     if (req !== lbReq) return;
