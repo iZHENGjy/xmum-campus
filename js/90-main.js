@@ -197,7 +197,7 @@ function updateNaiwaMode(dt, T){
   if (!driving){ NW.root.position.set(nw.x, nw.y, nw.z); NW.root.rotation.y = nw.h; }
   const px = driving ? driving.x : nw.x, pz = driving ? driving.z : nw.z;
   const sp = driving ? Math.hypot(driving.vx, driving.vz) : 0;
-  $('#speed').textContent = Math.round(sp * 3.6) + ' km/h';
+  { const t = Math.round(sp * 3.6) + ' km/h', el = $('#speed'); if (el.textContent !== t) el.textContent = t; }   /* only when it changes: a DOM write every frame costs phones a style pass */
   updateStunt(dt, sp);
   { const t = driving ? Math.round(driving.hp) + '%' : '—', el = $('#hp'); if (el.textContent !== t){ el.textContent = t; el.style.color = driving && driving.hp < 30 ? 'var(--tile)' : ''; } }
   showCar.root.rotation.y += dt * .4;
@@ -238,7 +238,7 @@ function updateNaiwaMode(dt, T){
   else if (driving && driving.wrecked) msg = TOUCH ? '这辆车报废了，点「下车」换一辆' : '这辆车报废了，按 F 下车换一辆';
   gx.update(dt, px, pz); msg = gx.prompt() || msg;
   if (promptEl.textContent !== msg) promptEl.textContent = msg;
-  promptEl.hidden = !msg;
+  if (promptEl.hidden !== !msg) promptEl.hidden = !msg;
   updateMission(dt, px, pz); updateCompass(px, pz);
   checkCPs(px, pz);
 }
@@ -336,7 +336,7 @@ function adaptQuality(dt){
 XQ.onChange(() => { QUAL.acc = 0; QUAL.frames = 0; QUAL.wait = Math.max(QUAL.wait, 2); });
 let miniTick = 0, uiHold = false;
 function frame(now){
-  const dt = Math.min(.05, (now - last) / 1000); last = now; const T = (now - t0) / 1000;
+  const dt = Math.max(0, Math.min(.05, (now - last) / 1000)); last = now;   /* never negative: a timestamp going backwards (tab resume, odd phone clocks) would blow up every easing */ const T = (now - t0) / 1000;
   adaptQuality((now - (frame.prev || now)) / 1000); frame.prev = now;
   if (uiHold && mode !== 'orbit'){ /* the game guide or the big map is open (js/ui-guide.js): walking, driving and the black hole wait */ }
   else if (mode === 'walk') updateWalk(dt);
