@@ -1099,6 +1099,13 @@ body.wd-open #tnGain{top:auto;bottom:calc(var(--safe-b) + 24px);left:calc((100% 
 .rd-chk{display:flex;gap:8px;align-items:flex-start;color:#cfd5de;font-size:12.5px;line-height:1.4;cursor:pointer}
 .rd-chk input{margin-top:2px;accent-color:var(--rd)}
 .rd-off{color:#ff8a80}
+.rd-smart{display:grid;gap:5px;padding:8px;border-radius:10px;background:rgba(255,255,255,.04)}
+.rd-smart .rd-chk b{color:#eef1f5;font-weight:700}
+.rd-why{font-size:12px;color:var(--rd);line-height:1.4;padding-left:22px;min-height:1.4em}
+.rd-moods{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+.rd-md{min-width:0;padding:5px 6px;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:#cfd5de;font:inherit;font-size:12px;cursor:pointer}
+.rd-md[aria-pressed="true"]{border-color:var(--rd);color:var(--rd);background:color-mix(in srgb,var(--rd) 12%,transparent)}
+.rd-md:focus-visible{outline:2px solid var(--rd);outline-offset:2px}
 body.wd-open #radio,body.sp-run #radio,body.titled #radio{display:none!important}
 @media (pointer:coarse){
   #radio{left:50%;transform:translateX(-50%);bottom:auto;top:calc(var(--safe-t) + 190px);align-items:center}
