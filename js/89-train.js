@@ -995,6 +995,7 @@ body.tr-on .topbar{visibility:hidden}
 
   /* ---------- near the station on the main map; away at a destination ---------- */
   let promptMsg = '';
+  const qLock = k => !!(window.XQuest && !XQuest.unlocked(k));   /* main story: the train opens at chapter 7 (js/89-quest.js) */
   const nearHome = () => !XT.inside && !CS.on && Math.hypot(nw.x - DOOR.x, nw.z - DOOR.z) < 4.2 && Math.abs(nw.y - SY) < 3;
   function trUpdate(dt, px, pz){
     promptMsg = '';
@@ -1009,8 +1010,8 @@ body.tr-on .topbar{visibility:hidden}
     const dd = Math.hypot(px - DOOR.x, pz - DOOR.z), show = dd < 160;
     homeMark.visible = show; homeLbl.dead = !show || dd > 60;
     if (show) homeMark.userData.ring.scale.y = 1 + Math.sin(performance.now() / 330) * .15;
-    if (driving && dd < 14) promptMsg = '下车走进站厅门口的紫圈，坐 ERL 去 KLIA';
-    else if (nearHome()) promptMsg = TOUCH ? '点「上车」进站坐 ERL 小火车' : '按 F 进站坐 ERL 小火车';
+    if (driving && dd < 14) promptMsg = qLock('train') ? '主线第 7 章开通' : '下车走进站厅门口的紫圈，坐 ERL 去 KLIA';
+    else if (nearHome()) promptMsg = qLock('train') ? '主线第 7 章开通' : TOUCH ? '点「上车」进站坐 ERL 小火车' : '按 F 进站坐 ERL 小火车';
     ambUpdate(dt, px, pz);
   }
   function trTryF(){
@@ -1020,7 +1021,7 @@ body.tr-on .topbar{visibility:hidden}
       if (d.ringNear){ panelOpen(); return true; }
       return !!g(() => d.tryF && d.tryF(), false);
     }
-    if (nearHome()){ const why = busyWhy(); if (why){ toast('现在不能进站', why, 1800); return true; } panelOpen(); return true; }
+    if (nearHome()){ const why = busyWhy(); if (why){ toast('现在不能进站', why, 1800); return true; } if (qLock('train')){ toast('主线第 7 章开通', '站厅可以进去逛，火车照样开过', 2400); return true; } panelOpen(); return true; }
     return false;
   }
   if (typeof roomTryF === 'function'){ const base = roomTryF; roomTryF = function(){ return trTryF() || base(); }; }
