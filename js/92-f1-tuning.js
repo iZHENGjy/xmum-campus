@@ -63,7 +63,7 @@
   const ITEMS = [
     {slot:'f1wing', id:'none', name:'不装'},
     {slot:'f1wing', id:'front', name:'F1 前翼', desc:ON + '高速过弯的下压力 +40%（车头一片贴地的前翼）', rm:220, need:{cfc:2, wtd:1}, min:40, tier:'r', df:.25},
-    {slot:'f1wing', id:'full', name:'前后翼套件', desc:ON + '下压力翻倍，高速弯几乎能全油门压过去；风阻大一点，极速少 3%', rm:520, need:{cfc:4, wtd:3}, bp:'bp_f1aero', min:240, tier:'l', df:.6, vmax:-.04},
+    {slot:'f1wing', id:'full', name:'前后翼套件', desc:ON + '下压力翻倍，高速弯几乎能全油门压过去；风阻大一点，极速少 4%', rm:520, need:{cfc:4, wtd:3}, bp:'bp_f1aero', min:240, tier:'l', df:.6, vmax:-.04},
     {slot:'f1tyre', id:'stock', name:'原厂轮胎'},
     {slot:'f1tyre', id:'slick', name:'赛车光头胎', desc:ON + '过弯抓地 +3（约 +20%），车更跟车头走；但冲进草地和砂石更滑。胎壁一圈黄线', rm:300, need:{rcomp:3}, min:60, tier:'r', a0:3, grip:1.12, off:.7},
     {slot:'f1brake', id:'stock', name:'原厂刹车'},
@@ -71,7 +71,7 @@
     {slot:'f1body', id:'stock', name:'原厂车身'},
     {slot:'f1body', id:'light', name:'碳纤维轻量化', desc:ON + '车身减重：加速 +8%、刹车 +10%、过弯抓地 +1', rm:450, need:{cfc:5, wtd:1}, min:180, tier:'l', acc:1.08, brake:1.1, a0:1},
     {slot:'f1map', id:'stock', name:'原厂模式'},
-    {slot:'f1map', id:'quali', name:'排位赛模式', desc:ON + '直道极速收得少（赛道上的极速 +10% 左右），加速 +5%', rm:380, need:{wtd:2, rcomp:1}, bp:'bp_f1eng', min:120, tier:'l', vmax:.2, acc:1.05}
+    {slot:'f1map', id:'quali', name:'排位赛模式', desc:ON + '赛道上极速 +8%、加速 +5%', rm:380, need:{wtd:2, rcomp:1}, bp:'bp_f1eng', min:120, tier:'l', vmax:.08, acc:1.05}
   ];
   for (const s of SLOTS){ TN_SLOTS.push(s); TN.bySlot[s.id] = []; }
   for (const it of ITEMS){
@@ -93,7 +93,7 @@
 
   /* ---------- on the circuit: the effects (read by js/94-f1-drive.js) ---------- */
   const mod = (c, m) => {
-    if (c.kind === 'f1car'){ m.a0 += 2; m.df += .3; m.vmax += .1; m.tag += '赛车 '; }   /* a real race car: more grip and downforce than any road car */
+    if (c.kind === 'f1car'){ m.a0 += 3; m.df += .8; m.tag += '赛车 '; }   /* a real race car: more grip and far more downforce than any road car (a maxed road car is faster on the straights) */
     const f = c.tn && c.tn.fit; if (!f) return;
     for (const s of SLOTS){ const it = TN.byKey[s.id + '.' + f[s.id]]; if (!it || it.id === TN.stock[s.id]) continue;
       if (it.df) m.df += it.df; if (it.a0) m.a0 += it.a0; if (it.grip) m.grip *= it.grip; if (it.off) m.off *= it.off;

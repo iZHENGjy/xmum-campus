@@ -173,8 +173,8 @@
   }
   /* start-light gantry over the line */
   { const [x, z] = at(SF + 2), [nx, nz] = NOR[wi(SF + 2)], ry = yawOf(TAN[wi(SF + 2)]);
-    for (const s of [-1, 1]){ box(.8, 9, .8, x + nx * s * (HW + 1.5), 4.5, z + nz * s * (HW + 1.5), '#3b3f44'); addCircle(x + nx * s * (HW + 1.5), z + nz * s * (HW + 1.5), .6); }
-    box(2 * HW + 4, 1.4, 1, x, 8.8, z, '#1f2a33', ry);
+    for (const s of [-1, 1]){ box(.8, 9, .8, x + nx * s * (HW + 4), 4.5, z + nz * s * (HW + 4), '#3b3f44'); addCircle(x + nx * s * (HW + 4), z + nz * s * (HW + 4), .6); }   /* posts 4 m off the edge: at 1.5 m a car drifting wide at 300 km/h hit them */
+    box(2 * HW + 9, 1.4, 1, x, 8.8, z, '#1f2a33', ry);
     strip(14, x, z, 9.6, 2 * HW + 2, 1.6, [-TAN[wi(SF + 2)][0], -TAN[wi(SF + 2)][1]], true);
   }
   /* grandstands: rows of seats, a back wall, a roof, ads on the fascia; the crowd sits on them */
