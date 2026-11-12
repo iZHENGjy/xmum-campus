@@ -115,7 +115,8 @@
     for (const sid in SH){
       const a = atOf(SH[sid].at); if (!a || Math.hypot(a[0] - px, a[1] - pz) > 4.5) continue;
       const list = needs(sid, ACT); if (!list.length) continue;
-      if (!shopOpen(sid)){ shut = SH[sid].shut || '还没开门'; continue; }
+      /* shut (the night market by day): name the other shop only when what we need here is sold there too (老周's 猫山王 is only at the night market) */
+      if (!shopOpen(sid)){ shut = list.every(n => n.it.shops.some(s => s !== sid)) ? SH[sid].shut || '还没开门' : SH[sid].shutOnly || SH[sid].shut || '还没开门'; continue; }
       const sum = list.reduce((s, n) => s + (n.it.rm || 0), 0), cold = list.filter(n => n.it.cold);
       offerJob('er:' + sid, () => ({icon:SH[sid].verb ? '📦' : '🛒', title:SH[sid].name, accept:SH[sid].verb || (sum ? '买下' : '拿上'),
         desc:list.map(n => n.it.icon + ' ' + n.it.name + (n.it.rm ? ' RM ' + n.it.rm : '')).join('　'),

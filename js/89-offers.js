@@ -122,7 +122,9 @@ function offerJob(id, build){
   const O = OFFER;
   if (mode !== 'naiwa' || gx.paused || id == null) return false;
   if (qCalm() && !/^deliv:/.test(id)) return false;   /* story chapter 1: deliveries only */
-  if (window.XQuest && (XQuest.talking || XQuest.npcNear() || (XQuest.visiting && XQuest.visiting()))) return false;   /* next to a story character F is for talking (老周 and 阿明 stand by pick-up rings) */
+  /* next to a story character F is for talking (老周 and 阿明 stand by pick-up rings). Except the hand-over card of a shopping list
+     (js/89-errand.js 'erto:'): those are delivered to that very person (卷卷's supper stands 3 m from her, 老周's durian 4 m from him) */
+  if (window.XQuest && (XQuest.talking || (XQuest.npcNear() && !/^erto:/.test(id)) || (XQuest.visiting && XQuest.visiting()))) return false;
   const sk = O.skip[id];
   if (sk){ sk.seen = O.frame; ofNote('这单跳过了 · 走开一下再回来可以重新看'); return false; }
   if (!O.on){ ofNote(TOUCH ? '现在不接单：点指南针旁的「不接单」打开' : '现在不接单：按 J 打开'); return false; }
