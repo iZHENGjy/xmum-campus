@@ -34,7 +34,7 @@
 
   /* ---------- the door outside: the garage behind the pit lane next to the 维修区 label ---------- */
   const N = F.N, wi = i => ((i % N) + N) % N, s = F.PIT.side;
-  const DI = wi(F.SF + 60), DOOR = (() => { const [x, z] = F.PT[DI], [nx, nz] = F.NOR[DI], o = s * (F.HW + 13); return {x:x + nx * o, z:z + nz * o, h:Math.atan2(-nx * s, -nz * s)}; })();
+  const DI = F.PITM != null ? F.PITM : wi(F.SF + 60), DOOR = (() => { const [x, z] = F.PT[DI], [nx, nz] = F.NOR[DI], o = s * (F.HW + 13); return {x:x + nx * o, z:z + nz * o, h:Math.atan2(-nx * s, -nz * s)}; })();
   const doorMark = gxMarker('#ff8a3d', .3); doorMark.position.set(DOOR.x, .05, DOOR.z);
   doorMark.children.forEach(c => { if (c !== doorMark.userData.ring) c.scale.y = .5; });
   const doorLbl = addLabel('维修区车库 · 雪邦车队', DOOR.x, 4.2, DOOR.z, true);
@@ -166,14 +166,17 @@
   const card = document.createElement('div'); card.id = 'pdCard'; card.className = 'panel'; card.hidden = true; card.setAttribute('role', 'dialog'); card.setAttribute('aria-modal', 'true'); card.setAttribute('aria-labelledby', 'pdCardT');
   document.body.appendChild(card);
   const RUN = [];   /* errand spots, built from the circuit: [name, x, z, item] */
-  { const out = (n, d) => { const i = F.turnIdx.find(t => t[0] === n)[1], c = F.CURV[i], sd = c > 0 ? -1 : 1, [x, z] = F.PT[i], [nx, nz] = F.NOR[i], o = sd * (F.HWI[i] + d); return [x + nx * o, z + nz * o]; };
-    RUN.push(['1 号弯救援车', ...out(1, 26), '一套雨胎'], ['4 号弯工作人员', ...out(4, -14), '前翼备件'], ['12 号弯轮胎墙', ...out(12, 25), '轮胎温度计'], ['18 号弯看台', ...out(18, 20), '车手的头盔'], ['7 号弯（东直道尽头）', ...out(7, 24), '一桶赛车汽油'], ['9 号弯东南角', ...out(9, 22), '一卷胶带'],
-      ['17 号弯边的服务车', ...out(17, 22), '对讲机电池'], ['控制塔', ...(() => { const [x, z] = F.PT[wi(F.SF + 20)], [nx, nz] = F.NOR[wi(F.SF + 20)], o = s * (F.HW + 26); return [x + nx * o, z + nz * o]; })(), '遥测电脑'],
-      ['主看台', ...(() => { const [x, z] = F.PT[wi(F.SF + 60)], [nx, nz] = F.NOR[wi(F.SF + 60)], o = -s * (F.HW + 2); return [x + nx * o, z + nz * o]; })(), '冰镇饮料（给车手）']);
+  { const ITEMS = ['一套雨胎', '前翼备件', '轮胎温度计', '车手的头盔', '一桶赛车汽油', '一卷胶带', '对讲机电池'];
+    const clearOf = (x, z) => { for (let k = 0; k < F.N; k += 2) if (Math.hypot(F.PT[k][0] - x, F.PT[k][1] - z) < F.HWI[k] + 8) return false; return x > F.PAD.x0 + 8 && x < F.PAD.x1 - 8 && z > F.PAD.z0 + 8 && z < F.PAD.z1 - 8; };
+    const T = F.turnIdx, step = Math.max(1, Math.ceil(T.length / 7));
+    for (let k = 0, q = 0; k < T.length; k += step){ const [n, i] = T[k], sd = F.CURV[i] > 0 ? -1 : 1, [x, z] = F.PT[i], [nx, nz] = F.NOR[i];
+      for (const d of [24, 18, -14]){ const o = sd * (F.HWI[i] + d), px = x + nx * o, pz = z + nz * o; if (clearOf(px, pz)){ RUN.push([n + ' 号弯' + (d < 0 ? '弯心' : '边'), px, pz, ITEMS[q++ % ITEMS.length]]); break; } } }
+    RUN.push(['控制塔', ...(() => { const [x, z] = F.PT[wi(F.SF + 20)], [nx, nz] = F.NOR[wi(F.SF + 20)], o = s * (F.HW + 26); return [x + nx * o, z + nz * o]; })(), '遥测电脑']);
+    if (window.XKart) RUN.push(['看台', XKart.stand[0], XKart.stand[1], '冰镇饮料（给车手）']);
     for (const r of RUN){ const [x, z] = [r[1], r[2]]; if (typeof hitsBuilding === 'function' && hitsBuilding(x, z, 1.2)) for (let k = 1; k < 12 && hitsBuilding(r[1], r[2], 1.2); k++){ r[1] = x + Math.cos(k * 2.3) * k * 1.5; r[2] = z + Math.sin(k * 2.3) * k * 1.5; } } }
-  /* the target lap for test-driver jobs, per car: a bot that brakes for the advisory speeds, standing start, on the 4.3 km layout (lambo 123.6 s, 911 125.6, Myvi 141.9, 方程式赛车 109.8);
+  /* the target lap for test-driver jobs, per car: a bot that brakes for the advisory speeds, standing start, on the 1.8 km kart circuit (lambo 48.9 s, 911 50.5, 玛莎 51.0, Myvi 58.6, 卡丁车 59.8, 方程式赛车 37.9);
      gold = that + 2 %, silver + 10 %, bronze + 22 % */
-  const TEST_BASE = {f1car:110, lambo:124, p911:126, mase:126, moto:126, rr:130, gwag:130, sedan:134, myvi:142, patrol:152, cart:180, bus:193};
+  const TEST_BASE = {f1car:38, lambo:49, p911:51, mase:51, moto:51, rr:54, gwag:54, sedan:56, myvi:59, kart:60, patrol:62, cart:72, bus:78};
   const testTargets = c => { const b = TEST_BASE[c.kind] || 100; return [b * 1.02, b * 1.1, b * 1.22].map(v => Math.round(v)); };
   function cardOpen(){
     PD.card = true; gx.paused = true; engineUpdate(0, 0, false);
@@ -304,12 +307,12 @@
   /* inside the parks only: at the edge the car is stopped and bounced back */
   { const base = updateCar;
     updateCar = function(c, dt, inp){
-      if (c.kind !== RK) return base(c, dt, inp);
+      if (c.kind !== RK && c.kind !== 'kart') return base(c, dt, inp);
       const ox = c.x, oz = c.z, was = inParks(ox, oz), r = base(c, dt, inp);
       if (!inParks(c.x, c.z)){
         if (was){ c.x = ox; c.z = oz; c.vx *= -.25; c.vz *= -.25; c.root.position.x = ox; c.root.position.z = oz; }
-        else if (c === rc){ const [x, z, h] = pitSpot(); Object.assign(c, {x, z, h, vx:0, vz:0}); c.root.position.set(x, c.y, z); c.root.rotation.y = h; }
-        if (c === driving && performance.now() - rcWarn > 2500){ rcWarn = performance.now(); gx.callout('赛车不能上公路', '只能在雪邦赛道和汽车游乐园（一园）里开', '#d0473b'); tone('square', 300, 200, .2, .07); }
+        else if (c === rc || c.kind === 'kart'){ const [x, z, h] = pitSpot(); Object.assign(c, {x, z, h, vx:0, vz:0}); c.root.position.set(x, c.y, z); c.root.rotation.y = h; }
+        if (c === driving && performance.now() - rcWarn > 2500){ rcWarn = performance.now(); gx.callout(c.kind === 'kart' ? '卡丁车不能上公路' : '赛车不能上公路', c.kind === 'kart' ? '只能在汽车游乐园里开' : '只能在雪邦赛道和汽车游乐园（一园）里开', '#d0473b'); tone('square', 300, 200, .2, .07); }
       }
       return r;
     };
