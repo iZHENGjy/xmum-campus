@@ -1,12 +1,12 @@
-/* XMUM 校园漫游 · 主线剧情的数据：人机奶蛙、八章步骤、支线、采购单、日记句子、手机消息、想家独白
+/* XMUM 校园漫游 · 主线剧情的数据：人机奶娃、八章步骤、支线、采购单、日记句子、手机消息、想家独白
  *
  * 设计依据 docs/quests.md。这里只放数据和判断条件，状态、轮询、奖励、存档都在 js/89-quest.js，界面在 js/89-quest-ui.js。
- * 玩家看得见的文字尽量用「我 / 你」，非写不可时用「奶蛙」（主角名字还没定是否全改，不要批量改「奶娃」）。
+ * 玩家看得见的文字尽量用「我 / 你」，非写不可时用「奶娃」（仓库主人定了：主角就叫奶娃）。
  *
  * ---------- 格式 ----------
  * XQD.people[id] = {name, icon, color}                  发手机消息的人（妈妈、小满……），icon 是一个字或 emoji
  * XQD.npcs[id]   = {name, short, color, at:[x, z, h] 或 () => [x, z, h], look:{wardrobe slot: item id}, shape, chat:[闲聊句子], place:'南门'}
- *                  人机奶蛙：makeNaiwa + nwDress，60 米外隐藏；at 是函数时运行时再读（场景是别的文件建的）。
+ *                  人机奶娃：makeNaiwa + nwDress，60 米外隐藏；at 是函数时运行时再读（场景是别的文件建的）。
  * XQD.chapters   = [{n, id, title, npc, place, intro:[[who, 台词]], outro:[[who, 台词]], report:'回南门找小满',
  *                    reward:{rm, car, parts:{id:n}, items:[wardrobe id], title, note:'奖励卡上的一句'}, unlock:'drive'|'park'|'train',
  *                    unlockAt:'start'|'end'（默认 start：见到这一章的人就解锁；drive 是第 1 章 end）,
@@ -42,7 +42,7 @@ window.XQD = (() => {
     cat:{name:'小橘', icon:'🐱', color:'#e39a4c'}       /* the campus cat (js/89-kitty.js) */
   });
 
-  /* ---------- 人机奶蛙（角色都是虚构的） ---------- */
+  /* ---------- 人机奶娃（角色都是虚构的） ---------- */
   /* 南门：校碑在门外中轴线上（x≈96, z≈258，铁门关着）；小满站在门里中轴线东边一点（新玩家开场后就出生在她旁边，x 96 z 242），面朝南门。 */
   D.npcs.xiaoman = {name:'小满学姐', short:'小满', color:'#3f8fe6', place:'南门', at:[101, 238.5, 0],
     look:{skin:'classic', outfit:'shirt', neck:'badge', head:'buns'}, shape:'slim',
@@ -170,7 +170,7 @@ window.XQD = (() => {
   const nearFlag = () => nearestOf(G(() => XRace.tracks.map(t => [t.ev.x, t.ev.z]), []));   /* the chequered-flag event points (js/92-racing.js T.ev) */
   const myHouseDoor = () => { const h = houseFirst(); return h ? [h.door.x, h.door.z] : null; };
   const saleDoor = () => G(() => { const h = XHouse.houses.find(x => x.id === 'h8') || XHouse.houses[0]; return [h.door.x, h.door.z]; }, [117.2, 415.1]);
-  /* ---------- 发消息的人机奶蛙 ---------- */
+  /* ---------- 发消息的人机奶娃 ---------- */
   Object.assign(D.people, {
     laozhou:{name:'站长老周', icon:'周', color:'#e67e22'},
     juanjuan:{name:'卷卷', icon:'卷', color:'#8e6bd8'},
@@ -179,7 +179,7 @@ window.XQD = (() => {
     lim:{name:'Uncle Lim', icon:'林', color:'#3a6f9a'}
   });
 
-  /* ---------- 人机奶蛙：坐标都在浏览器里用 hitsBuilding(x, z, 1) / footBlocked 验过，站在路边、不挡门口的圈 ---------- */
+  /* ---------- 人机奶娃：坐标都在浏览器里用 hitsBuilding(x, z, 1) / footBlocked 验过，站在路边、不挡门口的圈 ---------- */
   /* D6 食堂外卖取餐点（js/50-missions.js PICKUPS，342, −146.4）东北边几步，面朝取餐点 */
   D.npcs.laozhou = {name:'站长老周', short:'老周', color:'#e67e22', place:'D6 食堂外卖点', at:[347, -141, -Math.PI / 2],
     look:{skin:'orange', outfit:'redvest', head:'melon'}, shape:'chubby',
@@ -467,8 +467,8 @@ window.XQD = (() => {
   D.diary.c5_end = 'Ben 师傅给了我一块航空钛锭，说车改好了，人也该有个窝。';
 
   /* ================= 第 6 章 安家 ================= */
-  /* 设计是 RM 500 + 一件奶蛙主题家具。js/89-house.js 没有直接发家具的接口（XHouse 没有 grant，家具要先有房子、买进 it 才算），
-     所以按奶蛙主题里最便宜的一件（巨型公仔 / 奶瓶餐桌，RM 420）折成钱：RM 500 + 420 = 920。 */
+  /* 设计是 RM 500 + 一件奶娃主题家具。js/89-house.js 没有直接发家具的接口（XHouse 没有 grant，家具要先有房子、买进 it 才算），
+     所以按奶娃主题里最便宜的一件（巨型公仔 / 奶瓶餐桌，RM 420）折成钱：RM 500 + 420 = 920。 */
   D.chapters.push({n:6, id:'c6', title:'安家', npc:'lim', place:'Taman Warisan Megah 排屋', guide:['house', 'rich'],
     report:'回排屋门口找 Uncle Lim', diaryStart:'c6_start', diaryEnd:'c6_end', startMsg:'lim_start', endMsg:'lim_end',
     recap:'（补记）在南门外的 Taman Warisan Megah 买了房子，有了自己的家。',
@@ -534,7 +534,7 @@ window.XQD = (() => {
     ],
     outro:[
       ['xiaoman', '接到了？他是不是一路东张西望，跟你当年一模一样？'],
-      ['xiaoman', '一年了。从今天起，你就是学长学姐啦。'],
+      ['xiaoman', '一个学期了。下学期的新生一到，你就是学长学姐啦。'],
       ['xiaoman', '走吧，我们一起送他回南门。']
     ],
     reward:{rm:800, title:'学长 / 学姐', note:'称号「学长 / 学姐」'},
@@ -565,7 +565,7 @@ window.XQD = (() => {
   D.diary.c7_klia = '在 KLIA 帮问讯台跑了一单，大厅好大，屋顶像一把把伞。';
   D.diary.c7_sukiya = '在すき家吃了碗牛丼，想起第一天落地也是饿着肚子。';
   D.diary.c7_back = '接到新生了。他一直东张西望，问我学校大不大。我说，很大，慢慢来。';
-  D.diary.c7_end = '第一年，完。';
+  D.diary.c7_end = '大一上学期，完。';
 
   /* ---------- 「第一次」 ---------- */
   D.diary.ev_bust = '第一次被保安抓住，罚了钱，还被教育了半天。丢人。';
@@ -582,7 +582,7 @@ window.XQD = (() => {
     mom_bust:{from:'mom', text:'学校怎么打电话来了？？'},
     mom_exam:{from:'mom', text:'考试加油，别熬太晚。'},
     mom_house:{from:'mom', text:'你哪来的钱买房？？'},
-    mom_end:{from:'mom', text:'一年了，长大了。放假回来妈给你做好吃的。'},
+    mom_end:{from:'mom', text:'半年了，长大了。放假回来妈给你做好吃的。'},
     lz_hi:{from:'laozhou', text:'小满说你有车了？D6 外卖点，过来，别让我等。'},
     lz_mid:{from:'laozhou', text:'八单了？还行，没我当年快。'},
     lz_end:{from:'laozhou', text:'单子还多，有空就回来跑。别跟别人说我夸过你。'},
@@ -679,7 +679,7 @@ window.XQD = (() => {
     }); }
 
   /* ================= 第二期：采购单、新角色、生日火锅局、搬家、第 8 章（docs/quests.md「第二期」） ================= */
-  /* ---------- 新的人机奶蛙（都是虚构的）：店里的人，从第 4 章起站在店门口；第 8 章的新生阿豆 ---------- */
+  /* ---------- 新的人机奶娃（都是虚构的）：店里的人，从第 4 章起站在店门口；第 8 章的新生阿豆 ---------- */
   Object.assign(D.people, {
     rose:{name:'罗丝阿姨', icon:'罗', color:'#e0609a'},
     durian:{name:'榴莲哥', icon:'榴', color:'#8a9a2c'},
@@ -869,15 +869,15 @@ window.XQD = (() => {
     report:'带阿豆回南门找小满学姐', diaryStart:'c8_start', diaryEnd:'c8_end', startMsg:'xm_ch8', endMsg:'mom_y2',
     recap:'（补记）带新生阿豆走了一遍我第一天走过的路。',
     intro:[
-      ['adou', '学、学长好！我叫阿豆，是今年最后一个报到的……'],
-      ['xiaoman', '今年的最后一个，我不带了，交给你。'],
-      ['xiaoman', '去年我陪你走过的路，今年换你陪他走一遍。还记得吗？先去 A3。'],
+      ['adou', '学、学长好！我叫阿豆，是这学期最后一个报到的……'],
+      ['xiaoman', '这学期的最后一个，我不带了，交给你。'],
+      ['xiaoman', '上学期我陪你走过的路，这学期换你陪他走一遍。还记得吗？先去 A3。'],
       ['adou', '学长，A3 在哪？我在飞机上就听说 A3 的台阶很宽……']
     ],
     outro:[
       ['adou', '学长，学校好大……可是我好像不怕了。'],
-      ['xiaoman', '一年前，我也是站在这儿，看着你一路走远的。'],
-      ['xiaoman', '以后他就交给你啦。第二年，好好过。'],
+      ['xiaoman', '半年前，我也是站在这儿，看着你一路走远的。'],
+      ['xiaoman', '以后他就交给你啦。期末考完那天，A3 台阶见。'],
       ['adou', '谢谢学长！我以后也要像你一样！']
     ],
     reward:{rm:600, title:'靠谱学长 / 学姐', note:'称号「靠谱学长 / 学姐」'},
@@ -919,18 +919,23 @@ window.XQD = (() => {
     D.diary.c8_suki = '请阿豆吃了 SUKI-YA。他吃到第三盘肉的时候说：「学长，我想家了。」我说：「我也是。所以我们一起吃。」';
     D.watch.push((Q, flag) => { if (!Q.flag('q_suki8') && stepIs('c8_suki') && window.XINDOOR === 'sukiya') flag('q_suki8'); });
   }
-  D.diary.c8_start = '小满学姐把今年最后一个新生交给我，他叫阿豆。';
+  D.diary.c8_start = '小满学姐把这学期最后一个新生交给我，他叫阿豆。'; 
   D.diary.c8_a3 = '阿豆站在 A3 台阶上说「好宽」，跟我第一天说的一模一样。';
   D.diary.c8_d6 = '带阿豆认了 D6 的外卖点，老周瞪了他一眼，他吓得躲到我身后。';
-  D.diary.c8_swing = '阿豆荡秋千荡到最高的时候喊了一声，我好像听见了一年前的自己。';
+  D.diary.c8_swing = '阿豆荡秋千荡到最高的时候喊了一声，我好像听见了半年前的自己。';
   D.diary.c8_mamak = '请阿豆喝了第一杯拉茶，他被甜得一激灵。我笑出了声。';
-  D.diary.c8_end = '第二年，开始了。';
+  D.diary.c8_end = '阿豆认得路了。我的大一，也快到头了。';
+  /* 大一收尾（js/89-yearend.js）：第 8 章之后去 A3 台阶，大家都在；放完过场写这一句（记在第 8 章那一页） */
+  D.diary.y1_end = '期末考完那天，大家都来了 A3 台阶。客机从头顶飞过，这一次，我没有想家。大一，完。';
   Object.assign(D.msgs, {
-    xm_ch8hi:{from:'xiaoman', text:'回南门一趟？今年最后一个新生到了，我想交给你带。'},
+    xm_ch8hi:{from:'xiaoman', text:'回南门一趟？这学期最后一个新生到了，我想交给你带。'},
+    xm_y1:{from:'xiaoman', text:'期末考完啦！傍晚 A3 台阶，大家都在，就差你。'},
     xm_ch8:{from:'xiaoman', text:'别走太快，他还不认路。'},
     mom_y2:{from:'mom', text:'听说你当学长了？妈妈很骄傲。'}
   });
   D.events.push({id:'ev_xm_ch8hi', when:() => chIs(8), msg:'xm_ch8hi'});
+  /* 第 8 章做完（或者早就做完的人）：小满叫你去 A3 台阶，大一收尾 */
+  D.events.push({id:'ev_xm_y1', when:() => !!(window.XQuest && XQuest.ph === 'done' && !XQuest.state.flags.y1end), msg:'xm_y1'});
 
   /* ---------- 新角色的支线（采购单） ---------- */
   const erDone = id => Q => Q.flag('er_' + id + '_done');
