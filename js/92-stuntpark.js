@@ -336,33 +336,19 @@
   const JUMPS = [{r:BIG, key:'bigjump', name:'大跳台', on:(d, rec, kmh) => { if (window.XPark.onJump) window.XPark.onJump(d, rec, kmh); }}];
   const onJump = c => JUMPS.find(({r}) => { const u = (c.x - r.x) * r.fx + (c.z - r.z) * r.fz, v = (c.x - r.x) * r.fz - (c.z - r.z) * r.fx; return Math.abs(v) < r.W / 2 && u > -r.L / 2 && u < r.L / 2 + 1; }) || null;
   const best = k => prog.best[k];
-  /* main story: lap times and records only count from chapter 5 (js/89-quest.js); before that you can drive in and mess about */
+  /* main story: timing and records used to wait for chapter 5. 仓库主人：「剧情模式不要把玩家自己的探索限制太死」 — they count from the
+     start now (XQuest.unlocked() is always true); qLock and lockHint stay so js/92-f1park.js keeps working, they just never stop you */
   const qLock = k => !!(window.XQuest && !XQuest.unlocked(k));
-  let lockTold = false;
-  const lockHint = () => { if (lockTold) return; lockTold = true; if (typeof toast === 'function') toast('比赛主线第 5 章开放', '先随便跑跑，找 Ben 师傅报到后开始计时', 3200); };
-  /* before chapter 5: say so the moment you drive or walk into either park (again after you have been out for a while) */
-  let lockIn = false, lockOutT = 0;
-  function lockGate(dt){
-    const c = driving, x = c ? c.x : (typeof nw !== 'undefined' ? nw.x : NaN), z = c ? c.z : (typeof nw !== 'undefined' ? nw.z : NaN);
-    const inside = isFinite(x) && inPark(x, z);
-    if (!inside){ if (lockIn){ lockOutT += dt; if (lockOutT > 45) lockIn = false; } return; }
-    lockOutT = 0;
-    if (lockIn || !qLock('park')) { lockIn = true; return; }
-    lockIn = true; lockTold = true;
-    const f1 = !inBox(BOXES[0], x, z);
-    if (typeof toast === 'function') toast(f1 ? '雪邦赛道 · 主线第 5 章开放' : '汽车游乐园 · 主线第 5 章开放',
-      f1 ? '现在可以进来随便开；计时、纪录、维修区车库和比赛要做到主线第 5 章才开放' : '现在可以进来随便开；计时和纪录要做到主线第 5 章（找 Ben 师傅报到）才开始算', 4200);
-  }
+  const lockHint = () => {};
   function parkUpdate(dt){
-    lockGate(dt);
     PS.msg = '';
     const c = driving;
     if (!c){
-      lockTold = false; PS.fly = null; PS.onBig = false; PS.lap = null; PS.donut = 0;
+      PS.fly = null; PS.onBig = false; PS.lap = null; PS.donut = 0;
       if (typeof nw !== 'undefined' && inWest(nw.x, nw.z)) PS.msg = '汽车游乐园：开车来玩 · 大跳台、大回环、飞跃峡谷、8 字赛道';
       return;
     }
-    if (!inPark(c.x, c.z)){ lockTold = false; PS.fly = null; PS.lap = null; PS.donut = 0; return; }
+    if (!inPark(c.x, c.z)){ PS.fly = null; PS.lap = null; PS.donut = 0; return; }
     const sp = Math.hypot(c.vx, c.vz);
     /* big jump distance */
     if (PS.fly && PS.fly.car !== c) PS.fly = null;

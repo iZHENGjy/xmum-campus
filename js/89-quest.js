@@ -122,11 +122,10 @@
   }
   /* a step that can't be done right now (the night market is shut in the day): it moves behind the others, and says why and when */
   function waitWhy(st){ return st && st.wait && !S.done[st.id] ? g(() => st.wait(Q), '') || '' : ''; }
-  function unlocked(k){
-    if (k === 'drive') return S.born === 'vet' || S.ch > 1;
-    const need = k === 'park' ? 5 : k === 'train' ? 7 : 0; if (!need) return true;
-    return S.ch > need || (S.ch === need && S.ph !== 'meet');
-  }
+  /* 仓库主人：「剧情模式不要把玩家自己的探索限制太死」. The story guides, it does not gate: driving, the car parks' timing and records,
+     the paddock and the ERL train are open from the start. The chapters still tell their story there, and adapt when you got there first
+     (小满's keys when you already drive, 小满 on the train when you already rode it). unlocked() stays for the callers; it is always true now. */
+  function unlocked(k){ return true; }
 
   /* ---------- rewards ---------- */
   function giveCar(kind, quiet){
@@ -432,7 +431,7 @@
         /* wanted and never shaken them off before: the compass goes straight to the paint shop at Bell (js/13-outskirts.js XSPRAY) */
         const hs = heatSpray(); if (hs) return hs;
         const t = base.target(); if (t) return t;
-        if (g(() => mission.on, false) || S.quiet === 'all') return null;
+        if (g(() => mission.on, false) || S.quiet === 'all' || S.hideQ) return null;   /* 收起主线: the compass is yours */
         return target();
       },
       frame(dt, T){ if (base.frame) base.frame(dt, T); npcFrame(dt, T); if (XQuest.ui && XQuest.ui.frame) g(() => XQuest.ui.frame(dt, T)); }
@@ -477,6 +476,7 @@
   }
   /* where the compass points: the step's place, or the npc to see */
   function target(){
+    if (S.hideQ) return null;   /* 收起主线 */
     const st = curStep(); if (!st || !st.at) return null;
     const a = typeof st.at === 'function' ? g(() => st.at(Q), null) : st.at; if (!a) return null;
     return {x:a[0], z:a[1], label:(st.meet || st.report ? '主线 · ' : '主线 · ') + st.text.replace(/（.*?）/g, '')};
@@ -487,13 +487,10 @@
   /* chapter 1 before the first-delivery step: the pick-up rings, their map dots and the old 「到橙色光圈挑一单外卖」 line stay away,
      so a new player's first minutes are only 小满 and the compass (js/50-missions.js, js/90-main.js ask) */
   /* the whole of chapter 1 for a new player: the other jobs' rings stay off the map until 小满 hands over the keys */
-  const calm = () => S.born === 'new' && S.ch === 1;
-  const ringsOff = () => {
-    if (!ch1Deliv()) return false;
-    const c = chapter(), st = curStep(); if (!c || !st) return false; if (st.meet) return true;
-    const i = c.steps.findIndex(s => s.id === 'c1_deliv1'), j = c.steps.findIndex(s => s.id === st.id);
-    return i >= 0 && j >= 0 && j < i;
-  };
+  /* only while 小满 welcomes you at the gate: no job cards or road events over her first lines. After that the campus is all yours */
+  const calm = () => S.born === 'new' && S.ch === 1 && S.ph === 'meet';
+  /* the pick-up rings are never hidden any more (the story suggests the order, it doesn't hide the jobs) */
+  const ringsOff = () => false;
 
   /* ---------- the intro: the first time a new player goes into 奶娃 mode ---------- */
   const GATE = {x:96, z:242, h:Math.PI};   /* just inside the main gate (the 南门 spawn of walk mode), facing up the axis toward A3 */

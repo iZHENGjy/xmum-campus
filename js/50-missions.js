@@ -39,8 +39,8 @@ const missionEl = $('#mission'), moneyEl = $('#money');
 const qCalm = () => !!(window.XQuest && XQuest.calm && XQuest.calm());
 /* the story has a step on that is not a delivery: the delivery hints (the idle line, the compass to the nearest pick-up) step aside for it */
 /* the story step now is a delivery one (送出第一单, 再送四单, 累计 15 单…) */
-const qDeliv = () => { if (!window.XQuest || !XQuest.ready || XQuest.ph !== 'steps') return false; const s = XQuest.step && XQuest.step(); return !!(s && /deliv/.test(s.id)); };
-const qStep = () => { if (!window.XQuest || !XQuest.ready || XQuest.ph === 'done' || XQuest.state.quiet === 'all') return null; const s = XQuest.step && XQuest.step(); return s && !/deliv/.test(s.id) ? s : null; };
+const qDeliv = () => { if (!window.XQuest || !XQuest.ready || XQuest.ph !== 'steps' || XQuest.state.hideQ) return false;   /* 收起主线: plain compass */ const s = XQuest.step && XQuest.step(); return !!(s && /deliv/.test(s.id)); };
+const qStep = () => { if (!window.XQuest || !XQuest.ready || XQuest.ph === 'done' || XQuest.state.quiet === 'all' || XQuest.state.hideQ) return null; const s = XQuest.step && XQuest.step(); return s && !/deliv/.test(s.id) ? s : null; };
 /* one order from this pick-up: rush = less time, more pay; far ones carry a distance fee (RM 4 per 100 m), so the three on the card are really worth different money.
    est is what it pays if you drive it at an ordinary pace */
 function missionOrder(pk, to, rush){
