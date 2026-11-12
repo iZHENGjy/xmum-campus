@@ -37,6 +37,8 @@ const DELIV_EASE = 1.35;   /* delivery time limits are 35% longer than before (p
 const missionEl = $('#mission'), moneyEl = $('#money');
 /* story chapter 1 for a new player (js/89-quest.js): only the tutorial is on the map; races, heists, dorms, the arcade… come with the car keys */
 const qCalm = () => !!(window.XQuest && XQuest.calm && XQuest.calm());
+/* the story has a step on that is not a delivery: the delivery hints (the idle line, the compass to the nearest pick-up) step aside for it */
+const qStep = () => { if (!window.XQuest || !XQuest.ready || XQuest.ph === 'done' || XQuest.state.quiet === 'all') return null; const s = XQuest.step && XQuest.step(); return s && !/deliv/.test(s.id) ? s : null; };
 /* one order from this pick-up: rush = less time, more pay; far ones carry a distance fee (RM 4 per 100 m), so the three on the card are really worth different money.
    est is what it pays if you drive it at an ordinary pace */
 function missionOrder(pk, to, rush){
@@ -85,10 +87,12 @@ function updateMission(dt, px, pz){
   destMark.visible = mission.on && mode === 'naiwa';
   if (mode !== 'naiwa') return;
   refreshHot();
+  missionEl.style.display = '';
   if (!mission.on){
     if (busy){ missionEl.classList.remove('urgent'); return; }
-    if (qOff){ missionEl.textContent = '先跟着主线认认路，外卖等会儿再接'; missionEl.classList.remove('urgent'); return; }
-    missionEl.textContent = typeof OFFER !== 'undefined' && !OFFER.on ? '现在不接单 · 路过光圈不弹卡片' : '到橙色光圈挑一单外卖'; missionEl.classList.remove('urgent');
+    if (qStep()){ missionEl.style.display = 'none'; }   /* the quest bar under it says what to do; walking into a ring still offers orders */
+    else if (qOff){ missionEl.style.display = 'none'; return; }
+    else { missionEl.textContent = typeof OFFER !== 'undefined' && !OFFER.on ? '现在不接单 · 路过光圈不弹卡片' : '到橙色光圈挑一单外卖'; missionEl.classList.remove('urgent'); }
     /* near a ring the card with its orders comes up (a little before the ring, so there is time to read it while rolling in); without js/89-offers.js the order starts at once, as before */
     for (const pk of PICKUPS){
       const d = Math.hypot(px - pk.x, pz - pk.z);
@@ -120,8 +124,8 @@ function updateCompass(px, pz){
   let tx, tz, label;
   if (act){ tx = act.x; tz = act.z; label = act.label; }
   else if (tgtP){ tx = tgtP.x; tz = tgtP.z; label = '送到 ' + tgtP.name; }
-  else if (window.XQuest && XQuest.ringsOff && XQuest.ringsOff()){
-    /* story chapter 1, a step with no place (run, map, guide, wardrobe): no arrow to a pick-up the player cannot use yet, just the step */
+  else if (qStep() || (window.XQuest && XQuest.ringsOff && XQuest.ringsOff())){
+    /* a story step with no place (run, open the map, win a race, save up…): just the step, no arrow to the nearest pick-up */
     const st = XQuest.step(); compassSvg.style.visibility = 'hidden';
     cdist.textContent = '主线 · ' + (st ? st.text.replace(/（.*?）/g, '') : '跟着任务条走'); return;
   }
