@@ -1,0 +1,80 @@
+/* XMUM 校园漫游 · 手机操作（js/ui-touch.js 设置 body 类和变量，摇杆逻辑在 js/90-main.js）
+   全部只在 (pointer:coarse) 下生效，电脑不受影响。没改过设置时 body 上没有 tc-* 类，布局和以前一样。
+   类：tc-left 左手模式 · tc-sz 按钮不是中号 · tc-big 大号 · tc-fade 半透明。变量：--tc-s 缩放、--tc-a 透明度。
+   按钮和摇杆用 transform 缩放（不重新排版，便宜），大号时把贴在它们上方的提示条按同样比例往上挪。 */
+
+@media (pointer:coarse){
+  /* ---------- 舒适度：按住按钮或摇杆时不选字、不弹长按菜单、不触发浏览器手势（手势会发 pointercancel，按住的漂移就断了） ---------- */
+  #joy,#acts,#acts button{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+  #acts button{touch-action:none}
+  /* 摇杆的落点区比圆圈大一圈：拇指按偏一点也算，不会变成转视角 */
+  #joy::before{content:'';position:absolute;inset:-22px;border-radius:50%}
+  #joy{transform-origin:0 100%}
+  #acts{transform-origin:100% 100%}
+
+  /* ---------- 大小和透明度 ---------- */
+  body.tc-sz #joy{transform:scale(var(--tc-s))}
+  body.tc-sz #acts{transform:scale(var(--tc-s))}
+  body.tc-fade #joy,body.tc-fade #acts{opacity:var(--tc-a)}
+
+  /* ---------- 左手模式：摇杆到右下，按钮到左下，按钮的列也镜像（最常按的「跳」贴着左手拇指） ---------- */
+  body.tc-left #joy{left:auto;right:calc(var(--safe-r) + 22px);transform-origin:100% 100%}
+  body.tc-left #acts{right:auto;left:calc(var(--safe-l) + 16px);transform-origin:0 100%;direction:rtl}
+  body.tc-left #acts>*{direction:ltr}
+  body.tc-left #rcItem{right:auto;left:calc(var(--safe-l) + 16px)}
+
+  /* ---------- 设置面板 ---------- */
+  #tcSet{width:min(440px,calc(100% - 32px))}
+  .tc-rows{display:grid;gap:12px}
+  .tc-row{display:grid;gap:6px}
+  .tc-l{min-width:0}
+  .tc-l b{display:block;font-size:15px}
+  .tc-l span{display:block;font-size:12.5px;color:var(--muted);line-height:1.45}
+  .tc-seg{height:44px}
+  .tc-seg button{flex:1 1 0;height:38px;min-width:52px;padding:0 12px;font-size:14px;touch-action:manipulation}
+  .tc-foot{margin-top:16px}
+  .tc-foot .btn{min-height:44px}
+  .tc-pill{margin-left:6px;flex:none}
+  /* 背景只压暗一点，面板靠上放：游戏里打开时，下面的摇杆和按钮看得见，改了马上能看到效果 */
+  #tcSet::backdrop{background:rgba(10,14,20,.18)}
+}
+
+/* ---------- 竖屏手机：指南针在摇杆上方。它别钻到按钮底下（以前长地名的后半截和距离被「水枪」盖住），太长就折成两行；左手模式挪到右边 ---------- */
+@media (pointer:coarse) and (max-width:560px){
+  #tcSet{margin:calc(var(--safe-t) + 16px) auto auto}
+  #compass{max-width:calc(100% - var(--safe-l) - var(--safe-r) - 36px - 148px * var(--tc-s,1));box-sizing:border-box;white-space:normal;border-radius:18px}
+  #compass #cdist{min-width:0;line-height:1.3;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+  #compass #ofTog{white-space:nowrap}
+  body.tc-left #compass{left:auto;right:calc(var(--safe-r) + 12px)}
+  body.tc-big #compass{bottom:calc(var(--safe-b) + 164px + (var(--tc-s) - 1) * 124px)}
+  body.tc-big #prompt{bottom:calc(var(--safe-b) + 204px + (var(--tc-s) - 1) * 170px)}
+  body.tc-big #qhint{bottom:calc(var(--safe-b) + 212px + (var(--tc-s) - 1) * 170px)}
+  body.tc-big #dmBag{bottom:calc(var(--safe-b) + 198px + (var(--tc-s) - 1) * 170px)}
+}
+/* 标题页：「操作」和「全屏」「反馈」一组，窄屏时「需要 GitHub 账号」折成两行，别被挤出屏幕 */
+@media (pointer:coarse) and (max-width:560px){
+  #title .t-fb #tTouch ~ .fb-need{white-space:normal;min-width:0;flex:1 1 0;line-height:1.3}
+}
+@media (pointer:coarse) and (max-width:760px) and (min-height:521px){
+  body.tc-big #rcItem{bottom:calc(var(--safe-b) + 222px + (var(--tc-s) - 1) * 170px)}
+}
+
+/* ---------- 横屏手机（和 style.css 的「手机横屏 2.0」同一个条件）：摇杆旁边的任务条、指南针、电台、背包跟着摇杆走 ---------- */
+@media (pointer:coarse) and (max-height:520px) and (min-width:561px){
+  #tcSet{width:min(660px,calc(100% - 24px))}
+  .tc-rows{grid-template-columns:1fr 1fr;gap:10px 18px}
+  .tc-l span{font-size:12px}
+  .tc-foot{margin-top:10px}
+  body.tc-left #joy{right:calc(var(--safe-r) + 14px)}
+  body.tc-left #acts{left:calc(var(--safe-l) + 12px)}
+  body.tc-left #rcItem{left:calc(var(--safe-l) + 12px)}
+  body.tc-left.naiwa .gstat .mission,body.tc-left.naiwa #compass{left:auto;right:calc(var(--safe-r) + 12px)}
+  body.tc-left #radio{left:auto;right:calc(var(--safe-r) + 14px + var(--ls-joy) * var(--tc-s,1) + 12px);align-items:flex-end}
+  body.tc-left .rd-panel{left:auto;right:calc(var(--safe-r) + 14px + var(--ls-joy) * var(--tc-s,1) + 12px)}
+  body.tc-left #dmBag{left:auto;right:calc(var(--safe-r) + 14px + var(--ls-joy) * var(--tc-s,1) + 12px);justify-items:end}
+  body.tc-sz.naiwa .gstat .mission{bottom:calc(var(--ls-low) + var(--ls-joy) * var(--tc-s) + 8px)}
+  body.tc-sz.naiwa #compass{bottom:calc(var(--ls-low) + var(--ls-joy) * var(--tc-s) + 8px + 28px)}
+  body.tc-sz:not(.tc-left) #radio,body.tc-sz:not(.tc-left) .rd-panel,body.tc-sz:not(.tc-left) #dmBag{left:calc(var(--safe-l) + 14px + var(--ls-joy) * var(--tc-s) + 12px)}
+  body.tc-big #rcItem{bottom:calc(var(--ls-low) + (var(--ls-btn) * 2 + 14px) * var(--tc-s))}
+  body.tc-big #prompt{max-width:calc(100% - 2 * (var(--safe-l) + var(--safe-r) + 12px + 3 * var(--ls-btn) * 1.25 * var(--tc-s) + 40px))}
+}

@@ -166,6 +166,7 @@
         <dt>点小地图</dt><dd>大地图</dd>
         <dt>暂停</dt><dd>右上角「暂停」：这局战绩、成就，还有这本「游戏指南」</dd>
         <dt>车行 · 衣橱</dt><dd>右上角的按钮</dd>
+        <dt>左手模式</dt><dd>「暂停」或标题页的「操作」：摇杆和按钮左右对调，按钮大小、透明度、转视角快慢也在这里调</dd>
       </dl>` : `
       <dl class="gd-dl">
         <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>走路 / 开车，<kbd>Shift</kbd> 跑</dd>
