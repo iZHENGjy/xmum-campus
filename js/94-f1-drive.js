@@ -3,9 +3,12 @@
  * 为什么容易飞出去：赛道是 1:1.8 的缩小版，车却是原速（兰博鸡尼 288 km/h），而游戏的车本来没有「抓地极限」：
  *   方向打满在什么速度都能转很小的弯，所以高速时手指一抖车头就甩，键盘一按就是满舵。
  * 这里的做法：
- *   1. 速度越快、转向越稳：最大转向角按「抓地极限」算（能转的最小半径 = 速度² / 侧向抓地力），高速打满方向也只是压着弯走，
- *      不会突然甩头；手机摇杆中间一段再细一点。只在赛道上（含路肩、维修区、油棕园公路那段）生效。
- *   2. 赛道路面抓地力随速度变大（下压力）：侧向抓地 a0 × (1 + df × (速度/50)²)，车也更跟车头走。按住漂移照样能甩尾（漂移时放宽 2.2 倍）。
+ *   1. 速度越快、转向越稳：最大转向角按「抓地极限」算（能转的最小半径 = 速度² / 侧向抓地力），而且比建议车速宽松 35%，
+ *      方向打满最少也留三成转向，所以按住方向一定转得动。
+ *   2. 太快进弯不再「拐不过来」（仓库主人反馈）：按着方向往前面那个弯拐、但车速超过这个弯能过的速度时，自动「擦胎减速」
+ *      （越快擦得越狠，车稍微往外滑），减到过得去为止；速度对了就不擦，所以会刹车的人照样更快。
+ *      赛道路面抓地力随速度变大（下压力），按住漂移照样能甩尾。
+ *   刹车辅助（手机上默认开，提示条上可以关）：离慢弯太近又太快时自动松油门、轻踩刹车；按住漂移不管它。
  *   3. 草地中等减速、砂石明显减速，都不会让车打转（出赛道时不能手刹甩尾，车往车头方向走）。
  *   4. 刹车牌：慢弯前 100 米、50 米各一块；屏幕上方有建议过弯速度（按这辆车的抓地力算），绿色刚好、黄色该刹车了、红色太快。点它可以关掉。
  *   5. 回到赛道：T 键或「回赛道」按钮，回到最近一次在赛道上的位置，车头朝前；计时圈加 5 秒罚时。
@@ -21,10 +24,11 @@
   const F = window.XF1; if (!F || typeof updateCar !== 'function') return;
   const {PT, N, TAN, NOR, CURV, HWI, HW, KERB, kerbAt, slow, PAD, ROAD, PIT} = F;
   const wi = i => ((i % N) + N) % N;
-  const OPT = {adv:true, vib:true};
+  const OPT = {adv:true, vib:true, assist:TOUCH};   /* brake assist: on by default on phones */
   try { Object.assign(OPT, JSON.parse(localStorage.getItem('xmum-f1-v1') || '{}')); } catch(e){}
   const optSave = () => { try { localStorage.setItem('xmum-f1-v1', JSON.stringify(OPT)); } catch(e){} };
   const PEN = 5, VKNEE = 45;   /* reset penalty (s); top speed above this counts half on the circuit */
+  const CFG = {grip:1.35, floor:.3, scrub:40, sv:.5, slide:.3, assist:7, adv:1.2};   /* steering cap margin over the advisory grip, least steering kept at full lock, scrub (m/s² when far too fast; × (1 + sv·v/50), faster cars scrub harder), lateral grip lost while scrubbing, assist braking (m/s²), advisory grip margin */
 
   /* ---------- where a car is: nearest circuit point, offset, surface ---------- */
   const roadSeg = ROAD.p;
@@ -64,15 +68,33 @@
     if (!W || W.d > W.hw + 60) return base(c, dt, inp);
     const T = c.T, m = spec(c), fx = Math.sin(c.h), fz = Math.cos(c.h), vf = c.vx * fx + c.vz * fz, v = Math.abs(vf);
     const asphalt = W.s === 'track' || W.s === 'kerb' || W.s === 'road', q = (v / 50) ** 2;
-    let steer = inp.steer, brake = inp.brake;
-    if (TOUCH && !c.rcName) steer = Math.sign(steer) * Math.pow(Math.abs(steer), 1 + Math.min(1, v / 40) * .6);   /* a finer middle on the stick at speed */
-    /* grip-limited steering: the tightest radius at this speed is v² / a */
+    let steer = inp.steer, brake = inp.brake, thr = inp.thr;
+    /* grip-limited steering, made forgiving (the owner: 「拐弯拐不过来」): the cap uses 1.35× the grip of the advisory speeds,
+       and full lock always keeps at least half the normal steering. Asking for more than the grip allows scrubs speed off
+       instead (tyres sliding), so arriving too fast means slower through the corner, not straight on into the gravel. */
     const aMax = m.a0 * (asphalt ? 1 + m.df * q : (W.s === 'grass' ? .75 : .6) * m.off) * (brake && asphalt ? 2.2 : 1), vv = Math.max(v, 4);
-    const k = Math.min(1, Math.atan(T.wb * aMax / (vv * vv)) * (1 + .025 * v) / T.steer);
+    const kRaw = Math.atan(T.wb * aMax * CFG.grip / (vv * vv)) * (1 + .025 * v) / T.steer, k = Math.min(1, Math.max(CFG.floor, kRaw));
+    /* scrub: you hold the steering into the corner ahead (same way it bends) but are faster than the car can take it: bleed the
+       speed down to what the corner allows. At the right speed nothing happens, so holding a key through a corner costs nothing */
+    c._f1want = (c._f1want || 0) + (steer - (c._f1want || 0)) * Math.min(1, dt * 2.5);   /* held steering, not a quick tap on the keys */
+    let over = 0;
+    if (asphalt && !brake && v > 8 && Math.abs(c._f1want) > .35){
+      let kc = 0; const ahead = Math.round(Math.min(60, 6 + v * .8 / 3));
+      for (let d = 0; d <= ahead; d += 2){ const cv = CURV[wi(W.i + d)]; if (Math.sign(cv) === Math.sign(c._f1want)) kc = Math.max(kc, Math.abs(cv)); }
+      if (kc > 1 / 400){ const vOk = Math.sqrt(aMax * CFG.grip / kc); if (v > vOk) over = Math.min(1, (v - vOk) / Math.max(4, vOk) * 3) * Math.min(1, Math.abs(c._f1want) * 1.4); }
+    }
     steer *= k;
+    /* brake assist (touch: on by default): lift and brake gently when well over the speed for the next slow corner; the drift button overrides */
+    let assist = 0;
+    if (OPT.assist && c === driving && asphalt && !brake && thr >= 0 && v > 15){
+      const A = adv(m); let need = 99;
+      for (const K of A.corners){ const d = ((K.i - W.i) % N + N) % N * 3; if (d < 180 && K.v < 40) need = Math.min(need, Math.sqrt(K.v * K.v * 1.1 + 2 * 12 * d)); }
+      if (v > need * 1.06){ assist = Math.min(1, (v - need * 1.06) / 6); thr = 0; }
+    }
+    ST.assist = c === driving ? assist : ST.assist;
     const save0 = T.maxV, save1 = T.grip, save2 = T.acc;
     if (asphalt){
-      T.grip = save1 * m.grip * (1 + m.df * q * .8); T.acc = save2 * m.acc;
+      T.grip = save1 * m.grip * (1 + m.df * q * .8) * (1 - CFG.slide * over); T.acc = save2 * m.acc;   /* asking too much: the tyres slide, the car runs a little wide */
       const cap = save0 > VKNEE ? VKNEE + (save0 - VKNEE) * Math.min(1, .5 + m.vmax) : save0;
       T.maxV = v > cap ? Math.max(cap, v - 9 * dt) : cap;   /* above the circuit top speed: eases down like drag, no sudden clamp */
     } else {
@@ -81,16 +103,24 @@
       T.acc = save2 * (W.s === 'gravel' ? .35 : .65);
       T.maxV = Math.min(save0, Math.max(v - 3 * dt, W.s === 'gravel' ? 10 : 32));
     }
-    if (inp.thr < 0 && vf > .5) T.acc *= m.brake;           /* the brakes scale with the car's pull (js/40-vehicles.js); carbon brakes add to that */
-    try { base(c, dt, {thr:inp.thr, steer, brake}); } finally { T.maxV = save0; T.grip = save1; T.acc = save2; }
+    if (thr < 0 && vf > .5) T.acc *= m.brake;               /* the brakes scale with the car's pull (js/40-vehicles.js); carbon brakes add to that */
+    try { base(c, dt, {thr, steer, brake}); } finally { T.maxV = save0; T.grip = save1; T.acc = save2; }
     if (!asphalt && !c.air){ const f = Math.exp(-(W.s === 'gravel' ? 2.6 : .5) * dt); c.vx *= f; c.vz *= f; }
+    /* scrub and assist: take speed off along the direction of travel */
+    const dec = (over > .02 ? CFG.scrub * over * (1 + CFG.sv * v / 50) : 0) + assist * CFG.assist, sp = Math.hypot(c.vx, c.vz);
+    if (dec > 0 && sp > 1 && !c.air){
+      const f = Math.max(0, 1 - dec * dt / sp); c.vx *= f; c.vz *= f;
+      if (over > .3 && typeof skidAt === 'function'){ const hx = Math.sin(c.h), hz = Math.cos(c.h); for (const sx of [-1, 1]) skidAt(c.x - hx * T.wb / 2 + hz * sx * (T.W / 2 - .1), c.z - hz * T.wb / 2 - hx * sx * (T.W / 2 - .1), c.h, c.y); }
+      if (c === driving && over > .3){ ST.squeal -= dt; if (ST.squeal <= 0){ ST.squeal = .18; noise(.16, .05, 1800, 'bandpass'); } }
+    }
     if (W.s === 'track' && Math.abs(W.lat) < W.hw - 1) c._f1good = W.i;
   };
 
   /* ---------- advisory corner speeds, from the curvature and this car's grip ---------- */
   const advCache = {};
   function adv(m){
-    const key = m.a0.toFixed(2) + '|' + m.df.toFixed(3); if (advCache[key]) return advCache[key];
+    const key = m.a0.toFixed(2) + '|' + m.df.toFixed(3) + '|' + CFG.adv; if (advCache[key]) return advCache[key];
+    m = Object.assign({}, m, {a0:m.a0 * CFG.adv});
     const vc = CURV.map(c => { const k = Math.abs(c); if (k < 1e-4) return 99; const den = k - m.a0 * m.df / 2500; return den <= 0 ? 99 : Math.min(99, Math.sqrt(m.a0 / den)); });
     const v = vc.map((_, i) => { let s = 99; for (let d = -3; d <= 3; d++) s = Math.min(s, vc[wi(i + d)]); return s; });
     const corners = F.turnIdx.map(([n, i0]) => { let bi = i0, bv = 99; for (let d = -9; d <= 9; d++){ const i = wi(i0 + d); if (v[i] < bv){ bv = v[i]; bi = i; } } return {n, i:bi, v:bv * .95}; }).sort((a, b) => a.i - b.i);
@@ -148,7 +178,7 @@
 #f1Adv.ok .f1-v{color:#2e9d5b} #f1Adv.near .f1-v{color:#d9901a} #f1Adv.over .f1-v{color:#d0473b}
 #f1Adv.over{box-shadow:0 0 0 2px #d0473b inset}
 #f1Adv.off{opacity:.55;font-size:12px;padding:4px 10px}
-#f1Adv .f1-vib{font-size:11px;padding:2px 7px;border-radius:999px;border:1px solid var(--line);background:none;color:inherit;font-weight:600}
+#f1Adv .f1-vib,#f1Adv .f1-as{font-size:11px;padding:2px 7px;border-radius:999px;border:1px solid var(--line);background:none;color:inherit;font-weight:600}
 #f1Adv .f1-muted{color:var(--muted);font-weight:600;font-size:12px}
 body.f1-reset #act-q{display:none}   /* 撩头 is disabled while driving: 回赛道 takes its place, so the button grid keeps its height */
 @media (pointer:coarse) and (orientation:portrait){#f1Adv{top:auto;bottom:calc(var(--safe-b, 0px) + 264px)}}
@@ -159,6 +189,7 @@ body.f1-reset #act-q{display:none}   /* 撩头 is disabled while driving: 回赛
   document.body.appendChild(advEl);
   advEl.addEventListener('click', e => {
     ac();
+    if (e.target.closest('.f1-as')){ OPT.assist = !OPT.assist; optSave(); advCache.html = ''; toast(OPT.assist ? '刹车辅助：开' : '刹车辅助：关', OPT.assist ? '太快进弯时自动松油门、轻踩刹车（按住漂移不管它）' : '全靠自己刹车', 1800); return; }
     if (e.target.closest('.f1-vib')){ OPT.vib = !OPT.vib; optSave(); if (OPT.vib && navigator.vibrate) navigator.vibrate(30); advCache.html = ''; return; }
     OPT.adv = !OPT.adv; optSave(); advCache.html = ''; toast(OPT.adv ? '建议车速：开' : '建议车速：关', OPT.adv ? '弯前会提示建议过弯速度' : '再点一下提示条可以打开', 1600);
     canvas.focus({preventScroll:true});
@@ -185,7 +216,7 @@ body.f1-reset #act-q{display:none}   /* 撩头 is disabled while driving: 回赛
   });
 
   /* ---------- per frame: track limits, advisory, kerb rumble ---------- */
-  const ST = {rumble:0, vibT:0, crunch:0, offWarn:0, lastI:null};
+  const ST = {rumble:0, vibT:0, crunch:0, offWarn:0, lastI:null, assist:0, squeal:0};
   const fmtK = v => Math.max(20, Math.round(v * 3.6 / 5) * 5);
   function f1Frame(dt){
     const c = driving, W = c && !c.air ? c._f1 : null, inCirc = !!(c && W && W.d < W.hw + 60 && mode === 'naiwa');
@@ -220,10 +251,11 @@ body.f1-reset #act-q{display:none}   /* 撩头 is disabled while driving: 回赛
       for (const K of A.corners){ const d = wi(K.i - W.i); if (d * 3 < 170 && (C == null || d < dist)){ C = K; dist = d; } }
       if (C && C.v < v * 1.06 + (dist * 3 < 40 ? 99 : 0) && C.v < 40){
         const need = Math.sqrt(C.v * C.v + 2 * 20 * dist * 3), cls = v <= C.v * 1.04 ? 'ok' : v <= need ? 'near' : 'over';
-        html = `<span>${C.n} 号弯</span><span class="f1-v">${fmtK(C.v)}</span><span class="f1-muted">km/h · ${Math.round(dist * 3)} 米</span>`;
+        html = `<span>${C.n} 号弯</span><span class="f1-v">${fmtK(C.v)}</span><span class="f1-muted">km/h · ${Math.round(dist * 3)} 米${ST.assist > 0 ? ' · 辅助刹车' : ''}</span>`;
         if (advEl.className !== 'panel ' + cls) advEl.className = 'panel ' + cls;
       } else html = '';
     }
+    if (html) html += `<button type="button" class="f1-as" aria-pressed="${OPT.assist}">刹车辅助${OPT.assist ? '开' : '关'}</button>`;
     if (html && TOUCH && navigator.vibrate) html += `<button type="button" class="f1-vib" aria-pressed="${OPT.vib}">震动${OPT.vib ? '开' : '关'}</button>`;
     if (!OPT.adv) advEl.className = 'panel off';
     if (html !== advCache.html){ advCache.html = html; advEl.innerHTML = html; }
@@ -252,5 +284,5 @@ body.f1-reset #act-q{display:none}   /* 撩头 is disabled while driving: 回赛
     };
   }
 
-  window.XF1D = {where, reset, opt:OPT, mods, spec, adv, corners:base0.corners, boards:BOARDS, PEN, VKNEE};
+  window.XF1D = {where, reset, opt:OPT, mods, spec, adv, cfg:CFG, corners:base0.corners, boards:BOARDS, PEN, VKNEE};
 })();
