@@ -410,9 +410,11 @@ function sprayUpdate(dt){
     }
     /* not wanted (or just resprayed): pick a colour yourself */
     spray.here = G;
-    G.still = Math.hypot(driving.vx, driving.vz) < 1 ? G.still + dt : 0;
-    spray.msg = G.done ? '喷好了，开出去吧' : TOUCH ? '停稳一会儿就打开喷漆店' : '按 F 打开喷漆店挑颜色';
-    if (TOUCH && !G.done && !G.panel && G.still > 1.2) sprayPanel(G);
+    const sp = Math.hypot(driving.vx, driving.vz);
+    G.still = sp < 1.5 ? G.still + dt : 0;
+    if (sp > 2.5) G.panel = false;   /* drove on after closing the shop: the next stop in here opens it again */
+    spray.msg = G.done ? '喷好了，开出去吧' : TOUCH ? '停稳一会儿就打开喷漆店，或点「喷漆」' : '按 F 打开喷漆店挑颜色';
+    if (TOUCH && !G.done && !G.panel && G.still > .9) sprayPanel(G);
     return;
   }
 }
@@ -474,13 +476,31 @@ function sprayFrame(now){
 /* F in the garage (not wanted) opens the full paint shop instead of getting out; nothing works during the respray */
 window.addEventListener('keydown', e => {
   if (spray.run){ e.preventDefault(); e.stopImmediatePropagation(); return; }
-  if ((e.code !== 'KeyF' && e.code !== 'Enter') || e.repeat || ward.on || !spray.here || mode !== 'naiwa' || gx.paused) return;
-  if (driving !== myCar || Math.hypot(driving.vx, driving.vz) > 4) return;
-  e.preventDefault(); e.stopImmediatePropagation(); sprayPanel(spray.here);
+  if ((e.code !== 'KeyF' && e.code !== 'Enter') || e.repeat) return;
+  if (sprayTryOpen()){ e.preventDefault(); e.stopImmediatePropagation(); }
+}, true);
+/* in the garage F (or the 下车 button, relabelled 喷漆) never gets you out: still rolling in at up to ~36 km/h it brakes and opens
+   the shop; faster than that it only says to stop. Returns true when it handled the press. */
+function sprayTryOpen(){
+  if (ward.on || !spray.here || mode !== 'naiwa' || gx.paused || !driving || driving !== myCar) return false;
+  const sp = Math.hypot(driving.vx, driving.vz);
+  if (sp > 10){ toast('先停下来', '在车间里停住再打开喷漆店', 1600); return true; }
+  driving.vx = driving.vz = 0; sprayPanel(spray.here); return true;
+}
+document.addEventListener('pointerdown', e => {
+  if (!e.target.closest || !e.target.closest('#act-f')) return;
+  if (sprayTryOpen()){ e.preventDefault(); e.stopImmediatePropagation(); }
 }, true);
 {
   const up = gx.update, pr = gx.prompt, mi = gx.mini;
-  gx.update = function(dt, px, pz){ up.call(this, dt, px, pz); sprayUpdate(dt); };
+  let fLabel = false;   /* the 下车 button reads 喷漆 while it would open the paint shop */
+  gx.update = function(dt, px, pz){
+    up.call(this, dt, px, pz); sprayUpdate(dt);
+    const want = !!(spray.here && driving && driving === myCar);
+    if (want || fLabel){ const b = document.querySelector('#act-f b');
+      if (want){ if (b && b.textContent !== '喷漆') b.textContent = '喷漆'; } else if (typeof updateActs === 'function') updateActs();
+      fLabel = want; }
+  };
   gx.prompt = function(){ return spray.msg || pr.call(this); };
   /* on the minimap; while you are wanted the ones you can use pulse */
   gx.mini = function(dot){
