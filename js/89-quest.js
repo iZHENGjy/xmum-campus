@@ -451,7 +451,7 @@
   }
   /* the first chase: until you have once driven into the paint shop, any wanted stars send the compass there, with one tip */
   function heatSpray(){
-    if (!(g(() => heat, 0) > 0) || g(() => prog.ach.repaint, true) || !window.XSPRAY) return null;
+    if (!(g(() => heat, 0) >= 1) || g(() => prog.ach.repaint, true) || !window.XSPRAY) return null;   /* a real star (js/80-gta.js: stars = floor(heat)), not just a warning */
     if (!S.flags.heat1){ flag('heat1'); g(() => toast('被保安盯上了！', '开进 Bell Avenue 的喷漆车间换个颜色，就能甩掉他们。指南针带你去', 4600)); }
     return {x:XSPRAY.door.x, z:XSPRAY.door.z, label:'甩掉保安 · 开进 Bell 喷漆车间'};
   }
