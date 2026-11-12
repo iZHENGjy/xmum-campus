@@ -817,8 +817,8 @@ window.addEventListener('keydown', e => {
     },
     mini(dot){
       base.mini(dot);
-      if (RC.st === 'idle'){ if (!base.busy() && !mission.on) for (const T of RC_TRACKS) dot(T.ev.x, T.ev.z, T.color, 6); return; }
-      const T = RC.T, cs = T.cps[RC.me.next]; if (cs != null){ const [x, z] = rcAt(T.P, T.closed ? cs % T.P.L : cs); dot(x, z, T.color, 8); }
+      if (RC.st === 'idle'){ if (!base.busy() && !mission.on) for (const T of RC_TRACKS) dot(T.ev.x, T.ev.z, T.color, 6, {i:T.icon, t:T.name, s:'赛车 · 开车进圈报名', c:'play', p:2}); return; }
+      const T = RC.T, cs = T.cps[RC.me.next]; if (cs != null){ const [x, z] = rcAt(T.P, T.closed ? cs % T.P.L : cs); dot(x, z, T.color, 8, {i:'🏁', t:T.name + ' · 检查点', c:'main', p:0}); }
       for (const r of RC.racers) if (r.ai) dot(r.car.x, r.car.z, r.color, 4);
       if (RC.ghost && RC.ghost.mesh.visible) dot(RC.ghost.mesh.position.x, RC.ghost.mesh.position.z, '#8fd3ff', 4);
     },

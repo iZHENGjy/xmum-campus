@@ -220,12 +220,14 @@
       /* npcs with something to give: a yellow "!" */
       for (const id in D.npcs){
         if (XQ.npcMark(id) !== '!') continue; const a = XQ.npcAt(id); if (!a) continue;
+        if (o && o.pins){ o.pins.push({x:a[0], z:a[1], m:{i:'❗', t:D.npcs[id].short || D.npcs[id].name, s:'主线 · 有事找你', c:'main', p:0, main:true}}); continue; }   /* the big map writes the name (js/ui-map-pins.js) */
         const px = clamp(X(a[0]), Sw), pz = clamp(Z(a[1]), Sh);
         G.fillStyle = '#ffc21a'; G.strokeStyle = '#1f2a33'; G.lineWidth = 2 * u; G.beginPath(); G.arc(px, pz, 8 * u, 0, 7); G.fill(); G.stroke();
         G.fillStyle = '#1f2a33'; G.font = `900 ${Math.round(12 * u)}px sans-serif`; G.textAlign = 'center'; G.textBaseline = 'middle'; G.fillText('!', px, pz + .5 * u); G.textAlign = 'start'; G.textBaseline = 'alphabetic';
       }
       if (g(() => mission.on, false)) return;
-      const a = stepAt(XQ.step()); if (!a) return;
+      const st = XQ.step(), a = stepAt(st); if (!a) return;
+      if (o && o.pins){ o.pins.push({x:a[0], z:a[1], m:{i:'⭐', t:'主线 · ' + String(st.text || '').replace(/（.*?）/g, ''), s:'主线任务', c:'main', p:0, main:true}}); return; }
       star(G, clamp(X(a[0]), Sw), clamp(Z(a[1]), Sh), 10 * u, '#ffc21a');
   }
   if (typeof drawMini === 'function'){ const base = drawMini; drawMini = function(cx, cz, yaw, o){ base(cx, cz, yaw, o); if (!(o && o.g)) overlay(cx, cz, o); }; }

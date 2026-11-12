@@ -431,7 +431,7 @@
       },
       busy(){ return !!(PD.job && PD.job.type === 'run') || base.busy(); },
       target(){ const j = PD.job; if (j && j.type === 'run' && !PD.in) return j.phase ? {x:DOOR.x, z:DOOR.z, label:'维修区车库'} : {x:j.x, z:j.z, label:j.name}; return base.target(); },
-      mini(dot){ base.mini(dot); const j = PD.job; if (j && j.type === 'run'){ if (j.phase) dot(DOOR.x, DOOR.z, '#ff8a3d', 7); else dot(j.x, j.z, '#ffb13b', 7); } else if (!PD.in && !locked()) dot(DOOR.x, DOOR.z, '#c8322a', 4); },
+      mini(dot){ base.mini(dot); const j = PD.job; if (j && j.type === 'run'){ if (j.phase) dot(DOOR.x, DOOR.z, '#ff8a3d', 7, {i:'🔧', t:'回维修区车库', c:'main', p:0}); else dot(j.x, j.z, '#ffb13b', 7, {i:'📦', t:'车队跑腿', c:'main', p:0}); } else if (!PD.in && !locked()) dot(DOOR.x, DOOR.z, '#c8322a', 4, {i:'🔧', t:'维修区车库', s:'雪邦车队 · 卡丁车场', c:'play', p:3}); },
       leave(){ pitClose(true); cardClose(); leave(true); PD.job = null; base.leave(); },
       togglePause(){ if (PD.pit){ pitClose(); return; } if (PD.card){ cardClose(); return; } base.togglePause(); }
     });

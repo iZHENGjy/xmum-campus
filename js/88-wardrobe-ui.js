@@ -506,7 +506,7 @@ document.addEventListener('pointerdown', e => {
   gx.mini = function(dot){
     mi.call(this, dot);
     const hot = heat >= 1, pulse = .5 + .5 * Math.sin(performance.now() / 160), now = Date.now();
-    for (const G of SPRAYS){ const on = hot && G.cd <= now; dot(G.D.x + Math.sin(G.D.h) * G.D.d / 2, G.D.z + Math.cos(G.D.h) * G.D.d / 2, on && pulse > .5 ? '#ffffff' : '#e84d8a', on ? 9 + pulse * 4 : 7); }
+    for (const G of SPRAYS){ const on = hot && G.cd <= now; dot(G.D.x + Math.sin(G.D.h) * G.D.d / 2, G.D.z + Math.cos(G.D.h) * G.D.d / 2, on && pulse > .5 ? '#ffffff' : '#e84d8a', on ? 9 + pulse * 4 : 7, {i:'🎨', t:'喷漆车间', s:on ? '开自己的车冲进去，甩掉警戒' : '开自己的车进去换漆 · 甩掉警戒', c:'shop', p:on ? 1 : 2}); }
   };
 }
 window.XSprays = SPRAYS;

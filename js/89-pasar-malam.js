@@ -568,6 +568,11 @@
       ` · ${change >= 0 ? '找回零钱' : '自己贴了 RM ' + -change}${pay ? ' +RM ' + pay : ''}${loot.length ? ' · 改装：' + XParts.text(loot) : ''}`, 4200);
     if (medal < 3){ gxCallout(GX_MEDAL[medal], pts + ' 分', OP_MEDAL_C[medal]); opFanfare(); } else if (d.fake) sfx.fail(); else sfx.ding();
     for (let k = 0; k < 8; k++) spawnPart('dust', nw.x + (Math.random() - .5) * 2, 1.4 + Math.random(), nw.z + (Math.random() - .5) * 2, .6, {vy:1.4, life:1.4, op:.9, grow:1, color:'#f2c230'});
+    /* 老周的猫山王（js/89-errand.js 的 durian 单子）：在这里挑到的真猫山王直接算数，不用再去旁边的水果摊买一颗 */
+    if (window.XErrand && XErrand.give && XErrand.active().includes('durian') && !XErrand.bought('durian', 'du')){
+      if (d.fake) setTimeout(() => toast('这颗是 D24，老周不会要的', '再挑一颗真的猫山王，或者去旁边的水果摊买', 3200), 4300);
+      else setTimeout(() => XErrand.give('durian', 'du', '这颗就给老周带去 · 送到 D6 外卖点，别在车里放太久'), 4300);
+    }
     if (medal === 0){ unlock('pm_mk'); unlock('gold'); }
     if (save >= .2) unlock('pm_cut');
     if (!d.fake && Object.values(g.ds).some(x => x.fake && x.seen.bottom)) unlock('pm_fake');
@@ -624,7 +629,7 @@
     Object.assign(gx, {
       update(dt, px, pz){ base.update(dt, px, pz); update(px, pz); },
       prompt(){ return PMS.msg || base.prompt(); },
-      mini(dot){ base.mini(dot); if (DU.S && PMS.k > .9 && !gx.busy() && !mission.on) dot(DU.S.x, DU.S.z, '#8fd14f', 6); },
+      mini(dot){ base.mini(dot); if (DU.S && PMS.k > .9 && !gx.busy() && !mission.on) dot(DU.S.x, DU.S.z, '#8fd14f', 6, {i:'👑', t:'猫山王挑战', s:'Kota Warisan 夜市 · 挑榴莲', c:'play', p:3}); },
       leave(){ if (DU.S){ opHide(DU.S); DU.S.rearm = false; } DU.near = false; DU.g = null; base.leave(); }
     });
   }

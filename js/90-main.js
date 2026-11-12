@@ -272,18 +272,26 @@ function drawMini(cx, cz, yaw, o){
     mg.save(); mg.translate(X(f.x), Z(f.z)); mg.rotate(-f.rot); mg.fillRect(-f.w / 2 * k, -f.d / 2 * k, f.w * k, f.d * k); mg.restore();
   }
   if (o && o.names) miniNames(mg, X, Z, Sw, Sh, u);
-  const dot = (x, z, col, r) => { r *= u; const e = 8 * u; let px = X(x), pz = Z(z); const edge = px < e || px > Sw - e || pz < e || pz > Sh - e;
+  /* dot(x, z, colour, radius, what): what = {i: emoji, t: name, c: category, p: 0–3 how important, s: small print, k: key} is only read by the big map,
+     which collects the dots in o.pins and draws them itself, with names (js/ui-map-pins.js) */
+  const pins = o && o.pins;
+  const dot = (x, z, col, r, m) => { if (pins){ pins.push({x, z, col, r, m}); return; } r *= u; const e = 8 * u; let px = X(x), pz = Z(z); const edge = px < e || px > Sw - e || pz < e || pz > Sh - e;
     px = Math.max(e, Math.min(Sw - e, px)); pz = Math.max(e, Math.min(Sh - e, pz));
     mg.fillStyle = col; mg.strokeStyle = '#1f2a33'; mg.lineWidth = 2 * u; mg.beginPath(); mg.arc(px, pz, edge ? r - 2 * u : r, 0, 7); mg.fill(); mg.stroke(); };
   if (mode === 'naiwa'){
     for (const c of cars) if (c !== driving && c.root.visible){ mg.save(); mg.translate(X(c.x), Z(c.z)); mg.rotate(-c.h); mg.fillStyle = c.patrol ? '#e74c3c' : '#ffffff'; mg.fillRect(-c.T.W * k * 1.5, -c.T.L * k * .75, c.T.W * k * 3, c.T.L * k * 1.5); mg.restore(); }
-    if (mission.on) dot(mission.to.x, mission.to.z, '#4fd18b', 9); else if (!gx.busy() && !(window.XQuest && XQuest.ringsOff && XQuest.ringsOff())) for (const pk of PICKUPS) if (!(pk.out && window.XQuest && XQuest.ch1Deliv && XQuest.ch1Deliv())) dot(pk.x, pk.z, pk === hotPk && !pk.cool ? '#ffc93c' : '#ff8a3d', 8);
+    if (mission.on) dot(mission.to.x, mission.to.z, '#4fd18b', 9, {i:'📦', t:'送到 ' + mission.to.name, s:'外卖送达点', c:'main', p:0});
+    else if (!gx.busy() && !(window.XQuest && XQuest.ringsOff && XQuest.ringsOff())) for (const pk of PICKUPS) if (!(pk.out && window.XQuest && XQuest.ch1Deliv && XQuest.ch1Deliv())){
+      const hot = pk === hotPk && !pk.cool;
+      dot(pk.x, pk.z, hot ? '#ffc93c' : '#ff8a3d', 8, {i:'🥡', t:pk.name, s:hot ? '外卖取餐 · 今天的加急单' : '外卖取餐 · 走进圈里接单', c:'food', p:hot ? 1 : 2});
+    }
     gx.mini(dot);
   }
   if (mode === 'hole') holeMiniPUs(mg, X, Z);   /* black-hole power-ups on the minimap (js/70-hole.js) */
   if (mode === 'hole'){ for (const h of HOLES){ if (!h.alive) continue; mg.fillStyle = '#120a22'; mg.strokeStyle = h.color; mg.lineWidth = (h.you ? 3 : 2) * u; mg.beginPath(); mg.arc(X(h.x), Z(h.z), Math.max(4 * u, h.r * k), 0, 7); mg.fill(); mg.stroke(); } }
-  else for (const cp of CPS) if (!cp.done) dot(cp.x, cp.z, '#ffd24a', 6);
-  /* you: in the middle of the minimap; on the big map wherever you are (pinned to the edge when the map is panned away) */
+  else for (const cp of CPS) if (!cp.done) dot(cp.x, cp.z, '#ffd24a', 6, {i:'📸', t:cp.name, s:'打卡点 · 今天还没打卡', c:'campus', p:3});
+  /* you: in the middle of the minimap; on the big map wherever you are (pinned to the edge when the map is panned away). o.noMe: the big map draws it last */
+  if (o && o.noMe) return;
   const me = o && o.me, ax = me ? Math.max(14 * u, Math.min(Sw - 14 * u, X(me[0]))) : Sw / 2, az = me ? Math.max(14 * u, Math.min(Sh - 14 * u, Z(me[1]))) : Sh / 2;
   mg.save(); mg.translate(ax, az); mg.rotate(-yaw); mg.scale(u, u);
   mg.fillStyle = '#1f2a33'; mg.strokeStyle = '#ffffff'; mg.lineWidth = 2.5;
@@ -292,8 +300,8 @@ function drawMini(cx, cz, yaw, o){
 }
 const drawMiniCampus = drawMini;
 /* building names on the big map: the same labels the 3D view shows (js/00-core.js addLabel), minor ones only when zoomed in */
-function miniNames(g, X, Z, Sw, Sh, u){
-  const fs = Math.round(12 * u), seen = [];
+function miniNames(g, X, Z, Sw, Sh, u, taken, skip){   /* taken: [[x, y, w, h]] already used on the big map; skip(label, text): names a pin already shows */
+  const fs = Math.round(12 * u), seen = taken || [];
   g.font = `600 ${fs}px ${getComputedStyle(document.body).fontFamily}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
   for (const L of labels){
     if (L.dead || (L.minor && !miniNames.minor)) continue;
@@ -301,10 +309,10 @@ function miniNames(g, X, Z, Sw, Sh, u){
        where people are. Only friends show there, as their own markers (js/96-friends.js) */
     if (L.el.dataset.net || /\bsoc-/.test(L.el.className)) continue;
     const x = X(L.pos.x), y = Z(L.pos.z); if (x < 0 || y < 0 || x > Sw || y > Sh) continue;
-    const t = L.el.textContent; if (!t) continue;
+    const t = L.el.textContent; if (!t || (skip && skip(L, t))) continue;
     const w = g.measureText(t).width;
-    if (seen.some(b => Math.abs(b[0] - x) < (b[2] + w) / 2 + 4 && Math.abs(b[1] - y) < fs + 2)) continue;   /* no overlapping names */
-    seen.push([x, y, w]);
+    if (seen.some(b => Math.abs(b[0] - x) < (b[2] + w) / 2 + 4 && Math.abs(b[1] - y) < ((b[3] || fs) + fs) / 2 + 2)) continue;   /* no overlapping names */
+    seen.push([x, y, w, fs]);
     g.lineWidth = 3.5 * u; g.strokeStyle = 'rgba(255,253,248,.92)'; g.strokeText(t, x, y);
     g.fillStyle = L.minor ? '#46525c' : '#1f2a33'; g.fillText(t, x, y);
   }

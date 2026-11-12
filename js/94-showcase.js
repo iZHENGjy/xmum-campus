@@ -804,7 +804,7 @@ XQ.onChange(() => {
       if (SCX.my && (!SCX.onPlaza || driving)) scClose();
     },
     prompt(){ return base.prompt() || SCX.prompt; },
-    mini(dot){ base.mini(dot); dot(SC_X, SC_Z, '#e3b95a', 4); },
+    mini(dot){ base.mini(dot); dot(SC_X, SC_Z, '#e3b95a', 4, {i:'🏆', t:'豪车展台', s:'音乐厅门前 · 全服最有钱的 7 个奶娃', c:'campus', p:3}); },
     leave(){ scClose(); SCX.prompt = ''; if (SCX.fLbl){ SCX.fLbl = false; updateActs(); } base.leave(); },
     frame(dt, T){ if (base.frame) base.frame(dt, T); scFrame(dt, T); }
   });

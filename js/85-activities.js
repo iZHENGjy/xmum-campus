@@ -336,11 +336,11 @@ Object.assign(gx, {
   },
   mini(dot){
     const a = gxA.act;
-    if (a && a.type === 'race'){ const c = a.cps[gxA.cp]; dot(c[0], c[1], a.color, 9); }
-    else if (a && a.type === 'drift') dot(FIELD.x, FIELD.z, a.color, 9);
-    else if (a && a.type === 'jump') for (const r of RAMPS) dot(r.x, r.z, a.color, 7);
-    else if (gxTaxi.on) dot(gxTaxi.to.x, gxTaxi.to.z, '#3fd6c6', 9);
-    else if (!mission.on){ for (const b of GX_ACTS) dot(b.start[0], b.start[1], b.color, 7); if (gxTaxi.pk) dot(gxTaxi.pk[0], gxTaxi.pk[1], '#3fd6c6', 7); }
+    if (a && a.type === 'race'){ const c = a.cps[gxA.cp]; dot(c[0], c[1], a.color, 9, {i:'🏁', t:a.name + ' · 检查点', c:'main', p:0}); }
+    else if (a && a.type === 'drift') dot(FIELD.x, FIELD.z, a.color, 9, {i:'🌀', t:a.name, c:'main', p:0});
+    else if (a && a.type === 'jump') for (const r of RAMPS) dot(r.x, r.z, a.color, 7, {i:'🦘', t:'黄色跳台', s:'飞跃挑战', c:'main', p:3});
+    else if (gxTaxi.on) dot(gxTaxi.to.x, gxTaxi.to.z, '#3fd6c6', 9, {i:'🚕', t:'送到 ' + gxTaxi.to.name, s:'顺风车', c:'main', p:0});
+    else if (!mission.on){ for (const b of GX_ACTS) dot(b.start[0], b.start[1], b.color, 7, {i:b.type === 'race' ? '🏁' : b.type === 'drift' ? '🌀' : '🦘', t:b.name, s:'挑战赛 · ' + b.intro, c:'play', p:2}); if (gxTaxi.pk) dot(gxTaxi.pk[0], gxTaxi.pk[1], '#3fd6c6', 7, {i:'🙋', t:'顺风车 · 招手的同学', s:'开车过去接上', c:'play', p:2}); }
   },
   onStunt(label){
     if (label === '人车分离' && gxTaxi.on) gxTaxiEnd(false, '乘客吓跑了', '车祸把同学吓坏了，这单没了');

@@ -911,7 +911,7 @@ body.wd-open #socStat,body.wd-open #socMenu,body.wd-open #socCard,body.wd-open #
     mini(dot){
       _base.mini(dot);
       const D = S.duel; if (!D || D.phase === 'wait' || D.phase === 'done') return;
-      if (D.target) dot(D.target.x, D.target.z, '#ffd24a', 10);
+      if (D.target) dot(D.target.x, D.target.z, '#ffd24a', 10, {i:'🏁', t:D.target.name || '终点', s:'1v1', c:'main', p:0});
       const p = peer(D.opp); if (p && p.G) dot(p.G.x, p.G.z, D.g === 'tag' && D.it === D.opp ? '#e74c3c' : '#c46bff', 7);
     },
     leave(){ socLeave(); _base.leave(); },
