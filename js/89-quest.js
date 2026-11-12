@@ -168,6 +168,23 @@
     emit('chapter', {c, start:true}); emit('state');
     checkSteps(true);
   }
+  /* a finished chapter's diary lines (start, each step, end), written in afterwards as 补记 where they are missing:
+     old players skipped the steps, so their pages had only the one-line recap */
+  const diaryLine = id => id && D.diary[id] && !/\{/.test(D.diary[id]);
+  function fillDiary(c){
+    for (const id of [c.diaryStart].concat(c.steps.map(s => s.id), [c.diaryEnd])) if (diaryLine(id) && !S.diary.some(e => e.s === id)) diaryAdd(id, null, {c:c.n, recap:true});
+  }
+  /* 重温这一章: a finished chapter's talk again, start to end, with what happened in between read from the diary.
+     Only looking back: no reward, no progress, nothing ticks */
+  const chFinished = c => !!(c && S.done[c.id + '_report']);
+  function replay(n){
+    const c = CH.find(x => x.n === n); if (!chFinished(c) || talking || g(() => XCine.busy, false)) return false;
+    const mid = [c.diaryStart].concat(c.steps.map(s => s.id), [c.diaryEnd]).filter(diaryLine).map(id => ['memo', D.diary[id]]);
+    const lines = [['memo', '第 ' + c.n + ' 章 · ' + c.title]].concat(c.intro || [], mid.length ? [['memo', '……']].concat(mid, [['memo', '……']]) : [], c.outro || []);
+    fillDiary(c);
+    say(lines, null, () => {   /* null: nobody to turn to, it is a memory (the npc may be across the map) */ if (c.endCine && window.XCine && XCine.play) g(() => XCine.play(c.endCine, {})); });
+    return true;
+  }
   function finishChapter(c){
     const got = pay(c.id, c.reward);
     if (c.diaryEnd) diaryAdd(c.diaryEnd);
@@ -493,6 +510,7 @@
       for (const s of c.steps){ if (!S.done[s.id]){ S.done[s.id] = now(); add(s.id, {rm:s.rm, parts:s.parts}); } }
       S.done[c.id + '_report'] = now(); add(c.id, Object.assign({}, c.reward, {car:c.reward && c.reward.car && !g(() => owned.has(c.reward.car), false) ? c.reward.car : null}));
       diaryAdd(c.id + '_recap', null, {c:c.n, recap:true, text:c.recap || ('（补记）' + c.title + '。')});
+      fillDiary(c);
       chs.push(c.n); S.ch = c.n + 1; S.ph = chOf(S.ch) ? 'meet' : 'done';
       if (c.unlock) emit('unlock', c.unlock);
     }
@@ -548,7 +566,7 @@
     data:D, chapters:CH, chapter, step:curStep, steps:() => stepsOf(chapter()), stepDone:id => !!S.done[id], Q, qDone,
     unlocked, carLocked, ch1Deliv, ringsOff, calm, lockToast,
     flag, talk, npcNear:npcNearId, npcAt, npcMark, npcs:NPC, sidesOf, diaryAdd, msg, save, dayNo,
-    on, target, playIntro, unlockedTitle:() => S.title,
+    on, target, playIntro, replay, chFinished, unlockedTitle:() => S.title,
     ui:null, dev
   };
 })();

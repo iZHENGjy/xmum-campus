@@ -249,6 +249,7 @@
     const lines = entries.map(e => `<p class="q-dl${e.r ? ' q-recap' : ''}">${esc(lineOf(e))}${e.r ? '<i>补记</i>' : ''}</p>`).join('');
     h += `<div class="q-dtext">${lines || `<p class="q-dl q-dim">${n === 0 ? '（还没写）' : isCur && st.ph === 'meet' ? '（还没开始。先去找' + esc((D.npcs[c.npc] || {}).name || '') + '。）' : '（这一页还空着。）'}</p>`}</div>`;
     if (n === 0) h += `<button type="button" class="btn q-replay">▶ 重看开场</button>`;
+    else if (XQ.chFinished(c)) h += `<button type="button" class="btn q-replay" data-ch="${n}">▶ 重温这一章${c.endCine ? '（含结尾动画）' : ''}</button>`;
     /* today's list */
     if (c){
       const all = c.steps.concat([{id:c.id + '_report', text:c.report || '回去找' + ((D.npcs[c.npc] || {}).name || ''), report:true}]);
@@ -285,7 +286,7 @@
     const p = q('.q-dprev'), n = q('.q-dnext');
     if (p) p.addEventListener('click', () => flip(-1));
     if (n) n.addEventListener('click', () => flip(1));
-    const r = q('.q-replay'); if (r) r.addEventListener('click', () => { XGuide.close(); setTimeout(() => XQ.playIntro(true), 80); });
+    const r = q('.q-replay'); if (r) r.addEventListener('click', () => { const ch = +r.dataset.ch || 0; XGuide.close(); setTimeout(() => ch ? XQ.replay(ch) : XQ.playIntro(true), 80); });
     sec.querySelectorAll('.q-more').forEach(b => b.addEventListener('click', () => XGuide.open ? (() => { const id = b.dataset.g, i = XGuide.pages.indexOf(id); if (i >= 0) XGuide.go(i); })() : 0));
     const cb = q('.q-quiet input'); if (cb) cb.addEventListener('change', () => { S().quiet = cb.checked; XQ.save(); barSync(); hintSync(true); });
   }

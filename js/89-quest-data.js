@@ -36,7 +36,8 @@ window.XQD = (() => {
   /* ---------- 发消息的人 ---------- */
   Object.assign(D.people, {
     mom:{name:'妈妈', icon:'妈', color:'#e8708a'},
-    xiaoman:{name:'小满学姐', icon:'满', color:'#3f8fe6'}
+    xiaoman:{name:'小满学姐', icon:'满', color:'#3f8fe6'},
+    memo:{name:'日记', icon:'📖', color:'#a07a52'}   /* the voice of 「重温这一章」 (js/89-quest.js replay) */
   });
 
   /* ---------- 人机奶蛙（角色都是虚构的） ---------- */
