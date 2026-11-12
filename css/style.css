@@ -1715,3 +1715,17 @@ body:not(.naiwa) .q-bar{display:none}
   #compass{top:auto;bottom:calc(var(--safe-b) + 206px)}
   #prompt{bottom:calc(var(--safe-b) + 162px)}
 }
+
+/* sideways rows (.wd-tabs, .tn-inv): ‹ › buttons at the ends that have more behind them (js/88-wardrobe-ui.js), the first-time label on › */
+.sx-wrap{position:relative;flex:none;min-width:0}
+.sx-btn{position:absolute;top:50%;z-index:2;display:none;align-items:center;gap:4px;height:30px;min-width:30px;padding:0 8px;margin-top:-15px;border-radius:999px;
+  border:1px solid var(--line);background:var(--panel-solid);color:var(--tile);font:800 18px/1 var(--body, sans-serif);box-shadow:0 2px 10px var(--shadow);cursor:pointer}
+.sx-wrap .wd-tabs + .sx-btn,.sx-wrap .wd-tabs ~ .sx-btn{margin-top:-17px}
+.sx-bl{left:-6px}.sx-br{right:-6px}
+.sx-wrap.sx-l .sx-bl,.sx-wrap.sx-r .sx-br{display:flex}
+.sx-btn:focus-visible{outline:2px solid var(--tile);outline-offset:2px}
+.sx-tip{font-size:12px;font-weight:700;white-space:nowrap}
+body.sx-known .sx-tip{display:none}
+body:not(.sx-known) .sx-wrap.sx-r .sx-br{animation:sxNudge 1.3s ease-in-out infinite}
+@keyframes sxNudge{50%{transform:translateX(3px)}}
+@media (prefers-reduced-motion: reduce){ body:not(.sx-known) .sx-wrap.sx-r .sx-br{animation:none} }
