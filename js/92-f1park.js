@@ -109,7 +109,8 @@
   const kerbAt = i => tight(i) || tight(i - 4) || tight(i + 4) || tight(i - 9) || tight(i + 9);   /* run on ~25 m past the corner, where you drift wide on the way out */
   band(0, N, HW - .2, HW + KERB, Y1, i => kerbAt(i) ? ((i >> 1) % 2 ? WHITE : RED) : null, true);
   band(0, N, -HW - KERB, -HW + .2, Y1, i => kerbAt(i) ? ((i >> 1) % 2 ? WHITE : RED) : null, true);
-  const slow = i => Math.abs(CURV[wi(i)]) > 1 / 32;
+  const slow0 = i => Math.abs(CURV[wi(i)]) > 1 / 32;
+  const slow = i => slow0(i) || slow0(i - 5) || slow0(i + 5) || slow0(i - 10) || slow0(i + 10);   /* the eased hairpins have two tight bits: one gravel trap over both */
   const GRAVEL = '#cdb48a';
   band(0, N, HW + KERB, HW + 20, Y0 - .02, i => slow(i) && CURV[wi(i)] < 0 ? GRAVEL : null, true);   /* outside of a right-hander is the left side */
   band(0, N, -HW - 20, -HW - KERB, Y0 - .02, i => slow(i) && CURV[wi(i)] > 0 ? GRAVEL : null, true);
@@ -213,8 +214,8 @@
     stand(x + nx * off, z + nz * off, 120, 10, face, true);
     void ry; }
   /* T15 stand outside the hairpin and a T1 stand */
-  for (const [n, d, len, rows] of [[1, 26, 60, 8]]){   /* (no room outside 15: the public road runs past it) */
-    const i = turnIdx.find(t => t[0] === n)[1], [x, z] = at(i), c = CURV[wi(i)], s = c > 0 ? -1 : 1, [nx, nz] = NOR[wi(i)];
+  for (const [n, d0, len, rows] of [[1, 23, 60, 8]]){   /* (no room outside 15: the public road runs past it) */
+    const i = turnIdx.find(t => t[0] === n)[1], [x, z] = at(i), c = CURV[wi(i)], s = c > 0 ? -1 : 1, [nx, nz] = NOR[wi(i)], d = HWI[wi(i)] + d0;   /* behind the gravel and the tyre wall */
     stand(x + nx * s * d, z + nz * s * d, len, rows, Math.atan2(-nx * s, -nz * s), true);
   }
   /* stunt zone stands: west of the super-jump landing strip, by the double loop, by the step-up jumps */
