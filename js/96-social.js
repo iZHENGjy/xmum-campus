@@ -733,7 +733,7 @@ body.wd-open #socStat,body.wd-open #socMenu,body.wd-open #socCard,body.wd-open #
   let rental = null;
   function needCar(){
     if (driving) return;
-    const kind = myCar && !myCar.wrecked ? myCar.kind : 'myvi', [x, z, h] = spotNear(nw.x, nw.z, kind);
+    const kind = myCar && !myCar.wrecked ? myCar.kind : 'myvi', [x, z, h] = spotNear(nw.x, nw.z, kind, nw.h);   /* facing the way you face */
     let c = myCar && !myCar.wrecked ? myCar : null;
     if (c){ c.x = x; c.z = z; c.h = h; c.vx = c.vz = 0; c.root.position.set(x, groundAt(x, z), z); c.root.rotation.set(0, h, 0); }
     else {
