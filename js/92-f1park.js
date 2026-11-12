@@ -412,7 +412,8 @@
         if (F1.lap) F1.lap.prog += fwd < 60 ? fwd : fwd > N - 60 ? fwd - N : 0;
         if (fwd > 0 && fwd < 60){
           /* crossed the line going forward */
-          if (a1 < a0 && a0 > N - 80){
+          if (a1 < a0 && a0 > N - 80 && P.qLock('park')){ P.lockHint(); F1.lap = null; }   /* main story: timing opens at chapter 5 */
+          else if (a1 < a0 && a0 > N - 80){
             if (F1.lap && F1.lap.prog > N * .95){
               const t = F1.lap.t, best = prog.best.sepLap, rec = best == null || t < best; F1.lastLap = t;
               if (rec){ prog.best.sepLap = Math.round(t * 100) / 100; saveGame(); }

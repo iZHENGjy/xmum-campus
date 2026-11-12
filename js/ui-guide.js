@@ -181,7 +181,7 @@
         <dt>电台</dt><dd>点左下角的电台小条</dd>
       </dl>`}
   ];
-  const LEGEND = [['#1f2a33', '你（箭头）'], ['#ff8a3d', '外卖取餐'], ['#4fd18b', '送达点'], ['#ffd24a', '打卡点'], ['#e84d8a', '喷漆车间'], ['#e74c3c', '巡逻车', 1], ['#c9a0ff', '宿舍门口'], ['#ffd27a', '教学楼门口'], ['#ff6f61', '抢救期末卷'], ['#ff5fa2', 'B1 游戏厅'], ['#38c6d9', '出售的房子'], ['#a774ff', 'ERL 火车站']];
+  const LEGEND = [['#1f2a33', '你（箭头）'], ['#ffc21a', '主线（黄星）'], ['#ff8a3d', '外卖取餐'], ['#4fd18b', '送达点'], ['#ffd24a', '打卡点'], ['#e84d8a', '喷漆车间'], ['#e74c3c', '巡逻车', 1], ['#c9a0ff', '宿舍门口'], ['#ffd27a', '教学楼门口'], ['#ff6f61', '抢救期末卷'], ['#ff5fa2', 'B1 游戏厅'], ['#38c6d9', '出售的房子'], ['#a774ff', 'ERL 火车站']];
 
   /* ---------- the guide sheet ---------- */
   const gd = document.createElement('dialog'); gd.id = 'guide'; gd.className = 'panel sheet gd'; gd.setAttribute('aria-labelledby', 'gdT');
@@ -215,6 +215,7 @@
     let i = 0;
     if (typeof page === 'string') i = Math.max(0, PAGES.findIndex(p => p.id === page));
     else if (typeof page === 'number') i = page;
+    else if (PAGES[0] && PAGES[0].home) i = 0;   /* the story diary (js/89-quest-ui.js) is always the first thing P opens */
     else { i = g(() => +localStorage.getItem('xmum-guide-page') || 0, 0); if (i >= PAGES.length - 1) i = 0; }   /* pick up where you stopped; read to the end = start over */
     go(i, true);
     gd.showModal ? gd.showModal() : gd.setAttribute('open', '');
@@ -279,7 +280,9 @@
     }
     if (MV.follow){ MV.cx = x; MV.cz = z; }
     miniNames.minor = MV.span <= 460;
-    g(() => drawMiniCampus(MV.cx, MV.cz, yaw, {g:cx2d, span:MV.span, u:MV.dpr * 1.15, names:MV.span <= 1500, me:[x, z], noN:true}));
+    const mo = {g:cx2d, span:MV.span, u:MV.dpr * 1.15, names:MV.span <= 1500, me:[x, z], noN:true};
+    g(() => drawMiniCampus(MV.cx, MV.cz, yaw, mo));
+    for (const fn of XGuide.mapLayers) g(() => fn(MV.cx, MV.cz, mo));   /* extra marks on the big map, e.g. the story's star (js/89-quest-ui.js) */
   }
   function loop(t){
     if (!bm.open){ MV.raf = 0; return; }
@@ -407,6 +410,7 @@
         const t = document.getElementById('toast');
         if (t && t.classList.contains('show') && n < 10){ setTimeout(tryTip, 1500, n + 1); return; }
         try { localStorage.setItem(TIP_KEY, '1'); } catch(e){}
+        if (window.XQuest) return;   /* the story's own hints teach P (js/89-quest-ui.js) */
         g(() => toast(TOUCH ? '不知道怎么玩？看游戏指南' : '按 P 看游戏指南', TOUCH ? '「暂停」和「菜单」里都有 · 点小地图看大地图' :'怎么赚钱、甩掉保安、改装车都写在里面 · M 打开大地图', 4200));
       };
       setTimeout(tryTip, 2500, 0);
@@ -414,5 +418,16 @@
     mo.observe(document.body, {attributes:true, attributeFilter:['class']});
   }
 
-  window.XGuide = {open:openGuide, close:closeGuide, map:openMap, closeMap, get on(){ return gd.open || bm.open; }, pages:PAGES.map(p => p.id)};
+  /* addPage: another file puts its own page in (js/89-quest-ui.js: the diary first, the sticky notes second). {id, t, art (svg string or ART key), body(), home, mount(el)}
+     mount(section) runs after each build, for pages with their own buttons. page: the page open now (-1 when closed). refresh(): rebuild the open page */
+  function addPage(p, at){
+    if (PAGES.some(x => x.id === p.id)) return;
+    if (p.art && !ART[p.art] && /^<svg/.test(p.art)){ ART['_' + p.id] = p.art; p.art = '_' + p.id; }
+    PAGES.splice(at == null ? PAGES.length : Math.max(0, Math.min(PAGES.length, at)), 0, p);
+    XGuide.pages = PAGES.map(x => x.id);
+  }
+  { const b0 = build; build = function(){ b0(); PAGES.forEach((p, i) => { if (p.mount){ const el = track.children[i]; if (el) g(() => p.mount(el)); } }); }; }
+  function refresh(){ if (!gd.open) return; const k = cur; build(); go(k, true); requestAnimationFrame(() => { track.style.transition = ''; }); }
+  window.XGuide = {open:openGuide, close:closeGuide, map:openMap, closeMap, get on(){ return gd.open || bm.open; }, get guideOn(){ return gd.open; }, get mapOn(){ return bm.open; },
+    get page(){ return gd.open ? cur : -1; }, get pageId(){ return gd.open && PAGES[cur] ? PAGES[cur].id : ''; }, pages:PAGES.map(p => p.id), addPage, refresh, go:i => go(i), mapLayers:[]};
 })();

@@ -339,6 +339,16 @@ const WD_ITEMS = [
     g.add(new THREE.Mesh(c, m), wdMesh(c, m, 0, 0, 0, 0, Math.PI, 0), wdMesh(new THREE.SphereGeometry(.026, 8, 6), m));
     k.put(k.N.body, g);
   }},
+  /* the 迎新工作牌 from the story (js/89-quest.js gives it after the opening); quest:true = not sold, only shows once you have it */
+  {id:'badge', slot:'neck', name:'迎新工作牌', desc:'开学那天学姐给的，蓝色挂绳，牌子上写着 XMUM 新生', price:0, tier:'n', quest:true, sw:'#2f6fd0', build(k){
+    const strap = wdMat('#2f6fd0', {roughness:.6}), y = 1.44, r = nwR(y) + .03, g = new THREE.Group(); g.position.set(0, y - .02, nwLean(y) + .01); g.rotation.x = Math.PI / 2 - .3;
+    g.add(new THREE.Mesh(new THREE.TorusGeometry(r, .014, 5, 28), strap)); k.put(k.N.body, g);
+    const p = wdAt(0, 1.2, .07), card = new THREE.Group(); card.position.copy(p); card.rotation.x = -.12;
+    card.add(wdMesh(new THREE.BoxGeometry(.15, .19, .012), wdMat('#ffffff', {roughness:.5})), wdMesh(new THREE.BoxGeometry(.15, .05, .014), strap, 0, .07, 0),
+      wdMesh(new THREE.BoxGeometry(.09, .016, .014), wdMat('#2c2d31'), 0, -.01, 0), wdMesh(new THREE.BoxGeometry(.07, .012, .014), wdMat('#9aa3ad'), 0, -.045, 0));
+    for (const sx of [-1, 1]) card.add(wdMesh(new THREE.CylinderGeometry(.006, .006, .2, 4), strap, sx * .05, .17, -.01, 0, 0, sx * .5));
+    k.put(k.N.body, card);
+  }},
   {id:'chain', slot:'neck', name:'金链子', desc:'又粗又亮，海盗船长同款', price:500, tier:'r', build(k){
     const y = 1.43, r = nwR(y) + .04, gold = wdGold(), g = new THREE.Group(); g.position.set(0, y - .02, nwLean(y) + .02); g.rotation.x = Math.PI / 2 - .25;
     g.add(new THREE.Mesh(new THREE.TorusGeometry(r, .022, 6, 32), gold));

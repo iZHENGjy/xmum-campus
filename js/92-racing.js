@@ -727,6 +727,7 @@ function rcCardResult(R){
 
 /* ---------- event points (idle) ---------- */
 function rcIdle(dt, px, pz, hide){
+  hide = hide || qCalm();
   rcPromptMsg = '';
   const now = performance.now();
   for (const T of RC_TRACKS){

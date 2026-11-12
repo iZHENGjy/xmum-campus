@@ -87,7 +87,7 @@ const wdOptional = s => !['skin', 'shape', 'paint', 'decal'].includes(s);
 function wardItems(slot){
   if (slot === 'paint') return WD_PAINTS.map(p => WD.byId[p.id]);
   if (slot === 'decal') return WD_DECALS.map(d => WD.byId['d_' + d.id]);
-  return WD_ITEMS.filter(it => it.slot === slot);
+  return WD_ITEMS.filter(it => it.slot === slot && (!it.quest || wardSave.own.has(it.id)));
 }
 const wardOwned = id => id == null || (ward.kind === 'car' ? wardSave.pOwn : wardSave.own).has(id);
 /* what is worn right now in this slot (saved), and what the preview shows */

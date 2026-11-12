@@ -1039,6 +1039,7 @@
     try { const d = JSON.parse(o['xmum-gta-v1'] || 'null') || {}; s += (+d.money || 0) + (Array.isArray(d.owned) ? d.owned.length : 0) * 500 + (+d.stunt || 0) / 50; } catch(e){}
     try { s += +(JSON.parse(o['xmum-wardrobe-v1'] || 'null') || {}).spent || 0; } catch(e){}
     try { s += +(JSON.parse(o['xmum-house-v1'] || 'null') || {}).spent || 0; } catch(e){}   // 买房装修花掉的钱（js/89-house.js），不然买了房云端进度反而像变少了
+    try { const q = JSON.parse(o['xmum-quest-v1'] || 'null') || {}; s += Math.max(0, (+q.ch || 1) - 1) * 300 + Object.keys(q.done || {}).length * 20; } catch(e){}   // 主线进度（js/89-quest.js），不然手机上做到第 3 章会被电脑上钱多一点的旧存档盖掉
     return s + (+o['xmum-hole2-best'] || 0) * 10 + (+o['xmum-hole-best'] || 0) * 10;
   }
   let lastPushed = '';
@@ -1304,9 +1305,10 @@
       recount(); emit();
       if (XNet.account.google){
         setInterval(cloudPush, 30000);                    // 断开时 cloudPush 自己会跳过
-        cloudSync().then(reloaded => {
+        syncP = cloudSync().then(reloaded => {
           let restored = false; try { restored = sessionStorage.getItem('xmum-restored') === '1'; sessionStorage.removeItem('xmum-restored'); } catch(e){}
           if (!reloaded && restored) g(() => toast('已从云端恢复进度', XNet.account.email || '', 2400));
+          return reloaded;
         });
       }
       return true;
@@ -1315,5 +1317,8 @@
       return false;
     }
   }
+  /* XNet.synced：联机初始化和云存档同步都结束以后 resolve（用云端覆盖了本机会刷新页面，就不会 resolve）。主线（js/89-quest.js）等它再写存档、补发 */
+  let syncP = null;
   XNet.ready = start();
+  XNet.synced = XNet.ready.then(() => syncP).catch(() => false);
 })();

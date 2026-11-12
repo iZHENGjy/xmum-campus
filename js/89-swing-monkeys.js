@@ -607,7 +607,7 @@ function mkUpdate(dt, px, pz){
   MK.raidCd -= dt; MK.slow -= dt; MK.anger -= dt; MK.hitCd -= dt; MK.throwCd -= dt; MK.chainT -= dt; MK.farT -= dt; mkBagStep(dt);
   const dHill = Math.hypot(px - MK_HILL.x, pz - MK_HILL.z), w = MK.war;
   /* the start ring at the foot of the hill */
-  const canStart = !w && !indoors && !mkBaseBusy() && !mission.on;
+  const canStart = !w && !indoors && !mkBaseBusy() && !mission.on && !qCalm();
   mkMark.visible = canStart; mkLbl.dead = !canStart;
   if (canStart){
     mkMark.userData.ring.scale.y = 1 + Math.sin(performance.now() / 330) * .15;
