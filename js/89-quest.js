@@ -49,13 +49,26 @@
   function save(){ dirty = true; if (!ready) return; dirty = false; try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} }
 
   /* ---------- new or returning ---------- */
+  /* Who is a returning player? Only a save with real progress. On live, 250 of 401 players left within 5 minutes; a few deliveries or
+     RM 25 must not make them a veteran (no opening, chapter 1 ticked, a welcome card). Such a "light" save is a new player: the opening
+     plays and chapter 1 starts from the beginning. Nothing is taken away (money, items, achievements stay); steps they already satisfy
+     tick as they get there, and every reward pays once by id. Real progress, any one of:
+       - a car they bought (owned is only cars from the shop or the story; stolen cars are not in it)
+       - 3 or more deliveries
+       - cash + wardrobe spend + house spend ≥ RM 300, or any house spend at all
+       - 3 or more achievements (2 come in the first minutes from crashing and getting caught: busted, eject, lake…)
+     There is no local play-time counter (the minutes in js/stats.js only go to the server), so time is not a signal.
+     Only for a save without quest state (!S.born); someone who already has xmum-quest-v1 is never reclassified. */
   function hasProgress(){
-    try {
-      const d = JSON.parse(localStorage.getItem('xmum-gta-v1') || 'null');
-      if (d && ((+d.money || 0) > 0 || (d.life && (+d.life.deliv || 0) > 0) || (d.owned || []).length || Object.keys(d.ach || {}).length || (+d.stunt || 0) > 0)) return true;
-    } catch(e){}
-    try { if ((+(JSON.parse(localStorage.getItem('xmum-wardrobe-v1') || 'null') || {}).spent || 0) > 0) return true; } catch(e){}
-    try { if ((+(JSON.parse(localStorage.getItem('xmum-house-v1') || 'null') || {}).spent || 0) > 0) return true; } catch(e){}
+    const num = v => +v || 0;
+    const spent = k => { try { return num((JSON.parse(localStorage.getItem(k) || 'null') || {}).spent); } catch(e){ return 0; } };
+    let d = null; try { d = JSON.parse(localStorage.getItem('xmum-gta-v1') || 'null'); } catch(e){}
+    d = d && typeof d === 'object' ? d : {};
+    const house = spent('xmum-house-v1');
+    if ((d.owned || []).length || house > 0) return true;
+    if (num(d.life && d.life.deliv) >= 3) return true;
+    if (num(d.money) + spent('xmum-wardrobe-v1') + house >= 300) return true;
+    if (Object.keys(d.ach || {}).length >= 3) return true;
     return false;
   }
   if (!S.born) S.born = hasProgress() ? 'vet' : 'new';
@@ -601,6 +614,8 @@
   const synced = window.XNet ? (XNet.synced || XNet.ready) : Promise.resolve();
   Promise.race([Promise.resolve(synced).catch(() => {}), new Promise(r => setTimeout(r, 15000))]).then(() => {
     ready = true;
+    /* the cloud save may have come down meanwhile (a new device signing in): decide again from what is here now */
+    if (!hadSave) S.born = hasProgress() ? 'vet' : 'new';
     if (!hadSave && S.born === 'vet') migrate();
     save(); emit('ready'); emit('state');
   });
