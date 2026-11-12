@@ -183,6 +183,8 @@ function engineUpdate(speed, slip, on){
   if (!engine || !AC) return; const t = AC.currentTime;
   const f = engine.base + speed * 3.2;
   engine.o.frequency.setTargetAtTime(f, t, .05); engine.o2.frequency.setTargetAtTime(f * .5, t, .05);
-  engine.g.gain.setTargetAtTime(soundOn && on ? .045 + Math.min(.05, speed * .002) : 0, t, .08);
+  /* 仓库主人：空转太吵。停着只有原来的三分之一（.015），踩油门、开起来才响；开到 90 km/h 全油门和原来差不多（.085 / .095） */
+  const thr = typeof ndThrottle === 'function' ? Math.min(1, Math.abs(ndThrottle())) : 0;   /* W/S or the stick, js/94-tuning-drive.js */
+  engine.g.gain.setTargetAtTime(soundOn && on ? .015 + thr * .02 + Math.min(.05, speed * .002) : 0, t, .08);
   engine.sg.gain.setTargetAtTime(soundOn && on && slip > 3 ? Math.min(.16, slip * .012) : 0, t, .05);
 }

@@ -333,7 +333,7 @@ function adaptQuality(dt){
 XQ.onChange(() => { QUAL.acc = 0; QUAL.frames = 0; QUAL.wait = Math.max(QUAL.wait, 2); });
 let miniTick = 0, uiHold = false;
 function frame(now){
-  const dt = Math.min(.05, (now - last) / 1000); last = now; const T = (now - t0) / 1000;
+  const dt = Math.max(0, Math.min(.05, (now - last) / 1000)); last = now;   /* never negative: a timestamp going backwards (tab resume, odd phone clocks) would blow up every easing */ const T = (now - t0) / 1000;
   adaptQuality((now - (frame.prev || now)) / 1000); frame.prev = now;
   if (uiHold && mode !== 'orbit'){ /* the game guide or the big map is open (js/ui-guide.js): walking, driving and the black hole wait */ }
   else if (mode === 'walk') updateWalk(dt);

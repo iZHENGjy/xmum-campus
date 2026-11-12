@@ -143,6 +143,7 @@ function updateCompass(px, pz){
     /* story chapter 1 only has campus orders: the off-campus pick-ups (Al-Hajeera, 星爸爸, KIP) would offer nothing */
     const c1 = !!(window.XQuest && XQuest.ch1Deliv && XQuest.ch1Deliv()), qd = qDeliv();
     let best = null, bd = 1e9; for (const pk of PICKUPS){ if (c1 && pk.out) continue; const d = Math.hypot(pk.x - px, pk.z - pz); if (d < bd){ bd = d; best = pk; } }
+    if (!best){ compassSvg.style.visibility = 'hidden'; return; }   /* no pickup to point at (or a bad position for a frame): nothing to show */
     tx = best.x; tz = best.z; label = (qd ? '主线 · 去 ' + best.name + ' 接单' : '取餐 ' + best.name);
   }
   camera.getWorldDirection(_fw);
