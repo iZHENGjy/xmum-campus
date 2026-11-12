@@ -48,9 +48,9 @@
   }
 
   /* ---------- per-car numbers on the circuit; tuning parts change them through mods ---------- */
-  const mods = [];
+  const mods = window.XF1D_MODS || (window.XF1D_MODS = []);   /* js/92-f1-tuning.js puts the 赛道 parts in here */
   function spec(c){
-    const m = {a0:13, df:.6, grip:1, brake:1, vmax:0, off:1, tag:''};
+    const m = {a0:13, df:.6, grip:1, brake:1, acc:1, vmax:0, off:1, tag:''};
     for (const f of mods) try { f(c, m); } catch(e){}
     return m;
   }
@@ -72,7 +72,7 @@
     steer *= k;
     const save0 = T.maxV, save1 = T.grip, save2 = T.acc;
     if (asphalt){
-      T.grip = save1 * m.grip * (1 + m.df * q * .8);
+      T.grip = save1 * m.grip * (1 + m.df * q * .8); T.acc = save2 * m.acc;
       const cap = save0 > VKNEE ? VKNEE + (save0 - VKNEE) * Math.min(1, .5 + m.vmax) : save0;
       T.maxV = v > cap ? Math.max(cap, v - 9 * dt) : cap;   /* above the circuit top speed: eases down like drag, no sudden clamp */
     } else {
