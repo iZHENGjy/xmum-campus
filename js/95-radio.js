@@ -620,13 +620,16 @@
   actBtn.addEventListener('pointerdown', e => { e.preventDefault(); cycle(); });
   actBtn.addEventListener('contextmenu', e => e.preventDefault());
 
-  function panelOpen(on){
+  /* the panel is used while driving: opened with a tap or a click it leaves the keyboard on the game (WASD / arrows / space keep
+     driving the car) and only a keyboard user (Enter / Space on the strip) is moved into it */
+  const backToGame = () => g(() => { const a = document.activeElement; if (a && (panel.contains(a) || hudEl.contains(a))) canvas.focus({preventScroll:true}); });
+  function panelOpen(on, kb){
     if (on && !inCar()) return;
     panel.hidden = !on; $r('rdStrip').setAttribute('aria-expanded', String(on));
-    if (on){ hud(); topY = -1; hudTick(true); const b = panel.querySelector('.rd-pre[aria-pressed="true"]') || $r('rdX'); b.focus({preventScroll:true}); }
-    else if (document.activeElement && panel.contains(document.activeElement)) g(() => canvas.focus({preventScroll:true}));
+    if (on){ hud(); topY = -1; hudTick(true); if (kb){ const b = panel.querySelector('.rd-pre[aria-pressed="true"]') || $r('rdX'); b.focus({preventScroll:true}); } else backToGame(); }
+    else backToGame();
   }
-  $r('rdStrip').addEventListener('click', () => { g(() => ac()); panelOpen(panel.hidden); });
+  $r('rdStrip').addEventListener('click', e => { g(() => ac()); panelOpen(panel.hidden, e.detail === 0); });
   $r('rdX').addEventListener('click', () => panelOpen(false));
   panel.querySelectorAll('.rd-pre').forEach(b => b.addEventListener('click', () => pick(+b.dataset.i)));
   $r('rdNext').addEventListener('click', next);
@@ -636,9 +639,14 @@
   $r('rdPow').addEventListener('click', () => setPower(!R.on));
   $r('rdVol').addEventListener('input', e => { R.vol = Math.max(0, Math.min(1, e.target.value / 100)); $r('rdVolOut').textContent = Math.round(R.vol * 100) + '%'; save(); });
   $r('rdAuto').addEventListener('change', e => { R.auto = e.target.checked; save(); });
-  /* keep game keys (WASD, space…) from reaching the car while a panel control has focus, but let Escape through */
-  panel.addEventListener('keydown', e => { if (e.code !== 'Escape' && e.code !== 'Tab') e.stopPropagation(); });
-  document.addEventListener('pointerdown', e => { if (!panel.hidden && !panel.contains(e.target) && !hudEl.contains(e.target) && e.target !== actBtn && !actBtn.contains(e.target)) panelOpen(false); }, true);
+  /* a tap or click on a panel control hands the keyboard straight back to the car (a slider or checkbox would otherwise keep
+     the arrows / space); a keyboard user keeps focus. Only the volume slider and checkboxes hold their own keys */
+  panel.addEventListener('pointerup', () => setTimeout(backToGame, 0));
+  panel.addEventListener('keydown', e => { if (e.target.tagName === 'INPUT' && e.code !== 'Escape' && e.code !== 'Tab') e.stopPropagation(); });
+  /* driving with the panel open: the stick, the action buttons and the 3D view (camera drag) don't close it; × , the strip,
+     Esc, getting out of the car or any other button / panel does */
+  const DRIVE_UI = '#joy,#acts,#c';
+  document.addEventListener('pointerdown', e => { if (!panel.hidden && !panel.contains(e.target) && !hudEl.contains(e.target) && e.target !== actBtn && !actBtn.contains(e.target) && !(e.target.closest && e.target.closest(DRIVE_UI))) panelOpen(false); }, true);
 
   let flashT = 0;
   function flash(){ flashT = 1.6; hudEl.classList.add('rd-flash'); }
