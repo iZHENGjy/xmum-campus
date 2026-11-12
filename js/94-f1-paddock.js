@@ -312,7 +312,7 @@
       if (!inParks(c.x, c.z)){
         if (was){ c.x = ox; c.z = oz; c.vx *= -.25; c.vz *= -.25; c.root.position.x = ox; c.root.position.z = oz; }
         else if (c === rc || c.kind === 'kart'){ const [x, z, h] = pitSpot(); Object.assign(c, {x, z, h, vx:0, vz:0}); c.root.position.set(x, c.y, z); c.root.rotation.y = h; }
-        if (c === driving && performance.now() - rcWarn > 2500){ rcWarn = performance.now(); gx.callout(c.kind === 'kart' ? '卡丁车不能上公路' : '赛车不能上公路', c.kind === 'kart' ? '只能在汽车游乐园里开' : '只能在雪邦赛道和汽车游乐园（一园）里开', '#d0473b'); tone('square', 300, 200, .2, .07); }
+        if (c === driving && performance.now() - rcWarn > 2500){ rcWarn = performance.now(); gx.callout(c.kind === 'kart' ? '卡丁车不能上公路' : '赛车不能上公路', c.kind === 'kart' ? '只能在汽车游乐园里开' : '只能在汽车游乐园（一园、二园卡丁车场）里开', '#d0473b'); tone('square', 300, 200, .2, .07); }
       }
       return r;
     };
@@ -324,7 +324,7 @@
     const own = SAVE.rc, m = mats();
     card.innerHTML = `<button class="x" type="button" id="pdX" aria-label="关闭">×</button>
       <div class="eyebrow">维修区车库 · 只改赛车</div><h2 id="pdCardT">赛车改装店</h2>
-      <p>方程式赛车在这里买，F1 前后翼、光头胎、碳陶刹车这些赛道件也只在这里装。赛车只能在雪邦赛道和汽车游乐园（一园）里开，开不上公路，叫车也叫不来。普通车回 XMUM 车行改，照样能上赛道跑。</p>
+      <p>方程式赛车在这里买，F1 前后翼、光头胎、碳陶刹车这些赛道件也只在这里装。赛车只能在汽车游乐园（一园、二园卡丁车场）里开，开不上公路，叫车也叫不来。普通车回 XMUM 车行改，照样能上赛道跑。</p>
       <div class="pd-acts">${own ? `
         <button class="pd-act" type="button" data-s="drive"><b>开赛车出去</b><em>停在车库门口</em><small>方程式赛车摆到维修区车道上，直接坐进去</small></button>
         <button class="pd-act" type="button" data-s="tune"><b>改装赛车</b><em>赛道件 ${f1Fitted()}/5</em><small>前翼、前后翼套件、光头胎、碳陶刹车、轻量化、排位赛模式。施工要等，和车行一样</small></button>` : `
@@ -335,7 +335,7 @@
     card.querySelector('#pdX').addEventListener('click', () => cardClose());
     card.querySelectorAll('[data-s]').forEach(b => b.addEventListener('click', () => { ac(); const a = b.dataset.s; cardClose();
       if (a === 'buy'){ if (money < RC_PRICE) return; money -= RC_PRICE; moneyChanged(); SAVE.rc = true; save(); sfx.sparkle ? sfx.sparkle() : sfx.ding(); gx.callout('方程式赛车到手', '「开赛车出去」坐进去，或者先改装', '#c8322a'); shopOpen(); }
-      else if (a === 'drive'){ leave(true); const c = rcSpawn(); if (!c) return; nw.x = c.x; nw.z = c.z; enterCar(c); camYaw = c.h + Math.PI; toast('方程式赛车', '只能在雪邦赛道和汽车游乐园（一园）里开', 2600); }
+      else if (a === 'drive'){ leave(true); const c = rcSpawn(); if (!c) return; nw.x = c.x; nw.z = c.z; enterCar(c); camYaw = c.h + Math.PI; toast('方程式赛车', '只能在汽车游乐园（一园、二园卡丁车场）里开', 2600); }
       else if (a === 'tune'){ const c = rcSpawn(); if (!c || typeof XTune === 'undefined') return; rcSaved = myCar; myCar = c; rcShop = true; XTune.open(); if (!tn.on){ myCar = rcSaved; rcShop = false; } } }));
   }
   /* the workshop UI is shared: while it is open for the race car, myCar points at it; put the road car back when it closes */
@@ -367,7 +367,7 @@
   }
   /* every clean timed lap: the drop table f1lap; a job in progress grades it */
   { const prev = F.onLap; F.onLap = (t, rec) => { if (prev) prev(t, rec); const tested = testLap(t);
-      if (!tested && !locked()) give('f1lap', rec ? 0 : 1, rec ? '雪邦赛道新纪录' : '雪邦赛道干净的一圈', true); }; }
+      if (!tested && !locked()) give('f1lap', rec ? 0 : 1, rec ? '卡丁车赛道新纪录' : '卡丁车赛道干净的一圈', true); }; }
 
   /* ---------- 3. errands ---------- */
   function runStart(){
