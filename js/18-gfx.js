@@ -399,7 +399,7 @@ function gfxRender(dt, T){
   gfxShineTick();
   updateLod(); gfxNpcDetail(); gfxCarDetail(lamp); gfxShadowTick();
   const glow = XQ.cfg.glow && lamp > .04;
-  glowMat.opacity = Math.min(1, lamp) * .5; beamMat.opacity = Math.min(1, lamp) * .42;
+  glowMat.opacity = Math.min(1, lamp) * .5; beamMat.opacity = Math.min(1, lamp) * .42 * (1 + .6 * wx.wet);   /* headlights shine back off a wet road */
   for (const g of glowSets) g.im.visible = glow;
   /* facade lighting (washMat, js/00-core.js) comes up with the lamps; 流畅 leaves it off */
   { const k = XQ.cfg.glow ? Math.min(1, lamp) : 0, won = k > .03; washMat.color.setScalar(k * .8); if (won !== gfxWashOn){ gfxWashOn = won; for (const m of washMeshes) m.visible = won; } }
