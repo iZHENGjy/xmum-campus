@@ -110,6 +110,8 @@ XSocial.answer(uid, 'coop', ok, why, extra)   // 一般用不到：卡片会自�
 - 对局中途对方掉线：看 `XSocial.peer(uid)` 是否还 `live`，或在 presence 里放一个字段（要加规则）。
 - 其他：`XSocial.emote(i)`、`XSocial.say(i)`、`XSocial.openMenu(uid)`、`XSocial.openSheet()`、`XSocial.openWheel()`、`XSocial.block(uid, name)`、`XSocial.setDnd(bool)`、`XSocial.riding`、`XSocial.passengers`、`XSocial.duel`、`XSocial.emotes / phrases / games / seats`。
 
+- 给别的文件用的：`XSocial.addMenuItem({id, opt(p), pick(p)})` 往 F 菜单里加一项（`opt` 返回 `{icon, title, sub, dis}` 或 null）、`XSocial.blocked(uid)`、`XSocial.why`（拒绝原因的文字，可以加新的键）。好友（`js/96-friends.js`，见 `docs/friends.md`）用它们加了「⭐ 加好友」。
+
 `js/net.js` 为这个文件加的钩子：`XNet.extra`、`XNet.follow`、`XNet.peers()`、`XNet.fresh(r)`、`XNet.now()`、`XNet.ref(path)`、`XNet.afterGhosts(dt)`（见文件头注释）。
 `XNet.peers()` 里 `oneWay` 为真的是还开着旧页面的人（他们看不见新版本的人），`XSocial.peer()` 对他们返回 null，不跟他们互动。
 

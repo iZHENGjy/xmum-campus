@@ -10,6 +10,7 @@
  *   /test/social.html?p=a        玩家 a（默认叫「阿明」）
  *   /test/social.html?p=b        玩家 b（默认叫「小红」）
  * 一个人测：/test/social.html?bots  旁边多两个本地假玩家（陪练小明、司机阿华），控制台 XBots.* 见 test/social-bots.js
+ *   好友（js/96-friends.js）：?bots 时小明会接受好友请求；加 &friends 再多三个远处的假好友（在线、开车、离线），控制台 XFriendBots.* 见 test/friend-bots.js
  * 一群假玩家：/test/social.html?crowd=20  走路、开车、站着聊天（test/crowd-bots.js），配合 &netmeter 看每秒收多少字节；
  *   &scene=tight（默认，A3 广场 100 米内）| campus | map；画面开销：控制台 await XCrowdPerf.run()（test/crowd-perf.js），&perf 不放假人只测
  *   加 &oldrules 就是改版前的样子（数据库没有新规则：大家都写旧的 /presence，每秒 5 次）
@@ -41,7 +42,7 @@ if (FR){
       .replace(/<script src="js\/firebase-config\.js[^"]*"><\/script>/, '<script src="test/firebase-shared.js?nc=' + Date.now() + '"><\/script>')
       .replace(/<script src="js\/stats\.js[^"]*"><\/script>/, '')
       .replace(/(src="(?:js|test)\/[^"?]+\.js)\?v=(\d+)"/g, '$1?v=$2&nc=' + Date.now() + '"');
-    const extra = (Q.has('bots') || Q.has('crowd') ? ['crowd-model'] : []).concat(Q.has('bots') ? ['social-bots'] : [], Q.has('crowd') ? ['crowd-bots'] : [], Q.has('crowd') || Q.has('perf') ? ['crowd-perf'] : []);
+    const extra = (Q.has('bots') || Q.has('crowd') ? ['crowd-model'] : []).concat(Q.has('bots') ? ['social-bots', 'friend-bots'] : [], Q.has('crowd') ? ['crowd-bots'] : [], Q.has('crowd') || Q.has('perf') ? ['crowd-perf'] : []);
     if (extra.length) html = html.replace(/(<script src="js\/96-social\.js[^"]*"><\/script>)/, '$1' + extra.map(f => '<script src="test/' + f + '.js?nc=' + Date.now() + '"><\/script>').join(''));
     const run = Q.get('run'), go = !Q.has('title');
     const tail = (go ? 'setTimeout(() => { try { XUI.closeTitle("naiwa"); } catch(e){} }, 900);' : '') + (run ? 'setTimeout(() => { (0, eval)(' + JSON.stringify(run).replace(/</g, '\u003c') + '); }, 1500);' : '');
