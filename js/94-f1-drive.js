@@ -243,8 +243,8 @@ body.f1-reset #act-q{display:none}   /* 撩头 is disabled while driving: 回赛
   const fmtK = v => Math.max(20, Math.round(v * 3.6 / 5) * 5);
   function f1Frame(dt){
     const c = driving, W = c && !c.air ? c._f1 : null, inCirc = !!(c && W && W.d < W.hw + 60 && mode === 'naiwa');
-    rBtn.hidden = !(inCirc && !racing()); document.body.classList.toggle('f1-reset', !rBtn.hidden);
-    if (!inCirc){ advEl.hidden = true; ST.lastI = null; return; }
+    { const h = !(inCirc && !racing()); if (rBtn.hidden !== h) rBtn.hidden = h; } document.body.classList.toggle('f1-reset', !rBtn.hidden);
+    if (!inCirc){ if (!advEl.hidden) advEl.hidden = true; ST.lastI = null; return; }
     const v = Math.hypot(c.vx, c.vz), tr = W.tr, S = tr.S, half = c.T.W / 2, {kerbAt, KERB, wi} = tr;
     /* track limits: all four wheels past the kerb (or the white line where there is no kerb) */
     const lim = W.hw + (kerbAt(W.i) ? KERB : .5), out = Math.abs(W.lat) - half > lim && W.s !== 'road' && !(W.s === 'track');
