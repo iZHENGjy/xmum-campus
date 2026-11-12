@@ -788,7 +788,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden && ARC
   Object.assign(gx, {
     update(dt, px, pz){ base.update(dt, px, pz); arcOutside(px, pz); },
     prompt(){ return arcPrompt || base.prompt(); },
-    mini(dot){ base.mini(dot); dot(ARC_DOOR.x, ARC_DOOR.z, '#ff5fa2', 5); },
+    mini(dot){ base.mini(dot); dot(ARC_DOOR.x, ARC_DOOR.z, '#ff5fa2', 5, {i:'🕹️', t:'B1 游戏厅', s:'B1 学生活动中心地下 · 小游戏', c:'play', p:2}); },
     leave(){ arcLeave(true); arcMark.visible = false; arcLbl.dead = true; arcPrompt = ''; ARC.fLbl = false; base.leave(); },
     togglePause(){ if (ARC.in){ arcEsc(); return; } base.togglePause(); },
     frame(dt, T){ if (base.frame) base.frame(dt, T); arcFrame(dt, T); }

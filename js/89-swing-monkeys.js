@@ -723,9 +723,9 @@ function smReset(){ swOff(); SW.fly = null; if (SW.lbl || actSp.querySelector('b
       const p = driving || nw;
       if (MK.war){ for (const m of MK.pool) if (m.on && m.st !== 'scared') dot(m.x, m.z, m.carry ? '#ff8a3d' : '#c98a55', m.big ? 6 : 4); }
       else {
-        if (mkMark.visible) dot(MK_START.x, MK_START.z, '#c98a55', 7);
-        if (MK.loot) dot(MK.loot.m.x, MK.loot.m.z, '#ff8a3d', 6);
-        if (Math.hypot(p.x - SW.x, p.z - SW.z) < 240) dot(SW.x, SW.z, '#ffd27a', 4);
+        if (mkMark.visible) dot(MK_START.x, MK_START.z, '#c98a55', 7, {i:'🐒', t:'猴子大战', s:'猴山脚下', c:'play', p:2});
+        if (MK.loot) dot(MK.loot.m.x, MK.loot.m.z, '#ff8a3d', 6, {i:'🍌', t:'被猴子抢走的东西', c:'main', p:1});
+        if (Math.hypot(p.x - SW.x, p.z - SW.z) < 240) dot(SW.x, SW.z, '#ffd27a', 4, {i:'🛝', t:'秋千', c:'campus', p:3});
       }
     },
     onBust(){ smReset(); if (MK.war) mkWarEnd(false, '猴子大战中断了', '被保安抓走了'); mkClear(); base.onBust(); },

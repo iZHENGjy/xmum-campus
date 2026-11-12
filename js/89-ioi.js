@@ -373,7 +373,7 @@
     Object.assign(gx, {
       update(dt, px, pz){ base.update(dt, px, pz); update(dt, px, pz); },
       prompt(){ return SK.msg || base.prompt(); },
-      mini(dot){ base.mini(dot); if (!gx.busy() && !mission.on) dot(SUKI.x, SUKI.z, '#c2185b', 6); },
+      mini(dot){ base.mini(dot); if (!gx.busy() && !mission.on) dot(SUKI.x, SUKI.z, '#c2185b', 6, {i:'🍲', t:'SUKI-YA 火锅', s:'IOI City Mall 门口 · 自助火锅抢着吃', c:'play', p:2}); },
       frame(dt, T){ if (base.frame) base.frame(dt, T); mallMat.emissiveIntensity = Math.max(cur.win, wx.rain * .5); },
       leave(){ opHide(RING); RING.rearm = false; SK.near = false; base.leave(); }
     });

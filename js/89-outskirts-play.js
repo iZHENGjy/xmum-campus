@@ -901,12 +901,13 @@ function opTarget(){
   return null;
 }
 function opMini(dot){
-  if (TH.on) dot(TH.x, TH.z, '#e84d8a', 9);
-  if (DT.st === 'win'){ dot(DT.wx, DT.wz, '#4fd18b', 8); return; }
-  if (DT.st === 'go'){ dot(DT.job.to.x, DT.job.to.z, '#ffc72c', 9); return; }
+  if (TH.on) dot(TH.x, TH.z, '#e84d8a', 9, {i:'🦹', t:'小偷', c:'main', p:0});
+  if (DT.st === 'win'){ dot(DT.wx, DT.wz, '#4fd18b', 8, {i:'🍔', t:'得来速 · 取餐窗口', c:'main', p:0}); return; }
+  if (DT.st === 'go'){ dot(DT.job.to.x, DT.job.to.z, '#ffc72c', 9, {i:'🍔', t:'得来速 · 送到' + (DT.job.to.name ? ' ' + DT.job.to.name : '这里'), c:'main', p:0}); return; }
   if (TH.on || mission.on || gxA.act || gxTaxi.on || (typeof EX !== 'undefined' && EX.on)) return;
-  dot(DT.x, DT.z, '#ffc72c', 7); dot(KM.S.x, KM.S.z, '#ff5fa2', 7); dot(TEA.S.x, TEA.S.z, '#ff6f91', 6); dot(TH.B.x, TH.B.z, '#e84d8a', 5);
-  if (NM.k > .9) dot(270, NM_Z, '#ff8a3d', 6);
+  dot(DT.x, DT.z, '#ffc72c', 7, {i:'🚗', t:'麦当当得来速', s:'开车接单送餐', c:'play', p:2}); dot(KM.S.x, KM.S.z, '#ff5fa2', 7, {i:'🛒', t:'KIP 超市大乱斗', s:'KIP 门口 · 小游戏', c:'play', p:2});
+  dot(TEA.S.x, TEA.S.z, '#ff6f91', 6, {i:'🧋', t:'蜜雪冰橙打工', s:'Bell 商业街 · 摇奶茶', c:'play', p:2}); dot(TH.B.x, TH.B.z, '#e84d8a', 5, {i:'📜', t:'通缉榜', s:'接悬赏抓小偷', c:'play', p:3});
+  if (NM.k > .9) dot(270, NM_Z, '#ff8a3d', 6, {k:'nm', i:'🍢', t:'Bell 后巷夜市', s:'现在开着 · 大胃王争霸赛', c:'shop', p:2});
 }
 /* everything of ours stops quietly: leaving 奶娃 mode, or getting arrested */
 function opStop(){
