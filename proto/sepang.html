@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="robots" content="noindex">
+<title>雪邦赛车城 · 灰盒原型</title>
+<!-- 雪邦赛车城的灰盒原型（docs/sepang-plan.md）：只有赛道、地标方块和照抄游戏的车辆手感，用来试弯道好不好开。
+     不连任何数据库（window.XMUM_FIREBASE = null，也没有加载 net.js），没有声音。纪录只存在本机 localStorage 'xmum-proto-sepang'。
+     手感照抄 js/40-vehicles.js 的 updateCar 和 js/94-f1-drive.js 的赛道手感（抓地极限转向、超速擦胎、360 km/h 以上打对折），
+     只有一处不同：超速擦胎按「方向盘往弯里打」判断（游戏里现在的判断方向是反的，见方案第 1.2 节）。 -->
+<script>window.XMUM_FIREBASE = null;</script>
+<style>
+:root{--ink:#1f2a33;--paper:#f7f5ef;--ok:#2e9d5b;--near:#d9901a;--over:#d0473b}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#9fb7c9;overflow:hidden;font-family:"Noto Sans SC","Microsoft YaHei","PingFang SC",sans-serif;color:var(--ink);-webkit-user-select:none;user-select:none;touch-action:none}
+canvas#c{display:block;width:100vw;height:100vh}
+.panel{position:fixed;background:rgba(247,245,239,.92);border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.18);padding:8px 12px;font-size:13px}
+#hud{left:12px;top:calc(env(safe-area-inset-top,0px) + 12px);min-width:190px}
+#spd{font-size:34px;font-weight:900;font-variant-numeric:tabular-nums;line-height:1}
+#spd small{font-size:13px;font-weight:700;margin-left:4px}
+#lap{font-variant-numeric:tabular-nums;margin-top:4px;line-height:1.5}
+#adv{left:50%;top:calc(env(safe-area-inset-top,0px) + 12px);transform:translateX(-50%);font-weight:700;white-space:nowrap}
+#adv b{font-size:18px;font-variant-numeric:tabular-nums}
+#adv.ok b{color:var(--ok)} #adv.near b{color:var(--near)} #adv.over b{color:var(--over)}
+#cars{right:12px;top:calc(env(safe-area-inset-top,0px) + 12px);display:flex;flex-direction:column;gap:6px}
+#cars button,#help button{font:inherit;font-size:13px;border:1px solid #c9c4b6;background:#fff;border-radius:8px;padding:6px 10px;cursor:pointer;color:var(--ink)}
+#cars button[aria-pressed=true]{background:var(--ink);color:#fff;border-color:var(--ink)}
+#mini{position:fixed;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);width:200px;height:150px;background:rgba(247,245,239,.85);border-radius:12px}
+#help{left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);max-width:360px;line-height:1.55}
+#nos{height:6px;border-radius:3px;background:#dcd6c8;margin-top:6px;overflow:hidden}
+#nos i{display:block;height:100%;width:100%;background:#7d5cff}
+#msg{left:50%;top:40%;transform:translate(-50%,-50%);font-size:22px;font-weight:900;display:none}
+#touch{position:fixed;inset:auto 0 calc(env(safe-area-inset-bottom,0px) + 10px) 0;display:none;justify-content:space-between;padding:0 12px;pointer-events:none}
+#touch div{display:flex;gap:10px;pointer-events:auto}
+#touch button{width:74px;height:74px;border-radius:50%;border:0;background:rgba(31,42,51,.55);color:#fff;font:700 15px inherit;touch-action:none}
+#touch button.on{background:rgba(31,42,51,.85)}
+@media (pointer:coarse){#touch{display:flex}#help{display:none}#mini{bottom:auto;top:calc(env(safe-area-inset-top,0px) + 150px);width:150px;height:112px}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud" class="panel"><div id="spd">0<small>km/h</small></div><div id="lap">本圈 —<br>上圈 —<br>最快 —</div><div id="nos" hidden><i></i></div></div>
+<div id="adv" class="panel" hidden></div>
+<div id="cars" class="panel" role="group" aria-label="选车"></div>
+<canvas id="mini" width="400" height="300" aria-hidden="true"></canvas>
+<div id="help" class="panel"><b>雪邦赛车城 · 灰盒原型</b><br>W/S 或 ↑/↓ 油门刹车 · A/D 或 ←/→ 转向 · 空格 手刹<br>Shift 氮气（只有满改兰博有）· R 回赛道（这圈不算）<br>只为试弯道：地标是方块，没有声音，不连数据库。</div>
+<div id="msg" class="panel"></div>
+<div id="touch"><div><button data-k="L" aria-label="左转">左</button><button data-k="R" aria-label="右转">右</button></div><div><button data-k="N" aria-label="氮气">氮</button><button data-k="B" aria-label="刹车">刹</button><button data-k="G" aria-label="油门">油</button></div></div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js" integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu" crossorigin="anonymous"></script>
+<script>
+'use strict';
+/* centre line from docs/sepang-plan.md (every 6 m, local metres, x east, z south); helix and turn indices are in the same 6 m steps */
+const TRACK = {"pts":[[1164.1,1369.7],[1158.1,1370.2],[1152.1,1370.6],[1146.1,1371.0],[1140.1,1371.3],[1134.2,1371.7],[1128.2,1372.0],[1122.2,1372.2],[1116.2,1372.5],[1110.2,1372.7],[1104.2,1372.9],[1098.2,1373.2],[1092.2,1373.4],[1086.2,1373.5],[1080.2,1373.7],[1074.2,1373.9],[1068.2,1374.1],[1062.2,1374.2],[1056.2,1374.4],[1050.2,1374.5],[1044.2,1374.7],[1038.2,1374.8],[1032.2,1375.0],[1026.2,1375.2],[1020.2,1375.3],[1014.2,1375.5],[1008.2,1375.7],[1002.2,1375.9],[996.2,1376.1],[990.2,1376.3],[984.2,1376.5],[978.2,1376.8],[972.2,1377.0],[966.3,1377.3],[960.3,1377.6],[954.3,1377.9],[948.3,1378.2],[942.3,1378.5],[936.3,1378.8],[930.3,1379.1],[924.3,1379.5],[918.3,1379.8],[912.3,1380.1],[906.3,1380.5],[900.3,1380.8],[894.4,1381.2],[888.4,1381.5],[882.4,1381.9],[876.4,1382.2],[870.4,1382.6],[864.4,1382.9],[858.4,1383.3],[852.4,1383.6],[846.4,1384.0],[840.4,1384.4],[834.5,1384.7],[828.5,1385.1],[822.5,1385.5],[816.5,1385.8],[810.5,1386.2],[804.5,1386.6],[798.5,1387.0],[792.5,1387.3],[786.6,1387.7],[780.6,1388.1],[774.6,1388.4],[768.6,1388.8],[762.6,1389.2],[756.6,1389.5],[750.6,1389.9],[744.6,1390.3],[738.6,1390.6],[732.7,1391.0],[726.7,1391.4],[720.7,1391.7],[714.7,1392.1],[708.7,1392.4],[702.7,1392.8],[696.7,1393.1],[690.7,1393.5],[684.7,1393.8],[678.7,1394.1],[672.8,1394.5],[666.8,1394.8],[660.8,1395.1],[654.8,1395.5],[648.8,1395.8],[642.8,1396.1],[636.8,1396.4],[630.8,1396.7],[624.8,1397.0],[618.8,1397.4],[612.8,1397.7],[606.8,1398.0],[600.9,1398.3],[594.9,1398.6],[588.9,1398.9],[582.9,1399.2],[576.9,1399.5],[570.9,1399.8],[564.9,1400.2],[558.9,1400.5],[552.9,1400.8],[546.9,1401.1],[540.9,1401.4],[534.9,1401.8],[529.0,1402.1],[523.0,1402.4],[517.0,1402.8],[511.0,1403.1],[505.0,1403.5],[499.0,1403.8],[493.0,1404.2],[487.0,1404.5],[481.0,1404.9],[475.0,1405.3],[469.1,1405.7],[463.1,1406.0],[457.1,1406.4],[451.1,1406.8],[445.1,1407.2],[439.1,1407.7],[433.1,1408.1],[427.2,1408.5],[421.2,1409.0],[415.2,1409.5],[409.2,1410.1],[403.3,1410.7],[397.3,1411.4],[391.3,1412.1],[385.4,1412.8],[379.4,1413.6],[373.5,1414.4],[367.5,1415.2],[361.6,1416.0],[355.7,1416.8],[349.7,1417.7],[343.8,1418.5],[337.8,1419.4],[331.9,1420.2],[326.0,1421.1],[320.0,1421.9],[314.1,1422.7],[308.1,1423.5],[302.2,1424.3],[296.2,1425.1],[290.3,1425.8],[284.3,1426.5],[278.3,1427.1],[272.4,1427.7],[266.4,1428.2],[260.4,1428.7],[254.4,1429.1],[248.4,1429.3],[242.4,1429.5],[236.4,1429.5],[230.4,1429.4],[224.4,1429.1],[218.5,1428.6],[212.5,1427.8],[206.6,1426.8],[200.7,1425.7],[194.8,1424.4],[189.1,1422.7],[183.7,1420.1],[178.8,1416.7],[174.3,1412.7],[170.1,1408.4],[166.6,1403.5],[163.9,1398.2],[162.1,1392.4],[161.3,1386.5],[161.3,1380.5],[162.0,1374.5],[163.2,1368.7],[165.2,1363.0],[168.0,1357.7],[171.4,1352.8],[174.9,1347.9],[178.3,1342.9],[181.6,1338.0],[185.2,1333.1],[188.8,1328.4],[192.6,1323.7],[196.4,1319.1],[200.3,1314.5],[204.2,1309.9],[208.0,1305.2],[211.7,1300.5],[215.3,1295.7],[218.7,1290.8],[222.0,1285.8],[225.0,1280.6],[227.7,1275.2],[230.3,1269.8],[232.7,1264.3],[234.9,1258.8],[237.0,1253.1],[239.0,1247.5],[241.0,1241.8],[242.8,1236.1],[244.7,1230.4],[246.5,1224.7],[248.3,1218.9],[250.1,1213.2],[251.9,1207.5],[253.8,1201.8],[255.8,1196.1],[257.7,1190.5],[259.7,1184.8],[261.6,1179.1],[263.5,1173.4],[265.3,1167.7],[267.2,1162.0],[269.1,1156.3],[271.0,1150.6],[272.9,1144.9],[274.9,1139.3],[276.9,1133.6],[279.0,1128.0],[281.2,1122.4],[283.5,1116.9],[285.8,1111.4],[288.1,1105.8],[290.4,1100.3],[292.7,1094.7],[295.0,1089.2],[297.4,1083.7],[299.9,1078.2],[302.4,1072.8],[305.1,1067.4],[307.9,1062.1],[310.8,1056.9],[314.0,1051.7],[317.2,1046.7],[320.7,1041.8],[324.3,1037.0],[328.1,1032.4],[332.0,1027.8],[336.0,1023.3],[340.1,1018.9],[344.2,1014.6],[348.5,1010.4],[352.9,1006.3],[357.3,1002.3],[361.9,998.3],[366.5,994.5],[371.1,990.7],[375.8,987.0],[380.6,983.4],[385.5,979.8],[390.4,976.4],[395.3,973.0],[400.3,969.7],[405.4,966.5],[410.5,963.3],[415.7,960.3],[421.0,957.4],[426.3,954.6],[431.6,951.9],[437.0,949.2],[442.4,946.6],[447.8,944.0],[453.2,941.5],[458.7,939.1],[464.2,936.6],[469.7,934.3],[475.2,931.9],[480.8,929.6],[486.3,927.3],[491.9,925.0],[497.4,922.7],[503.0,920.5],[508.5,918.2],[514.1,916.0],[519.7,913.7],[525.2,911.5],[530.8,909.2],[536.3,907.0],[541.9,904.7],[547.4,902.4],[553.0,900.1],[558.5,897.8],[564.1,895.6],[569.7,893.4],[575.3,891.2],[580.8,889.0],[586.4,886.8],[592.0,884.6],[597.6,882.5],[603.2,880.4],[608.9,878.2],[614.5,876.1],[620.1,874.0],[625.7,871.9],[631.3,869.9],[637.0,867.8],[642.6,865.7],[648.2,863.7],[653.9,861.6],[659.5,859.6],[665.2,857.6],[670.8,855.6],[676.5,853.6],[682.2,851.6],[687.8,849.6],[693.5,847.6],[699.1,845.6],[704.8,843.6],[710.3,841.3],[715.9,839.0],[721.4,836.6],[726.8,834.1],[731.9,831.8],[737.6,829.9],[743.4,828.4],[749.3,827.2],[755.2,826.5],[761.2,826.3],[767.2,826.4],[773.2,827.0],[779.1,828.0],[784.9,829.4],[790.7,831.2],[796.2,833.5],[801.6,836.1],[806.8,839.0],[811.8,842.4],[816.6,846.1],[821.0,850.1],[825.2,854.4],[829.1,859.0],[832.6,863.8],[835.8,868.9],[838.6,874.2],[841.0,879.7],[843.0,885.4],[844.6,891.2],[845.8,897.0],[846.6,903.0],[847.0,909.0],[847.0,915.0],[846.5,921.0],[845.6,926.9],[844.3,932.7],[842.6,938.5],[840.4,944.1],[837.9,949.6],[835.0,954.8],[831.8,959.9],[828.2,964.7],[824.3,969.2],[820.0,973.4],[815.5,977.4],[810.7,981.0],[805.6,984.2],[800.4,987.1],[794.9,989.6],[789.3,991.8],[783.6,993.5],[777.7,994.8],[771.8,995.7],[765.8,996.2],[759.8,996.2],[753.8,995.9],[747.9,995.1],[742.0,993.9],[736.2,992.3],[730.6,990.2],[725.1,987.8],[719.8,985.0],[714.7,981.9],[709.8,978.3],[705.2,974.5],[700.9,970.3],[696.9,965.9],[693.2,961.1],[689.8,956.1],[686.9,950.9],[684.3,945.5],[682.0,940.0],[680.2,934.2],[678.8,928.4],[677.8,922.5],[677.2,916.5],[677.0,910.5],[677.3,904.5],[678.0,898.6],[679.1,892.7],[680.6,886.9],[682.6,881.2],[684.9,875.6],[687.6,870.3],[690.7,865.1],[694.1,860.2],[697.9,855.5],[702.0,851.2],[706.3,847.1],[711.0,843.3],[715.9,839.9],[721.1,836.8],[726.4,834.1],[732.0,831.8],[737.7,829.8],[743.5,828.3],[749.4,827.2],[755.3,826.5],[761.3,826.3],[767.3,826.4],[773.3,827.0],[779.2,828.0],[785.0,829.4],[790.8,831.3],[796.3,833.5],[801.7,836.1],[806.9,839.1],[811.9,842.4],[816.7,846.1],[821.1,850.1],[825.3,854.5],[829.1,859.1],[832.6,863.9],[835.8,869.0],[838.7,874.1],[841.7,879.3],[844.5,884.6],[847.2,889.9],[849.8,895.3],[852.3,900.8],[854.8,906.3],[857.2,911.7],[859.6,917.2],[862.1,922.7],[864.5,928.2],[866.9,933.7],[869.4,939.1],[872.0,944.6],[874.6,950.0],[877.3,955.3],[880.1,960.6],[882.8,966.0],[885.5,971.3],[888.2,976.7],[890.9,982.0],[893.6,987.4],[896.4,992.8],[899.1,998.1],[901.8,1003.4],[904.6,1008.8],[907.4,1014.1],[910.2,1019.4],[913.1,1024.6],[916.0,1029.9],[918.9,1035.1],[921.9,1040.3],[925.0,1045.4],[928.2,1050.6],[931.4,1055.6],[934.6,1060.7],[937.9,1065.7],[941.1,1070.8],[944.3,1075.9],[947.5,1080.9],[950.8,1085.9],[954.2,1090.9],[957.7,1095.8],[961.2,1100.6],[965.0,1105.3],[968.8,1109.9],[972.9,1114.3],[977.3,1118.4],[981.8,1122.3],[986.6,1125.9],[991.6,1129.2],[996.8,1132.3],[1002.0,1135.2],[1007.4,1137.8],[1012.9,1140.2],[1018.6,1142.3],[1024.3,1144.2],[1030.0,1145.8],[1035.9,1147.0],[1041.8,1147.9],[1047.8,1148.4],[1053.8,1148.4],[1059.8,1147.9],[1065.7,1146.8],[1071.4,1145.1],[1077.0,1142.9],[1082.5,1140.5],[1087.9,1137.8],[1093.2,1135.0],[1098.4,1132.0],[1103.6,1129.0],[1108.8,1126.1],[1114.1,1123.1],[1119.4,1120.4],[1124.8,1117.8],[1130.2,1115.2],[1135.6,1112.5],[1140.9,1109.7],[1146.1,1106.8],[1151.4,1104.0],[1156.9,1101.4],[1162.4,1099.1],[1168.1,1097.2],[1173.9,1095.8],[1179.8,1095.0],[1185.8,1094.8],[1191.8,1095.2],[1197.7,1096.2],[1203.6,1097.4],[1209.4,1099.1],[1215.0,1101.1],[1220.6,1103.4],[1226.0,1105.9],[1231.4,1108.5],[1236.7,1111.3],[1242.0,1114.3],[1247.1,1117.4],[1252.1,1120.7],[1257.0,1124.2],[1261.8,1127.8],[1266.5,1131.5],[1271.2,1135.2],[1275.8,1139.1],[1280.4,1143.0],[1284.9,1146.9],[1289.4,1150.9],[1293.8,1154.9],[1298.2,1159.0],[1302.6,1163.0],[1307.0,1167.2],[1311.3,1171.3],[1315.6,1175.6],[1319.8,1179.8],[1323.9,1184.2],[1328.1,1188.5],[1332.1,1192.9],[1336.2,1197.4],[1340.2,1201.9],[1344.1,1206.4],[1348.1,1210.9],[1352.0,1215.4],[1356.0,1219.9],[1359.9,1224.5],[1363.8,1229.0],[1367.7,1233.6],[1371.6,1238.1],[1375.5,1242.7],[1379.4,1247.2],[1383.4,1251.7],[1387.3,1256.3],[1391.2,1260.8],[1395.1,1265.4],[1399.0,1270.0],[1402.9,1274.5],[1406.8,1279.1],[1410.6,1283.7],[1414.5,1288.3],[1418.3,1292.9],[1422.2,1297.5],[1426.0,1302.1],[1429.8,1306.8],[1433.6,1311.4],[1437.4,1316.0],[1441.2,1320.7],[1445.0,1325.3],[1448.8,1330.0],[1452.6,1334.6],[1456.4,1339.3],[1460.1,1344.0],[1463.9,1348.6],[1467.8,1353.2],[1471.7,1357.8],[1475.5,1362.4],[1479.4,1366.9],[1483.3,1371.5],[1487.2,1376.1],[1491.0,1380.8],[1494.7,1385.4],[1498.4,1390.2],[1502.0,1395.0],[1505.4,1399.9],[1508.7,1404.9],[1511.9,1410.0],[1514.9,1415.2],[1517.8,1420.4],[1520.8,1425.7],[1523.6,1431.0],[1526.4,1436.3],[1529.0,1441.7],[1531.6,1447.1],[1534.0,1452.6],[1536.3,1458.1],[1538.4,1463.7],[1540.3,1469.4],[1541.9,1475.2],[1543.1,1481.1],[1544.0,1487.0],[1544.4,1493.0],[1544.5,1499.0],[1544.4,1505.0],[1543.8,1511.0],[1542.8,1516.9],[1541.1,1522.7],[1538.9,1528.2],[1536.4,1533.7],[1533.4,1538.9],[1530.0,1543.8],[1526.1,1548.4],[1521.7,1552.5],[1517.0,1556.1],[1511.9,1559.3],[1506.6,1562.2],[1501.2,1564.7],[1495.5,1566.8],[1489.7,1568.2],[1483.8,1569.2],[1477.9,1570.1],[1471.9,1570.9],[1466.0,1571.7],[1460.0,1572.4],[1454.1,1573.1],[1448.1,1573.8],[1442.1,1574.5],[1436.2,1575.3],[1430.3,1576.1],[1424.3,1576.8],[1418.3,1577.5],[1412.4,1578.0],[1406.4,1578.5],[1400.4,1578.9],[1394.4,1579.3],[1388.4,1579.6],[1382.4,1579.9],[1376.4,1580.2],[1370.4,1580.4],[1364.4,1580.6],[1358.4,1580.8],[1352.4,1580.9],[1346.4,1581.1],[1340.4,1581.2],[1334.4,1581.3],[1328.4,1581.4],[1322.4,1581.5],[1316.4,1581.6],[1310.4,1581.7],[1304.4,1581.7],[1298.4,1581.8],[1292.4,1581.9],[1286.4,1582.0],[1280.4,1582.1],[1274.4,1582.2],[1268.4,1582.4],[1262.4,1582.5],[1256.4,1582.7],[1250.5,1582.8],[1244.5,1583.1],[1238.5,1583.3],[1232.5,1583.5],[1226.5,1583.7],[1220.5,1583.9],[1214.5,1584.1],[1208.5,1584.3],[1202.5,1584.5],[1196.5,1584.7],[1190.5,1584.9],[1184.5,1585.0],[1178.5,1585.2],[1172.5,1585.4],[1166.5,1585.5],[1160.5,1585.7],[1154.5,1585.9],[1148.5,1586.0],[1142.5,1586.2],[1136.5,1586.4],[1130.5,1586.6],[1124.5,1586.8],[1118.5,1587.0],[1112.5,1587.2],[1106.5,1587.5],[1100.5,1587.7],[1094.5,1588.0],[1088.5,1588.3],[1082.6,1588.6],[1076.6,1588.9],[1070.6,1589.2],[1064.6,1589.6],[1058.6,1590.1],[1052.6,1590.5],[1046.6,1591.0],[1040.6,1591.4],[1034.7,1591.7],[1028.7,1591.8],[1022.7,1591.9],[1016.7,1591.9],[1010.7,1592.0],[1004.7,1592.3],[998.8,1593.2],[993.1,1595.2],[987.7,1597.8],[982.5,1600.8],[977.7,1604.4],[973.5,1608.7],[970.1,1613.7],[967.6,1619.1],[965.8,1624.8],[964.7,1630.7],[964.0,1636.7],[964.1,1642.7],[965.2,1648.5],[966.9,1654.3],[968.7,1660.0],[970.5,1665.8],[972.5,1671.4],[974.8,1677.0],[977.3,1682.4],[980.1,1687.7],[982.9,1693.0],[985.8,1698.3],[988.7,1703.5],[991.6,1708.8],[994.3,1714.1],[996.8,1719.6],[999.1,1725.1],[1001.1,1730.8],[1003.0,1736.5],[1004.7,1742.2],[1006.4,1748.0],[1008.0,1753.8],[1009.5,1759.6],[1010.9,1765.4],[1012.2,1771.3],[1013.4,1777.2],[1014.4,1783.1],[1015.2,1789.0],[1015.9,1795.0],[1016.4,1801.0],[1016.7,1806.9],[1016.7,1812.9],[1016.5,1818.9],[1016.0,1824.9],[1015.1,1830.9],[1014.0,1836.8],[1012.6,1842.6],[1010.7,1848.3],[1008.2,1853.7],[1005.2,1858.9],[1001.6,1863.7],[997.7,1868.3],[993.5,1872.5],[988.8,1876.3],[983.8,1879.5],[978.4,1882.2],[972.8,1884.3],[967.0,1885.8],[961.1,1886.9],[955.1,1887.5],[949.1,1887.5],[943.1,1886.9],[937.3,1885.7],[931.5,1884.0],[925.8,1882.0],[920.2,1879.9],[914.6,1877.7],[909.1,1875.5],[903.5,1873.3],[897.9,1871.0],[892.4,1868.7],[886.9,1866.3],[881.4,1863.9],[875.9,1861.4],[870.5,1858.9],[865.0,1856.4],[859.6,1853.9],[854.1,1851.4],[848.7,1848.9],[843.2,1846.3],[837.8,1843.8],[832.4,1841.3],[826.9,1838.7],[821.5,1836.2],[816.0,1833.7],[810.6,1831.2],[805.1,1828.7],[799.7,1826.2],[794.2,1823.8],[788.7,1821.4],[783.2,1819.0],[777.7,1816.6],[772.1,1814.3],[766.6,1811.9],[761.2,1809.4],[755.8,1806.8],[750.3,1804.3],[744.9,1801.6],[739.6,1799.0],[734.2,1796.3],[728.8,1793.7],[723.4,1791.0],[718.0,1788.4],[712.6,1785.8],[707.2,1783.2],[701.7,1780.7],[696.2,1778.3],[690.7,1776.0],[685.2,1773.7],[679.6,1771.6],[673.9,1769.6],[668.2,1767.7],[662.4,1766.1],[656.6,1764.6],[650.7,1763.4],[644.8,1762.5],[638.8,1762.0],[632.8,1761.7],[626.8,1761.8],[620.8,1762.3],[614.9,1763.1],[609.0,1764.2],[603.2,1765.6],[597.4,1767.2],[591.6,1768.9],[585.9,1770.8],[580.3,1772.9],[574.7,1775.0],[569.1,1777.2],[563.5,1779.4],[558.0,1781.7],[552.4,1783.9],[546.8,1786.1],[541.2,1788.2],[535.5,1790.1],[529.8,1792.0],[524.1,1793.9],[518.4,1795.8],[512.8,1797.9],[507.3,1800.2],[501.7,1802.5],[496.2,1804.9],[490.7,1807.3],[485.2,1809.7],[479.7,1812.0],[474.1,1814.3],[468.5,1816.4],[462.9,1818.4],[457.1,1820.1],[451.3,1821.6],[445.4,1822.8],[439.5,1823.5],[433.5,1823.8],[427.5,1823.6],[421.5,1822.9],[415.7,1821.7],[409.8,1820.2],[404.1,1818.3],[398.5,1816.2],[393.0,1813.9],[387.6,1811.3],[382.2,1808.6],[377.0,1805.7],[371.8,1802.6],[366.7,1799.5],[361.7,1796.2],[356.7,1792.8],[351.8,1789.4],[347.0,1785.8],[342.2,1782.2],[337.4,1778.6],[332.7,1774.9],[328.0,1771.1],[323.4,1767.3],[318.8,1763.4],[314.3,1759.5],[309.8,1755.5],[305.4,1751.5],[301.0,1747.3],[296.7,1743.2],[292.4,1738.9],[288.2,1734.6],[284.1,1730.3],[280.1,1725.8],[276.2,1721.3],[272.3,1716.7],[268.6,1712.0],[265.0,1707.2],[261.6,1702.3],[258.3,1697.2],[255.4,1692.0],[252.7,1686.6],[250.4,1681.1],[248.5,1675.4],[247.1,1669.6],[246.3,1663.6],[246.1,1657.6],[246.4,1651.6],[247.2,1645.7],[248.3,1639.8],[250.1,1634.1],[252.4,1628.5],[255.3,1623.3],[258.8,1618.4],[262.6,1613.8],[266.8,1609.5],[271.2,1605.5],[276.1,1601.9],[281.2,1598.8],[286.6,1596.1],[292.1,1593.8],[297.7,1591.6],[303.3,1589.5],[309.0,1587.5],[314.6,1585.6],[320.3,1583.7],[326.1,1582.0],[331.8,1580.2],[337.6,1578.6],[343.4,1577.0],[349.2,1575.4],[355.0,1573.8],[360.8,1572.4],[366.6,1570.9],[372.4,1569.5],[378.2,1568.0],[384.1,1566.7],[389.9,1565.3],[395.8,1564.0],[401.6,1562.7],[407.5,1561.4],[413.4,1560.2],[419.2,1558.9],[425.1,1557.7],[431.0,1556.5],[436.9,1555.3],[442.8,1554.1],[448.6,1552.9],[454.5,1551.8],[460.4,1550.7],[466.3,1549.6],[472.2,1548.4],[478.1,1547.3],[484.0,1546.3],[489.9,1545.2],[495.8,1544.1],[501.7,1543.1],[507.6,1542.1],[513.6,1541.0],[519.5,1540.0],[525.4,1539.0],[531.3,1538.0],[537.2,1537.0],[543.1,1536.0],[549.1,1535.1],[555.0,1534.1],[560.9,1533.1],[566.8,1532.2],[572.8,1531.2],[578.7,1530.3],[584.6,1529.4],[590.5,1528.5],[596.5,1527.6],[602.4,1526.6],[608.3,1525.7],[614.3,1524.8],[620.2,1524.0],[626.1,1523.1],[632.1,1522.2],[638.0,1521.3],[643.9,1520.4],[649.9,1519.6],[655.8,1518.7],[661.8,1517.9],[667.7,1517.0],[673.6,1516.2],[679.6,1515.4],[685.5,1514.5],[691.5,1513.7],[697.4,1512.9],[703.3,1512.1],[709.3,1511.2],[715.2,1510.4],[721.2,1509.6],[727.1,1508.8],[733.1,1508.0],[739.0,1507.2],[745.0,1506.4],[750.9,1505.7],[756.9,1504.9],[762.8,1504.1],[768.8,1503.3],[774.7,1502.5],[780.7,1501.8],[786.6,1501.0],[792.6,1500.3],[798.5,1499.5],[804.5,1498.7],[810.4,1498.0],[816.4,1497.2],[822.3,1496.5],[828.3,1495.7],[834.2,1495.0],[840.2,1494.3],[846.2,1493.5],[852.1,1492.8],[858.1,1492.1],[864.0,1491.3],[870.0,1490.6],[875.9,1489.9],[881.9,1489.2],[887.8,1488.5],[893.8,1487.7],[899.8,1487.0],[905.7,1486.3],[911.7,1485.6],[917.6,1484.9],[923.6,1484.2],[929.6,1483.5],[935.5,1482.8],[941.5,1482.1],[947.4,1481.4],[953.4,1480.7],[959.3,1480.0],[965.3,1479.3],[971.3,1478.7],[977.2,1478.0],[983.2,1477.3],[989.2,1476.6],[995.1,1475.9],[1001.1,1475.2],[1007.0,1474.6],[1013.0,1473.9],[1019.0,1473.2],[1024.9,1472.5],[1030.9,1471.9],[1036.8,1471.2],[1042.8,1470.5],[1048.8,1469.9],[1054.7,1469.2],[1060.7,1468.5],[1066.7,1467.9],[1072.6,1467.2],[1078.6,1466.5],[1084.6,1465.9],[1090.5,1465.2],[1096.5,1464.6],[1102.4,1463.9],[1108.4,1463.2],[1114.4,1462.6],[1120.3,1461.9],[1126.3,1461.3],[1132.3,1460.6],[1138.2,1459.9],[1144.2,1459.3],[1150.2,1458.6],[1156.1,1458.0],[1162.1,1457.3],[1168.0,1456.6],[1174.0,1456.0],[1180.0,1455.3],[1185.9,1454.7],[1191.9,1454.0],[1197.9,1453.3],[1203.8,1452.7],[1209.8,1452.0],[1215.7,1451.3],[1221.7,1450.6],[1227.7,1449.9],[1233.6,1449.3],[1239.6,1448.6],[1245.5,1447.9],[1251.5,1447.1],[1257.5,1446.4],[1263.4,1445.7],[1269.4,1444.9],[1275.3,1444.2],[1281.3,1443.4],[1287.2,1442.7],[1293.2,1442.1],[1299.2,1441.6],[1305.2,1441.2],[1311.2,1440.9],[1317.2,1440.8],[1323.1,1440.5],[1329.1,1440.1],[1335.0,1439.1],[1340.8,1437.4],[1346.4,1435.3],[1351.8,1432.6],[1356.7,1429.2],[1361.1,1425.2],[1364.8,1420.4],[1367.7,1415.2],[1370.0,1409.6],[1371.5,1403.8],[1372.0,1397.9],[1371.5,1391.9],[1370.1,1386.1],[1367.8,1380.5],[1364.8,1375.4],[1361.0,1370.7],[1356.6,1366.6],[1351.6,1363.3],[1346.3,1360.7],[1340.7,1358.5],[1334.9,1356.9],[1329.0,1355.8],[1323.0,1355.2],[1317.0,1354.9],[1311.0,1354.6],[1305.0,1354.5],[1299.0,1354.3],[1293.0,1354.3],[1287.0,1354.3],[1281.0,1354.6],[1275.1,1355.0],[1269.1,1355.5],[1263.1,1356.2],[1257.2,1356.9],[1251.2,1357.7],[1245.3,1358.6],[1239.4,1359.5],[1233.4,1360.4],[1227.5,1361.3],[1221.6,1362.3],[1215.6,1363.2],[1209.7,1364.1],[1203.8,1365.0],[1197.8,1365.9],[1191.9,1366.7],[1186.0,1367.5],[1180.0,1368.2],[1174.0,1368.8],[1168.1,1369.4]],"helix":[313,422],"TI":{"1":169,"2":182,"3":219,"4":368,"5":472,"6":507,"7":582,"8":607,"9":704,"10":726,"11":753,"12":815,"13":852,"14":892,"15":1095}};
+
+/* ---------- the circuit: 3 m points, tangents, signed curvature (+ = the way positive steering turns), heights ---------- */
+const PT = [];
+TRACK.pts.forEach((p, k, a) => { const q = a[(k + 1) % a.length]; PT.push(p, [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2]); });
+const N = PT.length, wi = i => ((i % N) + N) % N;
+const TAN = PT.map((_, i) => { const a = PT[wi(i - 1)], b = PT[wi(i + 1)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; });
+const RT = TAN.map(([tx, tz]) => [tz, -tx]);                     /* the car's "r" side (js/40-vehicles.js: rx = fz, rz = -fx) */
+const HD = TAN.map(([tx, tz]) => Math.atan2(tx, tz));
+const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
+const K = PT.map((_, i) => wrap(HD[wi(i + 2)] - HD[wi(i - 2)]) / 12);
+const TI = {}; for (const k in TRACK.TI) TI[k] = TRACK.TI[k] * 2;
+const HX0 = TRACK.helix[0] * 2, HX1 = TRACK.helix[1] * 2, HXN = HX1 - HX0, RISE = 14;
+const SF = 90, LOOP_I = 1320, LOOP = {R:22, g:20, w:7};          /* start line; the 360° loop on the T8-T9 straight */
+const LOOP_MIN = Math.sqrt(5 * LOOP.g * LOOP.R);
+const smooth = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
+const Y = PT.map((_, i) => {
+  if (i >= HX0 && i <= HX1) return RISE * (i - HX0) / HXN;                        /* helix climbs round the KL Tower */
+  if (i > HX1 && i < HX1 + 95) return RISE * (1 - smooth((i - HX1 - 22) / 70));    /* the deck: under the twin towers, then down */
+  for (const c of [1555, 1595]) if (Math.abs(i - c) < 15) return 2.4 * (1 + Math.cos(Math.PI * (i - c) / 15)) / 2;   /* two crests in the kampung */
+  return 0;
+});
+const HW = PT.map((_, i) => (i >= HX0 && i < HX1 + 95) ? 11 : Math.abs(K[i]) > 1 / 50 ? 15 : 12);
+const ELEV = i => i >= HX0 && i < HX1 + 80;                       /* walls both sides (helix, deck) */
+
+/* ---------- cars: CAR_T values from js/40-vehicles.js; "满改" = 改装店 3 级 × 全部性能零件 (docs/sepang-plan.md §1.1) ---------- */
+const CARS = {
+  myvi:  {name:'Myvi 原厂', L:3.7, W:1.7, H:1.55, wb:2.4, maxV:38, acc:13, grip:7, steer:.58, col:'#d7d2c8'},
+  lambo: {name:'兰博鸡尼 原厂', L:4.6, W:2.05, H:1.1, wb:2.7, maxV:80, acc:30, grip:8.6, steer:.52, col:'#f2b632'},
+  max:   {name:'兰博鸡尼 满改', L:4.6, W:2.05, H:1.1, wb:2.7, maxV:80 * 1.21 * 1.14, acc:30 * 1.42 * 1.31, grip:8.6 * 1.3 * 1.34, steer:.52 * 1.15 * 1.2, col:'#7d5cff', nos:{cap:5.5, pow:.45, fill:20}}
+};
+const CFG = {grip:1.35, floor:.3, scrub:40, sv:1.6, look:1.5, slide:.3, adv:1.2, df:.6, VKNEE:100};
+
+/* ---------- three.js scene ---------- */
+const cv = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({canvas:cv, antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio, matchMedia('(pointer:coarse)').matches ? 1.5 : 2));
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#bcd3e2'); scene.fog = new THREE.Fog('#bcd3e2', 600, 2600);
+const camera = new THREE.PerspectiveCamera(62, 1, .5, 4000);
+scene.add(new THREE.HemisphereLight('#ffffff', '#7d8c6a', .75));
+const sun = new THREE.DirectionalLight('#fff4e0', .8); sun.position.set(-600, 900, -300); scene.add(sun);
+const lam = c => new THREE.MeshLambertMaterial({color:c});
+const vcm = new THREE.MeshLambertMaterial({vertexColors:true});
+function resize(){ renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(4000, 3000), lam('#86a266')); ground.rotation.x = -Math.PI / 2; ground.position.set(950, -.05, 1350); scene.add(ground);
+/* the road: one ribbon with vertex colours (asphalt, red/white kerbs on the corners) */
+function ribbon(off0, off1, colorAt, lift){
+  const pos = [], col = [], idx = [], c = new THREE.Color();
+  for (let i = 0; i <= N; i++){
+    const j = wi(i), [x, z] = PT[j], [rx, rz] = RT[j], y = Y[j] + lift, a = off0(j), b = off1(j);
+    pos.push(x + rx * a, y, z + rz * a, x + rx * b, y, z + rz * b);
+    c.set(colorAt(j)); col.push(c.r, c.g, c.b, c.r, c.g, c.b);
+    if (i < N) idx.push(2 * i, 2 * i + 1, 2 * i + 2, 2 * i + 1, 2 * i + 3, 2 * i + 2);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.setIndex(idx); g.computeVertexNormals(); const m = new THREE.Mesh(g, vcm); m.material.side = THREE.DoubleSide; scene.add(m); return m;
+}
+const kerbOn = j => Math.abs(K[j]) > 1 / 300 || Math.abs(K[wi(j - 8)]) > 1 / 300 || Math.abs(K[wi(j + 8)]) > 1 / 300;
+ribbon(j => -HW[j], j => HW[j], j => j === SF || j === SF + 1 ? '#f4f4f4' : (j >= HX0 && j < HX1 + 95) ? '#6b7180' : '#5d6168', .02);
+for (const s of [-1, 1]) ribbon(j => s * HW[j], j => s * (HW[j] + (kerbOn(j) ? 2.4 : .4)), j => kerbOn(j) ? ((j >> 1) % 2 ? '#d0473b' : '#f4f4f4') : '#e8e8e8', .04);
+/* walls and pillars on the helix and the deck */
+{
+  const g = [], wallH = 1.1;
+  for (let i = HX0; i < HX1 + 80; i += 2) for (const s of [-1, 1]){
+    const j = i, k = wi(i + 2), [x, z] = PT[j], [x2, z2] = PT[k], [rx, rz] = RT[j], o = s * (HW[j] + .6);
+    const b = new THREE.BoxGeometry(.4, wallH, Math.hypot(x2 - x, z2 - z) + .3); b.rotateY(HD[j]);
+    b.translate(x + rx * o + (x2 - x) / 2, Y[j] + wallH / 2, z + rz * o + (z2 - z) / 2); g.push(b);
+  }
+  for (let i = HX0 + 6; i < HX1 + 75; i += 12){ if (Y[i] < 3) continue; const [x, z] = PT[i]; const b = new THREE.CylinderGeometry(1.2, 1.4, Y[i] - .5, 8); b.translate(x, (Y[i] - .5) / 2, z); g.push(b); }
+  scene.add(new THREE.Mesh(mergeGeo(g), lam('#a9b0ba')));
+}
+function mergeGeo(list){
+  let n = 0; list.forEach(g => { if (g.index) g.copy(g.toNonIndexed()); n += g.attributes.position.count; });
+  const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3); let o = 0;
+  for (const g of list){ g.computeVertexNormals(); pos.set(g.attributes.position.array, o * 3); nor.set(g.attributes.normal.array, o * 3); o += g.attributes.position.count; }
+  const m = new THREE.BufferGeometry(); m.setAttribute('position', new THREE.BufferAttribute(pos, 3)); m.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); return m;
+}
+/* landmark blocks (positions as in docs/sepang-track.svg) */
+function box(x, z, w, h, d, c, y0, ry){ const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), lam(c)); m.position.set(x, (y0 || 0) + h / 2, z); m.rotation.y = ry || 0; scene.add(m); return m; }
+function cyl(x, z, r0, r1, h, c, y0, seg){ const m = new THREE.Mesh(new THREE.CylinderGeometry(r0, r1, h, seg || 12), lam(c)); m.position.set(x, (y0 || 0) + h / 2, z); scene.add(m); return m; }
+function dome(x, z, r, c, y0){ const m = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), lam(c)); m.position.set(x, y0 || 0, z); scene.add(m); return m; }
+const at = (i, off) => { const j = wi(i), [x, z] = PT[j], [rx, rz] = RT[j]; return [x + rx * off, z + rz * off]; };
+{ /* KL Tower in the middle of the helix */
+  let cx = 0, cz = 0; for (let i = HX0; i < HX1; i++){ cx += PT[i][0]; cz += PT[i][1]; } cx /= HXN; cz /= HXN;
+  cyl(cx, cz, 4, 7, 150, '#e6e1d3'); cyl(cx, cz, 14, 10, 12, '#cfc8b6', 112); cyl(cx, cz, .8, .8, 40, '#d9d4c6', 150); dome(cx, cz, 30, '#7fa456', -18);
+}
+{ /* the twin towers either side of the deck, skybridge over it */
+  const ry = HD[880];
+  for (const s of [-1, 1]){ const [x, z] = at(880, s * 36); for (const [r, h, y] of [[16, 120, 0], [13, 40, 120], [10, 25, 160], [6, 12, 185]]) cyl(x, z, r * .9, r, h, '#c3ccd6', y, 8); cyl(x, z, .6, 1.2, 35, '#c3ccd6', 197, 6); }
+  const [bx, bz] = at(880, 0); box(bx, bz, 72, 5, 6, '#9aa6b3', 60, ry + Math.PI / 2);
+  for (let k = 0; k < 30; k++){ const a = k * 2.4, r = 120 + 70 * Math.abs(Math.sin(k * 7.3)), x = bx + Math.cos(a) * r, z = bz + Math.sin(a) * r;
+    if (PT.some(p => Math.hypot(p[0] - x, p[1] - z) < 45)) continue; box(x, z, 22, 25 + (k * 37) % 55, 22, '#d4d0c8'); }
+}
+dome(260, 700, 26, '#f3a7c6', 8); cyl(260, 700, 26, 26, 8, '#f3e3d6'); cyl(330, 700, 3, 3.6, 70, '#f3e3d6', 0, 8);   /* Putra mosque */
+{ const m = new THREE.Mesh(new THREE.CircleGeometry(300, 40), lam('#7fb7d4')); m.rotation.x = -Math.PI / 2; m.scale.set(1.6, 1, .7); m.position.set(80, .02, 690); scene.add(m); }
+box(1240, 1250, 150, .1, 100, '#8fc77a'); cyl(1240, 1250, .4, .5, 60, '#eeeeee'); box(1243, 1250, 6, 4, .1, '#c0392b', 54);   /* Merdeka padang + flagpole */
+box(1300, 1170, 90, 14, 20, '#c98b5a', 0, .6); cyl(1300, 1170, 4, 4, 40, '#c98b5a'); dome(1300, 1170, 6, '#b87333', 40);   /* Sultan Abdul Samad */
+box(2050, 560, 260, 70, 160, '#c8c0ad'); box(2000, 650, 10, 42, 6, '#d9a520');   /* Batu Caves (far) */
+box(940, 2135, 2760, .1, 60, '#4f545a');   /* runway / speed strip */
+for (let i = 30; i < 200; i += 20){ const [x, z] = at(i, 40); box(x, z, 60, 12, 18, '#c9ced6', 0, HD[i]); }   /* pits */
+for (let i = 1272; i < 1380; i += 12){ const [x, z] = at(i, 40); box(x, z, 8, 3.2, 6, ['#f2b632', '#e8412c', '#2aa9de'][i % 3], 0, HD[i]); }   /* night market */
+for (let i = 1520; i < 1640; i += 10){ const [x, z] = at(i, -55); box(x, z, 9, 4, 8, '#a0703c', 3, HD[i]); box(x, z, 10, 2.5, 9, '#7b4a28', 7, HD[i]); }   /* kampung stilt houses */
+{ const g = [], rr = (s => () => (s = (s * 16807) % 2147483647) / 2147483647)(7);
+  const areas = [[1620, 2380, 820, 1980], [-480, 90, 1000, 1980]];
+  for (const [x0, x1, z0, z1] of areas) for (let n = 0; n < 420; n++){ const x = x0 + rr() * (x1 - x0), z = z0 + rr() * (z1 - z0); const b = new THREE.ConeGeometry(4, 9, 5); b.translate(x, 9, z); g.push(b); const t = new THREE.CylinderGeometry(.5, .6, 5, 4); t.translate(x, 2.5, z); g.push(t); }
+  scene.add(new THREE.Mesh(mergeGeo(g), lam('#5f8a3e'))); }
+{ /* grandstand between the straights */
+  for (let i = 40; i < 200; i += 16){ const [x, z] = at(i, -34); box(x, z, 46, 10, 14, '#f2c9c4', 0, HD[i]); box(x, z, 48, 1, 18, '#c0392b', 13, HD[i]); }
+}
+{ /* the loop ring (left half of the road); the right half is the bypass */
+  const [x, z] = at(LOOP_I, -6), g = new THREE.TorusGeometry(LOOP.R, 1.2, 6, 48); const m = new THREE.Mesh(g, lam('#c0392b'));
+  m.position.set(x, LOOP.R, z); m.rotation.y = HD[LOOP_I] + Math.PI / 2; scene.add(m);
+}
+/* braking boards on the slow corners (100 m and 50 m) */
+for (const k in TI){ const i = TI[k]; if (Math.abs(K[i]) < 1 / 70) continue; let e = i; for (let d = 0; d < 40 && Math.abs(K[wi(e)]) > 1 / 120; d++) e = wi(e - 1);
+  for (const [dist, c] of [[100, '#1b5aa6'], [50, '#c8322a']]){ const j = wi(e - Math.round(dist / 3)), s = K[i] > 0 ? -1 : 1, [x, z] = at(j, s * (HW[j] + 4)); box(x, z, 2.4, 2, .2, c, 1, HD[j]); } }
+
+/* ---------- the car ---------- */
+let camInit = false;
+const car = {kind:'lambo', x:0, z:0, y:0, h:0, vx:0, vz:0, vy:0, lastVy:0, air:false, steer:0, want:0, i:SF, good:SF, pitch:0, loop:null, e:1, mult:0};
+const carRoot = new THREE.Group(); scene.add(carRoot);
+function buildCar(){
+  carRoot.clear(); const T = CARS[car.kind];
+  const body = new THREE.Mesh(new THREE.BoxGeometry(T.W, T.H * .55, T.L), lam(T.col)); body.position.y = .35 + T.H * .27; carRoot.add(body);
+  const cab = new THREE.Mesh(new THREE.BoxGeometry(T.W * .8, T.H * .45, T.L * .45), lam('#2b2f36')); cab.position.set(0, .35 + T.H * .72, -T.L * .05); carRoot.add(cab);
+  for (const [sx, sz] of [[-1, 1], [1, 1], [-1, -1], [1, -1]]){ const w = new THREE.Mesh(new THREE.CylinderGeometry(.36, .36, .3, 10), lam('#1b1d21')); w.rotation.z = Math.PI / 2; w.position.set(sx * T.W / 2, .36, sz * T.wb / 2); carRoot.add(w); }
+}
+function placeAt(i){
+  const j = wi(i); car.i = j; car.good = j; car.x = PT[j][0]; car.z = PT[j][1]; car.y = Y[j]; car.h = HD[j]; car.vx = car.vz = car.vy = 0; car.lastVy = 0; car.air = false; car.steer = 0; car.loop = null; camInit = false;
+}
+
+/* ---------- input ---------- */
+const keys = {}, tk = {};
+addEventListener('keydown', e => { keys[e.code] = true; if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault(); if (e.code === 'KeyR') resetCar(); });
+addEventListener('keyup', e => { keys[e.code] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+document.querySelectorAll('#touch button').forEach(b => {
+  const on = e => { e.preventDefault(); tk[b.dataset.k] = true; b.classList.add('on'); }, off = () => { tk[b.dataset.k] = false; b.classList.remove('on'); };
+  b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('pointerleave', off);
+});
+function input(){
+  const thr = ((keys.KeyW || keys.ArrowUp || tk.G) ? 1 : 0) - ((keys.KeyS || keys.ArrowDown || tk.B) ? 1 : 0);
+  const steer = ((keys.KeyA || keys.ArrowLeft || tk.L) ? 1 : 0) - ((keys.KeyD || keys.ArrowRight || tk.R) ? 1 : 0);
+  return {thr, steer, brake:!!keys.Space, nos:!!(keys.ShiftLeft || keys.ShiftRight || keys.KeyN || tk.N)};
+}
+
+/* ---------- where the car is on the circuit ---------- */
+function locate(c){
+  let bi = c.i, bd = 1e18;
+  for (let d = -25; d <= 25; d++){ const i = wi(c.i + d), dx = c.x - PT[i][0], dz = c.z - PT[i][1], q = dx * dx + dz * dz; if (q < bd){ bd = q; bi = i; } }
+  c.i = bi; const lat = (c.x - PT[bi][0]) * RT[bi][0] + (c.z - PT[bi][1]) * RT[bi][1];
+  const a = Math.abs(lat), hw = HW[bi];
+  return {i:bi, lat, s:a <= hw ? 'track' : a <= hw + 2.4 && kerbOn(bi) ? 'kerb' : 'grass'};
+}
+const a0Of = T => 13 * Math.pow(T.grip / 8.2, .6);
+
+/* ---------- physics: js/40-vehicles.js updateCar (ground part) inside the js/94-f1-drive.js circuit wrapper ---------- */
+function step(c, dt, inp){
+  const T0 = CARS[c.kind];
+  if (c.loop) return loopStep(c, dt);
+  const W = locate(c), T = Object.assign({}, T0);
+  let fx = Math.sin(c.h), fz = Math.cos(c.h), rx = fz, rz = -fx;
+  let vf = c.vx * fx + c.vz * fz, vl = c.vx * rx + c.vz * rz; const v = Math.abs(vf);
+  /* nitro (js/94-tuning-drive.js): maxV × (1 + mult), acc × (1 + 3.2 mult) */
+  const nos = T0.nos; let want = 0;
+  if (nos){ if (inp.nos && c.e > 0 && !c.air){ c.e = Math.max(0, c.e - dt / nos.cap); want = nos.pow; } else if (!inp.nos) c.e = Math.min(1, c.e + dt / nos.fill); }
+  c.mult = want > c.mult ? want : Math.max(want, c.mult - dt * .5);
+  /* circuit handling */
+  const asphalt = W.s !== 'grass', q = Math.min(2, (v / 50) ** 2), a0 = a0Of(T0);
+  let steer = inp.steer, brake = inp.brake, thr = inp.thr;
+  const aMax = a0 * (asphalt ? 1 + CFG.df * q : .75) * (brake && asphalt ? 2.2 : 1), vv = Math.max(v, 4);
+  const kRaw = Math.atan(T.wb * aMax * CFG.grip / (vv * vv)) * (1 + .025 * v) / T.steer, k = Math.min(1, Math.max(CFG.floor * Math.min(1, (80 / vv) ** 2), kRaw));
+  c.want += (steer - c.want) * Math.min(1, dt * 2.5);
+  let over = 0;
+  if (asphalt && !brake && v > 8 && Math.abs(c.want) > .35){
+    let kc = 0; const ahead = Math.round(Math.min(CFG.look * 60, 6 + v * CFG.look / 3));
+    for (let d = 0; d <= ahead; d += 2){ const cv = K[wi(W.i + d)]; if (Math.sign(cv) === Math.sign(c.want)) kc = Math.max(kc, Math.abs(cv)); }   /* steering INTO the bend */
+    if (kc > 1 / 400){ const vOk = Math.sqrt(aMax * CFG.grip / kc); if (v > vOk) over = Math.min(1, (v - vOk) / Math.max(4, vOk) * 3) * Math.min(1, Math.abs(c.want) * 1.4); }
+  }
+  steer *= k;
+  if (asphalt){
+    T.grip = T0.grip * (1 + CFG.df * q * .8) * (1 - CFG.slide * over);
+    /* nitro first, then the circuit cap (the game eases against the cap before nitro multiplies it, so under nitro there is no cap at all: plan §1.2) */
+    const top = T0.maxV, cap = (top > CFG.VKNEE ? CFG.VKNEE + (top - CFG.VKNEE) * .5 : top) * (1 + c.mult);
+    T.maxV = v > cap ? Math.max(cap, v - 9 * dt) : cap;
+  } else { brake = false; T.grip = Math.max(T0.grip, 7) * 1.25; T.acc = T0.acc * .65; T.maxV = Math.min(T0.maxV, Math.max(v - 3 * dt, 32)) * (1 + c.mult); }
+  T.acc *= 1 + c.mult * 3.2;
+  /* updateCar, ground branch */
+  if (!c.air){
+    if (thr > 0) vf += T.acc * thr * dt * (vf < -.5 ? 2.5 : 1);
+    else if (thr < 0){ if (vf > .5) vf += T.acc * 2.4 * thr * dt; else vf += T.acc * .7 * thr * dt; }
+    else vf -= Math.sign(vf) * Math.min(Math.abs(vf), 2.2 * dt);
+    vf -= vf * .1 * dt;
+    vf = Math.max(-T.maxV * .35, Math.min(T.maxV, vf));
+    vl -= vl * Math.min(1, (brake ? 1.1 : T.grip) * dt);
+    if (brake) vf -= vf * .55 * dt;
+    c.steer += (steer * T.steer - c.steer) * Math.min(1, dt * 7);
+    const se = c.steer / (1 + Math.abs(vf) * .025);
+    c.vx = fx * vf + rx * vl; c.vz = fz * vf + rz * vl;
+    c.h += vf / T.wb * Math.tan(se) * dt * (brake ? 1.9 : 1);
+  }
+  if (!asphalt && !c.air){ const f = Math.exp(-.5 * dt); c.vx *= f; c.vz *= f; }
+  const dec = over > .02 ? CFG.scrub * over * (1 + CFG.sv * v / 50) : 0, sp = Math.hypot(c.vx, c.vz);
+  if (dec > 0 && sp > 1 && !c.air){ const f = Math.max(0, 1 - dec * dt / sp); c.vx *= f; c.vz *= f; }
+  c.over = over;
+  /* move; walls on the helix / deck */
+  c.x += c.vx * dt; c.z += c.vz * dt;
+  if (ELEV(W.i)){ const lat = (c.x - PT[W.i][0]) * RT[W.i][0] + (c.z - PT[W.i][1]) * RT[W.i][1], hw = HW[W.i] - c.W2;
+    if (Math.abs(lat) > hw){ const s = Math.sign(lat), push = Math.abs(lat) - hw; c.x -= RT[W.i][0] * s * push; c.z -= RT[W.i][1] * s * push;
+      const vn = c.vx * RT[W.i][0] + c.vz * RT[W.i][1]; if (vn * s > 0){ c.vx -= RT[W.i][0] * vn * 1.3; c.vz -= RT[W.i][1] * vn * 1.3; c.vx *= .97; c.vz *= .97; } } }
+  /* height: the road under the car (its own index keeps the helix layers apart); crests can throw it */
+  const W2 = locate(c), g = Math.abs(W2.lat) < HW[W2.i] + 8 || ELEV(W2.i) ? Y[W2.i] : 0;
+  if (c.air){ c.vy -= 26 * dt; c.y += c.vy * dt; if (c.y <= g){ c.y = g; c.air = false; c.vy = 0; c.lastVy = 0; } }
+  else { const vy = (g - c.y) / Math.max(dt, 1e-3); if (g < c.y - .3 && c.lastVy > 1){ c.air = true; c.vy = c.lastVy * 1.25; } else { c.y = g; c.lastVy = Math.max(-5, Math.min(20, vy)); } }
+  const tp = -Math.atan2(c.air ? c.vy : c.lastVy, Math.max(5, v)) * .85; c.pitch += (tp - c.pitch) * Math.min(1, dt * 8);
+  if (W2.s === 'track' && Math.abs(W2.lat) < HW[W2.i] - 1) c.good = W2.i;
+  /* the loop: left half of the road, fast enough → scripted ride (js/92-stuntpark.js loopStep, any heading) */
+  const passed = wi(c.prevI - LOOP_I) > N / 2 && wi(W2.i - LOOP_I) < 10;
+  if (passed && W2.lat < 0 && W2.lat > -12 && v >= LOOP_MIN && vf > 0) c.loop = {th:0, v0:v, x0:c.x, z0:c.z, y0:c.y, h:HD[LOOP_I]};
+  else if (passed && W2.lat < 0 && W2.lat > -12 && vf > 0) flash(`进环至少 ${Math.ceil(LOOP_MIN * 3.6)} km/h，走右侧慢车道`);
+  c.prevI = W2.i; c.surface = W2.s;
+}
+function loopStep(c, dt){
+  const L = c.loop, R = LOOP.R, g = LOOP.g, v = Math.max(1.5, Math.sqrt(Math.max(0, L.v0 * L.v0 - 2 * g * R * (1 - Math.cos(L.th)))));
+  L.th += v * dt / R;
+  const fx = Math.sin(L.h), fz = Math.cos(L.h), rx = fz, rz = -fx, th = Math.min(L.th, Math.PI * 2), side = LOOP.w * th / (Math.PI * 2);
+  c.x = L.x0 + fx * R * Math.sin(th) + rx * side; c.z = L.z0 + fz * R * Math.sin(th) + rz * side; c.y = L.y0 + R * (1 - Math.cos(th)); c.pitch = -th;
+  if (L.th >= Math.PI * 2){ c.loop = null; c.pitch = 0; c.y = L.y0; c.vx = fx * L.v0; c.vz = fz * L.v0; c.h = L.h; flash(`360° 大回环！进环 ${Math.round(L.v0 * 3.6)} km/h`); }
+}
+
+/* ---------- laps: start line, four checkpoints in order, reset voids the lap ---------- */
+const LAP = {t:null, last:null, best:null, cp:0, void:false};
+try { const s = JSON.parse(localStorage.getItem('xmum-proto-sepang') || '{}'); LAP.bestBy = s.best || {}; } catch(e){ LAP.bestBy = {}; }
+const CPS = [Math.round(N * .25), Math.round(N * .5), Math.round(N * .75)];
+function lapTick(dt){
+  const i = car.i;
+  if (LAP.t != null) LAP.t += dt;
+  if (LAP.cp < CPS.length && Math.abs(wi(i - CPS[LAP.cp])) < 8) LAP.cp++;
+  const crossed = wi(car.prevLapI - SF) > N / 2 && wi(i - SF) < 10;
+  if (crossed){
+    if (LAP.t != null && LAP.cp === CPS.length && !LAP.void){
+      LAP.last = LAP.t; const b = LAP.bestBy[car.kind];
+      if (!b || LAP.t < b){ LAP.bestBy[car.kind] = LAP.t; try { localStorage.setItem('xmum-proto-sepang', JSON.stringify({best:LAP.bestBy})); } catch(e){} flash('新的最快圈 ' + fmt(LAP.t)); }
+    } else if (LAP.t != null && LAP.void) flash('这圈用过「回赛道」，不算成绩');
+    LAP.t = 0; LAP.cp = 0; LAP.void = false;
+  }
+  car.prevLapI = i;
+}
+const fmt = t => t == null ? '—' : Math.floor(t / 60) + ':' + (t % 60).toFixed(2).padStart(5, '0');
+function resetCar(){ const i = car.good; placeAt(i); car.prevI = car.prevLapI = i; LAP.void = LAP.t != null; flash('回到赛道上（这圈不算）'); }
+let msgT = 0; function flash(t){ const m = document.getElementById('msg'); m.textContent = t; m.style.display = 'block'; msgT = 2.2; }
+
+/* ---------- advisory chip: the slowest corner in the next 350 m, at 1.2 × this car's grip (like js/94-f1-drive.js) ---------- */
+function advSpeed(kAbs, a0){ const A = a0 * CFG.adv; let lo = 0, hi = 160; for (let n = 0; n < 30; n++){ const v = (lo + hi) / 2; if (v * v * kAbs <= A * (1 + CFG.df * Math.min(2, (v / 50) ** 2))) lo = v; else hi = v; } return lo; }
+const advEl = document.getElementById('adv');
+function advTick(){
+  const a0 = a0Of(CARS[car.kind]); let best = null;
+  for (const k in TI){ const d = wi(TI[k] - car.i) * 3; if (d > 350 || d < 0) continue; let kk = 0; for (let e = -8; e <= 8; e++) kk = Math.max(kk, Math.abs(K[wi(TI[k] + e)]));
+    let vA = advSpeed(kk, a0) * 3.6; if (k === '4') vA *= Math.sqrt(1.35); if (!best || vA < best.v) best = {k, v:vA, d}; }
+  if (!best || best.v > CARS[car.kind].maxV * 3.6 * .98){ advEl.hidden = true; return; }
+  const v = Math.hypot(car.vx, car.vz) * 3.6; advEl.hidden = false;
+  advEl.className = 'panel ' + (v <= best.v * 1.03 ? 'ok' : v <= best.v * 1.25 ? 'near' : 'over');
+  advEl.innerHTML = `T${best.k} 建议 <b>${Math.round(best.v)}</b> km/h · ${Math.round(best.d)} m`;
+}
+
+/* ---------- car buttons ---------- */
+const carsEl = document.getElementById('cars');
+for (const k in CARS){ const b = document.createElement('button'); b.type = 'button'; b.textContent = CARS[k].name; b.dataset.k = k; b.setAttribute('aria-pressed', String(k === car.kind));
+  b.addEventListener('click', () => { car.kind = k; car.W2 = CARS[k].W / 2; buildCar(); placeAt(SF - 30); car.prevI = car.prevLapI = car.i; LAP.t = null; LAP.cp = 0; car.e = 1; car.mult = 0;
+    carsEl.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.k === k))); document.getElementById('nos').hidden = !CARS[k].nos; b.blur(); });
+  carsEl.appendChild(b); }
+
+/* ---------- minimap ---------- */
+const mini = document.getElementById('mini'), mg = mini.getContext('2d');
+let bx0 = 1e9, bx1 = -1e9, bz0 = 1e9, bz1 = -1e9; for (const [x, z] of PT){ bx0 = Math.min(bx0, x); bx1 = Math.max(bx1, x); bz0 = Math.min(bz0, z); bz1 = Math.max(bz1, z); }
+const ms = Math.min(360 / (bx1 - bx0), 260 / (bz1 - bz0)), mx = x => 20 + (x - bx0) * ms, mz = z => 20 + (z - bz0) * ms;
+function drawMini(){
+  mg.clearRect(0, 0, 400, 300); mg.lineWidth = 6; mg.strokeStyle = '#5d6168'; mg.lineJoin = 'round'; mg.beginPath();
+  PT.forEach(([x, z], i) => i ? mg.lineTo(mx(x), mz(z)) : mg.moveTo(mx(x), mz(z))); mg.closePath(); mg.stroke();
+  mg.fillStyle = '#e8412c'; mg.beginPath(); mg.arc(mx(car.x), mz(car.z), 8, 0, 7); mg.fill();
+}
+
+/* ---------- loop ---------- */
+car.W2 = CARS[car.kind].W / 2; buildCar(); placeAt(SF - 30); car.prevI = car.prevLapI = car.i;
+const camPos = new THREE.Vector3(), camLook = new THREE.Vector3(); let last = performance.now(), miniT = 0;
+function frame(now){
+  requestAnimationFrame(frame);
+  const dt = Math.min(.05, (now - last) / 1000); last = now; const inp = input();
+  for (let s = 0; s < 3; s++) step(car, dt / 3, inp);
+  lapTick(dt); advTick();
+  carRoot.position.set(car.x, car.y, car.z); carRoot.rotation.set(car.pitch, car.h, 0, 'YXZ');
+  const fx = Math.sin(car.h), fz = Math.cos(car.h), v = Math.hypot(car.vx, car.vz);
+  const back = car.loop ? 16 : 9 + Math.min(4, v / 30);
+  camPos.set(car.x - fx * back, car.y + 3.4 + (car.loop ? 6 : 0), car.z - fz * back);
+  if (!camInit){ camera.position.copy(camPos); camInit = true; } else camera.position.lerp(camPos, Math.min(1, dt * 6));
+  camLook.set(car.x + fx * 8, car.y + 1.2, car.z + fz * 8); camera.lookAt(camLook);
+  const fov = 62 + Math.max(0, Math.min(1, (v - 22) / 60)) * 12; if (Math.abs(camera.fov - fov) > .05){ camera.fov += (fov - camera.fov) * Math.min(1, dt * 2); camera.updateProjectionMatrix(); }
+  document.getElementById('spd').innerHTML = Math.round(v * 3.6) + '<small>km/h' + (car.mult > .05 ? ' · 氮气' : '') + (car.over > .3 ? ' · 擦胎' : '') + (car.surface === 'grass' ? ' · 草地' : '') + '</small>';
+  document.getElementById('lap').innerHTML = `本圈 ${fmt(LAP.t)}${LAP.void ? '（不算）' : ''}<br>上圈 ${fmt(LAP.last)}<br>最快 ${fmt(LAP.bestBy[car.kind])}`;
+  if (CARS[car.kind].nos) document.querySelector('#nos i').style.width = (car.e * 100).toFixed(0) + '%';
+  if (msgT > 0){ msgT -= dt; if (msgT <= 0) document.getElementById('msg').style.display = 'none'; }
+  if ((miniT -= dt) <= 0){ miniT = .1; drawMini(); }
+  renderer.render(scene, camera);
+}
+requestAnimationFrame(frame);
+window.XProto = {car, step, PT, K, TI, Y, HW, CARS, placeAt, LAP, SF, N};   /* for tests in the console */
+</script>
+</body>
+</html>
