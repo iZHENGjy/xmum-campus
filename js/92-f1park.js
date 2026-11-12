@@ -105,8 +105,8 @@
   band(0, N, -HW, HW, Y0, () => ASPH, true);
   band(0, N, HW - .55, HW - .3, Y1, () => PAINT, true); band(0, N, -HW + .3, -HW + .55, Y1, () => PAINT, true);
   /* kerbs where it turns (both sides, 2.4 m wide), gravel traps outside the slow corners */
-  const tight = i => Math.abs(CURV[wi(i)]) > 1 / 75;
-  const kerbAt = i => tight(i) || tight(i - 3) || tight(i + 3);
+  const tight = i => Math.abs(CURV[wi(i)]) > 1 / 110;   /* fast corners (3, 7, 10, 12) get kerbs too: they are the track limit there */
+  const kerbAt = i => tight(i) || tight(i - 4) || tight(i + 4) || tight(i - 9) || tight(i + 9);   /* run on ~25 m past the corner, where you drift wide on the way out */
   band(0, N, HW - .2, HW + KERB, Y1, i => kerbAt(i) ? ((i >> 1) % 2 ? WHITE : RED) : null, true);
   band(0, N, -HW - KERB, -HW + .2, Y1, i => kerbAt(i) ? ((i >> 1) % 2 ? WHITE : RED) : null, true);
   const slow = i => Math.abs(CURV[wi(i)]) > 1 / 32;
