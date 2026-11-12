@@ -444,11 +444,14 @@ window.XQD = (() => {
         hint:{pc:'开过 8 字赛道北头的方格线开始计时，五个检查点都过一遍再回来', touch:'开过 8 字赛道北头的方格线开始计时，五个检查点都过一遍再回来'},
         tip:'8 字赛道在一园最北边，交叉口小心对面来车。', guide:'tune',
         nudge:'8 字赛道在一园最北头，从入口一直往北开就看到了。'},
-      {id:'c5_seplap', text:'二园雪邦赛道跑一圈', rm:60, at:G(() => XF1.PT[XF1.SF].slice(0, 2), [258.9, 912.2]), r:0,
-        done:Q => Q.best('sepLap'),
-        hint:{pc:'开到二园的雪邦赛道，从主直道的起点线出发跑一整圈', touch:'开到二园的雪邦赛道，从主直道的起点线出发跑一整圈'},
-        tip:window.XF1D ? '一圈 4.3 公里、18 个弯，看路边的刹车牌和建议车速；冲出去了按「回赛道」。' : '一圈大约 3 公里、15 个弯，发卡弯前早点刹车。', guide:'tune',
-        nudge:'二园在 Bell Avenue 东南边的油棕园公路两边，起点线在主看台前面。'},
+      /* 二园现在是卡丁车场（js/92-f1park.js 的 XKart，PR #128）；雪邦赛车城挪到下一版。id 还叫 c5_seplap（存档记的是 id，跑过的照样算） */
+      {id:'c5_seplap', text:window.XKart ? '二园卡丁车场跑一圈' : '二园雪邦赛道跑一圈', rm:60,
+        at:window.XKart ? XKart.start.slice(0, 2) : G(() => XF1.PT[XF1.SF].slice(0, 2), [258.9, 912.2]), r:0,
+        done:Q => window.XKart ? Q.best(XKart.lapKey) || Q.best('sepLap') : Q.best('sepLap'),
+        hint:window.XKart ? {pc:'二园维修区有免费的卡丁车：走到黄圈按 <kbd>F</kbd> 租一辆（开自己的车也行），从起点线出发跑一整圈', touch:'二园维修区有免费的卡丁车：走到黄圈点「租卡丁车」（开自己的车也行），从起点线出发跑一整圈'}
+          : {pc:'开到二园的雪邦赛道，从主直道的起点线出发跑一整圈', touch:'开到二园的雪邦赛道，从主直道的起点线出发跑一整圈'},
+        tip:window.XKart ? `一圈 ${(XKart.len / 1000).toFixed(1)} 公里、${XKart.turns} 个弯。卡丁车弯里灵、直道慢，跑车反过来。` : '一圈大约 3 公里、15 个弯，发卡弯前早点刹车。', guide:'tune',
+        nudge:'二园在 Bell Avenue 东南边的油棕园公路两边，起点线在看台前面。'},
       {id:'c5_racewin', at:() => nearFlag(), r:0, text:'赢一场人机赛或道具赛', rm:60,
         done:Q => Q.ach('racewin'),
         hint:{pc:'格子旗进圈后选「人机赛」或「道具赛」，跑第一', touch:'格子旗进圈后选「人机赛」或「道具赛」，跑第一'},
@@ -463,7 +466,7 @@ window.XQD = (() => {
   D.diary.c5_midtune = '提了第一件中改，Ben 师傅瞄了一眼，说「嗯」。这是他最高的评价吧。';
   D.diary.c5_bigjump = '从大跳台飞出去的那几秒，什么都听不见，只看见天。';
   D.diary.c5_parklap = '8 字赛道的交叉口，每次都觉得要撞上，每次都擦过去了。';
-  D.diary.c5_seplap = '跑完一整圈雪邦赛道，手心全是汗，可是想再跑一圈。';
+  D.diary.c5_seplap = window.XKart ? '在卡丁车场跑完一整圈，屁股离地面就一拳，弯道甩得我直叫，可是想再跑一圈。' : '跑完一整圈雪邦赛道，手心全是汗，可是想再跑一圈。';
   D.diary.c5_racewin = '赢了一场比赛！冲线的时候我在车里喊出了声。';
   D.diary.c5_ghostwin = '跑赢了影线，不知道那个影子的主人是谁，谢谢你带我跑。';
   D.diary.c5_end = 'Ben 师傅给了我一块航空钛锭，说车改好了，人也该有个窝。';
@@ -655,7 +658,7 @@ window.XQD = (() => {
     {id:'ben_top', npc:'ben', after:'c5', text:'提到一件顶级改装', rm:150, done:Q => Q.ach('tunetop')},
     {id:'ben_bp', npc:'ben', after:'c5', text:'集齐 5 张改装配方', rm:100, parts:{plan:2}, done:Q => Q.ach('tunebp')},
     /* 隐藏特技跳台（js/89-stuntjumps.js，比主线脚本晚加载，所以运行时再问 XJumps） */
-    {id:'ben_jump', npc:'ben', after:'c5', text:'找到一个藏起来的特技跳台，飞过去', rm:60, done:() => G(() => XJumps.count() >= 1, false)},
+    {id:'ben_jump', npc:'ben', after:'c5', text:'找到一个藏起来的特技跳台，飞过去（开着车四处转，靠近了它会自己冒出来）', rm:60, done:() => G(() => XJumps.count() >= 1, false)},
     {id:'ben_cars', npc:'ben', after:'c5', text:'把车行里的车全部买下', rm:150, done:Q => Q.ach('allcars')},
     {id:'lim_deco9', npc:'lim', after:'c6', text:'一套房九个位置都摆上家具', rm:120, done:Q => Q.ach('deco9')},
     {id:'lim_set', npc:'lim', after:'c6', text:'整屋换成同一种风格', rm:150, done:Q => Q.ach('decoset')}
@@ -812,22 +815,23 @@ window.XQD = (() => {
       if (window.XCine && XCine.play && XCine.play('library', {onDone:() => { busy = false; flag('q_study'); }})) busy = true; else flag('q_study');
     }); }
   /* ---------- 第 5 章：先跟 Ben 师傅去二园看一场比赛（过场 f1），发誓要当车手，后面的步骤是特训和改装 ---------- */
-  const gsAt = () => G(() => { const F = XF1, i = F.SF + 60, p = F.PT[i], n = F.NOR[i]; return [p[0] - n[0] * 11, p[1] - n[1] * 11]; }, [88, 973]);
+  const gsAt = () => window.XKart ? XKart.stand.slice(0, 2) : G(() => { const F = XF1, i = F.SF + 60, p = F.PT[i], n = F.NOR[i]; return [p[0] - n[0] * 11, p[1] - n[1] * 11]; }, [88, 973]);   /* the kart track's grandstand (PR #128) */
   { const c5 = D.chapters.find(c => c.n === 5);
     c5.replayCine = 'f1';
-    c5.recap = '（补记）跟 Ben 师傅在二园看了一场比赛，发誓要当车手；后来天天改车、飞大跳台、跑雪邦赛道。';
+    c5.recap = window.XKart ? '（补记）跟 Ben 师傅在二园看了一场比赛，发誓要当车手；后来天天改车、飞大跳台、跑卡丁车。' : '（补记）跟 Ben 师傅在二园看了一场比赛，发誓要当车手；后来天天改车、飞大跳台、跑雪邦赛道。';
     c5.intro = [
       ['ben', '阿明说你会开车？先别急着改车。'],
       ['ben', '这个周末二园有比赛。跟我去主看台看一场，看完你就知道车是拿来干什么的。'],
-      ['ben', '二园在 Bell Avenue 东南边，主看台在主直道旁边。我先过去，你自己开过来。']
+      ['ben', () => window.XKart ? '二园在 Bell Avenue 东南边，现在改成了卡丁车场，看台就在起点线边上。我先过去，你自己开过来。' : '二园在 Bell Avenue 东南边，主看台在主直道旁边。我先过去，你自己开过来。']
     ];
     c5.outro.splice(2, 0, ['ben', '还有这套雪邦赛道涂装，是我们车队以前的。贴上它，你就是车队的人了。']);
+    c5.outro.push(['ben', '还有——等你能出远门，带你去真正的雪邦。那才是赛道。']);
     c5.reward = Object.assign({}, c5.reward, {decal:'sepang', note:'一件航空钛锭 + 鹅颈尾翼配方 + 雪邦赛道涂装'});
     for (const s of c5.steps) if (!/^特训/.test(s.text)) s.text = '特训：' + s.text;
-    c5.steps.unshift({id:'c5_watch', text:'跟 Ben 师傅去二园主看台看一场比赛', rm:40, isNew:true, at:gsAt, r:6,
+    c5.steps.unshift({id:'c5_watch', text:window.XKart ? '跟 Ben 师傅去二园卡丁车场看台看一场比赛' : '跟 Ben 师傅去二园主看台看一场比赛', rm:40, isNew:true, at:gsAt, r:6,
       done:Q => Q.flag('q_f1'),
-      hint:{pc:'开车到二园，主直道旁边的主看台前，走进黄圈', touch:'开车到二园，主直道旁边的主看台前，走进黄圈'},
-      tip:'二园就是雪邦赛道那一园，在 Bell Avenue 东南边的油棕园公路两边。',
+      hint:{pc:'开车到二园，起点线边上的看台前，走进黄圈', touch:'开车到二园，起点线边上的看台前，走进黄圈'},
+      tip:'二园在 Bell Avenue 东南边的油棕园公路两边。',
       nudge:'二园在 Bell Avenue 东南边，顺着油棕园公路开，看到大看台就到了。'}); }
   D.diary.c5_watch = '跟 Ben 师傅在二园看了一场比赛。赛车从面前冲过去，地都在抖。我跟自己说：总有一天，我也要在这条赛道上拿第一。';
   /* 走进主看台前的黄圈就开演（走路、开车都行；做完这一步就不再放） */
@@ -844,12 +848,12 @@ window.XQD = (() => {
     const c5 = D.chapters.find(c => c.n === 5), i = c5.steps.findIndex(s => s.id === 'c5_watch') + 1;
     const door = () => G(() => [XF1Tune.door.x, XF1Tune.door.z], null);
     c5.steps.splice(i, 0,
-      {id:'c5_paddock', text:'特训：去维修区车库找车队经理 Ken', rm:30, isNew:true, at:door, r:0,
+      {id:'c5_paddock', opt:true, text:'特训：去维修区车库找车队经理 Ken', rm:30, isNew:true, at:door, r:0,
         done:() => G(() => XPaddock.save.n > 0 || XF1Tune.inPaddock(), false),
         hint:{pc:'主直道边的维修区，橙色圈那间车库门口，下车走进去按 <kbd>F</kbd>', touch:'主直道边的维修区，橙色圈那间车库门口，下车走进去点「进车库」'},
         tip:'Ben 师傅以前在雪邦车队待过，车队经理 Ken 是他的老朋友。',
         nudge:'车库就在主看台对面的维修区，门口有橙色圈。'},
-      {id:'c5_pit', text:'特训：在车库里做一次换胎挑战', rm:40, isNew:true, at:door, r:0,
+      {id:'c5_pit', opt:true, text:'特训：在车库里做一次换胎挑战', rm:40, isNew:true, at:door, r:0,
         done:() => G(() => XPaddock.save.pitBest != null, false),
         hint:{pc:'车库中间那辆 F1 赛车前按 <kbd>F</kbd>：哪个轮子亮就点哪个，每个点三下，最后点「放车」', touch:'走到车库中间的 F1 赛车前点「换胎挑战」：哪个轮子亮就点哪个，每个点三下，最后点「放车」'},
         tip:'做完就算，不用拿金牌。改赛车的材料就是从这些活里慢慢攒的。',
