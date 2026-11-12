@@ -445,6 +445,7 @@
      ring by 老周 / 阿明 do not turn the visit into a delivery (js/89-offers.js asks) */
   function visiting(){
     const c = chapter(), st = curStep(); if (!c || !st) return false;
+    if (st.calmNear){ const a = typeof st.at === 'function' ? g(() => st.at(Q), null) : st.at; if (a){ const [px, pz] = here(); if (Math.hypot(px - a[0], pz - a[1]) < (st.r || 6) + 12) return true; } }
     const who = st.meet || st.report ? c.npc : st.talkTo; if (!who) return false;
     const o = NPC[who], a = o ? [o.x, o.z] : npcAt(who); if (!a) return false;
     const [px, pz] = here(); return Math.hypot(px - a[0], pz - a[1]) < 15;
@@ -512,8 +513,8 @@
     if (mode !== 'naiwa' || g(() => driving, null) || g(() => indoorNow(), true) || g(() => mission.on, true) || gx.busy() || gx.extBusy() || g(() => heat > 0, false) || gx.paused) return;
     if (nw.state !== 'idle' || nw.air || S.ph === 'done') return;
     const day = dayKey(), first = !S.flags.home1;
+    if ((S.home.n | 0) >= 2) return;   /* 仓库主人：一共两次就够了 */
     if (!first && S.home.day === day) return;
-    if (!first && S.ch < 3 && S.home.n >= 2) return;
     /* between steps: one just ticked, or the step now is "go somewhere" */
     const st = curStep(), between = performance.now() - lastTick < 90000 || !!(st && st.at);
     if (!between) return;
