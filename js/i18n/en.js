@@ -414,7 +414,7 @@ XI18N.add({
 '怎么赚钱、甩掉保安、改装车都写在里面 · M 打开大地图':'How to earn, lose the guards and mod cars · M opens the map',
 '你（箭头）':'You (arrow)', '主线（黄星）':'Story (yellow star)', '送达点':'Drop-off', '打卡点':'Check-in', '巡逻车':'Patrol car',
 '宿舍门口':'Dorm entrance', '抢救期末卷':'Rescue the exam', '出售的房子':'House for sale', 'ERL 火车站':'ERL station', '喷漆车间':'Spray shop',
-'奶蛙日记':'Naiwa\'s Diary', '便利贴 · 支线':'Sticky notes · Side quests',
+'奶娃日记':'Naiwa\'s Diary', '便利贴 · 支线':'Sticky notes · Side quests',
 '这里会贴支线任务：做完一个人的那一章，他会托你几件小事。现在还没有。':'Side quests get pinned here: finish someone\'s chapter and they\'ll ask you for small favours. Nothing yet.',
 '欢迎来到 XMUM 校园':'Welcome to XMUM',
 '这是一座照平面图搭出来的雪邦校园。主玩法是<b>「开车 · 奶娃」</b>：你是奶娃，在校园里走路、开车、到处找事做。':'This is the Sepang campus, built from its floor plan. The main mode is <b>"Drive · Naiwa"</b>: you are Naiwa, walking, driving and finding things to do around campus.',
