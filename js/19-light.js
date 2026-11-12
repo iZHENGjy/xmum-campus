@@ -41,7 +41,7 @@ const XTone = (() => {
 /* ---------- the details ---------- */
 const XLight = (() => {
   const rr = mkRng(31337);
-  /* cloud shadows: soft blobs on a tile that wraps, ~650 m across */
+  /* cloud shadows: soft blobs on a tile that wraps, ~900 m across */
   const cloudTex = (() => {
     const N = 128, c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, N, N);
     for (let k = 0; k < 16; k++){
@@ -53,7 +53,7 @@ const XLight = (() => {
     }
     const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
   })();
-  const cloudU = {tex:{value:cloudTex}, k:{value:new THREE.Vector4(0, 0, 1 / 650, 0)}};
+  const cloudU = {tex:{value:cloudTex}, k:{value:new THREE.Vector4(0, 0, 1 / 900, 0)}};
   const cloudPatch = sh => {
     sh.uniforms.uCloudTex = cloudU.tex; sh.uniforms.uCloud = cloudU.k;
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D uCloudTex; uniform vec4 uCloud;')
@@ -109,12 +109,14 @@ const XLight = (() => {
     const t1 = XQ.tier > 0, out = tgt === P3.day || tgt === P3.dusk || tgt === P3.night;
     /* clouds drift east with the cloud meshes (js/90-main.js moves them 5 m/s) */
     const v = cloudU.k.value, sunK = Math.min(1, Math.max(0, (sun.intensity - .25) / .8));
-    v.x = (v.x + dt * 5 / 650) % 1; v.y = (v.y + dt * 1.2 / 650) % 1;
-    v.w = t1 && out && !REDUCED ? .32 * sunK * (1 - Math.max(wx.cloud, wx.storm, wx.haze * .7)) : 0;
+    v.x = (v.x - dt * 5 / 900) % 1; v.y = (v.y - dt * 1.2 / 900) % 1;
+    v.w = t1 && out && !REDUCED ? .55 * sunK * (1 - Math.max(wx.cloud, wx.storm, wx.haze * .7)) : 0;
     /* streaks: wet ground and lamps on */
     const lamp = Math.min(1, bulbMat.emissiveIntensity), st = XQ.cfg.glow && out && wx.wet > .05 && lamp > .1;
     streakMat.opacity = st ? lamp * wx.wet * .42 : 0;
     for (const m of streaks) m.visible = st;
+    /* the moon sits where the sky dome draws its glow: in the light's direction from the camera (it used to sit at a fixed spot, so it slid off its own glow as you moved) */
+    if (moon.visible) moon.position.copy(camera.position).addScaledVector(cur.d, 3600);
     halo.visible = t1 && moonMat.opacity > .02 && moon.visible;
     if (halo.visible){ halo.position.copy(moon.position); halo.material.opacity = moonMat.opacity * .32; }
     npcBlobInit();
