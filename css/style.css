@@ -843,7 +843,7 @@ body.wd-open #dmBag,body.wd-open #dmLoot,body.wd-open #dmPad{display:none!import
 @media (prefers-reduced-motion: reduce){ .brand-tog svg{transition:none} }
 /* 手机横屏（矮屏）的 HUD 在文件末尾「手机横屏 2.0」一段 */
 /* ---------- 矮的桌面窗口和横放的平板：三个按钮排成一行、小地图小一号，小地图不再压到右下的操作按钮 ---------- */
-@media (min-height:521px) and (max-height:820px) and (min-width:761px){
+@media (min-height:521px) and (max-height:820px) and (min-width:561px){
   body.naiwa #gstat{grid-template-columns:repeat(3,minmax(0,1fr))}
   body.naiwa #gstat>*{grid-column:1 / -1}
   body.naiwa #gstat>.gbtn{grid-column:auto;padding:0 2px;font-size:11.5px;white-space:nowrap}
@@ -1695,3 +1695,23 @@ body:not(.naiwa) .q-bar{display:none}
 .gd-txt ul.q-todo li,.q-note li{padding-left:10px}
 .gd-txt ul.q-todo li::before,.q-note li::before{content:none}
 .q-note li{padding-left:0!important}
+
+/* a mid-size window (561–900 wide, or 521–760 tall): the right column (top bar, wallet, minimap) used to run down into the
+   on-screen buttons. Shorter wallet rows, a smaller minimap, shorter buttons; on narrow ones the buttons go four to a row. */
+@media (min-width:561px) and (min-height:521px) and (max-height:760px), (min-width:561px) and (max-width:900px) and (min-height:521px){
+  body.naiwa #gstat .grow{padding-top:1px;padding-bottom:1px}
+  body.naiwa #gstat .grow span,body.naiwa #gstat .grow b{line-height:1.25}
+  body.naiwa #mini{width:96px;height:96px;border-width:2px}
+  #acts{gap:6px}
+  #acts button{min-height:40px;padding-top:4px;padding-bottom:4px}
+}
+@media (min-width:561px) and (max-width:900px) and (min-height:521px){
+  #acts{grid-template-columns:repeat(4,auto)}   /* 水枪 spans the top row, the other four sit in one row under it */
+}
+
+/* 761–960 wide: the top-left card and the top-right bar leave no room for the compass between them, and the key line at the bottom
+   runs into the buttons; both go where the narrow layout puts them, above the buttons in the lower middle */
+@media (min-width:761px) and (max-width:960px){
+  #compass{top:auto;bottom:calc(var(--safe-b) + 206px)}
+  #prompt{bottom:calc(var(--safe-b) + 162px)}
+}
