@@ -273,8 +273,19 @@ const upgSpent = list => list.reduce((s, u) => s + u.cost.slice(0, prog.up[u.k] 
 assetSource('cars', () => SHOP.reduce((s, it) => s + (owned.has(it.kind) ? it.price : 0), 0));
 assetSource('tuning', () => upgSpent(UPG));
 assetSource('watergun', () => upgSpent(WUPG));
-function spotNear(px, pz, kind){
+/* face: when given (the way 奶娃 is facing), the car is parked pointing the same way, beside her if it fits (right, left, behind, then
+   the front corners); only when none of those spots is free does it fall back to the old ring of spots facing round her */
+const SPOT_SIDES = [[1, 0], [-1, 0], [0, -1], [.7, -.7], [-.7, -.7], [.7, .7], [-.7, .7], [0, 1]];
+function spotNear(px, pz, kind, face){
   const tmp = {kind, T:CAR_T[kind]};
+  const free = (x, z, h) => !carBlocked(tmp, x, z, h) && !lakes.some(L => inPoly(x, z, L)) && !cars.some(c => Math.hypot(c.x - x, c.z - z) < c.R + CAR_T[kind].L / 2 + 1.5);
+  if (face != null && isFinite(face)){
+    const fx = Math.sin(face), fz = Math.cos(face), rx = fz, rz = -fx;
+    for (let r = 4; r < 40; r += 2) for (const [a, b] of SPOT_SIDES){
+      const x = px + (rx * a + fx * b) * r, z = pz + (rz * a + fz * b) * r;
+      if (free(x, z, face)) return [x, z, face];
+    }
+  }
   for (let r = 6; r < 70; r += 3) for (let a = 0; a < 12; a++){
     const x = px + Math.cos(a * .5236) * r, z = pz + Math.sin(a * .5236) * r, h = Math.atan2(px - x, pz - z) + Math.PI / 2;
     if (!carBlocked(tmp, x, z, h) && !lakes.some(L => inPoly(x, z, L)) && !cars.some(c => Math.hypot(c.x - x, c.z - z) < c.R + CAR_T[kind].L / 2 + 1.5)) return [x, z, h];
@@ -288,7 +299,7 @@ function spawnMine(kind, x, z, h){
 function summon(kind){
   if (myCar){ if (driving === myCar) leaveCar(); scene.remove(myCar.root); const i = cars.indexOf(myCar); if (i >= 0) cars.splice(i, 1); myCar = null; }
   const px = driving ? driving.x : nw.x, pz = driving ? driving.z : nw.z;
-  const [x, z, h] = spotNear(px, pz, kind);
+  const [x, z, h] = spotNear(px, pz, kind, driving ? driving.h : nw.h);   /* parked facing the way you face */
   const item = spawnMine(kind, x, z, h);
   dustBurst(x, .5, z, 8, 3); sfx.ding(); saveGame();
   toast(`${item.name} 到了`, '停在你旁边，走过去按 F 上车', 2400);
