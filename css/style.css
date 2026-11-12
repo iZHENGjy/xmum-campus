@@ -199,6 +199,13 @@ body.naiwa .bottombar{display:none}
 .sb{height:5px;background:var(--chip);border-radius:3px;overflow:hidden}
 .sb i{display:block;height:100%;background:var(--tile)}
 .car .btn{flex:none;white-space:nowrap}
+/* the car's picture (js/ui-shop-icons.js): the old colour swatch shows until the render is ready */
+#shopList{grid-template-columns:minmax(0,1fr)}
+.car .cth{position:relative;width:92px;height:58px;flex:none;border-radius:10px;background:var(--chip) center/100% 100% no-repeat}
+.car .cth::before{content:"";position:absolute;left:22px;right:22px;top:17px;bottom:15px;border-radius:9px 16px 5px 5px;background:var(--c);border:1px solid var(--line);box-shadow:inset 0 -6px 0 rgba(0,0,0,.25);opacity:.55}
+.car .cth.on::before{display:none}
+.car .cth-cv{display:block;width:100%;height:100%}
+.ci b,.ci span{overflow-wrap:anywhere}
 
 /* ---------- dialogs: leaderboard & how-to ---------- */
 dialog.sheet{position:fixed;inset:0;margin:auto;width:min(460px,calc(100% - 32px));max-height:min(86vh,640px);padding:18px 18px 16px;box-sizing:border-box;
@@ -368,7 +375,7 @@ body.titled #labels{opacity:0}
   #hend h2{font-size:21px}
   #shop{padding:16px 14px 12px}
   .car{flex-wrap:wrap;gap:8px 12px}
-  .car .ci{flex:1 1 calc(100% - 60px)}
+  .car .ci{flex:1 1 calc(100% - 106px)}
   .car .btn{width:100%;min-height:36px}
   .st{max-width:none}
 }
@@ -461,6 +468,8 @@ body.titled #labels{opacity:0}
 .gx-uh{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:6px;padding-top:10px;border-top:1px solid var(--line)}
 .gx-uh b{font-family:var(--display);font-size:16px}
 .gx-uh span{font-size:11.5px;color:var(--muted)}
+.gx-ui{display:grid;justify-items:center;gap:5px;width:46px;flex:none}
+.gx-ic{width:28px;height:28px;color:var(--tile)}
 .gx-pips{display:flex;gap:4px;width:46px;flex:none;justify-content:center}
 .gx-pips i{width:10px;height:10px;border-radius:3px;border:1.5px solid var(--tile);box-sizing:border-box}
 .gx-pips i.on{background:var(--tile)}
@@ -632,6 +641,9 @@ body.titled #labels{opacity:0}
 .wd-it.sel.tier-r,.wd-it.sel.tier-l{border-color:var(--tile)}
 .wd-sw{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);box-shadow:inset 0 -5px 0 rgba(0,0,0,.18)}
 .wd-sw.none{background:repeating-linear-gradient(135deg,transparent 0 5px,var(--chip) 5px 8px)}
+/* the item drawn as an outline filled with its colour (js/ui-shop-icons.js); the thin dark edge keeps white items readable */
+.wd-sw.gly{border:0;border-radius:0;box-shadow:none;background:none;filter:drop-shadow(0 0 .6px rgba(0,0,0,.7)) drop-shadow(0 1px 1px rgba(0,0,0,.18))}
+.wd-sw.gly .gl{display:block;width:120%;height:120%;margin:-10%;-webkit-mask:var(--m) center/contain no-repeat;mask:var(--m) center/contain no-repeat}
 .wd-it b{font-size:12.5px;font-weight:500;line-height:1.3;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wd-it em{font-style:normal;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
 .wd-it em.p{color:var(--gold);font-weight:700}
@@ -925,7 +937,7 @@ body.sp-run .topbar,body.sp-run #acts,body.sp-run #joy,body.sp-run #prompt,body.
 .tn-list h4{margin:6px 0 5px;font-family:var(--display);font-size:13.5px;color:var(--muted);font-weight:700}
 .tn-list .wd-grid{overflow:visible;flex:none;margin:0;padding:0}
 .tn-ic{display:grid;place-items:center;color:var(--ink);background:var(--chip)}
-.tn-ic svg{width:22px;height:22px}
+.tn-ic svg{width:24px;height:24px}
 .tn-it.tr:not(.sel){border-style:dashed;border-color:var(--tile)}
 .wd-it em.b{color:var(--tile);font-weight:700}
 .tn-cost{display:flex!important;flex-wrap:wrap;gap:4px 8px;margin-top:3px;color:var(--ink)!important}
@@ -952,7 +964,7 @@ body.wd-open #tnGain{top:auto;bottom:calc(var(--safe-b) + 24px);left:calc((100% 
   .tn-bay{min-height:32px}
   .tn-bay .btn{padding:0 7px}
   .tn-list .wd-grid{grid-template-columns:repeat(auto-fill,minmax(84px,1fr))}
-  .tn-ic svg{width:18px;height:18px}
+  .tn-ic svg{width:21px;height:21px}
   #tune .wd-foot{flex-wrap:wrap}
   #tune .wd-sel{flex:1 1 100%}
   #tune .wd-btns{flex:1 1 100%}
@@ -1087,6 +1099,13 @@ body.wd-open #tnGain{top:auto;bottom:calc(var(--safe-b) + 24px);left:calc((100% 
 .rd-chk{display:flex;gap:8px;align-items:flex-start;color:#cfd5de;font-size:12.5px;line-height:1.4;cursor:pointer}
 .rd-chk input{margin-top:2px;accent-color:var(--rd)}
 .rd-off{color:#ff8a80}
+.rd-smart{display:grid;gap:5px;padding:8px;border-radius:10px;background:rgba(255,255,255,.04)}
+.rd-smart .rd-chk b{color:#eef1f5;font-weight:700}
+.rd-why{font-size:12px;color:var(--rd);line-height:1.4;padding-left:22px;min-height:1.4em}
+.rd-moods{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+.rd-md{min-width:0;padding:5px 6px;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:#cfd5de;font:inherit;font-size:12px;cursor:pointer}
+.rd-md[aria-pressed="true"]{border-color:var(--rd);color:var(--rd);background:color-mix(in srgb,var(--rd) 12%,transparent)}
+.rd-md:focus-visible{outline:2px solid var(--rd);outline-offset:2px}
 body.wd-open #radio,body.sp-run #radio,body.titled #radio{display:none!important}
 @media (pointer:coarse){
   #radio{left:50%;transform:translateX(-50%);bottom:auto;top:calc(var(--safe-t) + 190px);align-items:center}
