@@ -41,7 +41,7 @@
   /* =================================================================================================
    * 每日目标
    * ================================================================================================= */
-  const MINI = ['arcade', 'hoops', 'canteen', 'kipmart', 'bell', 'mcd', 'durian'];
+  const MINI = ['arcade', 'hoops', 'canteen', 'kipmart', 'bell', 'mcd', 'durian', 'sukiya'];
   /* kind: core 赚钱 / play 玩。ok() = 这个玩法已经能玩（大多看「玩过一次」的成就或纪录），ev(game, grade) = 这一局算不算，poll = 计数加了多少 */
   const POOL = [
     {id:'deliv3', kind:'core', need:3, text:'送 3 单外卖', poll:'deliv', ok:() => true},
@@ -59,7 +59,7 @@
     {id:'tea', kind:'play', need:1, text:'蜜雪冰橙打一次工', ev:gm => gm === 'tea', ok:() => unl('drive') && prog.best.o_tea != null},
     {id:'thief', kind:'play', need:1, text:'抓住一个偷外卖的小偷', ev:gm => gm === 'thief', ok:() => +prog.best.o_thief > 0},
     {id:'klia', kind:'play', need:1, text:'KLIA 送机一单', ev:gm => gm === 'klia', ok:() => unl('train') && prog.best.klia != null},
-    {id:'f1lap', kind:'play', need:1, text:'雪邦赛道跑一个计时圈', poll:'lap', ok:() => unl('park') && !!window.XF1 && prog.best.sepLap != null}
+    {id:'f1lap', kind:'play', need:1, text:'卡丁车场跑一个计时圈', poll:'lap', ok:() => unl('park') && !!window.XKart && prog.best.kartLap != null}   /* id kept for saved goals; the park-2 circuit is the kart track now */
   ];
   const BY = {}; for (const p of POOL) BY[p.id] = p;
   const HOT = {id:'hot', kind:'hot', need:1, ok:() => true};
@@ -226,9 +226,9 @@
       return {key:'tn:' + T.it.key, text:`${P ? P.name : T.miss.p} ${T.miss.h}/${T.miss.n} → ${T.it.name}`, act:{t:'tune'}, sub:P ? P.from : ''};
     }
     if (next) return {key:next.key, text:`再赚 ${fmt(next.rm - cash)} → ${next.name}`, act:next.act};
-    if (prog.best.sepLap != null && unl('park')){
-      const t = Math.floor((prog.best.sepLap - .01) / 5) * 5;
-      return {key:'lap', text:`雪邦单圈进 ${lapFmt(t)}`, sub:`现在最快 ${lapFmt(prog.best.sepLap)}`, act:g(() => ({t:'way', x:XF1Tune.door.x, z:XF1Tune.door.z, label:'二园 · 雪邦赛道'}), null)};
+    if (prog.best.kartLap != null && unl('park') && window.XKart){
+      const t = Math.floor((prog.best.kartLap - .01) / 5) * 5;
+      return {key:'lap', text:`卡丁车单圈进 ${lapFmt(t)}`, sub:`现在最快 ${lapFmt(prog.best.kartLap)}`, act:g(() => ({t:'way', x:XKart.start[0], z:XKart.start[1], label:'二园 · 卡丁车场'}), null)};
     }
     return null;
   }
