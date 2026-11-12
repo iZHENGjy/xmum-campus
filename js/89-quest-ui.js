@@ -1,11 +1,11 @@
 /* XMUM 校园漫游 · 主线界面：对话框、任务条、操作提示、手机通知、指南针和地图上的黄星、地上的黄圈、
- * 奶蛙日记（游戏指南 P 的第一页）、便利贴（支线，第二页）、老玩家欢迎卡、章节完成卡
+ * 奶娃日记（游戏指南 P 的第一页）、便利贴（支线，第二页）、老玩家欢迎卡、章节完成卡
  *
  * 状态和规则在 js/89-quest.js（window.XQuest），数据在 js/89-quest-data.js（window.XQD）。这里只画。样式在 css/style.css 的「主线」一段（q- 前缀）。
  * 原则（docs/quests.md「怎么展示、怎么引导」）：不另开面板、不挡视线，都放在玩家熟悉的位置；正在送单或比赛时主线让位。
  *   任务条：右上角钱包面板，送单那一行下面多一行「主线 1/7 · 走到 A3 大台阶 · 1/9」，点一下打开日记。
  *   操作提示：电脑在屏幕下方写按键；手机不写按键，对应的按钮闪一圈黄边。做完就消失。
- *   对话框：屏幕下方，左边头像，右边名字和一句话；空格 / 回车 / F / 点一下翻下一句，Esc 或「跳过」直接跳完。对话时游戏不暂停，奶蛙站住。
+ *   对话框：屏幕下方，左边头像，右边名字和一句话；空格 / 回车 / F / 点一下翻下一句，Esc 或「跳过」直接跳完。对话时游戏不暂停，奶娃站住。
  *   手机通知：右上角，图标 + 名字 + 一句话，3 秒收起；过场、对话、比赛、被保安追的时候先攒着。
  *   日记页底下的开关「不显示操作提示」：只收起屏幕下方那条按键提示，任务条和指南针照常显示。 */
 'use strict';
@@ -313,7 +313,7 @@
   const notesArt = `<svg viewBox="0 0 240 120" aria-hidden="true"><g transform="rotate(-4 70 60)"><rect x="34" y="20" width="72" height="72" fill="#ffd24a"/><path d="M44 40 H96 M44 54 H90 M44 68 H94" stroke="#7a5a10" stroke-width="3" stroke-linecap="round" opacity=".6"/></g>
     <g transform="rotate(5 160 56)"><rect x="124" y="16" width="72" height="72" fill="#9fe0a8"/><path d="M134 36 H186 M134 50 H176 M134 64 H182" stroke="#2c6a36" stroke-width="3" stroke-linecap="round" opacity=".6"/></g><circle cx="70" cy="22" r="5" fill="var(--tile)"/><circle cx="160" cy="18" r="5" fill="#3f8fe6"/></svg>`;
   if (window.XGuide && XGuide.addPage){
-    XGuide.addPage({id:'diary', t:'奶蛙日记', art:diaryArt, home:true, body:diaryBody, mount:diaryMount}, 0);
+    XGuide.addPage({id:'diary', t:'奶娃日记', art:diaryArt, home:true, body:diaryBody, mount:diaryMount}, 0);
     XGuide.addPage({id:'notes', t:'便利贴 · 支线', art:notesArt, body:notesBody}, 1);
   }
 

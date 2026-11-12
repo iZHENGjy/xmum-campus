@@ -1,12 +1,12 @@
-/* XMUM 校园漫游 · 主线剧情的数据：人机奶蛙、八章步骤、支线、采购单、日记句子、手机消息、想家独白
+/* XMUM 校园漫游 · 主线剧情的数据：人机奶娃、八章步骤、支线、采购单、日记句子、手机消息、想家独白
  *
  * 设计依据 docs/quests.md。这里只放数据和判断条件，状态、轮询、奖励、存档都在 js/89-quest.js，界面在 js/89-quest-ui.js。
- * 玩家看得见的文字尽量用「我 / 你」，非写不可时用「奶蛙」（主角名字还没定是否全改，不要批量改「奶娃」）。
+ * 玩家看得见的文字尽量用「我 / 你」，非写不可时用「奶娃」（仓库主人定了：主角就叫奶娃）。
  *
  * ---------- 格式 ----------
  * XQD.people[id] = {name, icon, color}                  发手机消息的人（妈妈、小满……），icon 是一个字或 emoji
  * XQD.npcs[id]   = {name, short, color, at:[x, z, h] 或 () => [x, z, h], look:{wardrobe slot: item id}, shape, chat:[闲聊句子], place:'南门'}
- *                  人机奶蛙：makeNaiwa + nwDress，60 米外隐藏；at 是函数时运行时再读（场景是别的文件建的）。
+ *                  人机奶娃：makeNaiwa + nwDress，60 米外隐藏；at 是函数时运行时再读（场景是别的文件建的）。
  * XQD.chapters   = [{n, id, title, npc, place, intro:[[who, 台词]], outro:[[who, 台词]], report:'回南门找小满',
  *                    reward:{rm, car, parts:{id:n}, items:[wardrobe id], title, note:'奖励卡上的一句'}, unlock:'drive'|'park'|'train',
  *                    unlockAt:'start'|'end'（默认 start：见到这一章的人就解锁；drive 是第 1 章 end）,
@@ -42,7 +42,7 @@ window.XQD = (() => {
     cat:{name:'小橘', icon:'🐱', color:'#e39a4c'}       /* the campus cat (js/89-kitty.js) */
   });
 
-  /* ---------- 人机奶蛙（角色都是虚构的） ---------- */
+  /* ---------- 人机奶娃（角色都是虚构的） ---------- */
   /* 南门：校碑在门外中轴线上（x≈96, z≈258，铁门关着）；小满站在门里中轴线东边一点（新玩家开场后就出生在她旁边，x 96 z 242），面朝南门。 */
   D.npcs.xiaoman = {name:'小满学姐', short:'小满', color:'#3f8fe6', place:'南门', at:[101, 238.5, 0],
     look:{skin:'classic', outfit:'shirt', neck:'badge', head:'buns'}, shape:'slim',
@@ -170,7 +170,7 @@ window.XQD = (() => {
   const nearFlag = () => nearestOf(G(() => XRace.tracks.map(t => [t.ev.x, t.ev.z]), []));   /* the chequered-flag event points (js/92-racing.js T.ev) */
   const myHouseDoor = () => { const h = houseFirst(); return h ? [h.door.x, h.door.z] : null; };
   const saleDoor = () => G(() => { const h = XHouse.houses.find(x => x.id === 'h8') || XHouse.houses[0]; return [h.door.x, h.door.z]; }, [117.2, 415.1]);
-  /* ---------- 发消息的人机奶蛙 ---------- */
+  /* ---------- 发消息的人机奶娃 ---------- */
   Object.assign(D.people, {
     laozhou:{name:'站长老周', icon:'周', color:'#e67e22'},
     juanjuan:{name:'卷卷', icon:'卷', color:'#8e6bd8'},
@@ -179,7 +179,7 @@ window.XQD = (() => {
     lim:{name:'Uncle Lim', icon:'林', color:'#3a6f9a'}
   });
 
-  /* ---------- 人机奶蛙：坐标都在浏览器里用 hitsBuilding(x, z, 1) / footBlocked 验过，站在路边、不挡门口的圈 ---------- */
+  /* ---------- 人机奶娃：坐标都在浏览器里用 hitsBuilding(x, z, 1) / footBlocked 验过，站在路边、不挡门口的圈 ---------- */
   /* D6 食堂外卖取餐点（js/50-missions.js PICKUPS，342, −146.4）东北边几步，面朝取餐点 */
   D.npcs.laozhou = {name:'站长老周', short:'老周', color:'#e67e22', place:'D6 食堂外卖点', at:[347, -141, -Math.PI / 2],
     look:{skin:'orange', outfit:'redvest', head:'melon'}, shape:'chubby',
@@ -467,8 +467,8 @@ window.XQD = (() => {
   D.diary.c5_end = 'Ben 师傅给了我一块航空钛锭，说车改好了，人也该有个窝。';
 
   /* ================= 第 6 章 安家 ================= */
-  /* 设计是 RM 500 + 一件奶蛙主题家具。js/89-house.js 没有直接发家具的接口（XHouse 没有 grant，家具要先有房子、买进 it 才算），
-     所以按奶蛙主题里最便宜的一件（巨型公仔 / 奶瓶餐桌，RM 420）折成钱：RM 500 + 420 = 920。 */
+  /* 设计是 RM 500 + 一件奶娃主题家具。js/89-house.js 没有直接发家具的接口（XHouse 没有 grant，家具要先有房子、买进 it 才算），
+     所以按奶娃主题里最便宜的一件（巨型公仔 / 奶瓶餐桌，RM 420）折成钱：RM 500 + 420 = 920。 */
   D.chapters.push({n:6, id:'c6', title:'安家', npc:'lim', place:'Taman Warisan Megah 排屋', guide:['house', 'rich'],
     report:'回排屋门口找 Uncle Lim', diaryStart:'c6_start', diaryEnd:'c6_end', startMsg:'lim_start', endMsg:'lim_end',
     recap:'（补记）在南门外的 Taman Warisan Megah 买了房子，有了自己的家。',
@@ -679,7 +679,7 @@ window.XQD = (() => {
     }); }
 
   /* ================= 第二期：采购单、新角色、生日火锅局、搬家、第 8 章（docs/quests.md「第二期」） ================= */
-  /* ---------- 新的人机奶蛙（都是虚构的）：店里的人，从第 4 章起站在店门口；第 8 章的新生阿豆 ---------- */
+  /* ---------- 新的人机奶娃（都是虚构的）：店里的人，从第 4 章起站在店门口；第 8 章的新生阿豆 ---------- */
   Object.assign(D.people, {
     rose:{name:'罗丝阿姨', icon:'罗', color:'#e0609a'},
     durian:{name:'榴莲哥', icon:'榴', color:'#8a9a2c'},

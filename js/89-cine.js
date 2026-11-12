@@ -3,17 +3,17 @@
  * 做什么：主线里三段像电影一样的过场（逐镜头的写法见 docs/quests.md「过场动画」）。
  *   通用：上下黑边滑进来、底部大字幕（带名字的对白 / 地点字卡）、屏幕中间的心里独白气泡（斜体、没有名字）、机位插值、
  *   右上角大「跳过」按钮 + Esc / 回车跳过整段，点屏幕 / 空格切到下一个镜头。播放时 body 加 class「cine」把 HUD 全藏起来，电台调小。
- *   开场（约 60 秒）：① 机舱（奶蛙坐窗边，小桌板一杯果汁）② 肩后看出舷窗，一排排油棕园，贴窗「哇~~」③ 机外远景，放起落架降落
- *     ④ KLIA 到达大厅，带队老师举「XMUM 新生」小旗 ⑤ 校巴开在高速上，窗外油棕往后掠过，太阳偏西 ⑥ 黑屏淡入南门，镜头落到奶蛙身后接上操作。
- *   想家（约 6 秒）：奶蛙停下抬头，镜头慢慢往上转，看奶蛙航空的客机拖着两道白线飞过（晚上只看得见航行灯），中间浮出一句独白。
+ *   开场（约 60 秒）：① 机舱（奶娃坐窗边，小桌板一杯果汁）② 肩后看出舷窗，一排排油棕园，贴窗「哇~~」③ 机外远景，放起落架降落
+ *     ④ KLIA 到达大厅，带队老师举「XMUM 新生」小旗 ⑤ 校巴开在高速上，窗外油棕往后掠过，太阳偏西 ⑥ 黑屏淡入南门，镜头落到奶娃身后接上操作。
+ *   想家（约 6 秒）：奶娃停下抬头，镜头慢慢往上转，看奶娃航空的客机拖着两道白线飞过（晚上只看得见航行灯），中间浮出一句独白。
  *     用的就是 js/16-ambient.js 里本来就在飞的 naiwaAir，客机不在附近就把它这一趟改到头顶上来，零额外场景。按任意键或点屏幕立刻结束。
  *   结尾（约 45 秒）：和开场对称：到达大厅里举小旗的换成你（穿着你现在的衣服），一只新生东张西望；同一辆大巴，坐窗边「哇~~」的换成他；
- *     最后南门，把他交给小满学姐，客机从头顶飞过，奶蛙抬头笑一下。字幕「第一年，完。」
+ *     最后南门，把他交给小满学姐，客机从头顶飞过，奶娃抬头笑一下。字幕「第一年，完。」
  * 镜头：播放时 gx.paused = true（js/90-main.js 就不跑 updateNaiwaMode，不抢相机，也不会弹暂停面板——那是 gxSetPause 才弹），
- *   在 gx.frame 外面包一层每帧摆相机；结束时 gx.paused 还原成原来的值。js/89-quest.js 看 XCine.busy 让奶蛙站住、暂停通知。
+ *   在 gx.frame 外面包一层每帧摆相机；结束时 gx.paused 还原成原来的值。js/89-quest.js 看 XCine.busy 让奶娃站住、暂停通知。
  * 场景：机舱 + 油棕园 + 跑道、到达大厅、高速公路三套临时场景都放在地图外（z ≈ −5600，地面 8 km 见方的边外），
  *   换镜头的黑屏里才生成，用完马上从 scene 移除并释放几何、材质、贴图（贴图全用 canvas 画，不加网络请求）。
- *   客机和校巴是游戏里现成模型的 clone（共用几何和材质，不释放）；人机奶蛙用 makeNaiwa + nwDress 临时造，播完释放。
+ *   客机和校巴是游戏里现成模型的 clone（共用几何和材质，不释放）；人机奶娃用 makeNaiwa + nwDress 临时造，播完释放。
  *   这时镜头远裁剪面缩到 1.7 km、天空球缩小（和 js/89-train.js 的 farClip 一样），3 km 外的校园不画。手机和「流畅」不投影。
  * 对外：window.XCine = {
  *   play(id, {onDone}) → bool     id：'intro' | 'ending' | 'birthday'（LY 宿舍寝室里的生日火锅局，约 75 秒）| 'f1'（二园看台看比赛、发誓当车手，约 45 秒）| 'library'（A3 图书馆自习一整天，大窗外粉红色的夕阳，约 40 秒）。开始了返回 true；播完或跳过都调一次 onDone
@@ -23,8 +23,8 @@
  *   skip()                        立刻结束正在播的过场
  *   get busy()                    正在播过场
  * }
- * 测试：离线页 /test/offline.html 进奶蛙模式后在控制台 XCine.play('intro', {onDone:() => console.log('done')})、XCine.homesick('……我想家了。', {})、
- *   XCine.play('ending', {})、XCine.skip()；XCine.shot(3) 跳到第几个镜头（0 起），XCine.state 看现在播到哪。新存档进奶蛙模式时 js/89-quest.js 会自己播开场。 */
+ * 测试：离线页 /test/offline.html 进奶娃模式后在控制台 XCine.play('intro', {onDone:() => console.log('done')})、XCine.homesick('……我想家了。', {})、
+ *   XCine.play('ending', {})、XCine.skip()；XCine.shot(3) 跳到第几个镜头（0 起），XCine.state 看现在播到哪。新存档进奶娃模式时 js/89-quest.js 会自己播开场。 */
 'use strict';
 (() => {
   if (typeof THREE === 'undefined' || typeof gx === 'undefined' || typeof scene === 'undefined') return;
@@ -128,7 +128,7 @@ body.cine > *:not(canvas):not(.cine-ui):not(script):not(style):not(dialog):not(#
   const mine = o => { o.userData.xp = true; return o; };
   const shareAll = root => { root.traverse(o => { o.userData.shared = true; }); return root; };
 
-  /* ================= 人机奶蛙：临时造、摆姿势 ================= */
+  /* ================= 人机奶娃：临时造、摆姿势 ================= */
   /* A = {N, x, y, z, h, sit, to, sp, wph, look, up, smile, laughT, flag, wave, talk, yaw0, roll0, tt} — numbers in metres / radians */
   function actor(look, parent){
     const lk = Object.assign(wdLookSafe(null), look || {});
@@ -282,7 +282,7 @@ body.cine > *:not(canvas):not(.cine-ui):not(script):not(style):not(dialog):not(#
     S.plane = buildPlane(); if (S.plane) gr.add(S.plane.root);
     return S;
   }
-  /* the cabin: a short piece of a 奶蛙航空 cabin built at 奶蛙 size (奶蛙 is 2.4 m tall): aisle along x, flying towards +x,
+  /* the cabin: a short piece of a 奶娃航空 cabin built at 奶娃 size (奶娃 is 2.4 m tall): aisle along x, flying towards +x,
      window seats on the +z side. Local origin: cabin floor in the middle of the aisle. */
   function buildCabin(){
     const gr = new THREE.Group(), b = K().KB(), L = 7.5, W = 3.6, H = 3.5, k = K();
@@ -339,7 +339,7 @@ body.cine > *:not(canvas):not(.cine-ui):not(script):not(style):not(dialog):not(#
     cup.position.set(1.55, 1.17, 2.75); juice.position.set(1.55, 1.13, 2.75); cup.renderOrder = 2; gr.add(juice, cup);
     return {gr, seat:[0.02, .58, 2.65]};
   }
-  /* the airliner for the landing: a clone of the yellow 奶蛙航空 plane (shared geometry and materials) with landing gear of its own */
+  /* the airliner for the landing: a clone of the yellow 奶娃航空 plane (shared geometry and materials) with landing gear of its own */
   function buildPlane(){
     const A = AIR(); if (!A) return null;
     const root = shareAll(A.root.clone()); root.userData.shared = false;
@@ -441,7 +441,7 @@ body.cine > *:not(canvas):not(.cine-ui):not(script):not(style):not(dialog):not(#
       bus.traverse(o => { if (!o.isMesh) return; if (typeof glassMat !== 'undefined' && o.material === glassMat){ o.material = glass; o.renderOrder = 2; } if (typeof wheelMat !== 'undefined' && o.material === wheelMat) S.wheels.push(o); });
       bus.children[0].position.set(0, 0, 0); bus.children[0].rotation.set(0, 0, 0);
       /* the shell is solid behind the glass band: cut the band out of it on the camera side (a copy of the paint with clipping
-         planes, both faces drawn so the inside of the far wall shows), so 奶蛙 at the window can be seen */
+         planes, both faces drawn so the inside of the far wall shows), so 奶娃 at the window can be seen */
       const cutMat = src.paint.clone(); cutMat.side = THREE.DoubleSide; cutMat.clipIntersection = true;
       cutMat.clippingPlanes = [new THREE.Plane(V(0, -1, 0), 1.92), new THREE.Plane(V(0, 1, 0), -2.86), new THREE.Plane(V(0, 0, 1), -(BZ - 3.6)),
         new THREE.Plane(V(-1, 0, 0), BX - 5.1), new THREE.Plane(V(1, 0, 0), -(BX + 4.3))];
@@ -484,7 +484,7 @@ body.cine > *:not(canvas):not(.cine-ui):not(script):not(style):not(dialog):not(#
     const ef = a < 1.45 ? Math.min(92, Math.max(f, v)) : f;
     if (Math.abs(camera.fov - ef) > .01){ camera.fov = ef; camera.updateProjectionMatrix(); }
   }
-  /* the gameplay camera pose behind 奶蛙 (the same maths as updateNaiwaMode), for a seamless hand-back */
+  /* the gameplay camera pose behind 奶娃 (the same maths as updateNaiwaMode), for a seamless hand-back */
   function playPose(outP, outT){
     const tx = nw.x, ty = nw.y + 2.4, tz = nw.z, d = camDist, p = camPitch, cp = Math.cos(p);
     const cx = tx + Math.sin(camYaw) * d * cp, cz = tz + Math.cos(camYaw) * d * cp;
@@ -518,7 +518,7 @@ body.cine > *:not(canvas):not(.cine-ui):not(script):not(style):not(dialog):not(#
           inSet(S.fly); fov(52);
           tone('sine', 880, 880, .5, .08); tone('sine', 660, 660, .7, .07, .45);
         },
-        cues:[[.6, () => cap('奶蛙航空 XM 2026 · 飞往吉隆坡\nNAIWA AIR · KUL', 3800)], [5, () => think('第一次一个人出远门……', 3600)]],
+        cues:[[.6, () => cap('奶娃航空 XM 2026 · 飞往吉隆坡\nNAIWA AIR · KUL', 3800)], [5, () => think('第一次一个人出远门……', 3600)]],
         step(t, dt){
           const F = C.set.fly; C.flyX += 55 * dt; F.cabin.gr.position.x = C.flyX;
           const k = ease(t / 9), P = C.A.me; P.yaw0 = -.35 * ease((t - 2) / 2);   /* turns to look out of the window */
@@ -671,7 +671,7 @@ body.cine > *:not(canvas):not(.cine-ui):not(script):not(style):not(dialog):not(#
 
 
   /* ================= 临时场景四：LY 宿舍的寝室（生日火锅局） ================= */
-  /* 奶蛙大小的一间双人寝：9 × 7 米、层高 4.2 米（奶蛙 2.4 米高）。北墙一扇窗（外面是夜景），西墙上下铺，东墙书桌和衣柜，
+  /* 奶娃大小的一间双人寝：9 × 7 米、层高 4.2 米（奶娃 2.4 米高）。北墙一扇窗（外面是夜景），西墙上下铺，东墙书桌和衣柜，
      南墙东头是门。屋子中间一张圆木桌（桌面 0.95 米高），一圈六张圆木凳（0.55 米高），桌上鸳鸯锅、几盘菜、一桶炸鸡、一壶拉茶。
      局部原点：屋子正中的地面。 */
   const RX = -5200, RZ = -5600, RW = 4.5, RD = 3.5, RH = 4.2;
@@ -989,7 +989,7 @@ body.cine > *:not(canvas):not(.cine-ui):not(script):not(style):not(dialog):not(#
 
 
   /* ================= 临时场景五：A3 图书馆的自习区（第 3 章：自习一整天，看粉红色的夕阳） ================= */
-  /* 奶蛙大小的一层阅览区：22 × 14 米、层高 7.5 米。北面整面落地大窗（窗格是细细的白框），窗外是画出来的天和远处的校园剪影：
+  /* 奶娃大小的一层阅览区：22 × 14 米、层高 7.5 米。北面整面落地大窗（窗格是细细的白框），窗外是画出来的天和远处的校园剪影：
      白天一张、粉红色傍晚一张，延时的时候交叉淡入淡出。两排长木桌、台灯，东西两面墙是书架，西墙上一个挂钟（指针跟着延时转）。
      局部原点：屋子正中的地面，北面（−z）是窗。 */
   const LX = 5200, LZ = -5600, LW = 11, LD = 7, LH = 7.5;
@@ -1167,7 +1167,7 @@ body.cine > *:not(canvas):not(.cine-ui):not(script):not(style):not(dialog):not(#
   function nextShot(){
     if (!C.on || C.kind !== 'film' || C.ph !== 'play') return;
     const n = C.i + 1;
-    /* the intro ends on the gameplay camera behind 奶蛙: no black, just the bars going away */
+    /* the intro ends on the gameplay camera behind 奶娃: no black, just the bars going away */
     if (n >= C.shots.length){ if (C.id === 'intro'){ end(); return; } C.next = n; C.ph = 'out'; C.ft = 0; fade(1); return; }
     if (C.shots[n].cut){ enterShot(n); return; }
     C.next = n; C.ph = 'out'; C.ft = 0; fade(1);
@@ -1228,12 +1228,12 @@ body.cine > *:not(canvas):not(.cine-ui):not(script):not(style):not(dialog):not(#
   function frameHome(dt){
     C.t += dt; const t = C.t, A = AIR(), D = 6.2;
     const plane = A && A.on ? A.root.position : _a.set(nw.x + 60, 480, nw.z - 120);
-    /* 奶蛙 turns towards the plane and looks up */
+    /* 奶娃 turns towards the plane and looks up */
     const want = Math.atan2(plane.x - nw.x, plane.z - nw.z);
     if (t < 4.8) nw.h += Math.atan2(Math.sin(want - nw.h), Math.cos(want - nw.h)) * Math.min(1, dt * 2.2);
     NW.root.rotation.y = nw.h; NW.root.position.set(nw.x, nw.y, nw.z);
     HS.k = t < 4.8 ? ease((t - .4) / 1.4) : 1 - ease((t - 4.8) / 1.2);
-    /* behind 奶蛙, pulled in when a wall or a post stands there (like the gameplay camera) */
+    /* behind 奶娃, pulled in when a wall or a post stands there (like the gameplay camera) */
     const h = nw.h, sx = -Math.sin(h), sz = -Math.cos(h); let d = 4.6;
     for (let i = 1; i <= 10; i++){ const dd = 4.6 * i / 10; if (g(() => hitsBuilding(nw.x + sx * dd, nw.z + sz * dd, .7), false)){ d = Math.max(1.8, dd - .6); break; } }
     HS.d = HS.d == null ? d : HS.d + (d - HS.d) * Math.min(1, dt * 6);
@@ -1253,7 +1253,7 @@ body.cine > *:not(canvas):not(.cine-ui):not(script):not(style):not(dialog):not(#
     if (now && mode === 'naiwa'){ playPose(_a, _b); camera.position.copy(_a); camera.lookAt(_b); }
     const cb = HS.onDone; HS.onDone = null; if (cb) g(cb);
   }
-  /* the head tilting back while 奶蛙 watches the plane (animNaiwa poses the player every frame after gx.frame) */
+  /* the head tilting back while 奶娃 watches the plane (animNaiwa poses the player every frame after gx.frame) */
   if (typeof animNaiwa === 'function'){
     const base = animNaiwa;
     animNaiwa = function(dt, T){ base(dt, T); if (HS.k > 0 && C.kind === 'home'){ NW.body.rotation.x -= .32 * HS.k; NW.mouth.scale.y = Math.max(NW.mouth.scale.y, .02); } };
