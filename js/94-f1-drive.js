@@ -19,7 +19,7 @@
 'use strict';
 (() => {
   const F = window.XF1; if (!F || typeof updateCar !== 'function') return;
-  const {PT, N, TAN, NOR, CURV, HWI, HW, KERB, kerbAt, slow, PAD, ROAD, PIT, SZ} = F;
+  const {PT, N, TAN, NOR, CURV, HWI, HW, KERB, kerbAt, slow, PAD, ROAD, PIT} = F;
   const wi = i => ((i % N) + N) % N;
   const OPT = {adv:true, vib:true};
   try { Object.assign(OPT, JSON.parse(localStorage.getItem('xmum-f1-v1') || '{}')); } catch(e){}
@@ -30,7 +30,7 @@
   const roadSeg = ROAD.p;
   function onRoad(x, z){ for (let i = 0; i < roadSeg.length - 1; i++){ const p = roadSeg[i]; if (Math.abs(p[0] - x) > 40 || Math.abs(p[1] - z) > 40) continue; if (segDist(x, z, p, roadSeg[i + 1]) < ROAD.w / 2) return true; } return false; }
   function where(c){
-    if (c.x < PAD.x0 - 30 || c.x > SZ.x0 - 12 || c.z < PAD.z0 - 30 || c.z > PAD.z1 + 30){ c._f1i = null; return null; }
+    if (c.x < PAD.x0 - 30 || c.x > PAD.x1 + 30 || c.z < PAD.z0 - 30 || c.z > PAD.z1 + 30){ c._f1i = null; return null; }
     let bi = -1, bd = 1e18;
     const scan = (a, b) => { for (let k = a; k <= b; k++){ const i = wi(k), dx = c.x - PT[i][0], dz = c.z - PT[i][1], d = dx * dx + dz * dz; if (d < bd){ bd = d; bi = i; } } };
     if (c._f1i != null) scan(c._f1i - 15, c._f1i + 15);
