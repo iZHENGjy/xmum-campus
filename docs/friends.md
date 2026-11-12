@@ -7,8 +7,7 @@
 
 | 做什么 | 电脑 | 手机 |
 |---|---|---|
-| 加好友（附近的人） | 好友面板右上角「＋ 加好友」（还没好友时直接显示），列出附近在线、还不是好友的玩家，点「加好友」 | 同左 |
-| 加好友（4 米内） | 走到他旁边按 **F**，菜单里选「⭐ 加好友」 | 点他头上的「点我互动」，选「⭐ 加好友」 |
+| 加好友（只在互动菜单里） | 走到他旁边按 **F**，菜单里选「⭐ 加好友」；已经是好友显示「已是好友」，发过请求显示「已发送」（被拒绝显示「对方没同意」），都灰掉 | 点他头上的「点我互动」，同一个菜单 |
 | 回应好友请求 | 邀请卡上 **F** 加 / **X** 不了 | 点卡片上的按钮 |
 | 好友列表 | **Y**，或顶上「在线 N 人」旁边的「⭐ 好友」，或暂停面板右上角 | 「车行」「暂停」那一排的「⭐ 好友」，或暂停面板 |
 | 去找好友 | 列表里「导航过去」，或大地图（M）上点粉色星星 | 同左；小地图点开大地图 |
@@ -21,8 +20,8 @@
 - 上限 50 个。请求限频：同一个人 60 秒一次，10 分钟最多 6 次；还有互动通道本身的限频（同一种邀请 8 秒一次、被拒以后 25 秒、一次只能等一个回音）。
 - 屏蔽了的人：他的好友请求直接忽略（`js/96-social.js` 本来就丢掉屏蔽的人的邀请），你也不能加他。
 - 第一次加上好友解锁成就「交个朋友」。
-- 第一次有别的玩家走到 12 米内（不在剧情对话、过场里），提示一次「走近 XX 按 F 可以加好友」（手机：「点 XX 头上的『点我互动』可以加好友」）。
-- 「附近的玩家」只有 `js/net.js` 本来就在收的附近几格里的人（大约 100–300 米），只写「就在你旁边」或「在附近」，不写位置；远处在线的人看不到，要走过去。
+- 第一次有别的玩家走到 12 米内（不在剧情对话、过场里），提示一次「走近别人按 F，选『加好友』」（手机：「点别人头上的『点我互动』，选『加好友』」）。
+- 好友面板只看好友（没有单独加好友的列表）；还没好友时写怎么加。
 - 大地图只画好友（粉色星星）。以前大地图会把 3D 场景里所有名字标签都画上去，其中也有附近其他玩家头顶的名字，等于把没加好友的人的位置画在了地图上；现在 `js/90-main.js` 的 `miniNames` 跳过玩家名字（`data-net`）和表情气泡。3D 场景里附近玩家头顶的名字照旧（本来就看得到他们）。
 - 游客（没用 Google 登录）也能加好友，好友跟着这台设备的匿名账号走；用 Google 登录的话换设备也在。
 
@@ -82,7 +81,9 @@ XFriends.ask(uid)          // 发好友请求（他要在附近、在线）
 | ![好友列表](screenshots/friends-desktop-list.jpg) | ![好友列表](screenshots/friends-phone-list.jpg) |
 | ![好友请求](screenshots/friends-desktop-invite.jpg) | ![好友请求](screenshots/friends-phone-invite.jpg) |
 | ![大地图](screenshots/friends-desktop-map.jpg) | ![大地图](screenshots/friends-phone-map.jpg) |
-| ![加附近的人](screenshots/friends-desktop-add.jpg) | ![加附近的人](screenshots/friends-phone-add.jpg) |
+| ![菜单里加好友](screenshots/friends-desktop-menu.jpg) | ![菜单里加好友](screenshots/friends-phone-menu.jpg) |
+| ![还没好友](screenshots/friends-desktop-empty.jpg) | ![还没好友](screenshots/friends-phone-empty.jpg) |
 | ![暂时不可用](screenshots/friends-desktop-down.jpg) | ![暂时不可用](screenshots/friends-phone-down.jpg) |
-| ![菜单里灰掉](screenshots/friends-desktop-menu-down.jpg) | ![第一次的提示](screenshots/friends-phone-hint.jpg) |
+| ![菜单里灰掉](screenshots/friends-desktop-menu-down.jpg) | ![已发送](screenshots/friends-phone-sent.jpg) |
+| ![第一次的提示](screenshots/friends-desktop-hint.jpg) | |
 | | ![按钮](screenshots/friends-phone-hud.jpg) |

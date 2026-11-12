@@ -48,10 +48,10 @@
     st:new Map(),          // uid -> {n, t, p:[x, z] | null, k}：好友的 /fst
     stRefs:new Map(),      // uid -> {ref, cb, idle, dead}
     nav:null,              // 正在导航去找谁：{uid, name, t0, lost}
-    reqLog:[], reqAt:{},
+    reqLog:[], reqAt:{}, noAt:{},
     myRef:null, connRef:null, wrote:null, wroteAt:-1e9,
     noteQ:[], noteAt:-1e9, noteOne:{},
-    panel:false, addView:false, nearKey:'', mapSeen:-1e9, dirty:true, confirm:null, hits:[]
+    panel:false, mapSeen:-1e9, dirty:true, confirm:null, hits:[]
   };
   const isFriend = uid => F.list.has(uid);
   const shown = () => F.on || F.down;                 // 入口要不要显示：联机了就显示（规则没发布时也显示，点开说暂时不可用）
@@ -255,7 +255,7 @@
     const to = p.uid, name = p.name;
     const ok = XSocial.invite(to, 'friend', {n:myName()}, {answer(yes){
       if (yes) addMine(to, name, true);
-      else dropReq(to);
+      else { dropReq(to); F.noAt[to] = pnow(); }
     }});
     if (!ok) return;
     const t = pnow(); F.reqAt[to] = t; F.reqLog.push(t);
@@ -305,9 +305,14 @@
     opt(p){
       if (F.down) return {icon:'⭐', title:'加好友', sub:DOWN, dis:true};
       if (!F.on) return null;
-      const fr = isFriend(p.uid), full = F.list.size >= CAP, bl = blocked(p.uid);
-      return {icon:'⭐', title:fr ? '已经是好友' : '加好友', sub:fr ? '好友列表里能找到对方' : bl ? '你屏蔽了对方' : full ? `好友满了（${CAP} 个）` : p.d.dnd ? '免打扰中' : '上线提醒 · 看在哪 · 导航过去',
-        dis:fr || full || bl || !!p.d.dnd};
+      if (isFriend(p.uid)) return {icon:'⭐', title:'已是好友', sub:TOUCH ? '「⭐ 好友」里能看到对方在哪' : '按 Y 看好友在哪', dis:true};
+      const out = g(() => XSocial._S.out, null), t = pnow(), left = Math.ceil(REQ_GAP - (t - (F.reqAt[p.uid] || -1e9)));
+      if (out && out.to === p.uid && out.k === 'friend') return {icon:'⭐', title:'已发送', sub:'等对方同意', dis:true};
+      if (left > 0) return (F.noAt[p.uid] || -1e9) > F.reqAt[p.uid] ? {icon:'⭐', title:'加好友', sub:`对方没同意 · ${left} 秒后可以再发`, dis:true}
+        : {icon:'⭐', title:'已发送', sub:`${left} 秒后可以再发`, dis:true};
+      const full = F.list.size >= CAP, bl = blocked(p.uid);
+      return {icon:'⭐', title:'加好友', sub:bl ? '你屏蔽了对方' : full ? `好友满了（${CAP} 个）` : p.d.dnd ? '免打扰中' : '上线提醒 · 看在哪 · 导航过去',
+        dis:full || bl || !!p.d.dnd};
     },
     pick(p){ askFriend(p); }
   });
@@ -383,10 +388,9 @@
 .fr-a button:hover{border-color:${COL}}
 .fr-empty{margin:6px 0 4px;font-size:13px;line-height:1.6;color:var(--muted)}
 .fr-empty b.fr-down{font-size:15px;color:var(--ink)}
-.fr-sec{margin:4px 0 2px;font-size:12px;line-height:1.5;color:var(--muted)}
+.fr-sec{flex:none;margin:0 0 4px;font-size:12px;line-height:1.5;color:var(--muted)}
 .fr-a button[disabled]{opacity:.55;cursor:default}
-.sm-x.fr-addb{margin-left:auto}
-.sm-x.fr-addb.go{background:${COL};border-color:${COL};color:#fff;font-weight:600}
+.fr-empty b.fr-how{color:var(--ink);font-weight:600}
 .fr-f{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:6px;padding-top:7px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
 .fr-f label{display:inline-flex;align-items:center;gap:5px;cursor:pointer;color:var(--ink);min-height:30px}
 #frPop{position:absolute;z-index:3;transform:translate(-50%,calc(-100% - 16px));min-width:170px;max-width:240px;padding:8px 10px 9px;border-radius:var(--r-md,10px);background:var(--panel-solid);border-top:3px solid ${COL};box-shadow:0 6px 24px var(--shadow,rgba(0,0,0,.3));font-size:12.5px;line-height:1.45}
@@ -468,30 +472,6 @@ body.wd-open #frPanel,body.arc-in #frPanel,body.arc-in #frBtn{display:none!impor
     return [...F.list.entries()].map(([uid, e]) => ({uid, e, on:F.onl.has(uid), last:Math.max((F.st.get(uid) || {}).t || 0, F.offAt.get(uid) || 0, e.t || 0)}))
       .sort((a, b) => (b.uid === nav) - (a.uid === nav) || b.on - a.on || b.last - a.last || nameOf(a.uid).localeCompare(nameOf(b.uid), 'zh'));
   }
-  /* 附近能加的人：js/net.js 本来就在收的附近几格里、在线、还不是好友的（不写位置，只说在旁边还是在附近） */
-  function nearby(){
-    const me = mePos(); if (!me || !g(() => XSocial.active, false)) return [];
-    const out = [];
-    for (const uid of XNet.peers().keys()){
-      if (uid === XNet.uid || isFriend(uid) || blocked(uid)) continue;
-      const p = XSocial.peer(uid), L = g(() => XNet.peer(uid), null); if (!p || !p.live || !L) continue;
-      const d = Math.hypot(L.x - me.x, L.z - me.z); if (!(d < 250)) continue;
-      out.push({p, d});
-    }
-    return out.sort((a, b) => a.d - b.d).slice(0, 8);
-  }
-  const nearKey = () => nearby().map(x => x.p.uid + (x.d < 15 ? '.' : '') + ((F.reqAt[x.p.uid] || -1e9) > pnow() - REQ_GAP ? '!' : '')).join(',');
-  function nearHtml(){
-    const N = nearby(), t = pnow();
-    const how = TOUCH ? '也可以走到他旁边，点他头上的「点我互动」' : '也可以走到他旁边按 F';
-    if (!N.length) return `<p class="fr-empty">附近没有别的在线玩家。<br>去人多的地方（A3 广场、D6 食堂）看看，或者约朋友到你旁边来，${how}，选「⭐ 加好友」。</p>`;
-    return `<p class="fr-sec">附近的玩家 · 点「加好友」发请求，对方同意就成了（${how}）</p>` + N.map(({p, d}) => {
-      const sent = (F.reqAt[p.uid] || -1e9) > t - REQ_GAP, out = g(() => XSocial._S.out, null), wait = out && out.to === p.uid;
-      const btnTxt = wait ? '等回应…' : sent ? '已发送' : p.d.dnd ? '免打扰' : '加好友';
-      return `<div class="fr-row on"><i class="fr-dot"></i><div class="fr-m"><b>${esc(p.name)}</b><small>${d < 15 ? '就在你旁边' : '在附近'}${p.car ? ' · 开着车' : ''}</small></div><div class="fr-a">` +
-        `<button type="button" class="go" data-add="${esc(p.uid)}"${wait || sent || p.d.dnd ? ' disabled' : ''}>${btnTxt}</button></div></div>`;
-    }).join('');
-  }
   function render(){
     if (!F.panel) return;
     F.dirty = false;
@@ -500,14 +480,11 @@ body.wd-open #frPanel,body.arc-in #frPanel,body.arc-in #frBtn{display:none!impor
         `<div class="fr-list"><p class="fr-empty"><b class="fr-down">${DOWN}</b><br>服务器那边还在更新，过一会儿会自己恢复。<br>其他玩法不受影响。</p></div>`;
       return;
     }
-    F.nearKey = nearKey();
     const R = rows(), n = F.onl.size, conf = F.confirm && pnow() < F.confirm.until ? F.confirm.uid : null;
-    const add = F.addView || !R.length;
-    let html = `<div class="sm-h"><b>⭐ 好友</b><span>${F.list.size ? `${F.list.size}/${CAP} · ${n} 人在线` : `最多 ${CAP} 个`}</span>` +
-      (R.length ? `<button type="button" class="sm-x fr-addb${F.addView ? '' : ' go'}" data-addview>${F.addView ? '‹ 好友列表' : '＋ 加好友'}</button>` : '') +
-      `<button type="button" class="sm-x" data-x>关 <kbd>Y</kbd></button></div>`;
-    if (add) html += '<div class="fr-list">' + (R.length ? '' : '<p class="fr-sec">还没有好友。加了以后能看到对方在不在线、在哪，一键导航过去。</p>') + nearHtml() + '</div>';
-    else html += '<div class="fr-list">' + R.map(r => {
+    const how = TOUCH ? '走到别的玩家旁边，点他头上的「点我互动」，选「⭐ 加好友」' : '走到别的玩家旁边按 F，选「⭐ 加好友」';
+    let html = `<div class="sm-h"><b>⭐ 好友</b><span>${F.list.size ? `${F.list.size}/${CAP} · ${n} 人在线` : `最多 ${CAP} 个`}</span><button type="button" class="sm-x" data-x>关 <kbd>Y</kbd></button></div>`;
+    if (!R.length) html += `<div class="fr-list"><p class="fr-empty">还没有好友。<br><b class="fr-how">怎么加：${how}</b>。<br>对方同意以后，就能在这里看到他在不在线、在哪，一键导航过去。</p></div>`;
+    else html += `<p class="fr-sec">加好友：${how}</p><div class="fr-list">` + R.map(r => {
       const nav = F.nav && F.nav.uid === r.uid;
       return `<div class="fr-row${r.on ? ' on' : ''}${nav ? ' nav' : ''}"><i class="fr-dot"></i><div class="fr-m"><b>${esc(nameOf(r.uid))}</b><small>${esc(statusOf(r.uid))}</small></div><div class="fr-a">` +
         (nav ? `<button type="button" data-unnav>取消导航</button>` : r.on ? `<button type="button" class="go" data-nav="${esc(r.uid)}">导航过去</button>` : '') +
@@ -524,15 +501,13 @@ body.wd-open #frPanel,body.arc-in #frPanel,body.arc-in #frBtn{display:none!impor
     if (!(mode === 'naiwa' || mode === 'walk')) return;
     F.panel = true; panel.hidden = false; btn.classList.add('on'); gbtn.classList.add('on'); syncSt(); render();
   }
-  function close(){ if (!F.panel) return; F.panel = false; F.addView = false; panel.hidden = true; btn.classList.remove('on'); gbtn.classList.remove('on'); F.confirm = null; }
+  function close(){ if (!F.panel) return; F.panel = false; panel.hidden = true; btn.classList.remove('on'); gbtn.classList.remove('on'); F.confirm = null; }
   function toggle(){ F.panel ? close() : open(); }
   const refocus = () => g(() => canvas.focus({preventScroll:true}));
   panel.addEventListener('click', e => {
     g(() => ac());
     const b = e.target.closest('button,input'); if (!b) return;
     if (b.dataset.x != null){ close(); refocus(); }
-    else if (b.dataset.addview != null){ F.addView = !F.addView; F.confirm = null; render(); }
-    else if (b.dataset.add){ const p = XSocial.peer(b.dataset.add); if (p && p.live) askFriend(p); else toast('他走远了', '', 1400); render(); }
     else if (b.dataset.nav){ navTo(b.dataset.nav); close(); refocus(); }
     else if (b.dataset.unnav != null){ F.nav = null; toast('导航取消了', '', 1200); render(); }
     else if (b.dataset.rm){
@@ -625,8 +600,7 @@ body.wd-open #frPanel,body.arc-in #frPanel,body.arc-in #frBtn{display:none!impor
     }
     g(syncSt); g(writeMine); g(flushNotes); g(navTick); g(firstHint);
     if (F.panel){
-      const add = !F.down && (F.addView || !F.list.size);
-      if (F.dirty || performance.now() - lastRender > 5000 || (add && nearKey() !== F.nearKey)){ lastRender = performance.now(); render(); }
+      if (F.dirty || performance.now() - lastRender > 5000){ lastRender = performance.now(); render(); }
     }
     if (!pop.hidden && !g(() => XGuide.mapOn, false)) pop.hidden = true;
   }, 500);
@@ -639,7 +613,7 @@ body.wd-open #frPanel,body.arc-in #frPanel,body.arc-in #frBtn{display:none!impor
       const p = XSocial.peer(uid), L = g(() => XNet.peer(uid), null);
       if (!p || !p.live || !L || isFriend(uid) || Math.hypot(L.x - me.x, L.z - me.z) > 12) continue;
       store.hinted = true; save();
-      toast(TOUCH ? `点 ${p.name} 头上的「点我互动」可以加好友` : `走近 ${p.name} 按 F 可以加好友`, TOUCH ? '「⭐ 好友」按钮里也能加附近的人' : '按 Y 打开好友，「＋ 加好友」里也能加附近的人', 4200);
+      toast(TOUCH ? '点别人头上的「点我互动」，选「加好友」' : '走近别人按 F，选「加好友」', TOUCH ? '对方同意以后，「⭐ 好友」里能看到他在哪' : '对方同意以后，按 Y 能看到好友在哪', 4200);
       return;
     }
   }
