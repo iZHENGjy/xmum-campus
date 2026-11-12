@@ -15,7 +15,7 @@
  * 上锁：开车（第 1 章做完）；汽车游乐园的比赛（第 5 章开始）；小火车（第 7 章开始）。别的文件问 window.XQuest.unlocked('drive'|'park'|'train')。
  *
  * 对外：window.XQuest = {
- *   ready, state（只读副本）, ch, ph, chapter(), step()（当前步骤）, steps(), unlocked(key), carLocked(), ch1Deliv(), ringsOff(),
+ *   ready, state（只读副本）, ch, ph, chapter(), step()（当前步骤）, steps(), unlocked(key), carLocked(), ch1Deliv(), ringsOff(), calm(),
  *   flag(k, v)（玩法里的「新」钩子：XQuest.flag('map') 之类）, talk(npcId), npcNear(), diaryAdd(id, v), msg(id),
  *   on(evt, fn)（'step' 'chapter' 'msg' 'diary' 'talk' 'state'）, target()（指南针要指的地方）,
  *   dev:{reset(), vet(), skip(n), homesick(), state()}（测试模式和控制台）
@@ -378,6 +378,8 @@
   const ch1Deliv = () => S.born === 'new' && S.ch === 1;
   /* chapter 1 before the first-delivery step: the pick-up rings, their map dots and the old 「到橙色光圈挑一单外卖」 line stay away,
      so a new player's first minutes are only 小满 and the compass (js/50-missions.js, js/90-main.js ask) */
+  /* the whole of chapter 1 for a new player: the other jobs' rings stay off the map until 小满 hands over the keys */
+  const calm = () => S.born === 'new' && S.ch === 1;
   const ringsOff = () => {
     if (!ch1Deliv()) return false;
     const c = chapter(), st = curStep(); if (!c || !st) return false; if (st.meet) return true;
@@ -477,11 +479,17 @@
   function migrate(){
     if (S.born !== 'vet' || S.migrated) return;
     S.migrated = now(); S.intro = true;
-    let rm = 0; const items = [], chs = [];
+    let rm = 0, part = null; const items = [], chs = [];
     const add = (id, r) => { if (!r || S.paid[id]) return; rm += r.rm > 0 ? r.rm : 0; pay.items = []; pay(id, r, true); items.push(...pay.items); };
     for (const c of CH){
       const ok = c.n === 1 || c.steps.every(s => s.isNew || qDone(s));
-      if (!ok){ S.ch = c.n; S.ph = 'meet'; break; }
+      if (!ok){
+        /* the chapter they stop in: what they have done already is ticked (and paid) now, so the diary and the card show it from the start */
+        S.ch = c.n; S.ph = 'meet';
+        for (const s of c.steps) if (!S.done[s.id] && !s.isNew && qDone(s)){ S.done[s.id] = now(); add(s.id, {rm:s.rm, parts:s.parts}); }
+        part = {n:c.n, done:c.steps.filter(s => S.done[s.id]).length, of:c.steps.length, left:c.steps.filter(s => !S.done[s.id]).map(s => s.text)};
+        break;
+      }
       for (const s of c.steps){ if (!S.done[s.id]){ S.done[s.id] = now(); add(s.id, {rm:s.rm, parts:s.parts}); } }
       S.done[c.id + '_report'] = now(); add(c.id, Object.assign({}, c.reward, {car:c.reward && c.reward.car && !g(() => owned.has(c.reward.car), false) ? c.reward.car : null}));
       diaryAdd(c.id + '_recap', null, {c:c.n, recap:true, text:c.recap || ('（补记）' + c.title + '。')});
@@ -494,7 +502,7 @@
     const merged = new Map();
     for (const t of items){ const m = /^(.*) ×(\d+)$/.exec(t), k = m ? m[1] : t; merged.set(k, (merged.get(k) || 0) + (m ? +m[2] : 1)); }
     const itemsTxt = [...merged].map(([k, n]) => n > 1 ? k + ' ×' + n : k).join('、');
-    S.welcome = {rm:Math.round(rm), chs, items:itemsTxt};
+    S.welcome = {rm:Math.round(rm), chs, items:itemsTxt, part};
     save(); emit('state');
   }
 
@@ -538,7 +546,7 @@
     get ready(){ return ready; }, get state(){ return S; }, get ch(){ return S.ch; }, get ph(){ return S.ph; }, get born(){ return S.born; },
     get talking(){ return !!talking; },
     data:D, chapters:CH, chapter, step:curStep, steps:() => stepsOf(chapter()), stepDone:id => !!S.done[id], Q, qDone,
-    unlocked, carLocked, ch1Deliv, ringsOff, lockToast,
+    unlocked, carLocked, ch1Deliv, ringsOff, calm, lockToast,
     flag, talk, npcNear:npcNearId, npcAt, npcMark, npcs:NPC, sidesOf, diaryAdd, msg, save, dayNo,
     on, target, playIntro, unlockedTitle:() => S.title,
     ui:null, dev

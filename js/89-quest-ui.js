@@ -174,7 +174,8 @@
   function welcomeTry(){
     const w = S().welcome; if (!w || !XQ.ready || mode !== 'naiwa' || !wel.hidden || g(() => XCine.busy, false) || g(() => XGuide.on, false) || document.querySelector('dialog[open]')) return;
     const chs = w.chs || [], last = chs.length ? chs[chs.length - 1] : 0, nx = XQ.chapter();
-    wel.querySelector('.q-wp').textContent = `学校新开了主线：七章，从报到一路到去 KLIA 接下一届新生。你来得早，${last > 1 ? `第 1–${last} 章` : '第 1 章'}已经算你完成了` + (nx ? `，接着从第 ${nx.n} 章「${nx.title}」开始。` : '。');
+    wel.querySelector('.q-wp').textContent = `学校新开了主线：七章，从报到一路到去 KLIA 接下一届新生。你来得早，${last > 1 ? `第 1–${last} 章` : '第 1 章'}已经算你完成了` + (nx ? `，接着从第 ${nx.n} 章「${nx.title}」开始。` : '。')
+      + (w.part && nx && w.part.n === nx.n && w.part.done ? `这一章 ${w.part.of} 件事你已经做过 ${w.part.done} 件，还差：${w.part.left.join('、')}。` : '');
     wel.querySelector('.q-wgift').textContent = '补发：' + ['RM ' + (w.rm || 0).toLocaleString()].concat(w.items ? [w.items] : []).join(' + ');
     wel.hidden = false; g(() => { gx.paused = true; }); wel.querySelector('[data-a="diary"]').focus({preventScroll:true});
     g(() => tone('triangle', 784, 784, .14, .14));

@@ -35,6 +35,8 @@ let money = 0, deliveries = 0;
 const mission = {on:false, from:null, to:null, t:0, limit:0};
 const DELIV_EASE = 1.35;   /* delivery time limits are 35% longer than before (players found them too tight); pay is unchanged */
 const missionEl = $('#mission'), moneyEl = $('#money');
+/* story chapter 1 for a new player (js/89-quest.js): only the tutorial is on the map; races, heists, dorms, the arcade… come with the car keys */
+const qCalm = () => !!(window.XQuest && XQuest.calm && XQuest.calm());
 /* one order from this pick-up: rush = less time, more pay; far ones carry a distance fee (RM 4 per 100 m), so the three on the card are really worth different money.
    est is what it pays if you drive it at an ordinary pace */
 function missionOrder(pk, to, rush){
@@ -118,13 +120,18 @@ function updateCompass(px, pz){
   let tx, tz, label;
   if (act){ tx = act.x; tz = act.z; label = act.label; }
   else if (tgtP){ tx = tgtP.x; tz = tgtP.z; label = '送到 ' + tgtP.name; }
+  else if (window.XQuest && XQuest.ringsOff && XQuest.ringsOff()){
+    /* story chapter 1, a step with no place (run, map, guide, wardrobe): no arrow to a pick-up the player cannot use yet, just the step */
+    const st = XQuest.step(); compassSvg.style.visibility = 'hidden';
+    cdist.textContent = '主线 · ' + (st ? st.text.replace(/（.*?）/g, '') : '跟着任务条走'); return;
+  }
   else {
     let best = null, bd = 1e9; for (const pk of PICKUPS){ const d = Math.hypot(pk.x - px, pk.z - pz); if (d < bd){ bd = d; best = pk; } }
     tx = best.x; tz = best.z; label = '取餐 ' + best.name;
   }
   camera.getWorldDirection(_fw);
   const vx = tx - px, vz = tz - pz, a = Math.atan2(vx, vz) - Math.atan2(_fw.x, _fw.z);
-  compassSvg.style.transform = `rotate(${-a}rad)`;
+  compassSvg.style.transform = `rotate(${-a}rad)`; compassSvg.style.visibility = '';
   cdist.textContent = `${label} · ${Math.round(Math.hypot(vx, vz))} 米`;
 }
 

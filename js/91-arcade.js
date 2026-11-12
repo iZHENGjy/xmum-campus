@@ -105,10 +105,11 @@ const ARC_DOOR = (() => {
 const arcMark = gxMarker('#ff5fa2', .45); arcMark.position.set(ARC_DOOR.x, .1, ARC_DOOR.z);
 const arcLbl = addLabel('B1 游戏厅', ARC_DOOR.x, 4.4, ARC_DOOR.z, true); arcLbl.dead = true;
 let arcPrompt = '';
-const arcNearDoor = () => mode === 'naiwa' && !driving && !ARC.in && nw.state !== 'fly' && Math.hypot(nw.x - ARC_DOOR.x, nw.z - ARC_DOOR.z) < 3.2;
+const arcNearDoor = () => mode === 'naiwa' && !driving && !ARC.in && !qCalm() && nw.state !== 'fly' && Math.hypot(nw.x - ARC_DOOR.x, nw.z - ARC_DOOR.z) < 3.2;
 function arcOutside(px, pz){
   arcPrompt = '';
-  arcMark.visible = true; arcLbl.dead = Math.hypot(px - ARC_DOOR.x, pz - ARC_DOOR.z) > 140;
+  const calm = qCalm();
+  arcMark.visible = !calm; arcLbl.dead = calm || Math.hypot(px - ARC_DOOR.x, pz - ARC_DOOR.z) > 140;
   arcMark.userData.ring.scale.y = 1 + Math.sin(performance.now() / 300) * .15;
   const near = arcNearDoor();
   if (near){

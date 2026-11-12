@@ -52,6 +52,7 @@ function opSpot(color, s, x, z, text, r){
   return {mark, lbl, x, z, r:r || 6 * s, rearm:false};
 }
 function opRing(o, show, px, pz){
+  show = show && !qCalm();
   o.mark.visible = show; o.lbl.dead = !show; if (!show) return false;
   o.mark.userData.ring.scale.y = 1 + Math.sin(performance.now() / 330) * .15;
   const d = Math.hypot(px - o.x, pz - o.z);

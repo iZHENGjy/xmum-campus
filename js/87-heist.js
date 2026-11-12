@@ -621,14 +621,22 @@ function exFrame(dt, px, pz){
   /* the door of the job's building glows in the job's colour */
   for (const d of ROOM_DOORS) d.mark.userData.ring.material.color.set(EX.on && EX.door === d && exWant() ? EX_KIND[EX.kind].color : '#ffd27a');
   /* the two start rings at A3 */
-  const show = !EX.on && !ROOM.in && !mission.on && !gxA.act && !gxTaxi.on && !gx.extBusy();
+  const show = !EX.on && !ROOM.in && !mission.on && !gxA.act && !gxTaxi.on && !gx.extBusy() && !qCalm();
   for (const id in EX_RING){
     const R = EX_RING[id]; R.mark.visible = show; R.lbl.dead = !show; if (!show) continue;
     if (id === 'side'){ const t = '委托 · ' + EX_KIND[exSideKind()].name; if (R.lbl.el.textContent !== t) R.lbl.el.textContent = t; }
     R.mark.userData.ring.scale.y = 1 + Math.sin(performance.now() / 330) * .15;
     const d = Math.hypot(px - R.at.x, pz - R.at.z);
     if (EX.rearm === id){ if (d > 14) EX.rearm = ''; }
-    else if (d < 6.5){ exStart(id === 'main' ? 'exam' : exSideKind()); break; }
+    else if (d < 6.5){
+      /* like every other ring: a card to accept (js/89-offers.js), not a start the moment you step in (A3 is where the story sends new players) */
+      const kind = id === 'main' ? 'exam' : exSideKind(), K = EX_KIND[kind];
+      if (typeof offerJob !== 'function'){ exStart(kind); break; }
+      if (offerJob('ex:' + kind, () => ({icon:kind === 'exam' ? '📄' : '📝', title:K.name, accept:'开始',
+        desc:({exam:'溜进教学楼找出期末卷，送回 A3', hw:'趁老师低头，把作业塞进办公室的作业筐', phone:'从办公室的没收箱拿回同学的手机', night:'熄灯的自习楼里捡回三件东西'})[kind],
+        pay:'RM ' + K.pay + ' 起', risk:'保安、老师会抓人' + ((prog.best.exrun | 0) ? ' · 连胜 ' + (prog.best.exrun | 0) : ''),
+        onAccept:() => { if (!EX.on && !gx.extBusy()) exStart(kind); }}))) break;
+    }
   }
   if (EX.on) exUpdate(dt, px, pz);
 }

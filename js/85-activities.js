@@ -183,7 +183,7 @@ function gxUpdateAct(dt, px, pz, sp){
   const a = gxA.act;
   if (!a){
     /* idle: show start rings; drive into one to begin */
-    const hide = mission.on || gxTaxi.on || gx.extBusy();
+    const hide = mission.on || gxTaxi.on || gx.extBusy() || qCalm();
     for (const b of GX_ACTS){
       b.mark.visible = !hide; b.lbl.dead = hide;
       if (hide) continue;
