@@ -282,7 +282,8 @@
       const hole = mode === 'hole';
       if (hole && !L.paused){ L.paused = true; resetAll(); }
       else if (!hole && L.paused) L.paused = false;
-      if (!L.paused){ try { tick(dt); } catch(e){ /* a broken schedule must never stop the students */ } }
+      const frozen = window.XPhoto && XPhoto.on;   /* photo mode (js/89-photo.js) freezes the world: the clock waits too */
+      if (!L.paused && !frozen){ try { tick(dt); } catch(e){ /* a broken schedule must never stop the students */ } }
       return u0.call(this, dt, T);
     }; }
 

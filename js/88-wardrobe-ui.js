@@ -298,6 +298,42 @@ function sprayPick(kind){
   return pool[Math.floor(rnd() * pool.length)].id;
 }
 const spray = {msg:'', run:null, here:null};
+/* GTA rule: a respray only works if no guard is watching you drive in. A patrol (or a roadblock car) that is not soaked,
+   within SPRAY_SEE metres of the door and with no building between it and the door, sees you: lose them first. */
+const SPRAY_SEE = 55;
+function spraySeen(G){
+  const D = G.D, fx = Math.sin(D.h), fz = Math.cos(D.h), dx0 = D.x - fx * 1.5, dz0 = D.z - fz * 1.5;
+  for (const c of patrols.concat(blockers)){
+    if (!c.active || c.soakT > 0) continue;
+    const L = Math.hypot(c.x - dx0, c.z - dz0); if (L > SPRAY_SEE) continue;
+    if (!sightBlocked(dx0, dz0, c.x, c.z)) return c;
+  }
+  return null;
+}
+/* does a wall or a building stand between two points? (segment against every collider box; lamp posts and trees don't count) */
+function sightBlocked(x0, z0, x1, z1){
+  const mx = (x0 + x1) / 2, mz = (z0 + z1) / 2, half = Math.hypot(x1 - x0, z1 - z0) / 2;
+  for (const c of colliders){
+    if (c.dead) continue;
+    if (c.t){
+      if (c.r < 1.5 || Math.hypot(c.cx - mx, c.cz - mz) > half + c.r) continue;
+      const vx = x1 - x0, vz = z1 - z0, t = Math.max(0, Math.min(1, ((c.cx - x0) * vx + (c.cz - z0) * vz) / (vx * vx + vz * vz || 1)));
+      if (Math.hypot(x0 + vx * t - c.cx, z0 + vz * t - c.cz) < c.r) return true;
+      continue;
+    }
+    if (Math.hypot(c.cx - mx, c.cz - mz) > half + c.hx + c.hz) continue;
+    const ax = (x0 - c.cx) * c.c - (z0 - c.cz) * c.s, az = (x0 - c.cx) * c.s + (z0 - c.cz) * c.c;
+    const bx = (x1 - c.cx) * c.c - (z1 - c.cz) * c.s, bz = (x1 - c.cx) * c.s + (z1 - c.cz) * c.c;
+    let t0 = 0, t1 = 1, ok = true;
+    for (const [p, d, h] of [[ax, bx - ax, c.hx], [az, bz - az, c.hz]]){
+      if (Math.abs(d) < 1e-9){ if (Math.abs(p) > h){ ok = false; break; } continue; }
+      let ta = (-h - p) / d, tb = (h - p) / d; if (ta > tb){ const q = ta; ta = tb; tb = q; }
+      t0 = Math.max(t0, ta); t1 = Math.min(t1, tb); if (t0 > t1){ ok = false; break; }
+    }
+    if (ok) return true;
+  }
+  return false;
+}
 const sprayFee = () => Math.min(money, SPRAY_FEE * ward.spray);
 /* the full paint shop opened in a garage while wanted: changing the paint there clears the alert too */
 function sprayClear(){
@@ -320,7 +356,7 @@ function sprayUpdate(dt){
     if (!inside){
       if (a.v < .5 || Math.abs(a.u) > G.D.w){ G.done = false; G.panel = false; G.still = 0; }
       if (driving === myCar && a.v > -16 && a.v <= 1.2 && Math.abs(a.u) < G.D.w * .8)
-        spray.msg = wanted ? (G.cd > now ? `这间车间刚喷过，还要等 ${Math.ceil((G.cd - now) / 1000)} 秒` : `直接开进去：卷帘门一关就换漆甩掉保安（每星 RM ${SPRAY_FEE}）`) : '喷漆车间：开进去给车换漆';
+        spray.msg = wanted ? (G.cd > now ? `这间车间刚喷过，还要等 ${Math.ceil((G.cd - now) / 1000)} 秒` : spraySeen(G) ? '保安盯着呢，先甩开视线' : `换色甩掉保安：直接开进去，卷帘门一关就换漆（${Math.min(5, Math.floor(heat))} 星 · ${fmtRM(SPRAY_FEE * Math.min(5, Math.floor(heat)))}）`) : '喷漆车间：开进去给车换漆';
       continue;
     }
     if (!driving){ spray.msg = '喷漆车间：开着自己的车进来'; return; }
@@ -329,6 +365,11 @@ function sprayUpdate(dt){
       const left = Math.ceil((G.cd - now) / 1000), stars = Math.min(5, Math.floor(heat)), fee = SPRAY_FEE * stars;
       if (left > 0){ spray.msg = `这间车间刚喷过，还要等 ${left} 秒`; return; }
       if (money < fee){ spray.msg = `喷漆要 ${fmtRM(fee)}，还差 ${fmtRM(Math.ceil(fee - money))}，门不关`; return; }
+      if (spraySeen(G)){
+        spray.msg = '保安盯着呢，先甩开视线';
+        if (!G.seenTold || now - G.seenTold > 6000){ G.seenTold = now; toast('保安盯着呢，先甩开视线', '被看着开进来，换漆也没用：绕开巡逻车、让楼挡住它再回来', 2600); }
+        return;
+      }
       sprayRun(G, stars, fee); return;
     }
     /* not wanted (or just resprayed): pick a colour yourself */
