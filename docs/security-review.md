@@ -8,8 +8,9 @@
 - 逐条读了 `database.rules.json`，以及读写数据库的所有代码。
 - 只对规则本来就公开的路径（`/stats`、`/boards`、`/ghosts`、`/mini`）发过几次只读请求，用来确认能读到什么、有多大。
 - 没有写正式数据库，没有登录任何人的账号，也没有做压力测试。
-- 本机没有 Java 和 Node，跑不了 Firebase 模拟器，所以规则改动用下面的「推理表」逐条核对，客户端改动用 `test/firebase-mock.js`（内存里的假数据库）跑过。
-- 发布规则前，可以在 Firebase 控制台的「规则游乐场」里再模拟一遍（步骤见最后一节），模拟不会写数据。
+- 规则改动在本机的 **Firebase 模拟器**上测过：43 个用例（22 个正常玩法、18 个攻击、3 个「被封的人删自己的东西」），新旧规则各跑一遍，结果表在最后的附录。测试脚本在 `test/rules/`，以后改规则可以再跑。
+- 客户端改动用 `test/firebase-mock.js`（内存里的假数据库）跑过。
+- 发布规则前，也可以在 Firebase 控制台的「规则游乐场」里再模拟几条（步骤见最后一节），模拟不会写数据。
 
 这份文件在公开仓库里，所以还没修的问题只写影响和修法，不写具体攻击步骤。
 
@@ -17,7 +18,7 @@
 
 | 级别 | 问题 | 现状 |
 |---|---|---|
-| 严重 | S1 免费额度（下载流量、同时连接数）可以被脚本耗尽，整个月联机停摆 | 改不了根子；靠监控和应急开关（控制台步骤 1–4） |
+| 严重 | S1 免费额度（下载流量、同时连接数）可以被脚本耗尽：Spark 下整个月联机停摆，Blaze 下变成账单 | 改不了根子；靠监控和应急开关（控制台步骤 1–4） |
 | 严重 | S2 赛车影子可以写到任意多个编出来的赛道名，把 1 GB 存储写满 | **本次修了**（规则：只认 5 条赛道） |
 | 中 | M1 头顶名字可以随便改，冒充别人 | **本次修了**（规则 + `js/net.js`） |
 | 中 | M2 排行榜分数可以在控制台伪造 | 改不了根子；**本次加了封禁名单** `/ban` |
@@ -38,9 +39,14 @@
 
 ### S1 免费额度可以被人为耗尽
 
+**先确认线上是哪个方案**：`docs/FIREBASE.md` 写的是「线上版已经改用 Blaze」，但其他地方都按 Spark 免费档在算（比如 100 人的连接上限）。请在控制台左下角看一眼（步骤 1），两种方案的风险不一样：
+
+- **Spark**：超额度数据库就停到下个月，不扣钱。
+- **Blaze**：不会停，但超出部分按量收费。被人刷流量会变成**一笔账单**。预算提醒只会发邮件，**不会自动停**，所以 Blaze 下一定要设预算提醒，并且收到邮件就处理。
+
 **攻击者能做什么**
 
-Spark 免费档每月下载 10 GB，最多 100 个同时连接，超了数据库就停到下个月（或者要升级付费）。
+按 Spark 算：每月下载 10 GB，最多 100 个同时连接，超了数据库就停到下个月。按 Blaze 算：同样的流量会变成费用。
 
 - `/stats`（现在约 63 KB，随玩家数增长）、`/boards/*`、`/ghosts/*`、`/mini/*` 不登录就能读。
 - 其他路径用匿名登录也能读。
@@ -359,20 +365,33 @@ style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://
 | Dependabot | 关着（项目没有 npm 依赖，告警本来也没有） | 可选：开 Dependabot alerts |
 | Secret scanning | 开着，1 条告警已正确关闭 | 保持 |
 
-### 数据库备份（另一个会话在做，这里先写要求）
+### 数据库备份（PR #107）
 
-写这份报告时，备份的 PR 还没开出来。等它合并时请对照检查：
+**怎么存的**
 
-1. **备份文件绝对不能放进这个公开仓库**，任何分支都不行，包括 Actions 的 artifact（公开仓库的 artifact 任何登录 GitHub 的人都能下载）。
-   - 整库备份里有每个人的云存档（`/saves`）、昵称和 uid 的对应、互动消息。
-   - 应该放在私有的地方：私有仓库、Google Cloud Storage 私有桶，或者主人自己的网盘。
-2. **服务账号密钥**存成仓库 Secret，只给备份这一个工作流用。
-   - 最好放进一个只允许 `main` 使用的 Environment。
-   - 服务账号只给「Firebase Realtime Database 查看者」这类只读角色，不要给 Owner / Editor。
-3. 工作流里不要 `echo` 密钥，不要打开 debug 日志。权限写成 `contents: read`。
-4. 每年轮换一次密钥。不用备份了，就在 Google Cloud 控制台删掉这个密钥。
+- 工作流 `.github/workflows/db-backup.yml`，每 12 小时跑一次，也可以手动点「Run workflow」。
+- 密钥：
+  - Secret `FIREBASE_BACKUP_SA`：Google 服务账号的 JSON 密钥。
+  - Variable `BACKUP_PUBLIC_KEY`：主人的 gpg **公钥**，不是秘密。
+- 存放位置：整库下载下来，在内存里用公钥加密成 `.json.gpg`，存成本仓库的 **Actions Artifact**，保留 14 天。
+  - 公开仓库的 Artifact 谁都能下载，但下载到的是加密文件，只有主人的**私钥 + 口令**能解开。
+  - 私钥按说明放在 U 盘 / 密码管理器里，不在 GitHub 上。
 
-（备份 PR 开出来以后，在这一节补上它的 secret 名字和存放位置。）
+**审查结论：设计是安全的**
+
+- 明文不落盘、不打印、不上传。
+- 工作流只有 `contents: read`，只能由定时任务或手动触发，PR 里的代码拿不到 secret。
+- 第三方 action 用 40 位 commit SHA 固定。
+- 测试工作流不用任何 secret。
+
+**主人要注意的**
+
+1. **服务账号角色尽量只用 Viewer**（只读）。
+   - #107 说 Viewer 能不能通过 REST 读数据还不确定，不行就换 Admin。
+   - Admin 能**改、删**整个数据库。如果真要换，这个密钥就和数据库主人的钥匙一样重要：每年在 Google Cloud 控制台轮换一次，不用备份了就立刻删掉。
+2. **私钥丢了，所有备份都打不开**；私钥连同口令一起泄露，所有备份（含云存档）都会被解开。私钥和口令分开放。
+3. 谁能改仓库的 Variable，谁就能把公钥换成自己的，之后的备份就是给他加密的。现在只有主人有仓库权限，所以没问题；以后加协作者要记住这一点。
+4. 每次备份都要下载整个数据库，按 #107 的估算占每月流量 1%～8%，归到 S1 一起看用量。
 
 ---
 
@@ -380,8 +399,9 @@ style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://
 
 ### Firebase 控制台（console.firebase.google.com → xmum-campus）
 
-**1. 看用量（每周看一眼）**
+**1. 确认方案、看用量（每周看一眼）**
 
+- 左下角写着「Spark」还是「Blaze」。如果是 **Blaze**，马上做步骤 4 的预算提醒。
 - 左边「构建 → Realtime Database」→ 上面「用量」标签。
 - 看「下载量」（每月 10 GB）、「连接数」（最多 100）、「存储」（1 GB）。
 - 下载量曲线突然变陡、存储突然变大，就是有人在刷。
@@ -401,9 +421,11 @@ style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://
 - 「构建 → App Check」。真被刷流量时再用：注册 reCAPTCHA v3，然后需要改代码接入，再点「强制执行」。
 - 代价：大陆不开 VPN 的同学会联不上（自动单机）。
 
-**4. 应急升级**
+**4. 预算提醒（Blaze 必做）/ 应急升级（Spark）**
 
-- 被刷爆、数据库停了，又不想等到下个月：左下角「升级」到 Blaze，同时在 Google Cloud「结算 → 预算和提醒」设一个预算，比如 RM 10，到了会发邮件。
+- 已经是 Blaze：打开 Google Cloud 控制台「结算 → 预算和提醒」→「创建预算」，项目选 `xmum-campus`，金额比如 RM 10，提醒比例 50% / 90% / 100%，发到自己邮箱。
+  - 注意：预算**只提醒、不封顶**。收到邮件就去看用量，如果是被刷，先按步骤 3 开 App Check。
+- 还是 Spark，被刷爆、数据库停了又不想等到下个月：左下角「升级」到 Blaze，同时按上面设预算提醒。
 
 **5. 满员被卡住（大家都在排队，但实际没几个人）**
 
@@ -446,29 +468,71 @@ style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://
 
 ---
 
-## 附：规则改动推理表（PR 到 `main`）
+## 附：规则测试结果（Firebase 模拟器）
 
-`B` 表示「`/ban/{自己}` 不存在」。
+用 `test/rules/rules.test.mjs` 在本机的 Realtime Database 模拟器上跑，不连线上数据库。
 
-| 路径 | 改了什么 | 正常玩家的操作 | 结果 | 攻击 | 结果 |
-|---|---|---|---|---|---|
-| `/ban` | 新增，客户端不能读写 | 不碰 | — | 自己给自己解封 | 拒绝（根和 `/ban` 都是 false） |
-| `/ghosts/$track` 写 | 赛道只认 5 条 + B | 跑完 `campus` 等 5 条交影子 | 允许 | 写 `/ghosts/abc123/我` | 拒绝 |
-| `/ghosts/$track` 读 | 不变 | 读前 8 名 | 允许 | — | — |
-| `/pres/$cell/$uid` 写 | 写入时要 B；删除不限 | 进游戏、移动、onDisconnect 删除 | 允许 | 被封的人写位置 | 拒绝（客户端退回旧协议，也被拒，变单机） |
-| `/pres/…/n` | 等于注册昵称，或 `游客` + 4 位数字 | 已注册：发 `claimed`；没注册上：发「游客1234」 | 允许 | 写别人的名字 | 拒绝 |
-| 改名时序 | — | `claimName` 先一次性写 `names` + `users`，成功后 `claimed` 才变，位置才发新名字 | 允许 | — | — |
-| 只改 `p` 的更新 | 不变 | 只校验写到的字段，`n` 不重新校验 | 允许 | — | — |
-| `/presence/$uid`（旧） | 同 `/pres`：写入要 B，`name` 同样限制 | 退回旧协议时 | 允许 | 冒名 | 拒绝 |
-| `/names/$key` 写 | 写入时要 B；删除不限 | 第一次注册（同时写 `users`） | 允许 | — | — |
-| `/names/$key` validate | 加：`users/{自己}/key` 必须等于这个 key（按写入后的数据算） | 改名（新名 + `users` + 旧名 null，一次写） | 允许 | — | — |
-| 〃 | 〃 | 刷新 `names/{当前名}/ts` | 允许（`users.key` 就是当前名） | 占第二个名字（不改 `users`） | 拒绝 |
-| `/social/$to/$id` | 新建时要 B | 发邀请、回复 | 允许 | 被封的人发 | 拒绝 |
-| 〃 | 删除不变 | 收件人读到就删 | 允许 | — | — |
-| `/showcase/$uid` | 写入要 B；删除不限 | 布置展位 | 允许 | 被封的人上展台 | 拒绝 |
-| `/boards`、`/mini` | 写入要 B（成绩只能变高，删除被 validate 跳过，但 write 里的 B 仍要满足） | 交成绩 | 允许 | 被封的人交成绩 | 拒绝 |
-| `/wall/$uid` | 新贴 / 换贴要满足原来的冷却 + B；删除不限 | 贴便利贴、10 分钟后换、删掉 | 允许 | 被封的人贴 | 拒绝 |
-| `/wallLikes`、`/wallFlags` 别人那一层 | 加 B | 点赞、举报 | 允许 | 被封的人点赞 / 举报 | 拒绝 |
-| 其余路径 | 不变 | — | — | — | — |
+- 「旧规则」是 `main` 上现在的规则（线上正在用的），「当前规则」是这个 PR 改过的。
+- `allow` 是允许，`deny` 是拒绝。
+- 用例 N 是正常玩法，必须一直允许；A 是攻击，新规则必须拒绝；B 是被封的人删自己的东西，必须允许。
 
-客户端用 `test/firebase-mock.js` 跑过：联机但昵称没注册上时，成绩和位置里的名字是 `游客` + 4 位数字。注册成功的路径代码没有变（还是返回 `claimed`）。
+结果：
+
+- 旧规则下，除了 A7（抢别人已注册的昵称）、A8 / A9（`/ban` 本来就不存在），所有攻击都能成功，说明这些漏洞是真的。
+- 新规则下所有攻击都被拒绝，所有正常玩法照常。
+
+| # | 情况 | 旧规则 | 当前规则 | 符合预期 |
+|---|---|---|---|---|
+| N1 | 第一次注册昵称（names + users 一次写） | allow | allow | ✅ |
+| N2 | 刷新自己昵称的上线时间 names/{名}/ts | allow | allow | ✅ |
+| N3 | 改名（新名 + users + 旧名删掉，一次写） | allow | allow | ✅ |
+| N4 | 进格子：/pres 整条写（注册昵称） | allow | allow | ✅ |
+| N5 | 只更新位置 p | allow | allow | ✅ |
+| N6 | 换格（新格写、旧格删，一次写） | allow | allow | ✅ |
+| N7 | 没注册上昵称的人用「游客1234」写位置 | allow | allow | ✅ |
+| N8 | 下线删掉自己的位置 | allow | allow | ✅ |
+| N9 | 改名后位置里换成新名字 | allow | allow | ✅ |
+| N10 | 旧协议 /presence 整条写 | allow | allow | ✅ |
+| N11 | 交总榜成绩 | allow | allow | ✅ |
+| N12 | 交小游戏成绩 | allow | allow | ✅ |
+| N13 | 交赛车影子（campus） | allow | allow | ✅ |
+| N14 | 贴便利贴 | allow | allow | ✅ |
+| N15 | 删掉自己的便利贴 | allow | allow | ✅ |
+| N16 | 给在线的人发互动消息 | allow | allow | ✅ |
+| N17 | 收件人读到就删 | allow | allow | ✅ |
+| N18 | 布置展位 | allow | allow | ✅ |
+| N19 | 给别人的便利贴点赞（likes + 计数一次写） | allow | allow | ✅ |
+| N20 | 举报别人的便利贴（flags + 计数一次写） | allow | allow | ✅ |
+| N21 | 不登录读公开总榜 | allow | allow | ✅ |
+| N22 | 读自己的 users | allow | allow | ✅ |
+| A1 | 影子写到编出来的赛道 /ghosts/fake1 | allow | deny | ✅ |
+| A2 | 位置里冒充别人的名字（/pres n = Bob） | allow | deny | ✅ |
+| A3 | 已有位置，只把名字改成别人的 | allow | deny | ✅ |
+| A4 | 旧协议 /presence 冒名 | allow | deny | ✅ |
+| A5 | 没注册的人用不像游客的名字写位置 | allow | deny | ✅ |
+| A6 | 已有昵称，再抢注第二个（不改 users） | allow | deny | ✅ |
+| A7 | 抢别人已注册的昵称 | deny | deny | ✅ |
+| A8 | 自己给自己解封 / 写 /ban | deny | deny | ✅ |
+| A9 | 读 /ban | deny | deny | ✅ |
+| A10 | 被封的人交总榜成绩 | allow | deny | ✅ |
+| A11 | 被封的人交小游戏成绩 | allow | deny | ✅ |
+| A12 | 被封的人交影子（真赛道） | allow | deny | ✅ |
+| A13 | 被封的人写位置 | allow | deny | ✅ |
+| A14 | 被封的人发互动消息 | allow | deny | ✅ |
+| A15 | 被封的人贴便利贴 | allow | deny | ✅ |
+| A16 | 被封的人举报别人 | allow | deny | ✅ |
+| A17 | 被封的人上展台 | allow | deny | ✅ |
+| A18 | 被封的人改名 / 注册新昵称 | allow | deny | ✅ |
+| B1 | 被封的人删掉自己的位置（onDisconnect） | allow | allow | ✅ |
+| B2 | 被封的人删掉自己的便利贴 | allow | allow | ✅ |
+| B3 | 被封的人删掉自己的展位 | allow | allow | ✅ |
+
+怎么再跑一遍（需要 Node 18+ 和 Java 11+）：
+
+```bash
+cd test/rules && npm install && npx firebase emulators:exec --only database --project demo-xmum "node rules.test.mjs"
+```
+
+以后改规则（比如合并 #105 好友），在 `rules.test.mjs` 的用例里加上新节点的正常 / 攻击情况，再跑一遍。
+
+客户端改动用 `test/firebase-mock.js` 跑过：联机但昵称没注册上时，成绩和位置里的名字是 `游客` + 4 位数字。注册成功的路径代码没有变（还是返回 `claimed`）。
