@@ -130,7 +130,9 @@ function updateMission(dt, px, pz){
 const compass = $('#compass'), cdist = $('#cdist'), compassSvg = compass.querySelector('svg');
 const _fw = new THREE.Vector3();
 function updateCompass(px, pz){
-  const tgtP = mission.on ? mission.to : null, act = gx.target();
+  const pk = window.XGuidePick ? XGuidePick.pick(px, pz) : null;   /* what the player chose for the arrow (🎯, js/89-guide-pick.js); null = the rules below */
+  if (pk && pk.x == null){ compassSvg.style.visibility = 'hidden'; cdist.textContent = pk.text || ''; return; }
+  const tgtP = mission.on ? mission.to : null, act = pk || gx.target();
   let tx, tz, label;
   if (act){ tx = act.x; tz = act.z; label = act.label; }
   else if (tgtP){ tx = tgtP.x; tz = tgtP.z; label = '送到 ' + tgtP.name; }
