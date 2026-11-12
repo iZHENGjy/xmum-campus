@@ -1810,3 +1810,15 @@ body:not(.naiwa) .lp-row{display:none}
   body.naiwa #gstat .lp-row{flex:0 6 auto;max-width:26vw;border-top:0;border-left:1px dashed var(--line);padding:0 0 0 7px;margin:0}
   body.naiwa #gstat .grow:first-child{flex-shrink:0}   /* the money never gets cut for this row */
 }
+
+/* 右边一列和按钮不重叠（js/ui-fit.js 量出重叠时才加这些 class，一级一级收紧） */
+body.fit-1 #acts{grid-template-columns:repeat(4,auto);gap:6px}
+body.fit-1 #acts button{min-height:40px;padding-top:4px;padding-bottom:4px}
+body.fit-1 #acts #act-soc{min-height:32px;padding-top:3px;padding-bottom:3px}
+body.fit-2.naiwa #mini{width:96px;height:96px;border-width:2px}
+body.fit-2.naiwa #gstat .grow{padding-top:1px;padding-bottom:1px}
+body.fit-2.naiwa #gstat .grow span,body.fit-2.naiwa #gstat .grow b{line-height:1.25}
+body.fit-3.naiwa #mini{position:fixed}   /* js/ui-fit.js 把它放到钱包面板左边 */
+
+/* 接单卡片（js/89-offers.js）在宽屏上和主线提示条都在屏幕下方正中，叠在一起；卡片开着时提示条先让开（卡片就是这一步要做的事） */
+@media (min-width:761px){ body:has(#offer:not([hidden]):not(.mini)) #qhint{visibility:hidden} }
