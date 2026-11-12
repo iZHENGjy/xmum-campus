@@ -916,7 +916,8 @@ const sky = new THREE.Mesh(new THREE.SphereGeometry(5200, 24, 12), new THREE.Sha
       float s = max(dot(d, sunDir), 0.0);
       c += sunCol * glow * (pow(s, 900.0) * 1.6 + pow(s, 40.0) * 0.22 + pow(s, 5.0) * 0.10) * smoothstep(-0.06, 0.04, d.y);
       gl_FragColor = vec4(c, 1.0);
-    }`}));
+      #include <tonemapping_fragment>
+    }`}));   /* tone mapping like every other material (js/19-light.js), so the sky still meets the fog at the horizon */
 sky.renderOrder = 100; sky.frustumCulled = false; scene.add(sky);
 const starGeo = new THREE.BufferGeometry(); const sv = [];
 for (let i = 0; i < 1400; i++){ const a = rnd() * 6.283, e = Math.asin(.08 + rnd() * .92), R = 4000; sv.push(Math.cos(a) * Math.cos(e) * R, Math.sin(e) * R, Math.sin(a) * Math.cos(e) * R); }

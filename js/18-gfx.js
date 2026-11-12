@@ -399,7 +399,7 @@ function gfxRender(dt, T){
   gfxShineTick();
   updateLod(); gfxNpcDetail(); gfxCarDetail(lamp); gfxShadowTick();
   const glow = XQ.cfg.glow && lamp > .04;
-  glowMat.opacity = Math.min(1, lamp) * .5; beamMat.opacity = Math.min(1, lamp) * .42;
+  glowMat.opacity = Math.min(1, lamp) * .5; beamMat.opacity = Math.min(1, lamp) * .42 * (1 + .6 * wx.wet);   /* headlights shine back off a wet road */
   for (const g of glowSets) g.im.visible = glow;
   /* facade lighting (washMat, js/00-core.js) comes up with the lamps; 流畅 leaves it off */
   { const k = XQ.cfg.glow ? Math.min(1, lamp) : 0, won = k > .03; washMat.color.setScalar(k * .8); if (won !== gfxWashOn){ gfxWashOn = won; for (const m of washMeshes) m.visible = won; } }
@@ -409,7 +409,7 @@ function gfxRender(dt, T){
     if (!gfxNwBlob){ gfxNwBlob = gfxBlob(2.2, 2.2); NW.root.add(gfxNwBlob); }
     gfxNwBlob.visible = !renderer.shadowMap.enabled; gfxNwBlob.position.y = .07 - NW.root.position.y + (typeof groundAt === 'function' ? Math.max(0, groundAt(NW.root.position.x, NW.root.position.z)) : 0);
   }
-  for (const h of farHills) h.m.material.color.copy(h.col).multiplyScalar(.25 + .75 * Math.min(1, hemi.intensity * 1.4 - .35 + sun.intensity * .2)).lerp(skyU.hor.value, h.haze + rain * (1 - h.haze) * .8);
+  for (const h of farHills) h.m.material.color.copy(h.col).multiplyScalar(.25 + .75 * Math.min(1, hemi.intensity * 1.4 - .35 + sun.intensity * .2)).lerp(skyU.hor.value, h.haze + Math.max(rain, wx.haze, wx.cloud * .5) * (1 - h.haze) * .8);
   farHills.towers.emissiveIntensity = cur.win * .9;
   renderer.render(scene, camera);
   if (XQ.cfg.bloom && lamp > .05) gfxPost.bloom(Math.min(1, lamp) * .6);

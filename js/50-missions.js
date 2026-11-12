@@ -106,8 +106,9 @@ function updateMission(dt, px, pz){
   if (d < 5.5 && !mission.stolen && mission.t > 0){
     const pay = (25 + (mission.fee || 0) + Math.max(0, mission.t - (mission.grace || 0)) * 1.2) * (mission.hot ? 2 : 1) * (mission.cross ? mission.cross.mult : 1) * (mission.mult || 1) * (typeof outCred === 'function' ? outCred() : 1); deliveries++; sess.deliv++; prog.life.deliv++;
     if (mission.hot) prog.daily = dayKey();
-    earn(pay);
-    sfx.ding(); toast((mission.hot || mission.rush ? '加急送达 ' : '送达 ') + mission.to.name, `+RM ${pay.toFixed(2)} · 已送 ${deliveries} 单`, 2600);
+    const tip = typeof wxTip === 'function' ? wxTip() : 0;   /* a small tip for delivering in a real downpour (js/17-weather.js; capped per day) */
+    earn(pay + tip);
+    sfx.ding(); toast((mission.hot || mission.rush ? '加急送达 ' : '送达 ') + mission.to.name, `+RM ${pay.toFixed(2)}${tip ? ` · 雨天小费 +RM ${tip}` : ''} · 已送 ${deliveries} 单`, 2600);
     mission.on = false; unlock('deliv1'); if (prog.life.deliv >= 25) unlock('deliv25');
   } else if (mission.t <= 0){
     sfx.fail(); toast('外卖凉了', '超时了，顾客给了差评', 2600); mission.on = false;

@@ -128,7 +128,8 @@ const todBtn = (() => {
   const b = document.createElement('button'); b.type = 'button'; b.id = 'todBtn'; b.setAttribute('aria-label', '时间和天气'); b.setAttribute('aria-expanded', 'false');
   seg.parentNode.insertBefore(b, seg);
   const ICON = {day:'☀️', dusk:'🌇', night:'🌙'};
-  const sync = () => { const on = seg.querySelector('[data-t][aria-pressed="true"]'); b.textContent = (ICON[on ? on.dataset.t : 'day'] || '☀️') + (rainBtn && rainBtn.getAttribute('aria-pressed') === 'true' ? '🌧' : ''); };
+  const sync = () => { const on = seg.querySelector('[data-t][aria-pressed="true"]'); const w = typeof wxIcon === 'function' ? wxIcon() : rainBtn && rainBtn.getAttribute('aria-pressed') === 'true' ? '🌧' : ''; b.textContent = (ICON[on ? on.dataset.t : 'day'] || '☀️') + w; };
+  b.sync = sync;   /* js/17-weather.js calls it when the weather changes */
   const panel = seg.closest('.panel');   /* the panels blur what is behind them, so each one paints as a layer of its own: lift ours while the choices are open */
   const setOpen = open => { seg.classList.toggle('pop', open); if (panel) panel.classList.toggle('tod-open', open); b.setAttribute('aria-expanded', String(open)); };
   const close = () => setOpen(false);
@@ -162,8 +163,9 @@ function rainSound(){
 }
 
 function updateWeather(dt, T){
-  /* auto showers only by day/dusk, never with reduced motion */
-  if (!showers.manual && !REDUCED && !document.hidden && tgt !== P3.night){
+  /* the weather schedule lives in js/17-weather.js now (showers, thunderstorms, haze, overcast); the old shower timer stays as a fallback */
+  if (typeof wxDirector === 'function') wxDirector(dt);
+  else if (!showers.manual && !REDUCED && !document.hidden && tgt !== P3.night){
     if (wx.target > .5){ showers.dur -= dt; if (showers.dur <= 0){ wx.target = 0; showers.left = 240 + ambRng() * 180; if (rainBtn) rainBtn.setAttribute('aria-pressed', 'false'); } }
     else { showers.left -= dt; if (showers.left <= 0){ wx.target = 1; showers.dur = 45 + ambRng() * 30; if (rainBtn) rainBtn.setAttribute('aria-pressed', 'true'); toast('下雨了', '雪邦的午后阵雨，一会儿就停', 1800); } }
   }
@@ -172,12 +174,12 @@ function updateWeather(dt, T){
   rainSound(); updatePlanes(dt, T);
 
   /* streaks */
-  rainLines.visible = wx.rain > .01;
+  rainLines.visible = wx.rain > .01 && !(typeof indoorNow === 'function' && indoorNow());   /* no rain falling inside the house, dorm or classroom */
   if (rainLines.visible){
-    rainMat.opacity = .42 * wx.rain;
+    rainMat.opacity = .42 * wx.rain * (1 + .45 * wx.storm);   /* a thunderstorm (js/17-weather.js) pours: denser, faster, slanting in the wind */
     camera.getWorldDirection(_rc); _rc.y = 0; _rc.normalize().multiplyScalar(RAIN_R * .55);
     const cx = camera.position.x + _rc.x, cz = camera.position.z + _rc.z, base = Math.max(0, camera.position.y - RAIN_H * .55);
-    const fall = (REDUCED ? 0 : 30) * dt, wxd = 2.4, len = 1.3;
+    const fall = (REDUCED ? 0 : 30 + 16 * wx.storm) * dt, wxd = 2.4 + 6 * wx.storm, len = 1.3 + .7 * wx.storm;
     for (let i = 0; i < RAIN_N; i++){
       let x = rainXYZ[i * 3], y = rainXYZ[i * 3 + 1] - fall, z = rainXYZ[i * 3 + 2];
       if (y < 0) y += RAIN_H;
@@ -192,7 +194,7 @@ function updateWeather(dt, T){
   }
   /* puddles mirror the (grey) sky */
   puddles.visible = wx.wet > .01;
-  if (puddles.visible){ puddleMat.opacity = wx.wet * .55; puddleMat.color.copy(scene.background).multiplyScalar(.95); }
+  if (puddles.visible){ puddleMat.opacity = wx.wet * (.55 + .2 * wx.storm); puddleMat.color.copy(scene.background).multiplyScalar(.95); }
 
   /* birds wheel by day and roost at night or in heavy rain */
   const showBirds = cur.stars < .5 && wx.rain < .5;

@@ -236,6 +236,7 @@
     /* a few walkers per frame, round robin */
     for (let c = 0; c < 6; c++){
       const i = L.rr = (L.rr + 1) % W, n = WALKERS[i], want = wantRole(i, ph), have = n.life ? n.life.role : null;
+      if (n.state === 'shelter') continue;   /* sheltering from heavy rain (js/17-weather.js): it brings them back itself */
       const finished = n.life && n.life.done;   /* walked into a building: send the next one out */
       /* someone who just bought lunch walks off; once out of sight and away from the line, they can queue again (keeps the line long) */
       const recycled = have === 'queueOut' && n.life.q0 && Math.hypot(n.x - n.life.q0.slots[0][0], n.z - n.life.q0.slots[0][1]) > 35;
@@ -252,6 +253,7 @@
     /* the chatting groups break up in the late night */
     const off = ph === 'late';
     for (const n of GROUPED){
+      if (n.state === 'shelter') continue;
       if (off && n.state === 'walk' && unseen(n)){ n.state = 'lifeoff'; n.lifeGrp = true; }
       else if (!off && n.lifeGrp && unseen(n)){ n.state = 'walk'; n.lifeGrp = false; }
     }

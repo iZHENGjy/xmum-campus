@@ -25,12 +25,12 @@ const XClock = window.XClock = (() => {
   /* key frames: hour -> sky. DAY, DUSK and NIGHT are the old three presets, so jumping with a button looks just like before */
   const mk = o => { const p = Object.assign({}, o); P3_COL.forEach(f => p[f] = p[f] && p[f].isColor ? p[f].clone() : C(p[f])); return p; };
   const from = (b, o) => { const p = {}; P3_COL.forEach(f => p[f] = b[f].clone()); P3_NUM.forEach(f => p[f] = b[f]); return Object.assign(p, mk(Object.assign({}, p, o || {}))); };
-  const NIGHT = from(P3.night, {ex:1}), DAY = from(P3.day, {ex:1}), DUSK = from(P3.dusk, {ex:1});
-  const DAWN = mk({bg:'#56608c', top:'#1d2752', glow:.7, hs:'#6f7aa6', hg:'#1d2026', hi:.42, sc:'#d8b4c8', si:.28, win:1, lamp:1.3, stars:.3, moon:.25, cloud:.4, cc:'#8a86a2', water:'#2e3a5c', fn:600, ff:2000, ex:1});
-  const RISE = mk({bg:'#f3b88f', top:'#5878b8', glow:1.45, hs:'#ffd6b6', hg:'#4a4238', hi:.5, sc:'#ffb478', si:.78, win:.35, lamp:.4, stars:0, moon:0, cloud:.82, cc:'#ffd4c0', water:'#7a7c96', fn:760, ff:2300, ex:1});
-  const MORN = mk({bg:'#b0d9ee', top:'#4590de', glow:1, hs:'#e6f0fc', hg:'#58683e', hi:.64, sc:'#fff0d6', si:1.04, win:0, lamp:0, stars:0, moon:0, cloud:.93, cc:'#fff6ee', water:'#4f857a', fn:880, ff:2550, ex:1});
-  const GOLD = mk({bg:'#f4c898', top:'#4a84cc', glow:1.3, hs:'#ffe4c6', hg:'#566038', hi:.6, sc:'#ffc884', si:1.06, win:.1, lamp:0, stars:0, moon:0, cloud:.9, cc:'#ffe6d0', water:'#5f857e', fn:820, ff:2450, ex:1});
-  const BLUE = mk({bg:'#5c6298', top:'#1b2452', glow:.75, hs:'#7a82b8', hg:'#22212a', hi:.44, sc:'#b8a8e0', si:.3, win:1.1, lamp:1.4, stars:.45, moon:.45, cloud:.35, cc:'#6c7096', water:'#2a3458', fn:620, ff:2000, ex:1});
+  const NIGHT = from(P3.night, {ex:1.45}), DAY = from(P3.day, {ex:1.08}), DUSK = from(P3.dusk, {ex:1.12});
+  const DAWN = mk({bg:'#56608c', top:'#1d2752', glow:.7, hs:'#6f7aa6', hg:'#1d2026', hi:.42, sc:'#d8b4c8', si:.28, win:1, lamp:1.3, stars:.3, moon:.25, cloud:.4, cc:'#8a86a2', water:'#2e3a5c', fn:600, ff:2000, ex:1.35});
+  const RISE = mk({bg:'#f3b88f', top:'#5878b8', glow:1.45, hs:'#ffd6b6', hg:'#4a4238', hi:.5, sc:'#ffb478', si:.78, win:.35, lamp:.4, stars:0, moon:0, cloud:.82, cc:'#ffd4c0', water:'#7a7c96', fn:760, ff:2300, ex:1.1});
+  const MORN = mk({bg:'#b0d9ee', top:'#4590de', glow:1, hs:'#e6f0fc', hg:'#58683e', hi:.64, sc:'#fff0d6', si:1.04, win:0, lamp:0, stars:0, moon:0, cloud:.93, cc:'#fff6ee', water:'#4f857a', fn:880, ff:2550, ex:1.08});
+  const GOLD = mk({bg:'#f4c898', top:'#4a84cc', glow:1.3, hs:'#ffe4c6', hg:'#566038', hi:.6, sc:'#ffc884', si:1.06, win:.1, lamp:0, stars:0, moon:0, cloud:.9, cc:'#ffe6d0', water:'#5f857e', fn:820, ff:2450, ex:1.06});
+  const BLUE = mk({bg:'#5c6298', top:'#1b2452', glow:.75, hs:'#7a82b8', hg:'#22212a', hi:.44, sc:'#b8a8e0', si:.3, win:1.1, lamp:1.4, stars:.45, moon:.45, cloud:.35, cc:'#6c7096', water:'#2a3458', fn:620, ff:2000, ex:1.3});
   const KEYS = [[0, NIGHT], [5.6, NIGHT], [6.3, DAWN], [7.1, RISE], [8.3, MORN], [9.3, DAY], [16.2, DAY], [17.6, GOLD], [18.75, DUSK], [19.55, BLUE], [20.4, NIGHT], [24, NIGHT]];
   const NUMS = P3_NUM.concat(['ex']);
   const live = from(P3.day, {ex:1}); live.d = P3.day.d.clone();
