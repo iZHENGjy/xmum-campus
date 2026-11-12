@@ -98,7 +98,8 @@
     const show = mode === 'naiwa' && !!c && S().ph !== 'done';   /* always: the 收起 box only hides the operation tips */
     bar.hidden = !show; if (!show) return;
     const all = XQ.steps(), i = Math.max(0, all.findIndex(s => s.id === (st && st.id))), cnt = st && st.count ? g(() => st.count(XQ.Q), null) : null;
-    const t = `主线 ${c.n}/${XQ.chapters.length} · ${st ? st.text.replace(/（.*?）/g, '') : ''}` + (cnt ? ` ${cnt[0]}/${cnt[1]}` : st && !st.meet && !st.solo ? ` · ${i + 1}/${all.length}` : '');
+    const why = st ? XQ.waitWhy(st).split('。')[0] : '';   /* the bar gets the first sentence; the diary's list has the whole of it */
+    const t = `主线 ${c.n}/${XQ.chapters.length} · ${st ? st.text.replace(/（.*?）/g, '') : ''}` + (why ? `（${why}）` : cnt ? ` ${cnt[0]}/${cnt[1]}` : st && !st.meet && !st.solo ? ` · ${i + 1}/${all.length}` : '');
     if (bar.textContent !== t){ bar.textContent = t; bar.title = t + '（点开日记）'; }
     bar.classList.toggle('q-bang', !!st && (st.meet || st.report));
   }
@@ -261,7 +262,10 @@
       for (const s of all){
         const done = XQ.stepDone(s.id), cur = isCur && !meet && now && now.id === s.id;
         const cnt = s.count && cur ? g(() => s.count(XQ.Q), null) : null;
-        h += `<li class="${done ? 'q-done' : cur ? 'q-now' : 'q-later'}"><span class="q-box">${done ? '☑' : '☐'}</span><div><b>${esc(s.text)}${cnt ? ` <em>${cnt[0]}/${cnt[1]}</em>` : ''}${s.rm && !done ? ` <em class="q-rm">RM ${s.rm}</em>` : ''}</b>`;
+        const why = isCur && !done ? XQ.waitWhy(s) : '';
+        h += `<li class="${done ? 'q-done' : cur ? 'q-now' : 'q-later'}"><span class="q-box">${done ? '☑' : '☐'}</span><div><b>${esc(s.text)}${s.opt && !done ? ' <em class="q-opt">可选</em>' : ''}${cnt ? ` <em>${cnt[0]}/${cnt[1]}</em>` : ''}${s.rm && !done ? ` <em class="q-rm">RM ${s.rm}</em>` : ''}</b>`;
+        if (why) h += `<small class="q-how">${esc(why)}</small>`;
+        else if (s.opt && !done && !cur && s.hint) h += `<small>${hintText(s.hint)}</small>`;
         if (cur){
           const ht = hintText(s.hint);
           if (ht) h += `<small class="q-how">${ht}</small>`;
