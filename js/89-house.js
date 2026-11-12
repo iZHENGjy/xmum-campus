@@ -899,7 +899,7 @@ function hzMini(){
     extBusy(){ return base.extBusy() || !!HZ.in; },
     prompt(){ return hzPrompt || base.prompt(); },
     target(){ return HZ.in ? (HZ.fl ? {x:HX(HZ_STAIRS[1].x, 1), z:HZZ(HZ_STAIRS[1].z), label:'下楼'} : {x:HX(HZ_EXIT.x, 0), z:HZZ(HZ_EXIT.z), label:'出门'}) : base.target(); },
-    mini(dot){ base.mini(dot); if (!HZ.in) for (const h of HZ_HOUSES) dot(h.ux + 3, TWM.z0 + 3, hz.own[h.id] ? '#ffffff' : '#38c6d9', hz.own[h.id] ? 5 : 4); },
+    mini(dot){ base.mini(dot); if (!HZ.in) for (const h of HZ_HOUSES) dot(h.ux + 3, TWM.z0 + 3, hz.own[h.id] ? '#ffffff' : '#38c6d9', hz.own[h.id] ? 5 : 4, hz.own[h.id] ? {i:'🏡', t:'我的家 · ' + h.no + ' 号', s:'按 F 回家', c:'campus', p:1} : {i:'🏠', t:'出售 · ' + h.no + ' 号', s:'RM ' + h.price.toLocaleString() + ' · ' + h.tag, c:'campus', p:3}); },
     onBust(){ if (HZ.in) hzLeave(true); base.onBust(); },
     leave(){ if (HZ.in) hzLeave(true); for (const l of hzLbls) l.dead = true; hzSetF(''); base.leave(); }
   });

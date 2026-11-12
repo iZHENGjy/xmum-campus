@@ -148,8 +148,11 @@
         '房子、家具、墙面地板都按原价算进<b>总资产</b>。开着自己的车到车棚前下车，车自动停进车棚，下次上线还在。第一套房子自动设成<b>出生点</b>，打开游戏就在家门口（装修面板顶上能改）。'])}`},
     {id:'map', t:'看地图', art:'map', body:() => `
       ${li([`${K('按 <kbd>M</kbd> 打开大地图', '点右上角的小地图打开大地图')}：拖动平移，${K('滚轮或', '双指或')}「＋ −」缩放，「回到我」重新跟着你。${K('再按 M 或 Esc 关。', '')}`,
+        '大地图上每个地方都是一个<b>图标加名字</b>：🥡 外卖取餐、🚗 车行、🍔 麦当当、🚆 ERL 火车站……缩小时只写大地方的名字，放大看得更全。',
+        K('挤在一起的地方合成一个，右上角写着几个，鼠标停在上面或点一下就列出来。', '挤在一起的地方合成一个，右上角写着几个，点一下就列出来。'),
+        '<b>金色圆环</b>是指南针正在指的地方，⭐ 是主线。左上角「图例 · 筛选」按类别开关：主线、外卖、玩法、吃喝商店、交通、校园和住处。',
         '屏幕上方的<b>指南针</b>指着现在的目标，旁边写着还有多远。',
-        '在教学楼、宿舍里面，小地图换成那层楼的平面图。'])}
+        '在教学楼、宿舍里面，小地图换成那层楼的平面图。小地图上的颜色：'])}
       <div class="gd-legend">${LEGEND.map(([c, t, sq]) => `<span><i class="${sq ? 'sq' : ''}" style="--c:${c}"></i>${t}</span>`).join('')}</div>`},
     {id:'radio', t:'换电台', art:'radio', body:() => `
       ${li(['上车自动开电台。点<b>电台小条</b>（电脑在左下角，手机竖着拿在上方）打开面板：选台（霓虹夜驾、芙蓉湖 Lo-fi、赛道 EDM）、下一首、单曲循环、收藏到这辆车（下次坐进这辆车接着放）、音量。',
@@ -284,9 +287,12 @@
     }
     if (MV.follow){ MV.cx = x; MV.cz = z; }
     miniNames.minor = MV.span <= 460;
-    const mo = {g:cx2d, span:MV.span, u:MV.dpr * 1.15, names:MV.span <= 1500, me:[x, z], noN:true};
+    /* the dots come back in mo.pins instead of being drawn; js/ui-map-pins.js draws them as named pins, then the building names and you */
+    const pinned = !!window.XMapPins;
+    const mo = {g:cx2d, span:MV.span, u:MV.dpr * 1.15, names:!pinned && MV.span <= 1500, wantNames:MV.span <= 1500, me:[x, z], noN:true, pins:pinned ? [] : null, noMe:pinned};
     g(() => drawMiniCampus(MV.cx, MV.cz, yaw, mo));
     for (const fn of XGuide.mapLayers) g(() => fn(MV.cx, MV.cz, mo));   /* extra marks on the big map, e.g. the story's star (js/89-quest-ui.js) */
+    if (pinned) g(() => XMapPins.draw(mo, {cx:MV.cx, cz:MV.cz, yaw, me:[x, z]}));
   }
   function loop(t){
     if (!bm.open){ MV.raf = 0; return; }
@@ -297,9 +303,11 @@
     const inn = indoor();
     $m('bmZoom').hidden = inn;
     $m('bmSub').textContent = inn ? '这层楼的平面图' : mode === 'hole' ? '黑洞和道具' : (TOUCH ? '拖动平移 · 双指缩放' : '拖动平移 · 滚轮缩放 · M 或 Esc 关');
-    const L = inn ? [] : mode === 'naiwa' ? LEGEND : mode === 'walk' ? [['#1f2a33', '你（箭头）'], ['#ffd24a', '打卡点']] : [['#1f2a33', '你（箭头）']];
+    /* the colour key under the map is gone: the pins carry their own names, and the 「图例 · 筛选」 button on the map lists the kinds (js/ui-map-pins.js) */
+    const L = window.XMapPins ? [] : inn ? [] : mode === 'naiwa' ? LEGEND : mode === 'walk' ? [['#1f2a33', '你（箭头）'], ['#ffd24a', '打卡点']] : [['#1f2a33', '你（箭头）']];
     $m('bmLegend').innerHTML = L.map(([c, t, sq]) => `<span><i class="${sq ? 'sq' : ''}" style="--c:${c}"></i>${t}</span>`).join('');
     $m('bmLegend').hidden = !L.length;
+    { const f = bm.querySelector('.bm-filt'); if (f) f.hidden = inn || mode !== 'naiwa'; }
   }
   function canMap(){
     if (g(() => titleOpen, false) || !(mode === 'walk' || mode === 'naiwa' || mode === 'hole')) return false;
@@ -433,5 +441,5 @@
   { const b0 = build; build = function(){ b0(); PAGES.forEach((p, i) => { if (p.mount){ const el = track.children[i]; if (el) g(() => p.mount(el)); } }); }; }
   function refresh(){ if (!gd.open) return; const k = cur; build(); go(k, true); requestAnimationFrame(() => { track.style.transition = ''; }); }
   window.XGuide = {open:openGuide, close:closeGuide, map:openMap, closeMap, get on(){ return gd.open || bm.open; }, get guideOn(){ return gd.open; }, get mapOn(){ return bm.open; },
-    get page(){ return gd.open ? cur : -1; }, get pageId(){ return gd.open && PAGES[cur] ? PAGES[cur].id : ''; }, pages:PAGES.map(p => p.id), addPage, refresh, go:i => go(i), mapLayers:[]};
+    get page(){ return gd.open ? cur : -1; }, get pageId(){ return gd.open && PAGES[cur] ? PAGES[cur].id : ''; }, pages:PAGES.map(p => p.id), addPage, refresh, go:i => go(i), mapLayers:[], mapRedraw:() => drawMap()};
 })();

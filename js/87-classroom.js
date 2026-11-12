@@ -427,7 +427,7 @@ function roomUpdate(dt, px, pz){
     update(dt, px, pz){ base.update(dt, px, pz); roomUpdate(dt, px, pz); },
     prompt(){ return roomPrompt || base.prompt(); },
     target(){ return base.target() || (ROOM.in ? {x:ROOM_DOOR[0], z:ROOM_DOOR[1], label:'出门'} : null); },
-    mini(dot){ base.mini(dot); if (!ROOM.in) for (const d of ROOM_DOORS) dot(d.x, d.z, '#ffd27a', 4); },
+    mini(dot){ base.mini(dot); if (!ROOM.in) for (const d of ROOM_DOORS) dot(d.x, d.z, '#ffd27a', 4, {i:'🏫', t:d.name + ' 教室', s:'教学楼门口 · 进去看看', c:'campus', p:3}); },
     onBust(){ roomLeave(true); base.onBust(); },
     leave(){ roomLeave(true); for (const d of ROOM_DOORS){ d.mark.visible = false; d.lbl.dead = true; } setFLabel(''); WG.jets.length = 0; WG.drag = null; wgHolster(); wgLine.m.visible = wgLine.tip.visible = false; base.leave(); }
   });

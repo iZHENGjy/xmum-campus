@@ -827,7 +827,7 @@ window.XMcd = {
     mini(dot){
       base.mini(dot);
       const busy = (typeof mission !== 'undefined' && mission.on) || (typeof gxA !== 'undefined' && !!gxA.act) || (typeof opBusy === 'function' && opBusy());
-      if (!busy) dot(MC.x, MC.z, '#ffb02e', 6);
+      if (!busy) dot(MC.x, MC.z, '#ffb02e', 6, {i:'🍔', t:'麦当当 · 打工配餐', s:'正门外的黄圈', c:'play', p:2});
     },
     leave(){ if (typeof opHide === 'function') opHide(MC.S); MC.near = false; msg = ''; base.leave(); }
   });

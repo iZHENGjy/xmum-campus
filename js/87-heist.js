@@ -681,8 +681,8 @@ ROOM.hook = (dt, fl) => exHere() ? exInside(dt) : fl;
         if (EX.keyAt) dot(EX.keyAt[0], EX.keyAt[1], '#ffd24a', 5);
         return;
       }
-      if (EX.on){ const back = EX.kind === 'exam' && EX.got; dot(back ? EX_START.x : EX.door.x, back ? EX_START.z : EX.door.z, EX_KIND[EX.kind].color, 9); }
-      else if (!mission.on && !gxA.act && !gxTaxi.on){ dot(EX_START.x, EX_START.z, '#ff6f61', 7); dot(HW_START.x, HW_START.z, '#4aa3ff', 7); }
+      if (EX.on){ const back = EX.kind === 'exam' && EX.got; dot(back ? EX_START.x : EX.door.x, back ? EX_START.z : EX.door.z, EX_KIND[EX.kind].color, 9, {i:'🎯', t:EX_KIND[EX.kind].name, c:'main', p:0}); }
+      else if (!mission.on && !gxA.act && !gxTaxi.on){ dot(EX_START.x, EX_START.z, '#ff6f61', 7, {i:'📝', t:'抢救期末卷', s:'A3 门口 · 溜进教室偷回卷子', c:'play', p:2}); dot(HW_START.x, HW_START.z, '#4aa3ff', 7, {i:'📚', t:'赶 DDL · 拿回手机', s:'A3 门口 · 校园跑腿', c:'play', p:3}); }
     },
     onBust(){ if (EX.on){ if (ROOM.in) roomLeave(true); exFail(EX_KIND[EX.kind].name + '失败', '被保安抓了，东西也被收走了'); } base.onBust(); },
     leave(){ if (EX.on){ if (ROOM.in) roomLeave(true); exEnd(); } EX.rearm = ''; exHideStart(); base.leave(); }

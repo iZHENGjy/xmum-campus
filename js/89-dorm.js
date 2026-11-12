@@ -1009,7 +1009,7 @@ function dmMini(){
       let best = null, bd = 1e9; for (const e of DORM.L.exits){ if (dmLocked(e)) continue; const d = Math.hypot(e.x - nw.x, e.z - nw.z) + (e.kind === 'fire' ? 12 : 0); if (d < bd){ bd = d; best = e; } }
       return {x:best.x, z:best.z, label:best.name + ' · 撤离'};
     },
-    mini(dot){ base.mini(dot); if (!DORM.in) for (const d of DM_DOORS) dot(d.x, d.z, '#c9a0ff', 4); },
+    mini(dot){ base.mini(dot); if (!DORM.in) for (const d of DM_DOORS) dot(d.x, d.z, '#c9a0ff', 4, {i:'🛏️', t:d.name + ' 宿舍', s:'宿舍门口', c:'campus', p:3}); },
     onBust(){ if (DORM.in) dmFail('quit', true); base.onBust(); },
     leave(){ if (DORM.in) dmFail('quit', true); for (const d of DM_DOORS){ d.mark.visible = false; d.lbl.dead = true; } dmF(''); if (typeof dmUiHide === 'function') dmUiHide(true); base.leave(); }
   });
