@@ -34,18 +34,21 @@
 
   function add(dict){
     for (const k in dict){
-      const v = dict[k]; if (typeof v !== 'string') continue;
+      let v = dict[k]; if (typeof v !== 'string') continue;
       if (/\{\d\}/.test(k)){
+        /* 两个占位紧挨着（「{0}{1}」）分不清界线：合成第一个，后面那个在译文里去掉，抓到的整段再自己查一遍词典 */
+        const kk = k.replace(/(\{\d\})((?:\{\d\})+)/g, (_, first, rest) => { for (const r of rest.match(/\{\d\}/g)) v = v.split(r).join(''); return first; });
         const order = [];
-        const re = new RegExp('^' + k.split(/(\{\d\})/).map(p => { const m = /^\{(\d)\}$/.exec(p); if (m){ order.push(+m[1]); return '([\\s\\S]+?)'; } return esc(p); }).join('') + '$');
-        pats.push({re, order, out:v, lit:k.replace(/\{\d\}/g, '').length});
+        const parts = kk.split(/(\{\d\})/), lastSlot = parts[parts.length - 1] === '' && parts.length > 2;   // 末尾的占位可以是空的（「秒{2}」后面常常什么都没有）
+        const re = new RegExp('^' + parts.map((p, i) => { const m = /^\{(\d)\}$/.exec(p); if (m){ order.push(+m[1]); return lastSlot && i === parts.length - 2 && i > 1 ? '([\\s\\S]*?)' : '([\\s\\S]+?)'; } return esc(p); }).join('') + '$');
+        pats.push({re, order, out:v, lit:kk.replace(/\{\d\}/g, '').length});
       } else exact.set(k, v);
     }
     pats.sort((a, b) => b.lit - a.lit);
     cache.clear();
   }
   function fill(out, order, m){
-    return out.replace(/\{(\d)\}/g, (_, i) => { const j = order.indexOf(+i); const v = j >= 0 ? m[j + 1] : ''; return tr(v, 1); });
+    return out.replace(/\{(\d)\}/g, (_, i) => { const j = order.indexOf(+i); const v = j >= 0 ? m[j + 1] : ''; return v.indexOf('<') >= 0 ? trSegs(v, 1) : tr(v, 1); });
   }
   function tr(s, depth){
     if (lang === 'zh' || typeof s !== 'string' || !s || !CJK.test(s)) return s;
@@ -65,7 +68,7 @@
         }
       }
     }
-    if (r === undefined){ r = s; if (!depth) missing.set(s, (missing.get(s) || 0) + 1); }
+    if (r === undefined){ r = s; if (!depth && s.length > 1 && s.length < 200) missing.set(s, (missing.get(s) || 0) + 1); }
     if (cache.size > CACHE_MAX) cache.clear();
     cache.set(s, r);
     return r;
@@ -73,7 +76,11 @@
 
   window.XI18N = {
     lang, langs:LANGS, add, t:s => tr(s, 0),
-    set(l){ if (!LANGS[l]) return; try { localStorage.setItem('xmum-lang', l); } catch(e){} location.reload(); },
+    set(l){
+      if (!LANGS[l]) return; try { localStorage.setItem('xmum-lang', l); } catch(e){}
+      const u = new URL(location.href);
+      if (u.searchParams.has('lang')){ u.searchParams.set('lang', l); location.href = u.href; } else location.reload();   // 网址里的 ?lang= 优先，所以要一起改
+    },
     missing:() => [...missing.entries()].sort((a, b) => b[1] - a[1]).map(([s, n]) => n + '× ' + s)
   };
   document.documentElement.lang = lang === 'zh' ? 'zh-CN' : lang;
@@ -98,6 +105,7 @@
       configurable:true, enumerable:d.enumerable,
       get(){ const v = d.get.call(this); const m = this[SRC]; return m && m[prop] && m[prop].out === v ? m[prop].src : readBack ? readBack(v) : v; },
       set(v){
+        if (this.nodeName === 'STYLE' || this.nodeName === 'SCRIPT' || this.nodeName === 'TEXTAREA'){ d.set.call(this, v); return; }   // CSS、代码、玩家正在打的字不翻
         const src = v == null ? '' : String(v), out = toOut(src);
         d.set.call(this, out);
         if (out !== src){ const m = this[SRC] || (this[SRC] = {}); m[prop] = {src, out:d.get.call(this)}; }
@@ -109,14 +117,30 @@
   wrap(HTMLElement.prototype, 'innerText', s => tr(s, 0));
   wrap(Element.prototype, 'innerHTML', html => (CJK.test(html) ? trHTML(html) : html));
 
-  /* HTML 字符串：只翻标签之间的文字和几个属性，标签本身不动 */
+  /* HTML 字符串：只翻文字和几个属性，标签本身不动。
+     先按「块」标签（p、li、div、按钮…）切开，每一段连同里面的 <b> <kbd> 等行内标签整句查词典（词典的键可以带行内标签）；
+     整句查不到，再退回到标签之间一小段一小段地翻 */
   const ATTRS = /(\s(?:title|aria-label|placeholder|alt|data-tip)=")([^"]*)"/g;
+  const BLOCK = /(<\/?(?:p|li|ul|ol|div|h[1-6]|section|article|header|footer|nav|table|thead|tbody|tr|td|th|button|label|dl|dt|dd|figure|figcaption|br|hr|summary|details|select|option)\b[^>]*>)/i;
   function trHTML(html){
+    return html.split(BLOCK).map((part, i) => {
+      if (i % 2 || !CJK.test(part) || part.indexOf('<') < 0) return i % 2 ? trTags(part) : trSegs(part);
+      const t = part.trim(), lead = part.slice(0, part.indexOf(t)), tail = part.slice(lead.length + t.length);
+      let r = exact.get(t);
+      if (r === undefined) for (const p of pats){ const m = p.re.exec(t); if (m){ r = fill(p.out, p.order, m); break; } }
+      if (r !== undefined) return lead + r + tail;
+      const out = trSegs(part, 1);
+      if (t.length < 400 && CJK.test(out.replace(/<[^>]*>/g, ''))) missing.set(t, (missing.get(t) || 0) + 1);
+      return out;
+    }).join('');
+  }
+  const trTags = seg => (CJK.test(seg) ? seg.replace(ATTRS, (_, a, v) => a + attrEsc(tr(attrUn(v), 0)) + '"') : seg);
+  function trSegs(html, quiet){
     return html.replace(/<[^>]+>|[^<]+/g, seg => {
-      if (seg[0] === '<') return CJK.test(seg) ? seg.replace(ATTRS, (_, a, v) => a + attrEsc(tr(attrUn(v), 0)) + '"') : seg;
+      if (seg[0] === '<') return trTags(seg);
       if (!CJK.test(seg)) return seg;
-      const raw = seg.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
-      const out = tr(raw, 0);
+      const raw = seg.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+      const out = tr(raw, quiet ? 1 : 0);
       return out === raw ? seg : out.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     });
   }
@@ -130,11 +154,40 @@
     if (d && d.set) Object.defineProperty(document, 'title', {configurable:true, get(){ return d.get.call(document); }, set(v){ d.set.call(document, tr(String(v), 0)); }}); }
   for (const f of ['alert', 'confirm', 'prompt']){ const o = window[f]; if (o) window[f] = function(m, ...a){ return o.call(window, tr(String(m == null ? '' : m), 0), ...a); }; }
 
+  /* 其他把字放进页面的方法 */
+  { const ct = Document.prototype.createTextNode;
+    Document.prototype.createTextNode = function(t){ return ct.call(this, typeof t === 'string' ? tr(t, 0) : t); };
+    for (const proto of [Element.prototype, Document.prototype, DocumentFragment.prototype, CharacterData.prototype]){
+      for (const f of ['append', 'prepend', 'before', 'after', 'replaceWith', 'replaceChildren']){
+        const o = proto[f]; if (!o || !Object.prototype.hasOwnProperty.call(proto, f)) continue;
+        proto[f] = function(...a){ return o.apply(this, a.map(x => (typeof x === 'string' ? tr(x, 0) : x))); };
+      } }
+    const iah = Element.prototype.insertAdjacentHTML, iat = Element.prototype.insertAdjacentText;
+    Element.prototype.insertAdjacentHTML = function(w, h){ return iah.call(this, w, typeof h === 'string' && CJK.test(h) ? trHTML(h) : h); };
+    Element.prototype.insertAdjacentText = function(w, t){ return iat.call(this, w, tr(String(t), 0)); };
+    for (const [proto, prop] of [[CharacterData.prototype, 'data'], [Node.prototype, 'nodeValue']]){
+      const d = Object.getOwnPropertyDescriptor(proto, prop); if (!d || !d.set) continue;
+      Object.defineProperty(proto, prop, {configurable:true, enumerable:d.enumerable, get:d.get, set(v){
+        const p = this.parentNode; d.set.call(this, p && (p.nodeName === 'STYLE' || p.nodeName === 'SCRIPT') ? v : typeof v === 'string' ? tr(v, 0) : v); }});
+    } }
+
   /* canvas 上的字 */
-  { const C = CanvasRenderingContext2D.prototype;
-    for (const f of ['fillText', 'strokeText', 'measureText']){ const o = C[f]; C[f] = function(s, ...a){ return o.call(this, typeof s === 'string' ? tr(s, 0) : s, ...a); }; }
-    if (window.OffscreenCanvasRenderingContext2D){ const O = OffscreenCanvasRenderingContext2D.prototype;
-      for (const f of ['fillText', 'strokeText', 'measureText']){ const o = O[f]; O[f] = function(s, ...a){ return o.call(this, typeof s === 'string' ? tr(s, 0) : s, ...a); }; } } }
+  /* measureText 量的仍是中文原文：画招牌的代码常用「量一下，太宽就从中文末尾删字」来排版，要是量英文，删出来的半截中文就查不到译文了。
+     画的时候换成译文，最宽只到原文的 1.5 倍（再宽就横向压一压），免得冲出招牌 */
+  for (const P of [CanvasRenderingContext2D.prototype, window.OffscreenCanvasRenderingContext2D && OffscreenCanvasRenderingContext2D.prototype]){
+    if (!P) continue;
+    const meas = P.measureText;
+    for (const f of ['fillText', 'strokeText']){
+      const o = P[f];
+      P[f] = function(s, x, y, maxW){
+        if (typeof s !== 'string' || !CJK.test(s)) return maxW === undefined ? o.call(this, s, x, y) : o.call(this, s, x, y, maxW);
+        const out = tr(s, 0);
+        if (out === s) return maxW === undefined ? o.call(this, s, x, y) : o.call(this, s, x, y, maxW);
+        let cap = meas.call(this, s).width * 1.5; if (maxW !== undefined) cap = Math.min(cap, maxW);
+        return meas.call(this, out).width > cap ? o.call(this, out, x, y, cap) : o.call(this, out, x, y);
+      };
+    }
+  }
 
   /* index.html 里写死的文字：解析完翻一遍 */
   function walk(root){
@@ -146,5 +199,9 @@
       } else for (const a of TA){ const v = n.getAttribute(a); if (v && CJK.test(v)) n.setAttribute(a, v); }
     }
   }
-  document.addEventListener('DOMContentLoaded', () => { walk(document.documentElement); document.title = document.title; }, {once:true});
+  /* 词典里以 # 开头的键是「按元素 id 换字」：同一句中文在窄按钮里要用更短的译法时用（例如 '#wardBtn':'Wardrobe'） */
+  document.addEventListener('DOMContentLoaded', () => {
+    walk(document.documentElement); document.title = document.title;
+    for (const [k, v] of exact) if (k[0] === '#'){ const el = document.getElementById(k.slice(1)); if (el && !el.children.length) el.textContent = v; }
+  }, {once:true});
 })();
