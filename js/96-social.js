@@ -925,7 +925,7 @@ body.wd-open #socStat,body.wd-open #socMenu,body.wd-open #socCard,body.wd-open #
   /* every frame, any mode */
   function socFrame(dt){
     const on = S.on && mode === 'naiwa';
-    actSoc.hidden = !on;
+    if (actSoc.hidden !== !on) actSoc.hidden = !on;
     if (!S.on){ hintL.dead = true; return; }
     if (S.out && pnow() > S.out.exp){ toast(S.out.name + ' 没回应', '', 1600); S.out = null; renderStat(); }
     if (on) pumpCards(); else if (S.card){ S.queue.unshift(S.card); closeCard(); }

@@ -14,6 +14,9 @@
   window.XMUM_FIREBASE = {apiKey:'mock', projectId:'mock', databaseURL:'https://mock.invalid'};
   const TS = {'.sv':'timestamp'}, OVER = 34, ACK = 44;
   const OLD = Q.has('oldrules');
+  /* ?nofriendrules（?oldrules 也算）：数据库还没发布好友的规则，/friends、/freq、/fst 读写都被拒绝（js/96-friends.js 应该显示「好友功能暂时不可用」） */
+  const NOFR = OLD || Q.has('nofriendrules');
+  const frRule = p => NOFR && /^(friends|freq|fst)(\/|$)/.test(p);
   const root = {}, listeners = [], disc = new Map();      // disc: path -> 1（删掉）或 {u:{…}}（update，js/96-friends.js 断线时写最后上线时间）
   /* onDisconnect 要做的写入：删掉的路径写 null，update 的逐个孩子写（时间戳这时才算） */
   const discWrites = m => { const w = []; for (const [p, v] of m){ if (v && v.u) for (const k in v.u) w.push([p + '/' + k, v.u[k] == null ? null : resolve(v.u[k])]); else w.push([p, null]); } return w; };
@@ -135,12 +138,13 @@
     const r = {
       key:split(path).pop() || null,
       child:p => ref(path + '/' + p),
-      set:v => { if (oldDeny(v)) return denied(); write(path, v, 'set'); return Promise.resolve(); },
+      set:v => { if (oldDeny(v) || frRule(path)) return denied(); write(path, v, 'set'); return Promise.resolve(); },
       update:o => {
         if (OLD && (newRule(path) || Object.keys(o).some(k => newRule(path ? path + '/' + k : k)))) return denied();
+        if (frRule(path)) return denied();
         write(path, o, 'update'); return Promise.resolve();
       },
-      remove:() => { if (OLD && newRule(path)) return denied(); write(path, null, 'set'); return Promise.resolve(); },
+      remove:() => { if ((OLD && newRule(path)) || frRule(path)) return denied(); write(path, null, 'set'); return Promise.resolve(); },
       push(v){ const key = Date.now().toString(36) + Math.random().toString(36).slice(2, 8); const c = ref(path + '/' + key); const pr = v === undefined ? Promise.resolve() : c.set(v); return Object.assign(pr, {key, ref:c}); },
       onDisconnect:() => ({
         remove:() => { if (OLD && newRule(path)) return denied(); disc.set(path, 1); return Promise.resolve(); },
@@ -150,7 +154,7 @@
       once(){ const i = info(path), v = i !== undefined ? i : get(path); if (i === undefined) rx(bytes(msg('d', path, v == null ? null : v))); return Promise.resolve(snap(path, v)); },
       on(ev, cb, cancel){
         if (OLD && newRule(path)){ setTimeout(() => { if (cancel) cancel(Object.assign(new Error('PERMISSION_DENIED'), {code:'PERMISSION_DENIED'})); }, 0); return cb; }
-        if (fstDeny(path)){ setTimeout(() => { if (cancel) cancel(Object.assign(new Error('PERMISSION_DENIED'), {code:'PERMISSION_DENIED'})); }, 0); return cb; }
+        if (fstDeny(path) || frRule(path)){ setTimeout(() => { if (cancel) cancel(Object.assign(new Error('PERMISSION_DENIED'), {code:'PERMISSION_DENIED'})); }, 0); return cb; }
         const i = info(path);
         if (i === undefined && !listeners.some(L => L.path === path)) rx(bytes(msg('d', path, clone(get(path)))));   // 开始监听：服务器先推一次整份
         if (ev === 'value'){ if (i === undefined) listeners.push({path, ev, cb}); else if (path === '.info/connected') infoL.push(cb); setTimeout(() => cb(snap(path, i !== undefined ? i : get(path))), 0); return cb; }
