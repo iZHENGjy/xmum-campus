@@ -4,6 +4,8 @@
  *   走路慢慢靠近，小猫不跑（跑步、开车照样吓跑它，提示里写着别跑）；走到身边按 F（手机点按钮）：
  *   小猫凑过来坐在你面前 → 几句旁白（蹲下来、它闻了闻、叼走一块小鱼干）→ 咔嚓一下闪白，弹出一张拍立得（就是当时的画面）
  *   → 「发给妈妈」：妈妈过一会儿回消息，日记记一句，这一步打勾。「不发了」也算做完，只是妈妈不回。
+ * 有拍照模式（js/89-photo.js 的 XPhoto）时：喂完打开拍照模式，自己对准小橘拍（顺便学会拍照，以后按 O 随时拍）；
+ *   拍到的那张放进拍立得。没拍就退出拍照模式，照旧自动拍一张。没有 XPhoto 时直接自动拍。
  * 指南针指向最近的一只小猫。 */
 'use strict';
 (() => {
@@ -41,7 +43,7 @@
       ['cat', '……喵？'],
       ['memo', '它凑过来闻了闻，叼走一块，尾巴竖得高高的。又吃了一块。'],
       ['memo', '好想给妈妈看看。']
-    ], null, () => { if (cat){ cat.state = 'sit'; cat.t = 30; } setTimeout(photo, 300); });
+    ], null, () => { if (cat){ cat.state = 'sit'; cat.t = 30; } setTimeout(snap, 300); });
     return true;
   }
 
@@ -62,12 +64,25 @@
   const card = document.createElement('div'); card.id = 'kitPhoto'; card.hidden = true; card.setAttribute('role', 'dialog'); card.setAttribute('aria-label', '拍好的照片');
   card.innerHTML = `<img alt="小橘的照片"><p></p><div class="kb"><button type="button" class="go" data-a="send">发给妈妈</button><button type="button" data-a="keep">不发了</button></div>`;
   document.body.appendChild(card);
-  function photo(){
-    let url = '';
+  /* photo mode: you frame and take it yourself; the shot comes back here. Leave without shooting and the game takes one for you */
+  function snap(){
+    if (!window.XPhoto || !g(() => XPhoto.open(), false)) return photo();
+    g(() => { document.querySelector('#phHint').textContent = '拍一张小橘发给妈妈：拖动转镜头、滚轮拉近，' + (TOUCH ? '点快门拍照' : '按空格拍照') + '。以后按 O 随时能拍'; });
+    if (TOUCH) g(() => { document.querySelector('#phHint').textContent = '拍一张小橘发给妈妈：单指拖动转镜头、双指拉近，点快门拍照。以后在「暂停」里也能拍'; });
+    const t = setInterval(() => {
+      const img = document.querySelector('.ph-card img'), url = img && /^data:image/.test(img.src || '') ? img.src : '';
+      if (url){ clearInterval(t); g(() => XPhoto.close()); photo(url); }
+      else if (!g(() => XPhoto.on, false)){ clearInterval(t); photo(); }
+    }, 150);
+  }
+  function photo(shot){
+    let url = shot || '';
     /* render this frame and read it back straight away (no preserveDrawingBuffer needed) */
-    g(() => { renderer.render(scene, camera); url = renderer.domElement.toDataURL('image/jpeg', .82); });
-    g(() => { noise(.12, .08, 3000); tone('square', 1800, 900, .06, .05); });
-    flash.style.transition = 'none'; flash.style.opacity = '1'; void flash.offsetWidth; flash.style.transition = ''; setTimeout(() => { flash.style.opacity = '0'; }, 60);
+    if (!url){
+      g(() => { renderer.render(scene, camera); url = renderer.domElement.toDataURL('image/jpeg', .82); });
+      g(() => { noise(.12, .08, 3000); tone('square', 1800, 900, .06, .05); });
+      flash.style.transition = 'none'; flash.style.opacity = '1'; void flash.offsetWidth; flash.style.transition = ''; setTimeout(() => { flash.style.opacity = '0'; }, 60);
+    }
     card.querySelector('img').src = url || '';
     card.querySelector('p').textContent = '小橘 · 开学第 ' + g(() => XQuest.dayNo(), 1) + ' 天';
     card.querySelector('.go').innerHTML = TOUCH ? '发给妈妈' : '发给妈妈<kbd>F</kbd>';
@@ -104,5 +119,5 @@
     const base = updateActs;
     updateActs = function(){ base(); if (near()) g(() => { actF.querySelector('b').textContent = '喂猫'; }); };
   }
-  window.XKitty = {nearestAt:() => { const n = nearest(nw.x, nw.z); return n ? [n.c.x, n.c.z] : null; }, start, photo, get busy(){ return busy; }};
+  window.XKitty = {nearestAt:() => { const n = nearest(nw.x, nw.z); return n ? [n.c.x, n.c.z] : null; }, start, photo, snap, get busy(){ return busy; }};
 })();

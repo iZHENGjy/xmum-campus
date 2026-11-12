@@ -431,7 +431,7 @@ window.XQD = (() => {
       {id:'c5_seplap', text:'二园雪邦赛道跑一圈', rm:60, at:G(() => XF1.PT[XF1.SF].slice(0, 2), [258.9, 912.2]), r:0,
         done:Q => Q.best('sepLap'),
         hint:{pc:'开到二园的雪邦赛道，从主直道的起点线出发跑一整圈', touch:'开到二园的雪邦赛道，从主直道的起点线出发跑一整圈'},
-        tip:'一圈大约 3 公里、15 个弯，发卡弯前早点刹车。', guide:'tune',
+        tip:window.XF1D ? '一圈 4.3 公里、18 个弯，看路边的刹车牌和建议车速；冲出去了按「回赛道」。' : '一圈大约 3 公里、15 个弯，发卡弯前早点刹车。', guide:'tune',
         nudge:'二园在 Bell Avenue 东南边的油棕园公路两边，起点线在主看台前面。'},
       {id:'c5_racewin', at:() => nearFlag(), r:0, text:'赢一场人机赛或道具赛', rm:60,
         done:Q => Q.ach('racewin'),
@@ -637,6 +637,8 @@ window.XQD = (() => {
     {id:'ben_wide', npc:'ben', after:'c5', text:'同一辆车装上宽体和尾翼', rm:100, done:Q => Q.ach('tunewide')},
     {id:'ben_top', npc:'ben', after:'c5', text:'提到一件顶级改装', rm:150, done:Q => Q.ach('tunetop')},
     {id:'ben_bp', npc:'ben', after:'c5', text:'集齐 5 张改装配方', rm:100, parts:{plan:2}, done:Q => Q.ach('tunebp')},
+    /* 隐藏特技跳台（js/89-stuntjumps.js，比主线脚本晚加载，所以运行时再问 XJumps） */
+    {id:'ben_jump', npc:'ben', after:'c5', text:'找到一个藏起来的特技跳台，飞过去', rm:60, done:() => G(() => XJumps.count() >= 1, false)},
     {id:'ben_cars', npc:'ben', after:'c5', text:'把车行里的车全部买下', rm:150, done:Q => Q.ach('allcars')},
     {id:'lim_deco9', npc:'lim', after:'c6', text:'一套房九个位置都摆上家具', rm:120, done:Q => Q.ach('deco9')},
     {id:'lim_set', npc:'lim', after:'c6', text:'整屋换成同一种风格', rm:150, done:Q => Q.ach('decoset')}
@@ -819,6 +821,26 @@ window.XQD = (() => {
       if (window.XCine && XCine.play && XCine.play('f1', {onDone:() => { busy = false; flag('q_f1'); }})) busy = true; else flag('q_f1');
     }); }
 
+  /* 第 5 章「特训」接上维修区车库（js/94-f1-paddock.js，PR #120）：车库在才加这两步，没合并时第 5 章照旧。
+     只要求进一次车库、做一次换胎挑战；赛车（RM 3,500）和 F1 件不写进主线，材料照车库自己的规矩慢慢掉，主线不额外发。 */
+  if (window.XF1Tune && window.XPaddock){
+    const c5 = D.chapters.find(c => c.n === 5), i = c5.steps.findIndex(s => s.id === 'c5_watch') + 1;
+    const door = () => G(() => [XF1Tune.door.x, XF1Tune.door.z], null);
+    c5.steps.splice(i, 0,
+      {id:'c5_paddock', text:'特训：去维修区车库找车队经理 Ken', rm:30, isNew:true, at:door, r:0,
+        done:() => G(() => XPaddock.save.n > 0 || XF1Tune.inPaddock(), false),
+        hint:{pc:'主直道边的维修区，橙色圈那间车库门口，下车走进去按 <kbd>F</kbd>', touch:'主直道边的维修区，橙色圈那间车库门口，下车走进去点「进车库」'},
+        tip:'Ben 师傅以前在雪邦车队待过，车队经理 Ken 是他的老朋友。',
+        nudge:'车库就在主看台对面的维修区，门口有橙色圈。'},
+      {id:'c5_pit', text:'特训：在车库里做一次换胎挑战', rm:40, isNew:true, at:door, r:0,
+        done:() => G(() => XPaddock.save.pitBest != null, false),
+        hint:{pc:'车库中间那辆 F1 赛车前按 <kbd>F</kbd>：哪个轮子亮就点哪个，每个点三下，最后点「放车」', touch:'走到车库中间的 F1 赛车前点「换胎挑战」：哪个轮子亮就点哪个，每个点三下，最后点「放车」'},
+        tip:'做完就算，不用拿金牌。改赛车的材料就是从这些活里慢慢攒的。',
+        nudge:'进车库后走到中间那辆架起来的赛车前面。'});
+    D.diary.c5_paddock = 'Ben 师傅带我进了雪邦车队的车库。Ken 看了我一眼，说：「先从换胎学起。」';
+    D.diary.c5_pit = '第一次给真的赛车换胎，手抖得螺母都拧歪了。Ken 说比他第一次快。';
+  }
+
   /* ---------- 第 6 章：买了房就搬出宿舍 ---------- */
   { const c6 = D.chapters.find(c => c.n === 6), i = c6.steps.findIndex(s => s.id === 'c6_house1');
     c6.steps.splice(i + 1, 0,
@@ -871,6 +893,17 @@ window.XQD = (() => {
         hint:{pc:'麦当当在 KIP 那边，正门外有黄圈；阿豆跟着你，到了按 F 进后厨配餐', touch:'麦当当在 KIP 那边，正门外有黄圈；阿豆跟着你，到了点「打工」进后厨配餐'},
         tip:'阿豆说他高中在快餐店打过工，看谁叠汉堡快。', nudge:'开车去 KIP 那边的麦当当，正门外黄圈按 F，随便打一局就行。'});
     D.diary.c8_mcd = '带阿豆去麦当当后厨打了一班工。他叠汉堡比我还快，我假装没看见。';
+  }
+  /* 第 8 章最后：请阿豆去 IOI 吃 SUKI-YA 火锅（js/89-ioi.js）。走进店里就算（自助餐的钱照付） */
+  if (window.XIOI && XIOI.SUKI){
+    D.chapters.find(c => c.id === 'c8').steps.push(
+      {id:'c8_suki', calmNear:true, text:'周末请阿豆去 IOI 吃 SUKI-YA 火锅', rm:60, at:[XIOI.SUKI.x, XIOI.SUKI.z], r:5,
+        done:Q => Q.flag('q_suki8'),
+        hint:{pc:'IOI City Mall 在地图东北角，SUKI-YA 门口的红圈按 <kbd>F</kbd> 付钱进店', touch:'IOI City Mall 在地图东北角，SUKI-YA 门口的红圈点「吃火锅」付钱进店'},
+        tip:'阿豆说他第一次吃火锅放题。记得叫上卷卷和阿明——他们一定会说好。',
+        nudge:'开车去地图东北角的 IOI City Mall，SUKI-YA 在商场正门左手边。'});
+    D.diary.c8_suki = '请阿豆吃了 SUKI-YA。他吃到第三盘肉的时候说：「学长，我想家了。」我说：「我也是。所以我们一起吃。」';
+    D.watch.push((Q, flag) => { if (!Q.flag('q_suki8') && stepIs('c8_suki') && window.XINDOOR === 'sukiya') flag('q_suki8'); });
   }
   D.diary.c8_start = '小满学姐把今年最后一个新生交给我，他叫阿豆。';
   D.diary.c8_a3 = '阿豆站在 A3 台阶上说「好宽」，跟我第一天说的一模一样。';
