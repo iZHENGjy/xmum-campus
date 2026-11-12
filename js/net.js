@@ -203,15 +203,20 @@
   }
 
   /* ---------- 名字 ---------- */
+  const GUEST_RE = /^游客[0-9]{4}$/;
+  function guestName(){
+    let n = ''; try { n = localStorage.getItem('xmum-guest') || ''; } catch(e){}
+    if (!GUEST_RE.test(n)){ n = '游客' + String(1000 + Math.floor(Math.random() * 9000)); try { localStorage.setItem('xmum-guest', n); } catch(e){} }
+    return n;
+  }
   function playerName(){
-    if (XNet.online && claimed) return claimed;           // 联机时只用已注册的名字，别人冒充不了
+    /* 联机时只用已注册的名字，别人冒充不了；还没注册上（注册失败、超时）就用「游客1234」。
+       数据库规则（/pres 的 n、/presence 的 name）也只认这两种，见 database.rules.json */
+    if (XNet.online) return claimed || guestName();
     let n = '';
     try { if (window.XUI && typeof XUI.playerName === 'function') n = String(XUI.playerName() || ''); } catch(e){}
     if (!n) try { n = localStorage.getItem('xmum-name') || ''; } catch(e){}
-    if (!n){
-      try { n = localStorage.getItem('xmum-guest') || ''; } catch(e){}
-      if (!n){ n = '游客' + String(1000 + Math.floor(Math.random() * 9000)); try { localStorage.setItem('xmum-guest', n); } catch(e){} }
-    }
+    if (!n) n = guestName();
     n = n.replace(/[\u0000-\u001f\u007f<>]/g, '').trim();
     return [...n].slice(0, 16).join('').slice(0, 16) || '游客';
   }
