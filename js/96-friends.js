@@ -1,6 +1,6 @@
 /* XMUM 校园漫游 · 好友
  *
- * 只在联机时出现（XNet.online，数据库规则也发布了）；离线、预览版整套隐藏。本地测试见 docs/friends.md（test/social.html 两个窗口互测，?bots&friends 本地假好友）。
+ * 联机时出现（XNet.online）；离线、预览版整套隐藏。数据库规则还没发布时入口照样显示，面板里说「好友功能暂时不可用」，2 分钟后自己再试。本地测试见 docs/friends.md（test/social.html 两个窗口互测，?bots&friends 本地假好友）。
  *
  *   加好友：走到别的玩家旁边按 F（手机点他头上的按钮），菜单里选「⭐ 加好友」，对方收到邀请卡（接 / 不接），接了两边都记下。
  *   好友列表：Y，或「⭐ 好友」按钮（电脑在顶上「在线 N 人」旁边，手机在「车行」「暂停」那一排），或暂停面板里的「好友」。在线 / 离线、最后上线时间、大概在哪、开着什么车；「导航过去」；「解除」。
@@ -40,7 +40,7 @@
 
   /* ---------- 状态 ---------- */
   const F = {
-    on:false, denied:false,
+    on:false, down:false, retryAt:0,   // down：数据库规则还没发布（读写被拒绝）。按钮照样显示，面板里说「好友功能暂时不可用」，2 分钟后自己再试
     list:new Map(),        // uid -> {n, t}：我的好友（/friends/{我}）
     onl:new Set(),         // 现在在线的好友（/on/{uid} 存在）
     offAt:new Map(),       // uid -> 本机看到他下线的时间（ms）
@@ -51,9 +51,12 @@
     reqLog:[], reqAt:{},
     myRef:null, connRef:null, wrote:null, wroteAt:-1e9,
     noteQ:[], noteAt:-1e9, noteOne:{},
-    panel:false, mapSeen:-1e9, dirty:true, confirm:null, hits:[]
+    panel:false, addView:false, nearKey:'', mapSeen:-1e9, dirty:true, confirm:null, hits:[]
   };
   const isFriend = uid => F.list.has(uid);
+  const shown = () => F.on || F.down;                 // 入口要不要显示：联机了就显示（规则没发布时也显示，点开说暂时不可用）
+  const isPerm = e => !!e && (e.code === 'PERMISSION_DENIED' || /permission/i.test(String(e.message || e.code || '')));
+  const DOWN = '好友功能暂时不可用';
   const blocked = uid => !!g(() => XSocial.blocked(uid), false);
   function myName(){
     let n = g(() => XNet.claimedName(), '') || g(() => XUI.playerName(), '') || g(() => localStorage.getItem('xmum-name'), '') || '玩家';
@@ -61,7 +64,7 @@
     return [...n].slice(0, 16).join('').slice(0, 16) || '玩家';
   }
   const nameOf = uid => { const s = F.st.get(uid), e = F.list.get(uid); return String((s && s.n) || (e && e.n) || '?').slice(0, 16); };
-  g(() => { XSocial.why.ffull = '对方的好友已经满了'; });
+  g(() => { XSocial.why.ffull = '对方的好友已经满了'; XSocial.why.fdown = '对方的' + DOWN; });
 
   /* ---------- 地点：用大地图和送外卖已经在用的地名 ---------- */
   let PLACES = null;
@@ -119,14 +122,22 @@
       const v = snap.val(), m = new Map();
       if (v && typeof v === 'object') for (const k in v){ const e = v[k]; if (UID_RE.test(k) && k !== XNet.uid && e && typeof e === 'object') m.set(k, {n:String(e.n || '?').slice(0, 16), t:+e.t || 0}); }
       const had = F.list.size;
+      if (F.down){ F.down = false; F.dirty = true; btnKey = ''; }       // 规则发布了：恢复
       F.list = m;
       if (F.nav && !m.has(F.nav.uid)) F.nav = null;
       syncOnRefs(); F.dirty = true; renderBtn();
       if (!had && m.size){ F.wrote = null; F.wroteAt = -1e9; }        // 第一个好友：马上写一次自己的状态
     }, e => {
-      console.warn('[XFriends] 好友列表读不了（规则还没发布？），好友功能先关掉', e && e.code);
-      F.denied = true; F.myRef = null; setOn(false);
+      console.warn('[XFriends] 好友列表读不了（数据库规则还没发布？）：好友功能暂时不可用，2 分钟后再试', e && e.code);
+      F.myRef = null; markDown();
     });
+  }
+  /* 规则不让读写：关掉监听，入口留着，面板里说暂时不可用；2 分钟后再试一次（规则可能刚发布） */
+  function markDown(){
+    const was = F.panel;
+    F.down = true; F.retryAt = pnow() + 120;
+    setOn(false); btnKey = ''; renderBtn();
+    if (was) open();
   }
   /* online or not: /on/{uid}, one tiny listener per friend */
   function syncOnRefs(){
@@ -228,6 +239,7 @@
 
   /* ---------- 加好友：发请求、对方的邀请卡、两边记下 ---------- */
   function canAsk(p){
+    if (F.down) return DOWN;
     if (!F.on) return '好友功能还没连上';
     if (isFriend(p.uid)) return '已经是好友了';
     if (F.list.size >= CAP) return `好友满了（最多 ${CAP} 个）`;
@@ -248,7 +260,11 @@
     if (!ok) return;
     const t = pnow(); F.reqAt[to] = t; F.reqLog.push(t);
     /* 凭证：对方接受时凭它把我加进他的列表（规则检查），写在邀请之后马上发出，比对方点「接」早到 */
-    const r = XNet.ref('freq/' + to + '/' + XNet.uid); if (r) r.set({t:TS()}).catch(e => console.warn('[XFriends] 好友请求没写上', e && e.code));
+    const r = XNet.ref('freq/' + to + '/' + XNet.uid);
+    if (r) r.set({t:TS()}).catch(e => {
+      console.warn('[XFriends] 好友请求没写上', e && e.code);
+      if (isPerm(e)){ toast(DOWN, '好友请求没发出去，过一会儿再试', 2600); markDown(); }
+    });
     toast('好友请求发出去了', '等 ' + name + ' 同意', 1600);
   }
   const dropReq = to => { const r = XNet.ref('freq/' + to + '/' + XNet.uid); if (r) r.remove().catch(() => {}); };
@@ -261,7 +277,8 @@
       g(() => unlock('friend1'));
     }, e => {
       if (n < 2) return setTimeout(() => tryIt(n + 1), 1200);       // 对方那边的写入可能还在路上
-      console.warn('[XFriends] 好友没存上', e && e.code); toast('好友没存上', '网络不好，过一会儿再加一次', 2200);
+      console.warn('[XFriends] 好友没存上', e && e.code);
+      if (isPerm(e)) toast(DOWN, '这次没加上，过一会儿再试', 2600); else toast('好友没存上', '网络不好，过一会儿再加一次', 2200);
     });
     tryIt(0);
   }
@@ -270,6 +287,7 @@
     title:name => `${name} 想加你为好友`,
     desc:() => '加了以后能看到对方在不在线、在哪，一键导航过去',
     check(from){
+      if (F.down) return 'fdown';
       if (!F.on) return 'unknown';
       if (!isFriend(from) && F.list.size >= CAP) return 'ffull';
       return '';
@@ -285,6 +303,7 @@
   XSocial.addMenuItem({
     id:'friend',
     opt(p){
+      if (F.down) return {icon:'⭐', title:'加好友', sub:DOWN, dis:true};
       if (!F.on) return null;
       const fr = isFriend(p.uid), full = F.list.size >= CAP, bl = blocked(p.uid);
       return {icon:'⭐', title:fr ? '已经是好友' : '加好友', sub:fr ? '好友列表里能找到对方' : bl ? '你屏蔽了对方' : full ? `好友满了（${CAP} 个）` : p.d.dnd ? '免打扰中' : '上线提醒 · 看在哪 · 导航过去',
@@ -363,6 +382,11 @@
 .fr-a button.rm.sure{border-color:#e74c3c;color:#e74c3c}
 .fr-a button:hover{border-color:${COL}}
 .fr-empty{margin:6px 0 4px;font-size:13px;line-height:1.6;color:var(--muted)}
+.fr-empty b.fr-down{font-size:15px;color:var(--ink)}
+.fr-sec{margin:4px 0 2px;font-size:12px;line-height:1.5;color:var(--muted)}
+.fr-a button[disabled]{opacity:.55;cursor:default}
+.sm-x.fr-addb{margin-left:auto}
+.sm-x.fr-addb.go{background:${COL};border-color:${COL};color:#fff;font-weight:600}
 .fr-f{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:6px;padding-top:7px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
 .fr-f label{display:inline-flex;align-items:center;gap:5px;cursor:pointer;color:var(--ink);min-height:30px}
 #frPop{position:absolute;z-index:3;transform:translate(-50%,calc(-100% - 16px));min-width:170px;max-width:240px;padding:8px 10px 9px;border-radius:var(--r-md,10px);background:var(--panel-solid);border-top:3px solid ${COL};box-shadow:0 6px 24px var(--shadow,rgba(0,0,0,.3));font-size:12.5px;line-height:1.45}
@@ -402,9 +426,9 @@ body.wd-open #frPanel,body.arc-in #frPanel,body.arc-in #frBtn{display:none!impor
   gbtn.addEventListener('click', e => { e.stopPropagation(); g(() => ac()); toggle(); });
   let btnKey = '';
   function renderBtn(){
-    const n = F.onl.size, key = F.on + ':' + n + ':' + F.list.size;
+    const n = F.onl.size, key = F.on + ':' + F.down + ':' + n + ':' + F.list.size;
     if (key === btnKey) return; btnKey = key;
-    btn.hidden = gbtn.hidden = !F.on;
+    btn.hidden = gbtn.hidden = pill.hidden = !shown();
     btn.innerHTML = n ? `⭐ 好友 <b>${n}</b>` : '⭐ 好友';
     gbtn.innerHTML = n ? `⭐ 好友<b>${n}</b>` : '⭐ 好友';
     btn.title = F.list.size ? `好友 ${F.list.size} 个，${n} 个在线（Y）` : '好友（Y）';
@@ -444,18 +468,51 @@ body.wd-open #frPanel,body.arc-in #frPanel,body.arc-in #frBtn{display:none!impor
     return [...F.list.entries()].map(([uid, e]) => ({uid, e, on:F.onl.has(uid), last:Math.max((F.st.get(uid) || {}).t || 0, F.offAt.get(uid) || 0, e.t || 0)}))
       .sort((a, b) => (b.uid === nav) - (a.uid === nav) || b.on - a.on || b.last - a.last || nameOf(a.uid).localeCompare(nameOf(b.uid), 'zh'));
   }
+  /* 附近能加的人：js/net.js 本来就在收的附近几格里、在线、还不是好友的（不写位置，只说在旁边还是在附近） */
+  function nearby(){
+    const me = mePos(); if (!me || !g(() => XSocial.active, false)) return [];
+    const out = [];
+    for (const uid of XNet.peers().keys()){
+      if (uid === XNet.uid || isFriend(uid) || blocked(uid)) continue;
+      const p = XSocial.peer(uid), L = g(() => XNet.peer(uid), null); if (!p || !p.live || !L) continue;
+      const d = Math.hypot(L.x - me.x, L.z - me.z); if (!(d < 250)) continue;
+      out.push({p, d});
+    }
+    return out.sort((a, b) => a.d - b.d).slice(0, 8);
+  }
+  const nearKey = () => nearby().map(x => x.p.uid + (x.d < 15 ? '.' : '') + ((F.reqAt[x.p.uid] || -1e9) > pnow() - REQ_GAP ? '!' : '')).join(',');
+  function nearHtml(){
+    const N = nearby(), t = pnow();
+    const how = TOUCH ? '也可以走到他旁边，点他头上的「点我互动」' : '也可以走到他旁边按 F';
+    if (!N.length) return `<p class="fr-empty">附近没有别的在线玩家。<br>去人多的地方（A3 广场、D6 食堂）看看，或者约朋友到你旁边来，${how}，选「⭐ 加好友」。</p>`;
+    return `<p class="fr-sec">附近的玩家 · 点「加好友」发请求，对方同意就成了（${how}）</p>` + N.map(({p, d}) => {
+      const sent = (F.reqAt[p.uid] || -1e9) > t - REQ_GAP, out = g(() => XSocial._S.out, null), wait = out && out.to === p.uid;
+      const btnTxt = wait ? '等回应…' : sent ? '已发送' : p.d.dnd ? '免打扰' : '加好友';
+      return `<div class="fr-row on"><i class="fr-dot"></i><div class="fr-m"><b>${esc(p.name)}</b><small>${d < 15 ? '就在你旁边' : '在附近'}${p.car ? ' · 开着车' : ''}</small></div><div class="fr-a">` +
+        `<button type="button" class="go" data-add="${esc(p.uid)}"${wait || sent || p.d.dnd ? ' disabled' : ''}>${btnTxt}</button></div></div>`;
+    }).join('');
+  }
   function render(){
     if (!F.panel) return;
     F.dirty = false;
+    if (F.down){
+      panel.innerHTML = `<div class="sm-h"><b>⭐ 好友</b><span></span><button type="button" class="sm-x" data-x>关 <kbd>Y</kbd></button></div>` +
+        `<div class="fr-list"><p class="fr-empty"><b class="fr-down">${DOWN}</b><br>服务器那边还在更新，过一会儿会自己恢复。<br>其他玩法不受影响。</p></div>`;
+      return;
+    }
+    F.nearKey = nearKey();
     const R = rows(), n = F.onl.size, conf = F.confirm && pnow() < F.confirm.until ? F.confirm.uid : null;
-    const tip = TOUCH ? '走到别的玩家旁边，点他头上的「点我互动」，选「⭐ 加好友」' : '走到别的玩家旁边按 F，选「⭐ 加好友」';
-    let html = `<div class="sm-h"><b>⭐ 好友</b><span>${F.list.size ? `${F.list.size}/${CAP} · ${n} 人在线` : `最多 ${CAP} 个`}</span><button type="button" class="sm-x" data-x>关 <kbd>Y</kbd></button></div>`;
-    html += '<div class="fr-list">' + (R.length ? R.map(r => {
+    const add = F.addView || !R.length;
+    let html = `<div class="sm-h"><b>⭐ 好友</b><span>${F.list.size ? `${F.list.size}/${CAP} · ${n} 人在线` : `最多 ${CAP} 个`}</span>` +
+      (R.length ? `<button type="button" class="sm-x fr-addb${F.addView ? '' : ' go'}" data-addview>${F.addView ? '‹ 好友列表' : '＋ 加好友'}</button>` : '') +
+      `<button type="button" class="sm-x" data-x>关 <kbd>Y</kbd></button></div>`;
+    if (add) html += '<div class="fr-list">' + (R.length ? '' : '<p class="fr-sec">还没有好友。加了以后能看到对方在不在线、在哪，一键导航过去。</p>') + nearHtml() + '</div>';
+    else html += '<div class="fr-list">' + R.map(r => {
       const nav = F.nav && F.nav.uid === r.uid;
       return `<div class="fr-row${r.on ? ' on' : ''}${nav ? ' nav' : ''}"><i class="fr-dot"></i><div class="fr-m"><b>${esc(nameOf(r.uid))}</b><small>${esc(statusOf(r.uid))}</small></div><div class="fr-a">` +
         (nav ? `<button type="button" data-unnav>取消导航</button>` : r.on ? `<button type="button" class="go" data-nav="${esc(r.uid)}">导航过去</button>` : '') +
         `<button type="button" class="rm${conf === r.uid ? ' sure' : ''}" data-rm="${esc(r.uid)}" aria-label="解除和 ${esc(nameOf(r.uid))} 的好友">${conf === r.uid ? '确定解除？' : '解除'}</button></div></div>`;
-    }).join('') : `<p class="fr-empty">还没有好友。<br>${tip}。<br>对方同意以后，就能在这里看到他在不在线、在哪，一键导航过去。</p>`) + '</div>';
+    }).join('') + '</div>';
     html += `<div class="fr-f"><label><input type="checkbox" data-note${store.note ? ' checked' : ''}> 好友上线时提醒我</label>` +
       (XNet.account && XNet.account.google ? '' : '<span>用 Google 登录，换设备也不丢好友</span>') + '</div>';
     const list = panel.querySelector('.fr-list'), sc = list ? list.scrollTop : 0;
@@ -463,17 +520,19 @@ body.wd-open #frPanel,body.arc-in #frPanel,body.arc-in #frBtn{display:none!impor
     const l2 = panel.querySelector('.fr-list'); if (l2) l2.scrollTop = sc;
   }
   function open(){
-    if (!F.on){ toast('联机以后才能用好友', '', 1400); return; }
+    if (!shown()){ toast('联机以后才能用好友', '', 1400); return; }
     if (!(mode === 'naiwa' || mode === 'walk')) return;
     F.panel = true; panel.hidden = false; btn.classList.add('on'); gbtn.classList.add('on'); syncSt(); render();
   }
-  function close(){ if (!F.panel) return; F.panel = false; panel.hidden = true; btn.classList.remove('on'); gbtn.classList.remove('on'); F.confirm = null; }
+  function close(){ if (!F.panel) return; F.panel = false; F.addView = false; panel.hidden = true; btn.classList.remove('on'); gbtn.classList.remove('on'); F.confirm = null; }
   function toggle(){ F.panel ? close() : open(); }
   const refocus = () => g(() => canvas.focus({preventScroll:true}));
   panel.addEventListener('click', e => {
     g(() => ac());
     const b = e.target.closest('button,input'); if (!b) return;
     if (b.dataset.x != null){ close(); refocus(); }
+    else if (b.dataset.addview != null){ F.addView = !F.addView; F.confirm = null; render(); }
+    else if (b.dataset.add){ const p = XSocial.peer(b.dataset.add); if (p && p.live) askFriend(p); else toast('他走远了', '', 1400); render(); }
     else if (b.dataset.nav){ navTo(b.dataset.nav); close(); refocus(); }
     else if (b.dataset.unnav != null){ F.nav = null; toast('导航取消了', '', 1200); render(); }
     else if (b.dataset.rm){
@@ -486,7 +545,7 @@ body.wd-open #frPanel,body.arc-in #frPanel,body.arc-in #frBtn{display:none!impor
   });
   window.addEventListener('pointerdown', e => { if (F.panel && !e.target.closest('#frPanel,#frBtn,#frGBtn,#gxpFriends')) close(); }, true);
   window.addEventListener('keydown', e => {
-    if (!F.on || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (!shown() || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
     const tg = e.target && e.target.tagName; if (tg === 'INPUT' || tg === 'TEXTAREA' || document.querySelector('dialog[open]') || g(() => XMini.inside, false)) return;
     if (F.panel && (e.code === 'Escape' || e.code === 'KeyY')){ e.preventDefault(); e.stopImmediatePropagation(); close(); return; }
     if (e.code === 'KeyY' && (mode === 'naiwa' || mode === 'walk') && !gx.paused && !document.body.classList.contains('titled')){ e.preventDefault(); e.stopImmediatePropagation(); open(); }
@@ -559,15 +618,31 @@ body.wd-open #frPanel,body.arc-in #frPanel,body.arc-in #frBtn{display:none!impor
   /* ---------- 每 0.5 秒：订阅、写状态、提醒、导航、刷新列表 ---------- */
   let lastRender = 0;
   setInterval(() => {
-    if (!F.on) return;
-    g(syncSt); g(writeMine); g(flushNotes); g(navTick);
+    if (F.panel && (!(mode === 'naiwa' || mode === 'walk') || document.body.classList.contains('titled'))) close();
+    if (!F.on){
+      if (F.down && XNet.online && pnow() > F.retryAt){ F.retryAt = pnow() + 120; setOn(true); }    // 再试一次：规则可能已经发布了
+      return;
+    }
+    g(syncSt); g(writeMine); g(flushNotes); g(navTick); g(firstHint);
     if (F.panel){
-      if (!(mode === 'naiwa' || mode === 'walk') || document.body.classList.contains('titled')) close();
-      else if (F.dirty || performance.now() - lastRender > 5000){ lastRender = performance.now(); render(); }
+      const add = !F.down && (F.addView || !F.list.size);
+      if (F.dirty || performance.now() - lastRender > 5000 || (add && nearKey() !== F.nearKey)){ lastRender = performance.now(); render(); }
     }
     if (!pop.hidden && !g(() => XGuide.mapOn, false)) pop.hidden = true;
-    pill.hidden = !F.on;
   }, 500);
+  /* 第一次有别的玩家走到 12 米内：提示一次怎么加好友 */
+  function firstHint(){
+    const bc = document.body.classList;
+    if (store.hinted || F.down || mode !== 'naiwa' || driving || gx.paused || bc.contains('titled') || bc.contains('cine') || bc.contains('q-talking') || !g(() => XSocial.active, false)) return;
+    const me = mePos(); if (!me) return;
+    for (const uid of XNet.peers().keys()){
+      const p = XSocial.peer(uid), L = g(() => XNet.peer(uid), null);
+      if (!p || !p.live || !L || isFriend(uid) || Math.hypot(L.x - me.x, L.z - me.z) > 12) continue;
+      store.hinted = true; save();
+      toast(TOUCH ? `点 ${p.name} 头上的「点我互动」可以加好友` : `走近 ${p.name} 按 F 可以加好友`, TOUCH ? '「⭐ 好友」按钮里也能加附近的人' : '按 Y 打开好友，「＋ 加好友」里也能加附近的人', 4200);
+      return;
+    }
+  }
 
   /* ---------- 开关：联机、规则已发布才有 ---------- */
   function setOn(v){
@@ -582,14 +657,18 @@ body.wd-open #frPanel,body.arc-in #frPanel,body.arc-in #frBtn{display:none!impor
       if (F.connRef){ g(() => F.connRef.off('value', F.connCb)); F.connRef = null; }
       F.wrote = null; F.discOk = false;
     }
-    pill.hidden = !F.on; btnKey = ''; renderBtn();
+    btnKey = ''; renderBtn();
   }
-  const check = () => setOn(!!(XNet.online && XNet.uid && !F.denied && XNet.ref('friends/' + XNet.uid)));
+  const check = () => {
+    const net = !!(XNet.online && XNet.uid && XNet.ref('friends/' + XNet.uid));
+    if (!net){ F.down = false; setOn(false); btnKey = ''; renderBtn(); }
+    else if (!F.down) setOn(true);                  // 规则不让读时不在这里重试（每次人数变化都会来一次），等 2 分钟的定时器
+  };
   XNet.ready.then(check); window.addEventListener('xnet', check);
   g(() => achAdd([['friend1', '交个朋友', '和别的玩家互加好友', 20]]));
 
   window.XFriends = {
-    get active(){ return F.on; }, cap:CAP,
+    get active(){ return F.on; }, get unavailable(){ return F.down; }, cap:CAP,
     get list(){ return [...F.list.keys()].map(uid => ({uid, name:nameOf(uid), online:F.onl.has(uid), status:statusOf(uid)})); },
     get nav(){ return F.nav ? F.nav.uid : null; },
     isFriend, open, close, toggle, navTo, unfriend, ask:uid => { const p = XSocial.peer(uid); if (p) askFriend(p); }, areaName,
