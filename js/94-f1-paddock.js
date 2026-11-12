@@ -287,6 +287,8 @@
 
   /* ---------- the race car (方程式赛车): bought and tuned at the 赛车改装店, only driven inside the parks ---------- */
   const RK = 'f1car', RC_PRICE = 3500;
+  /* 总资产: the race car counts at what it cost, like the cars in the showroom (buying it used to drop the total by RM 3,500) */
+  if (typeof assetSource === 'function') assetSource('f1car', () => SAVE.rc ? RC_PRICE : 0);
   let rc = null, rcSaved = null, rcShop = false, rcWarn = 0;
   const inParks = (x, z) => !!(P.inPark && P.inPark(x, z));
   const pitSpot = () => { const i = wi(DI + 3), [x, z] = F.PT[i], [nx, nz] = F.NOR[i], o = s * (F.HW + 9); return [x + nx * o, z + nz * o, Math.atan2(F.TAN[i][0], F.TAN[i][1])]; };
