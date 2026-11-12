@@ -2,8 +2,9 @@
  *
  * 1. XMUM 车行的车：以前每辆车只是一块圆角色块，现在是游戏里那辆车的真模型拍的小照片（¾ 前侧、棚拍光、透明底）。
  *    - 买过的车按存档里的样子拍：喷漆店的漆和贴花（wardSave.cars）、改装车间装上的零件（tune.cars[kind].fit）；没买的是出厂色。
- *    - 用主渲染器画进一张很小的离屏贴图（不另开 WebGL），读回来存成 PNG data URL。每辆车一张，按「漆 + 贴花 + 改装」记着，
- *      变了才重拍；同一时间最多 7 张（每辆车只留最新的一张）。
+ *    - 用主渲染器画进一张很小的离屏贴图（不另开 WebGL），读回来画进一张小 canvas，
+ *      直接把 canvas 放进卡片（不压 PNG，省掉编码时间）。每辆车一张，按「漆 + 贴花 + 改装」记着，变了才重拍，旧的那张丢掉；
+ *      同一时间最多 7 张（每张约 180×120 像素）。
  *    - 打开车行时才拍（懒加载），而且每帧只拍一辆：先显示原来的色块，拍好一张换一张，打开面板不卡。拍完把离屏贴图释放掉。
  *    - 车模型和 js/94-showcase.js 的展台一样用 makeCar 临时造一辆（几何体都是缓存共用的），拍完拿走，只释放它自己的漆材质。
  * 2. 车行里「改装店」「水枪工坊」的每一项升级、改装车间的每个零件槽、奶娃衣橱的每件衣服，都换成各自的线条小图标
@@ -95,10 +96,11 @@ function cthShoot(kind){
   const gr = g.createRadialGradient(0, 0, 0, 0, 0, sw); gr.addColorStop(0, 'rgba(40,30,20,.32)'); gr.addColorStop(1, 'rgba(40,30,20,0)');
   g.fillStyle = gr; g.beginPath(); g.arc(0, 0, sw, 0, Math.PI * 2); g.fill(); g.restore();
   g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(big, 0, 0, W, H);
-  const url = out.toDataURL('image/png');
-  CTH.cache[kind] = {key:L.key, url};
+  /* the canvas itself goes into the card: no PNG encoding (17 ms on a laptop, and toBlob waits up to a second for idle time) */
+  out.className = 'cth-cv';
+  CTH.cache[kind] = {key:L.key, cv:out};
   CTH.stats.n++; CTH.stats.ms += performance.now() - t0;
-  return url;
+  cthAttach();
 }
 
 /* one car per frame, so opening the 车行 never stalls on all seven at once */
@@ -106,26 +108,34 @@ function cthPump(){
   CTH.busy = false;
   const kind = CTH.q.shift();
   if (kind){
-    let url = null; try { url = cthShoot(kind); } catch(e){ CTH.cache[kind] = {key:cthLook(kind).key, url:null, fail:true}; }
-    if (url) document.querySelectorAll(`#shopList .cth[data-k="${kind}"]`).forEach(el => { el.style.backgroundImage = `url(${url})`; el.classList.add('on'); });
+    try { cthShoot(kind); } catch(e){ CTH.cache[kind] = {key:cthLook(kind).key, cv:null, fail:true}; }
   }
   if (CTH.q.length){ CTH.busy = true; requestAnimationFrame(cthPump); }
   else if (CTH.rt){ CTH.rt.dispose(); CTH.rt = null; }   /* done: give the graphics memory back */
 }
 function cthWant(kind){
   const e = CTH.cache[kind], key = cthLook(kind).key;
-  if (e && e.key === key) return e.url;
+  if (e && e.key === key) return;
   if (!CTH.q.includes(kind)) CTH.q.push(kind);
   if (!CTH.busy){ CTH.busy = true; requestAnimationFrame(cthPump); }
-  return e && e.url;   /* the old picture until the new one is ready */
+}
+/* put each car's canvas into its card (the list is rebuilt with innerHTML, so this runs after every render; moving a canvas is free) */
+function cthAttach(){
+  CTH.att = false;
+  for (const el of document.querySelectorAll('#shopList .cth[data-k]')){
+    const e = CTH.cache[el.dataset.k];
+    if (e && e.cv && e.cv.parentNode !== el){ el.textContent = ''; el.appendChild(e.cv); el.classList.add('on'); }
+  }
 }
 
-/* the 车行 list asks for this; a span with the picture as its background (the old colour swatch underneath until it is ready) */
+/* the 车行 list asks for this: a span the picture goes into (the old colour swatch shows until it is ready) */
 carIcon = it => {
-  const url = cthWant(it.kind);
-  return `<span class="cth${url ? ' on' : ''}" data-k="${it.kind}" aria-hidden="true" style="--c:${it.color}${url ? `;background-image:url(${url})` : ''}"></span>`;
+  cthWant(it.kind);
+  if (!CTH.att){ CTH.att = true; queueMicrotask(cthAttach); }   /* after renderShop has written the list */
+  return `<span class="cth" data-k="${it.kind}" aria-hidden="true" style="--c:${it.color}"></span>`;
 };
-window.XShopIcons = {thumb:k => (CTH.cache[k] || {}).url || null, drop(){ CTH.cache = {}; }, get stats(){ return Object.assign({queued:CTH.q.length, cached:Object.keys(CTH.cache).length}, CTH.stats); }};
+window.XShopIcons = {thumb:k => { const e = CTH.cache[k]; return e && e.cv ? e.cv.toDataURL('image/png') : null; }, drop(){ CTH.cache = {}; },
+  get stats(){ return Object.assign({queued:CTH.q.length, cached:Object.keys(CTH.cache).length}, CTH.stats); }};
 
 /* ================= 2. 改装店、水枪工坊：每一项升级一个图标 ================= */
 const UP_ICON = {

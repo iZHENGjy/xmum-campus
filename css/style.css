@@ -204,6 +204,7 @@ body.naiwa .bottombar{display:none}
 .car .cth{position:relative;width:92px;height:58px;flex:none;border-radius:10px;background:var(--chip) center/100% 100% no-repeat}
 .car .cth::before{content:"";position:absolute;left:22px;right:22px;top:17px;bottom:15px;border-radius:9px 16px 5px 5px;background:var(--c);border:1px solid var(--line);box-shadow:inset 0 -6px 0 rgba(0,0,0,.25);opacity:.55}
 .car .cth.on::before{display:none}
+.car .cth-cv{display:block;width:100%;height:100%}
 .ci b,.ci span{overflow-wrap:anywhere}
 
 /* ---------- dialogs: leaderboard & how-to ---------- */
