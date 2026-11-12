@@ -274,8 +274,10 @@
 <div class="panel" id="toast" role="status" aria-live="polite"></div>
 <div class="panel" id="err" hidden>3D 画面打不开（需要 WebGL）。先关掉其他标签页，或者把浏览器完全关掉再打开；还不行就换 Chrome 或 Safari 试试。</div>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<!-- integrity：文件内容的指纹（SRI），CDN 上的文件被改过浏览器就不执行。升级 three.js 版本要一起换：
+     curl -s 网址 | openssl dgst -sha384 -binary | openssl base64 -A -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js" integrity="sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js" integrity="sha384-wagZhIFgY4hD+7awjQjR4e2E294y6J2HSnd8eTNc15ZubTeQeVRZwhQJ+W6hnBsf" crossorigin="anonymous"></script>
 <script src="js/quality.js?v=24"></script>
 <script src="js/00-core.js?v=24"></script>
 <script src="js/09-azone.js?v=24"></script>
