@@ -35,9 +35,31 @@
     if (q[0] === T15[0] && q[1] === T15[1]) continue;
     ctrl.push(map(q));
   }
-  const curve = new THREE.CatmullRomCurve3(ctrl.map(([x, z]) => new THREE.Vector3(x, 0, z)), true, 'centripetal');
-  const LEN = curve.getLength(), N = Math.round(LEN / 3);
-  const PT = curve.getSpacedPoints(N).slice(0, N).map(v => [v.x, v.z]);   /* closed: PT[N] would be PT[0] */
+  const spaced = pts => { const cv = new THREE.CatmullRomCurve3(pts.map(([x, z]) => new THREE.Vector3(x, 0, z)), true, 'centripetal'), n = Math.round(cv.getLength() / 3);
+    return cv.getSpacedPoints(n).slice(0, n).map(v => [v.x, v.z]); };   /* closed: point n would be point 0 */
+  /* At 1:1.8 the traced corners 1, 2, 9, 11, 14 and 15 came out at a 9–12 m radius on a 14 m road: tighter than a car-park ramp.
+     Ease them: smooth the line where the radius is under RMIN (hairpins 9 and 15 a bit less), never moving the points on the
+     public road (the back straight keeps the estate road's route), then resample every 3 m. */
+  const RMIN = 16, RMIN_HP = 13;
+  const PT = (() => {
+    let Q = spaced(ctrl);
+    const n = Q.length, onRoad = Q.map(([x, z]) => { const q = ROAD.p[nearest(ROAD.p, x, z)]; return Math.hypot(q[0] - x, q[1] - z) < ROAD.w / 2 + 1; });
+    /* the ends of the back straight are corners 14 and 15 themselves: let the first and last 30 m of the road stretch move */
+    { let b0 = -1, bl = 0; for (let i = 0; i < n; i++){ if (!onRoad[i] || onRoad[(i - 1 + n) % n]) continue; let l = 0; while (onRoad[(i + l) % n] && l < n) l++; if (l > bl){ bl = l; b0 = i; } }
+      if (b0 >= 0) for (let d = 0; d < 10; d++){ onRoad[(b0 + d) % n] = false; onRoad[(b0 + bl - 1 - d) % n] = false; } }
+    const hp = [9, 15].map(t => { const [, x, y] = TURNS.find(r => r[0] === t); return map([x, y]); });
+    const rmin = Q.map(([x, z]) => hp.some(([hx, hz]) => Math.hypot(hx - x, hz - z) < 40) ? RMIN_HP : RMIN);
+    const k3 = (a, b, c) => { const ab = Math.hypot(b[0] - a[0], b[1] - a[1]), bc = Math.hypot(c[0] - b[0], c[1] - b[1]), ca = Math.hypot(a[0] - c[0], a[1] - c[1]);
+      return Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) * 2 / (ab * bc * ca || 1); };
+    for (let pass = 0; pass < 600; pass++){
+      const hot = new Uint8Array(n); let any = false;
+      for (let i = 0; i < n; i++) if (k3(Q[(i - 3 + n) % n], Q[i], Q[(i + 3) % n]) > 1 / rmin[i]){ any = true; for (let d = -8; d <= 8; d++) hot[(i + d + n) % n] = 1; }
+      if (!any) break;
+      Q = Q.map((p, i) => { if (!hot[i] || onRoad[i]) return p; const a = Q[(i - 1 + n) % n], b = Q[(i + 1) % n]; return [p[0] + ((a[0] + b[0]) / 2 - p[0]) * .6, p[1] + ((a[1] + b[1]) / 2 - p[1]) * .6]; });
+    }
+    return spaced(Q);
+  })();
+  const N = PT.length, LEN = N * 3;
   const wi = i => ((i % N) + N) % N, at = i => PT[wi(i)];
   const TAN = PT.map((_, i) => { const a = at(i - 1), b = at(i + 1), l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; });
   const NOR = TAN.map(([tx, tz]) => [-tz, tx]);   /* left of the direction of travel */
@@ -45,6 +67,13 @@
   const CURV = PT.map((_, i) => { const [ax, az] = TAN[wi(i - 2 + N)], [bx, bz] = TAN[wi(i + 2)]; return Math.asin(Math.max(-1, Math.min(1, ax * bz - az * bx))) / 12; });
   const SF = nearest(PT, ...map([262, 354]));   /* start / finish line on the main straight */
   const turnIdx = TURNS.map(([n, x, y]) => [n, nearest(PT, ...map([x, y]))]);
+  /* half width per point: 7 m on the straights, up to 9 m (an 18 m road) through the slow corners, eased in over ~40 m.
+     Not round the start line (the grid and the gantry are drawn for 14 m). */
+  const HWI = (() => {
+    const raw = CURV.map(c => Math.abs(c) > 1 / 45 ? 9 : Math.abs(c) > 1 / 90 ? 8 : HW), dil = raw.map((_, i) => { let m = HW; for (let d = -10; d <= 10; d++) m = Math.max(m, raw[wi(i + d)]); return m; });
+    return dil.map((_, i) => { if (Math.min(wi(i - SF), wi(SF - i)) < 30) return HW; let s = 0; for (let d = -7; d <= 7; d++) s += dil[wi(i + d)]; return s / 15; });
+  })();
+  const KERB = 2.4;   /* kerb width outside the white line (was 1.5) */
 
   /* ---------- the stunt zone (east of the public road): service road all round, three lanes running north ---------- */
   const SZ = {x0:650, x1:1045, z0:750, z1:1192};
@@ -62,24 +91,28 @@
 
   /* ---------- ground paint: circuit, pit lane, run-offs, stunt-zone lanes and service road (one mesh) ---------- */
   const G = mk(), Y0 = .1, Y1 = .125;
-  /* a band beside the circuit from offset o0 to o1 (left +) over points i0..i1, colour per segment */
-  function band(i0, i1, o0, o1, y, colAt){
+  /* a band beside the circuit from offset o0 to o1 (left +) over points i0..i1, colour per segment.
+     edge: the offsets are measured from the white line, so they follow the widened corners (HWI) */
+  function band(i0, i1, o0, o1, y, colAt, edge){
     for (let i = i0; i < i1; i++){
-      const a = at(i), b = at(i + 1), na = NOR[wi((i % N) + N)], nb = NOR[wi(((i + 1) % N) + N)];
+      const a = at(i), b = at(i + 1), na = NOR[wi(i)], nb = NOR[wi(i + 1)];
       const c = colAt(i); if (!c) continue;
-      quad(G, [a[0] + na[0] * o0, y, a[1] + na[1] * o0], [b[0] + nb[0] * o0, y, b[1] + nb[1] * o0], [b[0] + nb[0] * o1, y, b[1] + nb[1] * o1], [a[0] + na[0] * o1, y, a[1] + na[1] * o1], c, UPN);
+      const ea = edge ? HWI[wi(i)] - HW : 0, eb = edge ? HWI[wi(i + 1)] - HW : 0;
+      const A0 = o0 + Math.sign(o0) * ea, A1 = o1 + Math.sign(o1) * ea, B0 = o0 + Math.sign(o0) * eb, B1 = o1 + Math.sign(o1) * eb;
+      quad(G, [a[0] + na[0] * A0, y, a[1] + na[1] * A0], [b[0] + nb[0] * B0, y, b[1] + nb[1] * B0], [b[0] + nb[0] * B1, y, b[1] + nb[1] * B1], [a[0] + na[0] * A1, y, a[1] + na[1] * A1], c, UPN);
     }
   }
-  band(0, N, -HW, HW, Y0, () => ASPH);
-  band(0, N, HW - .55, HW - .3, Y1, () => PAINT); band(0, N, -HW + .3, -HW + .55, Y1, () => PAINT);
-  /* kerbs where it turns (both sides), gravel traps outside the slow corners */
-  const tight = i => Math.abs(CURV[wi((i % N) + N)]) > 1 / 75;
-  band(0, N, HW - .2, HW + 1.3, Y1, i => tight(i) || tight(i - 3) || tight(i + 3) ? ((i >> 1) % 2 ? WHITE : RED) : null);
-  band(0, N, -HW - 1.3, -HW + .2, Y1, i => tight(i) || tight(i - 3) || tight(i + 3) ? ((i >> 1) % 2 ? WHITE : RED) : null);
-  const slow = i => Math.abs(CURV[wi((i % N) + N)]) > 1 / 32;
+  band(0, N, -HW, HW, Y0, () => ASPH, true);
+  band(0, N, HW - .55, HW - .3, Y1, () => PAINT, true); band(0, N, -HW + .3, -HW + .55, Y1, () => PAINT, true);
+  /* kerbs where it turns (both sides, 2.4 m wide), gravel traps outside the slow corners */
+  const tight = i => Math.abs(CURV[wi(i)]) > 1 / 75;
+  const kerbAt = i => tight(i) || tight(i - 3) || tight(i + 3);
+  band(0, N, HW - .2, HW + KERB, Y1, i => kerbAt(i) ? ((i >> 1) % 2 ? WHITE : RED) : null, true);
+  band(0, N, -HW - KERB, -HW + .2, Y1, i => kerbAt(i) ? ((i >> 1) % 2 ? WHITE : RED) : null, true);
+  const slow = i => Math.abs(CURV[wi(i)]) > 1 / 32;
   const GRAVEL = '#cdb48a';
-  band(0, N, HW + 1.3, HW + 15, Y0 - .02, i => slow(i) && CURV[wi(i)] < 0 ? GRAVEL : null);   /* outside of a right-hander is the left side */
-  band(0, N, -HW - 15, -HW - 1.3, Y0 - .02, i => slow(i) && CURV[wi(i)] > 0 ? GRAVEL : null);
+  band(0, N, HW + KERB, HW + 20, Y0 - .02, i => slow(i) && CURV[wi(i)] < 0 ? GRAVEL : null, true);   /* outside of a right-hander is the left side */
+  band(0, N, -HW - 20, -HW - KERB, Y0 - .02, i => slow(i) && CURV[wi(i)] > 0 ? GRAVEL : null, true);
   /* start / finish: chequered line, grid boxes behind it, a painted name */
   { const [x, z] = at(SF), [tx, tz] = TAN[SF], [nx, nz] = NOR[SF];
     for (let r = 0; r < 2; r++) for (let q = 0; q < 14; q++){ const o0 = -HW + q, o1 = o0 + 1, s0 = r * 1, s1 = s0 + 1;
@@ -153,7 +186,7 @@
     for (let k = 0; k < 4; k++){ const a = ry + k * Math.PI / 2; strip(5, tx + Math.sin(a) * 5.8, tz + Math.cos(a) * 5.8, 21.7, 11, 1.4, [Math.sin(a), Math.cos(a)]); }
     const [px, pz] = at(SF + 30), [pnx, pnz] = NOR[wi(SF + 30)]; strip(4, px + pnx * (off - s * 5.6), pz + pnz * (off - s * 5.6), 7.4, 30, 2.6, [-pnx * s, -pnz * s]);
     /* pit wall between the track and the pit lane */
-    for (let i = PIT.i0 + 2; i < PIT.i1 - 2; i += 2){ const [ax, az] = at(i), [n1, n2] = NOR[wi(i)]; box(.5, .9, 6.2, ax + n1 * s * (HW + 2), .45, az + n2 * s * (HW + 2), (i >> 1) % 2 ? '#e8e4dc' : '#c8322a', yawOf(TAN[wi(i)])); }
+    for (let i = PIT.i0 + 2; i < PIT.i1 - 2; i += 2){ const [ax, az] = at(i), [n1, n2] = NOR[wi(i)]; box(.5, .9, 6.2, ax + n1 * s * Math.max(HW + 2, HWI[wi(i)] + 1), .45, az + n2 * s * Math.max(HW + 2, HWI[wi(i)] + 1), (i >> 1) % 2 ? '#e8e4dc' : '#c8322a', yawOf(TAN[wi(i)])); }
   }
   /* start-light gantry over the line */
   { const [x, z] = at(SF + 2), [nx, nz] = NOR[wi(SF + 2)], ry = yawOf(TAN[wi(SF + 2)]);
@@ -192,13 +225,13 @@
   { const clear = (cx, cz, fx, fz, len, D) => {
       const rx = fz, rz = -fx;
       for (let a = -len / 2; a <= len / 2; a += 5) for (let d = -2; d <= D + 4; d += 4){ const x = cx + rx * a - fx * d, z = cz + rz * a - fz * d;
-        for (let j = 0; j < N; j += 2) if (Math.hypot(PT[j][0] - x, PT[j][1] - z) < HW + 4) return false;
+        for (let j = 0; j < N; j += 2) if (Math.hypot(PT[j][0] - x, PT[j][1] - z) < HWI[j] + (slow(j) ? 24 : 4)) return false;
         const q = ROAD.p[nearest(ROAD.p, x, z)]; if (Math.hypot(q[0] - x, q[1] - z) < ROAD.w / 2 + 4) return false;
         if (x < PAD.x0 + 5 || x > PAD.x1 - 5 || z < PAD.z0 + 5 || z > PAD.z1 - 5) return false; }
       return true; };
     for (const [n, len, rows] of [[4, 70, 8], [9, 60, 8], [11, 70, 8], [13, 50, 7], [5, 50, 7]]){
       const i = turnIdx.find(t => t[0] === n)[1], [x, z] = at(i), s = CURV[wi(i)] > 0 ? -1 : 1, [nx, nz] = NOR[wi(i)];
-      for (const d of [24, 30, 38]){
+      for (const d of [24, 30, 38, 46]){
         const cx = x + nx * s * d, cz = z + nz * s * d, face = Math.atan2(-nx * s, -nz * s);
         if (clear(cx, cz, Math.sin(face), Math.cos(face), len, rows * 1.4)){ stand(cx, cz, len, rows, face, true); break; }
       }
@@ -224,10 +257,10 @@
   { let run = null; const flush = () => { if (run && run.length > 6){ const a = run[0], b = run[run.length - 1], cx = (a[0] + b[0]) / 2, cz = (a[1] + b[1]) / 2, L = Math.hypot(b[0] - a[0], b[1] - a[1]); addBox(cx, cz, L / 2 + .5, .7, -Math.atan2(b[1] - a[1], b[0] - a[0])); } run = null; };
     for (let i = 0; i < N; i++){
       const c = CURV[i]; if (!(Math.abs(c) > 1 / 32) || (i % 2)){ if (!(Math.abs(c) > 1 / 32)) flush(); continue; }
-      const s = c > 0 ? -1 : 1, [x, z] = at(i), [nx, nz] = NOR[i], o = s * (HW + 16.5), px = x + nx * o, pz = z + nz * o;
+      const s = c > 0 ? -1 : 1, [x, z] = at(i), [nx, nz] = NOR[i], o = s * (HWI[i] + 21.5), px = x + nx * o, pz = z + nz * o;
       /* not across the public road, the pit lane or another part of the track */
       if (Math.hypot(...ROAD.p[nearest(ROAD.p, px, pz)].map((v, k) => v - [px, pz][k])) < 12){ flush(); continue; }
-      let clash = false; for (let j = 0; j < N; j += 4) if (Math.abs(j - i) > 30 && Math.abs(j - i) < N - 30 && Math.hypot(PT[j][0] - px, PT[j][1] - pz) < HW + 6){ clash = true; break; }
+      let clash = false; for (let j = 0; j < N; j += 4) if (Math.abs(j - i) > 30 && Math.abs(j - i) < N - 30 && Math.hypot(PT[j][0] - px, PT[j][1] - pz) < HWI[j] + 6){ clash = true; break; }
       if (clash){ flush(); continue; }
       (run || (run = [])).push([px, pz]);
       for (let h = 0; h < (TOUCH ? 2 : 3); h++) TY.push([px, h * .3 + .15, pz, h === (TOUCH ? 1 : 2) ? ((i >> 1) % 2 ? '#c8322a' : '#f4f1ea') : '#1c1c1e']);
@@ -240,7 +273,7 @@
   const glowParts = [], LIGHTS = [];
   for (let i = 0; i < N; i += 70){ const [x, z] = at(i), c = CURV[i]; const s = c > 0 ? -1 : 1, [nx, nz] = NOR[i], px = x + nx * s * (HW + 32), pz = z + nz * s * (HW + 32);
     if (Math.hypot(...ROAD.p[nearest(ROAD.p, px, pz)].map((v, k) => v - [px, pz][k])) < 14) continue;
-    let ok = true; for (let j = 0; j < N; j += 3) if (Math.hypot(PT[j][0] - px, PT[j][1] - pz) < HW + 8){ ok = false; break; } if (ok) LIGHTS.push([px, pz]); }
+    let ok = true; for (let j = 0; j < N; j += 3) if (Math.hypot(PT[j][0] - px, PT[j][1] - pz) < HWI[j] + 8){ ok = false; break; } if (ok) LIGHTS.push([px, pz]); }
   LIGHTS.push([SZ.x0 + 12, SZ.z0 + 15], [SZ.x1 - 12, SZ.z0 + 15], [SZ.x0 + 12, SZ.z1 - 15], [SZ.x1 - 12, SZ.z1 - 15], [SJ.x - 30, 980], [SJ.x + 30, 980]);
   for (const [x, z] of LIGHTS){
     parts.push(geoTint(geoAt(new THREE.CylinderGeometry(.22, .4, 24, 6, 1, true), x, 12, z), '#9aa0a6')); addCircle(x, z, .6);
@@ -248,15 +281,15 @@
     glowParts.push(geoAt(new THREE.BoxGeometry(4, 1.9, .1), x + Math.sin(f) * .9, 24.5, z + Math.cos(f) * .9, 0, f, 0));
   }
   /* turn-number boards on the outside of each corner, ads along the straights */
-  for (const [n, i] of turnIdx){ const c = CURV[wi(i)], s = c > 0 ? -1 : 1, [x, z] = at(i), [nx, nz] = NOR[wi(i)], o = s * (HW + 9);
+  for (const [n, i] of turnIdx){ const c = CURV[wi(i)], s = c > 0 ? -1 : 1, [x, z] = at(i), [nx, nz] = NOR[wi(i)], o = s * (HWI[wi(i)] + 9);
     box(.15, 2.4, .15, x + nx * o, 1.2, z + nz * o, '#9aa0a6'); num(n, x + nx * o, z + nz * o, 2.4, 2.2, [-nx * s, -nz * s]); }
   for (let i = 0; i < N; i += 9){
     if (Math.abs(CURV[i]) > 1 / 120) continue;
     for (const s of [-1, 1]){
       if (i > PIT.i0 - 15 && i < PIT.i1 + 15 && s === PIT.side) continue;
-      const [x, z] = at(i), [nx, nz] = NOR[i], o = s * (HW + 6), px = x + nx * o, pz = z + nz * o;
+      const [x, z] = at(i), [nx, nz] = NOR[i], o = s * (HWI[i] + 6), px = x + nx * o, pz = z + nz * o;
       if (Math.hypot(...ROAD.p[nearest(ROAD.p, px, pz)].map((v, k) => v - [px, pz][k])) < 9) continue;
-      let ok = true; for (let j = 0; j < N; j += 3) if (Math.abs(j - i) > 8 && Math.abs(j - i) < N - 8 && Math.hypot(PT[j][0] - px, PT[j][1] - pz) < HW + 3){ ok = false; break; }
+      let ok = true; for (let j = 0; j < N; j += 3) if (Math.abs(j - i) > 8 && Math.abs(j - i) < N - 8 && Math.hypot(PT[j][0] - px, PT[j][1] - pz) < HWI[j] + 3){ ok = false; break; }
       if (!ok) continue;
       box(.12, 1.1, 6, px, .55, pz, '#e8e4dc', yawOf(TAN[i]) + 0);
       strip(6 + ((i / 9) & 7), px - nx * s * .07, pz - nz * s * .07, .02, 6, 1.06, [-nx * s, -nz * s]);
@@ -299,7 +332,7 @@
   arch(nearest(ROAD.p, 636, PAD.z0 + 8), 0); arch(nearest(ROAD.p, PAD.x0 + 15, 1135), 0);
   { /* where the public road crosses the circuit */
     let bi = 0, bd = 1e9, bj = 0; for (let j = 0; j < ROAD.p.length; j++){ const [x, z] = ROAD.p[j]; if (z > 905 || z < 700) continue; for (let i = 0; i < N; i += 2){ const d = Math.hypot(PT[i][0] - x, PT[i][1] - z); if (d < bd){ bd = d; bi = i; bj = j; } } }
-    if (bd < 6){ const [x, z] = PT[bi], [nx, nz] = NOR[bi]; for (const s of [-1, 1]){ const px = x + nx * s * (HW + 7), pz = z + nz * s * (HW + 7); box(.15, 3, .15, px, 1.5, pz, '#9aa0a6'); strip(15, px, pz, 3, 6, .75, [-nx * s, -nz * s], true); } P.CROSS = [x, z]; }
+    if (bd < 6){ const [x, z] = PT[bi], [nx, nz] = NOR[bi]; for (const s of [-1, 1]){ const px = x + nx * s * (HWI[bi] + 7), pz = z + nz * s * (HWI[bi] + 7); box(.15, 3, .15, px, 1.5, pz, '#9aa0a6'); strip(15, px, pz, 3, 6, .75, [-nx * s, -nz * s], true); } P.CROSS = [x, z]; }
   }
 
   /* mown-grass stripes over the whole park, its own mesh with a light depth offset so the public road and the paint stay on top */
@@ -414,12 +447,14 @@
           /* crossed the line going forward */
           if (a1 < a0 && a0 > N - 80 && P.qLock('park')){ P.lockHint(); F1.lap = null; }   /* main story: timing opens at chapter 5 */
           else if (a1 < a0 && a0 > N - 80){
-            if (F1.lap && F1.lap.prog > N * .95){
+            if (F1.lap && F1.lap.prog > N * .95 && F1.lap.bad){ P.call(`一圈 ${fmt2(F1.lap.t)} · 不计成绩`, F1.lap.bad); screens(fmt2(F1.lap.t), '超出赛道界限 · 不计成绩'); }
+            else if (F1.lap && F1.lap.prog > N * .95){
               const t = F1.lap.t, best = prog.best.sepLap, rec = best == null || t < best; F1.lastLap = t;
               if (rec){ prog.best.sepLap = Math.round(t * 100) / 100; saveGame(); }
               addStunt('雪邦赛道一圈', 500); CR.cheer = rec ? 3 : 1.5;
               P.call(`一圈 ${fmt2(t)}`, rec ? (best == null ? '第一圈！纪录已保存' : `新纪录！快了 ${(best - t).toFixed(2)} 秒`) : `纪录 ${fmt2(best)} · 慢了 ${(t - best).toFixed(2)} 秒`);
               screens(fmt2(t), rec ? '新纪录！' : '最快一圈 ' + fmt2(best));
+              if (window.XF1 && XF1.onLap) try { XF1.onLap(t, rec); } catch(e){ console.warn(e); }   /* js/94-f1-drive.js and the paddock's test-driver jobs */
             } else if (!F1.lap) P.call('雪邦赛道 · 计时开始', '跑完一整圈回到起点线');
             F1.lap = {t:0, prog:0, sec:1, splits:[]};
           } else if (F1.lap){
@@ -450,5 +485,5 @@
       if (CR.cheer > 0){ CR.cheer -= dt; CR.t += dt; if (camera.position.distanceTo(_p.set(300, 0, 930)) < 900) crowdPose(CR.t); if (CR.cheer <= 0) crowdPose(0); }
     };
   }
-  window.XF1 = {PT, N, LEN, SF, SEC, TAN, NOR, CURV, turnIdx, PIT, SJ, SJ_LIP, SJ_BASE, LOOP_A, LOOP_B, SX, KICK, MOUNDS, ROLL2, DRIFT, SZ, S:F1, screens, seats:seats.length, tyres:TY.length, map};
+  window.XF1 = {PT, N, LEN, SF, SEC, TAN, NOR, CURV, HWI, HW, KERB, kerbAt, slow, PAD, ROAD, turnIdx, PIT, SJ, SJ_LIP, SJ_BASE, LOOP_A, LOOP_B, SX, KICK, MOUNDS, ROLL2, DRIFT, SZ, S:F1, screens, seats:seats.length, tyres:TY.length, map};
 })();
