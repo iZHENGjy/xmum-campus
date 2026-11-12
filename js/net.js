@@ -169,6 +169,13 @@
   if (!cfg || typeof cfg !== 'object') return;          // 单机模式：什么都不做
 
   const SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
+  /* SDK 文件的指纹（SRI）：gstatic 上的文件被改过就不执行，联机失败、照常单机。升级 Firebase 版本要一起换：
+     curl -s 网址 | openssl dgst -sha384 -binary | openssl base64 -A */
+  const SDK_SRI = {
+    'firebase-app-compat.js':'sha384-AQ3POAMqIhwS81FrUH95ekxqBZHeP5tG2JfEL3+7GuTtfRLWnrRh32UxwzM+//A9',
+    'firebase-auth-compat.js':'sha384-TnlRYaR4JYz/lpaGuaiU61PjNberSA4vjLjtF+oRC/IkohkJqnWxw5EmDSOt1vA1',
+    'firebase-database-compat.js':'sha384-1/m+A1jVWbD3yiK3/vtFvm1+LjK1WLpSoDY+Kaxppwn/yP9BVSgdHTNQVOjrzUO5'
+  };
   const SEND_MS = 200, IDLE_HEARTBEAT = 2000, HIDDEN_HEARTBEAT = 4000;   // 旧协议（/presence）的节奏：只在退回旧协议时用
   const TICK = 100, STALE_GRID = 75000;                                   // 新协议：每 100 毫秒检查一次；心跳 30 秒，75 秒没消息算掉线（正常下线有 onDisconnect 马上删）
   const STALE_DRAW = 6000, STALE_COUNT = 15000, MAP = 1300, OLD_MAP = 700;   // 旧 /presence 的规则只认 ±700 米
@@ -188,21 +195,28 @@
   const timeout = (p, ms, what) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(what + ' 超时')), ms))]);
   function loadScript(src){
     return new Promise((res, rej) => {
-      const s = document.createElement('script'); s.src = src; s.async = false;
+      const s = document.createElement('script'), sri = SDK_SRI[src.slice(SDK.length)];
+      if (sri && src.startsWith(SDK)){ s.integrity = sri; s.crossOrigin = 'anonymous'; }
+      s.src = src; s.async = false;
       s.onload = res; s.onerror = () => rej(new Error('加载失败 ' + src)); document.head.appendChild(s);
     });
   }
 
   /* ---------- 名字 ---------- */
+  const GUEST_RE = /^游客[0-9]{4}$/;
+  function guestName(){
+    let n = ''; try { n = localStorage.getItem('xmum-guest') || ''; } catch(e){}
+    if (!GUEST_RE.test(n)){ n = '游客' + String(1000 + Math.floor(Math.random() * 9000)); try { localStorage.setItem('xmum-guest', n); } catch(e){} }
+    return n;
+  }
   function playerName(){
-    if (XNet.online && claimed) return claimed;           // 联机时只用已注册的名字，别人冒充不了
+    /* 联机时只用已注册的名字，别人冒充不了；还没注册上（注册失败、超时）就用「游客1234」。
+       数据库规则（/pres 的 n、/presence 的 name）也只认这两种，见 database.rules.json */
+    if (XNet.online) return claimed || guestName();
     let n = '';
     try { if (window.XUI && typeof XUI.playerName === 'function') n = String(XUI.playerName() || ''); } catch(e){}
     if (!n) try { n = localStorage.getItem('xmum-name') || ''; } catch(e){}
-    if (!n){
-      try { n = localStorage.getItem('xmum-guest') || ''; } catch(e){}
-      if (!n){ n = '游客' + String(1000 + Math.floor(Math.random() * 9000)); try { localStorage.setItem('xmum-guest', n); } catch(e){} }
-    }
+    if (!n) n = guestName();
     n = n.replace(/[\u0000-\u001f\u007f<>]/g, '').trim();
     return [...n].slice(0, 16).join('').slice(0, 16) || '游客';
   }

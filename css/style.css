@@ -1087,10 +1087,6 @@ body.wd-open #tnGain{top:auto;bottom:calc(var(--safe-b) + 24px);left:calc((100% 
 .rd-chk{display:flex;gap:8px;align-items:flex-start;color:#cfd5de;font-size:12.5px;line-height:1.4;cursor:pointer}
 .rd-chk input{margin-top:2px;accent-color:var(--rd)}
 .rd-off{color:#ff8a80}
-#acts #act-m{order:-1}
-body.rd-car #act-w{grid-column:auto}   /* in the car the water gun is off anyway: 电台 shares its row so the button stack stays as tall as before */
-#acts #act-m.rd-act-on{border-color:color-mix(in srgb,var(--rd) 70%,var(--line))}
-#acts #act-m.rd-act-on b{color:var(--rd);text-shadow:0 0 1px rgba(0,0,0,.35)}
 body.wd-open #radio,body.sp-run #radio,body.titled #radio{display:none!important}
 @media (pointer:coarse){
   #radio{left:50%;transform:translateX(-50%);bottom:auto;top:calc(var(--safe-t) + 190px);align-items:center}
