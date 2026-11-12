@@ -1,4 +1,4 @@
-/* XMUM 校园漫游 · 过场动画：开场航班（intro）、想家（homesick）、第 7 章结尾（ending）
+/* XMUM 校园漫游 · 过场动画：开场航班（intro）、想家（homesick）、第 7 章结尾（ending）、第 4 章生日火锅局（birthday）、第 5 章看比赛（f1）、第 3 章图书馆自习（library）
  *
  * 做什么：主线里三段像电影一样的过场（逐镜头的写法见 docs/quests.md「过场动画」）。
  *   通用：上下黑边滑进来、底部大字幕（带名字的对白 / 地点字卡）、屏幕中间的心里独白气泡（斜体、没有名字）、机位插值、
@@ -16,7 +16,7 @@
  *   客机和校巴是游戏里现成模型的 clone（共用几何和材质，不释放）；人机奶蛙用 makeNaiwa + nwDress 临时造，播完释放。
  *   这时镜头远裁剪面缩到 1.7 km、天空球缩小（和 js/89-train.js 的 farClip 一样），3 km 外的校园不画。手机和「流畅」不投影。
  * 对外：window.XCine = {
- *   play(id, {onDone}) → bool     id：'intro' | 'ending'。开始了返回 true；播完或跳过都调一次 onDone
+ *   play(id, {onDone}) → bool     id：'intro' | 'ending' | 'birthday'（LY 宿舍寝室里的生日火锅局，约 75 秒）| 'f1'（二园看台看比赛、发誓当车手，约 45 秒）| 'library'（A3 图书馆自习一整天，大窗外粉红色的夕阳，约 40 秒）。开始了返回 true；播完或跳过都调一次 onDone
  *   homesick(line, {night, onDone})  想家，line 是独白
  *   planeNear(x, z) → bool        客机现在是否在 (x, z) 头顶附近（水平 < 180 米、正在飞）
  *   summonPlane()                 让客机下一趟在 10–40 秒内从玩家头顶附近飞过
@@ -669,6 +669,450 @@ body.cine > *:not(canvas):not(.cine-ui):not(script):not(style):not(dialog):not(#
     ];
   }
 
+
+  /* ================= 临时场景四：LY 宿舍的寝室（生日火锅局） ================= */
+  /* 奶蛙大小的一间双人寝：9 × 7 米、层高 4.2 米（奶蛙 2.4 米高）。北墙一扇窗（外面是夜景），西墙上下铺，东墙书桌和衣柜，
+     南墙东头是门。屋子中间一张圆木桌（桌面 0.95 米高），一圈六张圆木凳（0.55 米高），桌上鸳鸯锅、几盘菜、一桶炸鸡、一壶拉茶。
+     局部原点：屋子正中的地面。 */
+  const RX = -5200, RZ = -5600, RW = 4.5, RD = 3.5, RH = 4.2;
+  const SEATS = [[0, -2.15], [-1.95, -.95], [1.95, -.95], [-1.75, 1.35], [1.75, 1.35], [0, 2.2]];   /* 我、小满、卷卷、老周、阿明、宿管阿姨 */
+  function buildRoom(){
+    const gr = mine(new THREE.Group()); scene.add(gr); const S = {gr};
+    const k = K(), b = k.KB(), X = x => RX + x, Z = z => RZ + z;
+    /* floor: pale terrazzo tiles; walls: the cream of the LY blocks with a blue dado; ceiling */
+    const ft = canvasTex(128, 128, c => { c.fillStyle = '#d9d2c3'; c.fillRect(0, 0, 128, 128); const r = mkRng(5);
+      for (let i = 0; i < 260; i++){ c.fillStyle = r() < .5 ? 'rgba(120,110,95,.35)' : 'rgba(255,255,255,.4)'; c.fillRect(r() * 128, r() * 128, 2, 2); }
+      c.fillStyle = '#b8b0a0'; c.fillRect(0, 0, 128, 2); c.fillRect(0, 0, 2, 128); }, [RW, RD]);
+    const fl = new THREE.Mesh(new THREE.PlaneGeometry(2 * RW, 2 * RD), new THREE.MeshStandardMaterial({map:ft, roughness:.6}));
+    fl.rotation.x = -Math.PI / 2; fl.position.set(X(0), .01, Z(0)); fl.receiveShadow = SHADOW(); gr.add(fl);
+    const WALL = '#efe6d2', DADO = '#7fa6c9';
+    k.kSign(b, 'z', Z(-RD), X(-RW), X(RW), 0, RH, 1, null, WALL);
+    k.kSign(b, 'x', X(-RW), Z(-RD), Z(RD), 0, RH, 1, null, WALL);
+    k.kSign(b, 'x', X(RW), Z(-RD), Z(RD), 0, RH, -1, null, WALL);
+    /* the south wall with the door gap (x 1.9 ~ 3.5) */
+    k.kSign(b, 'z', Z(RD), X(-RW), X(1.9), 0, RH, -1, null, WALL); k.kSign(b, 'z', Z(RD), X(3.5), X(RW), 0, RH, -1, null, WALL); k.kSign(b, 'z', Z(RD), X(1.9), X(3.5), 3.3, RH, -1, null, WALL);
+    k.kBox(b, X(-RW), 0, Z(-RD), X(RW), .9, Z(-RD + .03), DADO, ''); k.kBox(b, X(-RW), 0, Z(-RD), X(-RW + .03), .9, Z(RD), DADO, ''); k.kBox(b, X(RW - .03), 0, Z(-RD), X(RW), .9, Z(RD), DADO, '');
+    k.kQuad(b, [X(-RW), RH, Z(-RD)], [X(RW), RH, Z(-RD)], [X(RW), RH, Z(RD)], [X(-RW), RH, Z(RD)], '#f6f1e6');
+    /* the corridor outside the door: a strip of floor and a far wall, so the doorway is not a hole into nothing */
+    k.kFlat(b, X(1), Z(RD), X(5), Z(RD + 3), .01, '#cfc7b6'); k.kSign(b, 'z', Z(RD + 3), X(1), X(5), 0, RH, -1, null, '#e3dac6');
+    /* ceiling lamp: a long bright panel */
+    k.kBox(b, X(-1.2), RH - .12, Z(-.25), X(1.2), RH, Z(.25), '#fffbe8', '');
+    /* bunk bed on the west wall: posts, two decks, mattresses, a ladder, a blanket and pillow on the lower one */
+    { const x0 = -RW + .05, x1 = -RW + 1.9, z0 = -RD + .4, z1 = .1, W = '#8d6b47';
+      for (const [x, z] of [[x0, z0], [x1 - .12, z0], [x0, z1 - .12], [x1 - .12, z1 - .12]]) k.kBox(b, X(x), 0, Z(z), X(x + .12), 3.5, Z(z + .12), W);
+      for (const y of [.75, 2.45]){ k.kBox(b, X(x0), y, Z(z0), X(x1), y + .14, Z(z1), W); k.kBox(b, X(x0 + .05), y + .14, Z(z0 + .05), X(x1 - .05), y + .42, Z(z1 - .05), '#e9edf2'); }
+      k.kBox(b, X(x0 + .2), 1.03, Z(z0 + .15), X(x1 - .2), 1.2, Z(z0 + .85), '#ffffff'); k.kBox(b, X(x0 + .1), 1.0, Z(z0 + 1.6), X(x1 - .1), 1.12, Z(z1 - .1), '#e46a5a');
+      k.kBox(b, X(x0 + .2), 2.73, Z(z0 + .15), X(x1 - .2), 2.9, Z(z0 + .85), '#ffffff'); k.kBox(b, X(x0 + .1), 2.7, Z(z0 + 1.6), X(x1 - .1), 2.82, Z(z1 - .1), '#5a8fd0');
+      for (let y = .9; y < 2.5; y += .4) k.kBox(b, X(x1 - .02), y, Z(z1 - .8), X(x1 + .06), y + .06, Z(z1 - .2), W);
+      k.kBox(b, X(x1), 0, Z(z1 - .8), X(x1 + .06), 2.6, Z(z1 - .74), W); k.kBox(b, X(x1), 0, Z(z1 - .26), X(x1 + .06), 2.6, Z(z1 - .2), W); }
+    /* desk, chair, shelf and wardrobe on the east wall */
+    { const x1 = RW - .05, D = '#b08a5e';
+      k.kBox(b, X(x1 - 1.1), 1.15, Z(-RD + .3), X(x1), 1.25, Z(-RD + 2.6), D); for (const z of [-RD + .35, -RD + 2.45]) k.kBox(b, X(x1 - 1.05), 0, Z(z), X(x1 - .95), 1.15, Z(z + .1), D);
+      k.kBox(b, X(x1 - .85), 1.25, Z(-RD + .6), X(x1 - .25), 1.31, Z(-RD + 1.4), '#3a3f48'); k.kBox(b, X(x1 - .3), 1.31, Z(-RD + .6), X(x1 - .25), 1.75, Z(-RD + 1.4), '#2b3038');   /* laptop */
+      for (let i = 0; i < 6; i++) k.kBox(b, X(x1 - .9 + i * .12), 1.25, Z(-RD + 1.9), X(x1 - .8 + i * .12), 1.6 + (i % 3) * .07, Z(-RD + 2.45), ['#c0392b', '#2f6f3e', '#e0b03a', '#2a3f8f', '#8a5a3c', '#5b2a86'][i]);
+      k.kBox(b, X(x1 - .6), 2.3, Z(-RD + .3), X(x1), 2.38, Z(-RD + 2.6), D);
+      k.kBox(b, X(x1 - 1.1), 0, Z(RD - 2.2), X(x1), 3.6, Z(RD - .9), '#c9a679'); k.kBox(b, X(x1 - 1.12), .2, Z(RD - 1.58), X(x1 - 1.1), 3.4, Z(RD - 1.52), '#8d6b47'); }
+    /* the window in the north wall: frame, sill, curtains; the night view is a lit canvas behind it */
+    { const x0 = -1.6, x1 = 1.6, y0 = 1.5, y1 = 3.5, z = -RD + .02;
+      for (const [a, c, d, e] of [[x0 - .1, y0 - .1, x1 + .1, y0], [x0 - .1, y1, x1 + .1, y1 + .1], [x0 - .1, y0, x0, y1], [x1, y0, x1 + .1, y1], [-.04, y0, .04, y1]]) k.kBox(b, X(a), c, Z(z - .02), X(d), e, Z(z + .08), '#f4f4f0', '');
+      k.kBox(b, X(x0 - .2), y0 - .16, Z(z), X(x1 + .2), y0 - .1, Z(z + .3), '#f4f4f0');
+      k.kBox(b, X(x0 - .7), y0 - .3, Z(z + .05), X(x0 - .15), y1 + .3, Z(z + .2), '#e0a8a0'); k.kBox(b, X(x1 + .15), y0 - .3, Z(z + .05), X(x1 + .7), y1 + .3, Z(z + .2), '#e0a8a0'); }
+    const room = kitMesh(b, {roughness:.8}); room.receiveShadow = SHADOW(); gr.add(room);
+    const view = canvasTex(512, 320, (c, w, h) => {
+      const gd = c.createLinearGradient(0, 0, 0, h); gd.addColorStop(0, '#0b1430'); gd.addColorStop(.7, '#1d2c5a'); gd.addColorStop(1, '#3a3a5e'); c.fillStyle = gd; c.fillRect(0, 0, w, h);
+      const r = mkRng(31); c.fillStyle = '#fff'; for (let i = 0; i < 60; i++){ c.globalAlpha = .3 + r() * .6; c.fillRect(r() * w, r() * h * .5, 1.5, 1.5); } c.globalAlpha = 1;
+      c.fillStyle = '#fff6d0'; c.beginPath(); c.arc(w * .78, h * .2, 18, 0, 7); c.fill();
+      for (const [x, bw, bh] of [[20, 90, 150], [130, 70, 110], [215, 110, 170], [345, 80, 130], [430, 70, 160]]){ c.fillStyle = '#141b33'; c.fillRect(x, h - bh, bw, bh);
+        for (let yy = h - bh + 10; yy < h - 8; yy += 16) for (let xx = x + 8; xx < x + bw - 8; xx += 14) if (r() < .55){ c.fillStyle = r() < .7 ? '#ffd88a' : '#9fd1ff'; c.fillRect(xx, yy, 7, 8); } }
+    });
+    const vm = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 2), new THREE.MeshBasicMaterial({map:view})); vm.position.set(X(0), 2.5, Z(-RD - .02)); gr.add(vm);
+    /* fairy lights along the top of the north wall */
+    { const bl = []; for (let i = 0; i <= 26; i++){ const x = -RW + .3 + i * (2 * RW - .6) / 26, y = 3.75 - Math.sin(i / 26 * Math.PI * 3) * .12 - .1; bl.push(new THREE.SphereGeometry(.05, 6, 4).translate(X(x), y, Z(-RD + .1))); }
+      S.fairy = new THREE.Mesh(geoMerge(bl), new THREE.MeshBasicMaterial({color:'#ffd88a'})); gr.add(S.fairy); }
+    /* the door: a panel hinged at x 3.5 (opens into the room) */
+    { const dm = new THREE.Mesh(new THREE.BoxGeometry(1.6, 3.3, .08).translate(-.8, 1.65, 0), new THREE.MeshStandardMaterial({color:'#9a6b3f', roughness:.7}));
+      const hinge = new THREE.Group(); hinge.position.set(X(3.5), 0, Z(RD - .04)); hinge.add(dm);
+      const knob = new THREE.Mesh(new THREE.SphereGeometry(.06, 8, 6), new THREE.MeshStandardMaterial({color:'#d8c27a', metalness:.6, roughness:.3})); knob.position.set(-1.4, 1.6, -.08); hinge.add(knob);
+      gr.add(hinge); S.door = hinge; }
+    /* the round table, six round stools */
+    { const wood = new THREE.MeshStandardMaterial({color:'#b5814a', roughness:.55}), dark = new THREE.MeshStandardMaterial({color:'#8a5c30', roughness:.6});
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(1.45, 1.45, .1, 40), wood); top.position.set(X(0), .9, Z(0)); top.castShadow = SHADOW(); top.receiveShadow = SHADOW(); gr.add(top);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(1.45, .035, 6, 40), dark); rim.rotation.x = Math.PI / 2; rim.position.set(X(0), .9, Z(0)); gr.add(rim);
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(.16, .22, .85, 12), dark); leg.position.set(X(0), .43, Z(0)); gr.add(leg);
+      const foot = new THREE.Mesh(new THREE.CylinderGeometry(.7, .75, .06, 20), dark); foot.position.set(X(0), .03, Z(0)); gr.add(foot);
+      const sg = new THREE.CylinderGeometry(.34, .3, .08, 20), lg = new THREE.CylinderGeometry(.035, .045, .5, 6);
+      S.stools = [];
+      for (const [sx, sz] of SEATS){ const st = new THREE.Group(); st.position.set(X(sx), 0, Z(sz)); const seat = new THREE.Mesh(sg, wood); seat.position.y = .51; seat.castShadow = SHADOW(); st.add(seat);
+        for (let i = 0; i < 3; i++){ const a = i / 3 * 6.283 + .4, l = new THREE.Mesh(lg, dark); l.position.set(Math.cos(a) * .2, .25, Math.sin(a) * .2); st.add(l); }
+        gr.add(st); S.stools.push(st); } }
+    /* the yuanyang pot on its cooker: red half (spicy), pale half (clear), a divider; bubbles; plates round it */
+    { const pg = new THREE.Group(); pg.position.set(X(0), .95, Z(0)); gr.add(pg); S.pot = pg;
+      pg.add(new THREE.Mesh(new THREE.BoxGeometry(.9, .08, .9).translate(0, .04, 0), new THREE.MeshStandardMaterial({color:'#1d1e22', roughness:.4})));
+      const steel = new THREE.MeshStandardMaterial({color:'#c9ccd1', metalness:.7, roughness:.3, side:THREE.DoubleSide});
+      pg.add(new THREE.Mesh(new THREE.CylinderGeometry(.58, .52, .3, 32, 1, true).translate(0, .23, 0), steel));
+      const red = new THREE.MeshStandardMaterial({color:'#c8331c', roughness:.25, emissive:'#5a1206', emissiveIntensity:.6}), white = new THREE.MeshStandardMaterial({color:'#efe3c6', roughness:.25, emissive:'#3a3326', emissiveIntensity:.4});
+      const half = new THREE.CircleGeometry(.55, 24, 0, Math.PI); half.rotateX(-Math.PI / 2);
+      const h1 = new THREE.Mesh(half, red); h1.position.y = .33; pg.add(h1); const h2 = new THREE.Mesh(half.clone(), white); h2.rotation.y = Math.PI; h2.position.y = .33; pg.add(h2);
+      pg.add(new THREE.Mesh(new THREE.BoxGeometry(1.08, .14, .03).translate(0, .32, 0), steel));
+      const chili = new THREE.MeshStandardMaterial({color:'#8a1a0c', roughness:.4}); const cr = mkRng(4);
+      for (let i = 0; i < 9; i++){ const m = new THREE.Mesh(new THREE.SphereGeometry(.035, 6, 4), i % 3 ? chili : white); const a = cr() * Math.PI, d = .12 + cr() * .35; m.position.set(Math.cos(a) * d, .34, -Math.sin(a) * d); pg.add(m); }
+      /* plates: meat, balls, greens, the chicken bucket, a teh tarik jug */
+      const plate = new THREE.CylinderGeometry(.26, .22, .04, 18), pm = new THREE.MeshStandardMaterial({color:'#ffffff', roughness:.3});
+      const dish = (x, z, col, n, sh) => { const d = new THREE.Group(); d.position.set(X(x), .96, Z(z)); d.add(new THREE.Mesh(plate, pm));
+        const fm = new THREE.MeshStandardMaterial({color:col, roughness:.6}); for (let i = 0; i < n; i++){ const m = new THREE.Mesh(sh, fm); const a = i / n * 6.283; m.position.set(Math.cos(a) * .1, .05, Math.sin(a) * .1); d.add(m); } gr.add(d); };
+      dish(-.95, -.35, '#e89a9a', 5, new THREE.BoxGeometry(.14, .03, .09)); dish(.95, -.35, '#d9c08a', 6, new THREE.SphereGeometry(.05, 8, 6)); dish(-.75, .8, '#4f9a3a', 6, new THREE.BoxGeometry(.06, .05, .14)); dish(.2, -1.05, '#f2d7b0', 4, new THREE.CylinderGeometry(.05, .05, .04, 8));
+      const bk = new THREE.Group(); bk.position.set(X(.85), .95, Z(.75)); gr.add(bk);
+      const bt = canvasTex(128, 64, (c, w, h) => { for (let i = 0; i < 8; i++){ c.fillStyle = i % 2 ? '#ffffff' : '#b5121b'; c.fillRect(i * w / 8, 0, w / 8, h); } });
+      bk.add(new THREE.Mesh(new THREE.CylinderGeometry(.24, .18, .42, 16, 1, true).translate(0, .21, 0), new THREE.MeshStandardMaterial({map:bt, roughness:.6, side:THREE.DoubleSide})));
+      const ck = new THREE.MeshStandardMaterial({color:'#c97a2c', roughness:.7}); for (let i = 0; i < 5; i++){ const m = new THREE.Mesh(new THREE.SphereGeometry(.09, 8, 6).scale(1, .7, 1.4), ck); m.position.set(Math.cos(i * 1.3) * .1, .42, Math.sin(i * 1.3) * .1); bk.add(m); }
+      const jug = new THREE.Mesh(new THREE.CylinderGeometry(.12, .14, .32, 14).translate(0, .16, 0), new THREE.MeshStandardMaterial({color:'#c79a6a', roughness:.3, transparent:true, opacity:.9})); jug.position.set(X(-.25), .95, Z(1.05)); gr.add(jug); }
+    /* steam: soft white cards over the pot that rise, swell, fade, and start again (turned to the camera every frame) */
+    { const st = canvasTex(64, 64, (c, w) => { const gd = c.createRadialGradient(w / 2, w / 2, 2, w / 2, w / 2, w / 2); gd.addColorStop(0, 'rgba(255,255,255,.75)'); gd.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = gd; c.fillRect(0, 0, w, w); });
+      const sm = new THREE.MeshBasicMaterial({map:st, transparent:true, depthWrite:false, opacity:.5}); S.steam = [];
+      const pl = new THREE.PlaneGeometry(1, 1);
+      for (let i = 0; i < 10; i++){ const m = new THREE.Mesh(pl, sm); m.userData.ph = i / 10; m.userData.x = (Math.random() - .5) * .6; m.userData.z = (Math.random() - .5) * .6; gr.add(m); S.steam.push(m); } }
+    /* the birthday cake: hidden until the lights go off; two tiers, cream, strawberries, candles with little flames */
+    { const cg = new THREE.Group(); cg.position.set(X(0), .95, Z(-1.25)); cg.visible = false; gr.add(cg); S.cake = cg;
+      const cream = new THREE.MeshStandardMaterial({color:'#fff4ec', roughness:.5}), pink = new THREE.MeshStandardMaterial({color:'#f4a6c0', roughness:.5}), straw = new THREE.MeshStandardMaterial({color:'#e0303c', roughness:.4});
+      cg.add(new THREE.Mesh(new THREE.CylinderGeometry(.36, .36, .22, 24).translate(0, .11, 0), cream));
+      cg.add(new THREE.Mesh(new THREE.TorusGeometry(.36, .03, 6, 24).rotateX(Math.PI / 2).translate(0, .21, 0), pink));
+      cg.add(new THREE.Mesh(new THREE.CylinderGeometry(.24, .24, .16, 24).translate(0, .3, 0), pink));
+      for (let i = 0; i < 8; i++){ const m = new THREE.Mesh(new THREE.SphereGeometry(.04, 6, 5), straw); const a = i / 8 * 6.283; m.position.set(Math.cos(a) * .3, .25, Math.sin(a) * .3); cg.add(m); }
+      const cm = new THREE.MeshStandardMaterial({color:'#7fc4ff', roughness:.4}), flm = new THREE.MeshBasicMaterial({color:'#ffcf5a'}); S.flames = [];
+      for (let i = 0; i < 5; i++){ const a = i / 5 * 6.283; const cdl = new THREE.Mesh(new THREE.CylinderGeometry(.015, .015, .16, 6), cm); cdl.position.set(Math.cos(a) * .14, .46, Math.sin(a) * .14); cg.add(cdl);
+        const f = new THREE.Mesh(new THREE.ConeGeometry(.03, .08, 6), flm); f.position.set(Math.cos(a) * .14, .58, Math.sin(a) * .14); cg.add(f); S.flames.push(f); }
+      const glow = canvasTex(64, 64, (c, w) => { const gd = c.createRadialGradient(w / 2, w / 2, 1, w / 2, w / 2, w / 2); gd.addColorStop(0, 'rgba(255,200,90,.9)'); gd.addColorStop(1, 'rgba(255,160,40,0)'); c.fillStyle = gd; c.fillRect(0, 0, w, w); });
+      const gm = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 1.6), new THREE.MeshBasicMaterial({map:glow, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending})); gm.position.y = .6; cg.add(gm); S.glow = gm; }
+    return S;
+  }
+  /* steam and flicker, every frame of the party */
+  function roomStep(S, dt){
+    if (!S) return; const T = performance.now() / 1000;
+    for (const m of S.steam){ const p = (m.userData.ph + T * .22) % 1; m.position.set(RX + m.userData.x * (1 + p), 1.35 + p * 1.7, RZ + m.userData.z * (1 + p)); m.scale.setScalar(.3 + p * .7); m.material.opacity = .26; m.visible = p < .9 && !S.noSteam; m.lookAt(camera.position); }
+    if (S.flames) S.flames.forEach((f, i) => { f.scale.y = .8 + Math.sin(T * 17 + i * 2) * .25; });
+    if (S.glow){ S.glow.lookAt(camera.position); S.glow.material.opacity = .75 + Math.sin(T * 13) * .1; }
+    if (S.fairy) S.fairy.material.color.setHSL(.11, .9, .62 + Math.sin(T * 2.4) * .08);
+  }
+  const RL = (x, y, z) => V(RX + x, y, RZ + z);   /* room-local to world */
+  const seatFace = (x, z) => Math.atan2(-x, -z);   /* facing the middle of the table */
+  /* sit an actor on stool i */
+  function sitAt(A, i){ const [x, z] = SEATS[i]; place(A, RX + x, .55, RZ + z, seatFace(x, z)); A.sit = true; A.face = null; A.to = null; A.seat = i; }
+
+  /* ---------- 生日火锅局 ---------- */
+  function birthdayShots(){
+    const S = skies();
+    if (!SKY.room){
+      const C3 = c => new THREE.Color(c);
+      SKY.room = preset(P3.night, P3.night, 0, {hs:C3('#ffe6c4'), hg:C3('#6a5442'), hi:1.08, sc:C3('#ffe2b8'), si:.55, fn:300, ff:900, win:1.2, lamp:1.5, stars:0, moon:0, glow:.2});
+      SKY.room.d = V(.25, 1, .35).normalize();
+      SKY.dark = preset(P3.night, P3.night, 0, {hs:C3('#ff9d5c'), hg:C3('#1c120c'), hi:.34, sc:C3('#ffb070'), si:.08, fn:300, ff:900, win:1.2, lamp:1.5, stars:0, moon:0, glow:.1});
+      SKY.dark.d = V(0, 1, .6).normalize();
+      SKY.ly = preset(P3.night, P3.night, 0, {});
+    }
+    const xm = g(() => XQD.npcs, {}), lookOf = (id, d) => Object.assign({shape:(xm[id] || {}).shape}, (xm[id] || {}).look || d || {});
+    const guests = [['xm', 'xiaoman'], ['jj', 'juanjuan'], ['lz', 'laozhou'], ['am', 'aming']];
+    const GN = {xm:'小满学姐', jj:'卷卷', lz:'站长老周', am:'阿明'};
+    const ly = g(() => { const d = DM_DOORS.find(x => x.name === 'LY2') || DM_DOORS[0]; return {x:d.x, z:d.z, h:d.h}; }, {x:975, z:200, h:0});
+    const say = (k, text, ms) => { const A = C.A[k]; if (A) A.talk = Math.min(4, (ms || 3200) / 1000); sub(text, GN[k] || (k === 'me' ? '我' : k === 'au' ? '宿管阿姨' : ''), ms || 3200); };
+    const laughAll = ks => ks.forEach((k, i) => { const A = C.A[k]; if (A) setTimeout(() => { if (C.on && C.A[k]) A.laughT = A.tt; }, i * 120); });
+    const melody = () => { const N = [392, 392, 440, 392, 523, 494, 0, 392, 392, 440, 392, 587, 523]; const D = [.3, .15, .45, .45, .45, .9, .3, .3, .15, .45, .45, .45, .9]; let t = 0;
+      N.forEach((f, i) => { if (f) g(() => tone('triangle', f, f, D[i] * .95, .07, t)); t += D[i]; }); };
+    /* every room shot can start cold (skipping ahead with XCine.shot, or a slow first frame): the room, me and the four guests, seated */
+    const cast = () => {
+      const R = need('room', buildRoom); if (WORLD.light !== SKY.dark) inSet(SKY.room); else farSet(true);
+      const P = C.A.me || (C.A.me = actor(g(() => NW.look, null))); if (P.seat == null){ scene.add(P.N.root); sitAt(P, 0); }
+      guests.forEach(([k, id], i) => { let A = C.A[k]; if (!A){ A = C.A[k] = actor(lookOf(id)); scene.add(A.N.root); } if (A.seat == null || A.goSeat != null){ sitAt(A, i + 1); A.goSeat = null; A.wait = null; A.path = null; } });
+      show('me', 'xm', 'jj', 'lz', 'am'); return R;
+    };
+    return [
+      { /* ① LY 宿舍楼，晚上：镜头慢慢推向亮着灯的窗 */ dur:7, fadeIn:1, enter(){
+          inWorld(); lightSet(SKY.ly); fov(54); hideActors(); NW.root.visible = false;
+          const dx = Math.sin(ly.h), dz = Math.cos(ly.h), gy = g(() => groundAt(ly.x + dx * 30, ly.z + dz * 30), 0);
+          C.p0 = V(ly.x + dx * 46 + dz * 8, gy + 13, ly.z + dz * 46 - dx * 8); C.p1 = V(ly.x + dx * 30 + dz * 4, gy + 19, ly.z + dz * 30 - dx * 4);
+          C.q0 = V(ly.x, gy + 16, ly.z); C.q1 = V(ly.x, gy + 24, ly.z);
+          camTo(C.p0, C.q0);
+        },
+        cues:[[.6, () => cap('LY 宿舍 · 晚上九点\n生日这天', 3800)]],
+        step(t){ const k = ease(t / 7); camTo(C.p0.clone().lerp(C.p1, k), C.q0.clone().lerp(C.q1, k)); } },
+      { /* ② 寝室：大家一个个挤进来 */ dur:17, enter(){
+          const R = need('room', buildRoom); inSet(SKY.room); fov(58); hideActors();
+          const P = C.A.me || (C.A.me = actor(g(() => NW.look, null))); scene.add(P.N.root); sitAt(P, 0); show('me');
+          guests.forEach(([k, id], i) => { const A = C.A[k] || (C.A[k] = actor(lookOf(id))); scene.add(A.N.root); place(A, RX + 2.7, 0, RZ + RD + 2 + i * .1, Math.PI); A.sit = false; A.face = null; A.wait = 1.2 + i * 3.1; A.goSeat = i + 1; });
+          R.door.rotation.y = -1.6; R.cake.visible = false;
+        },
+        cues:[[1.6, () => say('am', '寿星公！炸鸡到了 lah！', 2800)], [4.6, () => say('jj', '生日快乐！我背了一晚上的书，就等这一口！', 3000)],
+          [7.8, () => say('lz', '……路过。顺便。', 2600)], [8.6, () => laughAll(['am', 'jj', 'me'])],
+          [10.9, () => say('xm', '我来晚啦！这么小的寝室，你们居然塞得下这么多人？', 3400)], [14.4, () => think('原来一个人在外面，也可以这么热闹。', 2800)]],
+        step(t, dt){
+          roomStep(C.set.room, dt);
+          for (const [k] of guests){ const A = C.A[k]; if (A.goSeat == null) continue;
+            if (A.wait != null && (A.wait -= dt) <= 0){ A.wait = null; show(k); const [sx, sz] = SEATS[A.goSeat]; A.path = [[RX + 2.7, RZ + RD - 1.2], [RX + sx * 1.35, RZ + sz * 1.35]]; walkTo(A, ...A.path.shift(), 2.8); }
+            if (A.wait == null && !A.to){ if (A.path && A.path.length) walkTo(A, ...A.path.shift(), 2.4); else { sitAt(A, A.goSeat); A.goSeat = null; } } }
+          const k = ease(t / 17);
+          camTo(RL(2.2 - 1.2 * k, 3.4, 3.1), RL(-.2, 1.3, -.4), t < .05 ? 1 : camK(dt, 2));
+        } },
+      { /* ③ 绕着桌子转一圈，锅冒着热气，一人一句 */ dur:15, cut:true, enter(){ fov(52); cast(); },
+        cues:[[.8, () => say('lz', '肉片下锅，数到十就捞，别煮老了。', 3000)], [4.2, () => say('jj', '辣锅那边是谁的筷子？我的丸子呢！', 3000)], [5.4, () => laughAll(['am', 'xm'])],
+          [7.6, () => say('am', '炸鸡配拉茶，马来西亚最强组合 lah。', 3000)], [10.8, () => say('xm', '刚来的时候你还问我 A3 在哪，现在都会请大家吃火锅了。', 3600)]],
+        step(t, dt){
+          roomStep(C.set.room, dt);
+          const a = .9 + t / 15 * 2.1, r = 4.1;
+          camTo(RL(Math.sin(a) * r, 3.1, Math.cos(a) * r), RL(0, 1.25, 0), t < .05 ? 1 : camK(dt, 3));
+        } },
+      { /* ④ 关灯，端出蛋糕，唱生日歌，许愿，吹蜡烛 */ dur:15, enter(){
+          const R = cast(); R.cake.visible = true; lightSet(SKY.dark); fov(50); for (const f of R.flames) f.visible = true; R.glow.visible = true; R.noSteam = true;
+        },
+        cues:[[.4, () => cap('关灯！', 1600)], [1.6, () => { melody(); sub('🎵 祝你生日快乐～', '大家', 5200); ['xm', 'jj', 'am', 'lz'].forEach(k => { C.A[k].talk = 5; }); }],
+          [7.4, () => { C.A.me.smile = 1; think('许个愿……', 2600); }],
+          [10.4, () => { const R = C.set.room; for (const f of R.flames) f.visible = false; R.glow.visible = false; g(() => noise(.35, .05, 900)); }],
+          [11, () => { lightSet(SKY.room); C.set.room.noSteam = false; C.A.me.smile = 0; laughAll(['me', 'xm', 'jj', 'am', 'lz']); sub('生日快乐！！', '大家', 2800); }]],
+        step(t, dt){
+          roomStep(C.set.room, dt);
+          const k = ease(t / 10);
+          camTo(RL(1.3 - .3 * k, 2.6 - .2 * k, 1.2 - .5 * k), RL(-.05, 1.5, -1.7), t < .05 ? 1 : camK(dt, 2.5));
+        } },
+      { /* ⑤ 咚咚咚：宿管阿姨。……给我也来一碗。 */ dur:14, enter(){
+          const R = cast(); R.door.rotation.y = 0; R.cake.visible = true; R.noSteam = false; for (const f of R.flames) f.visible = false; R.glow.visible = false; lightSet(SKY.room); fov(58); C.doorT = null;
+          const A = C.A.au || (C.A.au = actor({shape:'chubby', skin:'white', head:'buns', face:'glasses', outfit:'shirt'})); scene.add(A.N.root);
+          place(A, RX + 2.7, 0, RZ + RD + 1, Math.PI); A.sit = false; A.face = Math.PI; show('au');
+        },
+        cues:[[.5, () => { for (let i = 0; i < 3; i++) g(() => tone('square', 140, 90, .07, .14, i * .28)); sub('咚、咚、咚', null, 1600); }],
+          [1.2, () => ['me', 'xm', 'jj', 'am', 'lz'].forEach(k => { const A = C.A[k]; A.laughT = null; A.yaw0 = .5; })],
+          [2.6, () => { C.doorT = 0; }], [4, () => say('au', '几点了？还在寝室开火锅？', 2800)],
+          [7.2, () => { const A = C.A.au; walkTo(A, RX + 2.2, RZ + 2.1, 1.2); }], [8.6, () => think('……完了。', 1600)],
+          [10.2, () => say('au', '……给我也来一碗。', 3000)],
+          [11.4, () => { ['me', 'xm', 'jj', 'am', 'lz'].forEach(k => { C.A[k].yaw0 = 0; }); laughAll(['me', 'xm', 'jj', 'am', 'lz']); }]],
+        step(t, dt){
+          roomStep(C.set.room, dt);
+          const R = C.set.room; if (C.doorT != null){ C.doorT += dt; R.door.rotation.y = -1.5 * ease(C.doorT / 1.2); }
+          if (t < 7) camTo(RL(-.6, 3.5, -3.1), RL(2.6, 1.6, RD), t < .05 ? 1 : camK(dt, 3));
+          else { const k = ease((t - 7) / 4); camTo(RL(-1.6 + .4 * k, 3.2, -2.6 + .6 * k), RL(1 - .8 * k, 1.3, 1.2 - .6 * k), camK(dt, 2.5)); }
+        } },
+      { /* ⑥ 镜头退到天花板角上：一屋子人围着锅，宿管阿姨也坐下了 */ dur:9, enter(){
+          cast(); lightSet(SKY.room); const A = C.A.au || (C.A.au = actor({shape:'chubby', skin:'white', head:'buns', face:'glasses', outfit:'shirt'})); scene.add(A.N.root); sitAt(A, 5); show('au'); fov(58);
+        },
+        cues:[[4.5, () => { titleEl.textContent = '生日快乐'; titleEl.classList.add('on'); }]],
+        step(t, dt){
+          roomStep(C.set.room, dt);
+          const k = ease(t / 8.5);
+          camTo(RL(-1.4 - 2.4 * k, 2.6 + 1.2 * k, 1.6 + 1.6 * k), RL(0, 1.1, -.3), t < .05 ? 1 : camK(dt, 2));
+          if (Math.floor(t * 1.3) % 4 === 0 && C.A.am && C.A.am.laughT == null) C.A.am.laughT = C.A.am.tt;
+        } }
+    ];
+  }
+
+
+  /* ---------- 第 5 章开头：在二园看一场比赛，发誓要当车手 ---------- */
+  /* 真的在二园的雪邦赛道上拍（js/92-f1park.js 的 XF1：PT 赛道中线、TAN 切线、NOR 法线、SF 起点线），六辆车用 makeCar 临时造，
+     马上从 cars 里拿出来（游戏的物理、远近细节都不管它们），播完释放（几何是车型缓存，共用；只释放各自的车漆）。 */
+  function f1Cars(){
+    const F = window.XF1; if (!F || typeof makeCar !== 'function') return null;
+    const gr = mine(new THREE.Group()); scene.add(gr); const S = {gr, cars:[]}, paints = [];
+    const LOOK = [['lambo', '#d63a2f'], ['p911', '#f2c64a'], ['mase', '#2a5bd6'], ['lambo', '#1f8a55'], ['p911', '#f3f1ea'], ['mase', '#7442c2']];
+    const step = F.LEN / F.N;
+    LOOK.forEach(([kind, col], j) => {
+      const c = g(() => makeCar(kind, col, 0, 0, 0), null); if (!c) return;
+      const i = cars.indexOf(c); if (i >= 0) cars.splice(i, 1);
+      paints.push(c.paint); shareAll(c.root); c.root.userData.shared = false; mine(c.root); gr.add(c.root);
+      for (const w of c.fine || []) w.visible = true;
+      /* the grid: two by two behind the start line */
+      S.cars.push({c, s:(F.SF - 6 - Math.floor(j / 2) * 4) * step, lane:j % 2 ? -3.2 : 3.2, v:0, top:62 + (5 - j) * 1.6 + Math.random()});
+    });
+    gr.userData.ownMats = paints;
+    return S;
+  }
+  /* move the cars along the centre line (s in metres from point 0), each in its lane, wheels spinning */
+  function f1Step(S, dt, go){
+    if (!S) return; const F = XF1, step = F.LEN / F.N;
+    for (const o of S.cars){
+      if (go) o.v = Math.min(o.top, o.v + 16 * dt);
+      o.s += o.v * dt;
+      const f = ((o.s / step) % F.N + F.N) % F.N, i = Math.floor(f), k = f - i, a = F.PT[i], b = F.PT[(i + 1) % F.N], t = F.TAN[i], n = F.NOR[i];
+      const x = a[0] + (b[0] - a[0]) * k + n[0] * o.lane, z = a[1] + (b[1] - a[1]) * k + n[1] * o.lane;
+      o.c.root.position.set(x, g(() => groundAt(x, z), 0), z); o.c.root.rotation.y = Math.atan2(t[0], t[1]);
+      for (const w of o.c.wheels) w.rotation.x += o.v / .38 * dt;
+      o.lane += (Math.sin(o.s * .004 + o.top) * 2.6 - o.lane) * Math.min(1, dt * .4);
+    }
+  }
+  const f1At = (i, off, up) => { const F = XF1, j = ((Math.round(i) % F.N) + F.N) % F.N, p = F.PT[j], n = F.NOR[j]; return V(p[0] - n[0] * off, (up || 0), p[1] - n[1] * off); };   /* off > 0: the grandstand side */
+  function f1Shots(){
+    if (!SKY.track) SKY.track = preset(P3.day, P3.day, 0, {});
+    const F = XF1, SF = F.SF, GS = SF + 60;   /* the main grandstand faces the straight about 180 m after the line */
+    const ben = g(() => XQD.npcs.ben, null);
+    const whoosh = () => g(() => { noise(1.1, .09, 520); tone('sawtooth', 210, 120, .9, .035); });
+    /* me and Ben at the fence in front of the main grandstand, facing the track (also when a shot is entered cold) */
+    const fence = () => {
+      need('f1', f1Cars);
+      const P = C.A.me || (C.A.me = actor(g(() => NW.look, null))); scene.add(P.N.root);
+      const B = C.A.ben || (C.A.ben = actor(Object.assign({shape:ben && ben.shape}, ben && ben.look || {skin:'galaxy', outfit:'hero', neck:'chain'}))); scene.add(B.N.root);
+      const p = f1At(GS, 11), q = f1At(GS + 2, 11), face = Math.atan2(F.NOR[GS][0], F.NOR[GS][1]);
+      place(P, p.x, g(() => groundAt(p.x, p.z), 0), p.z, face); place(B, q.x, g(() => groundAt(q.x, q.z), 0), q.z, face); P.face = B.face = face; P.sit = B.sit = false;
+      show('me', 'ben');
+    };
+    return [
+      { /* ① 二园全景，发车格上一排车 */ dur:8, fadeIn:1, enter(){
+          inWorld(); lightSet(SKY.track); fov(50); hideActors(); NW.root.visible = false;
+          need('f1', f1Cars); f1Step(C.set.f1, 0, false);
+          camTo(f1At(SF + 10, 24, 11), f1At(SF - 10, 0, 1));
+        },
+        cues:[[.6, () => cap('汽车游乐园二园 · 雪邦赛道\n周末耐力赛', 3800)], [4.6, () => { g(() => { tone('sine', 660, 660, .25, .08); tone('sine', 660, 660, .25, .08, .6); tone('sine', 990, 990, .5, .1, 1.2); }); }],
+          [6, () => sub('发车！', '解说员', 1800)]],
+        step(t, dt){ f1Step(C.set.f1, dt, t > 6); const k = ease(t / 8); camTo(f1At(SF + 10 - 4 * k, 24 - 6 * k, 11 - 4 * k), f1At(SF - 10 + 8 * k, 0, 1), t < .05 ? 1 : camK(dt, 2)); } },
+      { /* ② 贴着赛道边，一辆辆擦着镜头冲过去 */ dur:7, cut:true, enter(){ fov(62); },
+        cues:[[.3, whoosh], [1.4, whoosh], [2.6, whoosh]],
+        step(t, dt){ f1Step(C.set.f1, dt, true); camTo(f1At(SF + 22, 9.5, 1.1), f1At(SF + 8, 0, 1.2), t < .05 ? 1 : camK(dt, 6)); } },
+      { /* ③ 看台前的栏杆边：我和 Ben 师傅 */ dur:11, enter(){
+          fov(54); hideActors(); fence(); C.A.me.look = .4;
+          /* the pack comes round again: put it just before the stand */
+          C.set.f1.cars.forEach((o, j) => { o.s = (GS - 40 - j * 9) * F.LEN / F.N; o.v = o.top; });
+          C.f1p = f1At(GS + 6, 17, 2.2); C.f1q = V((C.A.me.x + C.A.ben.x) / 2, C.A.me.y + 1.9, (C.A.me.z + C.A.ben.z) / 2);
+          camTo(C.f1p, C.f1q);
+        },
+        cues:[[.6, whoosh], [1.6, () => { C.A.ben.talk = 3.4; sub('看到没有？两百多公里，过弯离墙就一个巴掌。', 'Ben 师傅', 3800); }], [5.4, () => { C.A.me.look = 0; C.A.me.up = .3; think('……好帅。', 2600); }], [8.2, whoosh]],
+        step(t, dt){ f1Step(C.set.f1, dt, true); const k = ease(t / 11); camTo(C.f1p.clone().lerp(f1At(GS + 1, 15, 2.6), k), C.f1q, t < .05 ? 1 : camK(dt, 2)); } },
+      { /* ④ 冲线 */ dur:6, cut:true, enter(){
+          fov(46); hideActors(); need('f1', f1Cars).cars.forEach((o, j) => { o.s = (SF - 30 - j * 7) * F.LEN / F.N; o.v = o.top; });
+        },
+        cues:[[.2, whoosh], [1.1, () => { sub('冠军！！', '解说员', 2400); g(() => noise(2.4, .06, 1400)); }]],
+        step(t, dt){ f1Step(C.set.f1, dt, true); camTo(f1At(SF, -12, 2.4), f1At(SF - 2, 0, 1), t < .05 ? 1 : camK(dt, 4)); } },
+      { /* ⑤ 发誓 */ dur:12, enter(){
+          fov(44); fence(); const P = C.A.me; P.up = 0; P.look = 0;
+          const fwd = V(F.NOR[GS][0], 0, F.NOR[GS][1]);   /* from the fence towards the track: the camera stands there, looking back at my face */
+          C.f1p = V(P.x + fwd.x * 3.2 - fwd.z * 1.2, P.y + 2.4, P.z + fwd.z * 3.2 + fwd.x * 1.2); C.f1q = V(P.x, P.y + 2.1, P.z);
+          camTo(C.f1p, C.f1q);
+        },
+        cues:[[.8, () => think('总有一天，我也要在这条赛道上拿第一。', 3800)], [5, () => { C.A.ben.talk = 4.4; sub('想当车手？那就从明天开始，每天给我练。', 'Ben 师傅', 3200); }],
+          [8.4, () => { C.A.ben.talk = 3; sub('先改车，再去一园练跳台和 8 字，最后回来跑这条赛道。', 'Ben 师傅', 3400); }]],
+        step(t, dt){ f1Step(C.set.f1, dt, true); const k = ease(t / 12); camTo(C.f1p.clone().lerp(C.f1q, .25 * k), C.f1q, t < .05 ? 1 : camK(dt, 2)); } }
+    ];
+  }
+
+
+  /* ================= 临时场景五：A3 图书馆的自习区（第 3 章：自习一整天，看粉红色的夕阳） ================= */
+  /* 奶蛙大小的一层阅览区：22 × 14 米、层高 7.5 米。北面整面落地大窗（窗格是细细的白框），窗外是画出来的天和远处的校园剪影：
+     白天一张、粉红色傍晚一张，延时的时候交叉淡入淡出。两排长木桌、台灯，东西两面墙是书架，西墙上一个挂钟（指针跟着延时转）。
+     局部原点：屋子正中的地面，北面（−z）是窗。 */
+  const LX = 5200, LZ = -5600, LW = 11, LD = 7, LH = 7.5;
+  function skyTex(pink){
+    return canvasTex(1024, 384, (c, w, h) => {
+      const gd = c.createLinearGradient(0, 0, 0, h);
+      if (pink){ gd.addColorStop(0, '#8a6fe0'); gd.addColorStop(.3, '#e48ad8'); gd.addColorStop(.58, '#ff9cc8'); gd.addColorStop(.8, '#ffb8a8'); gd.addColorStop(1, '#ffe0a8'); }
+      else { gd.addColorStop(0, '#5aa0e6'); gd.addColorStop(.7, '#a8d8f0'); gd.addColorStop(1, '#d9eef7'); }
+      c.fillStyle = gd; c.fillRect(0, 0, w, h);
+      /* the sun low over the hills on the pink one, a few clouds lit from below */
+      if (pink){ const sg = c.createRadialGradient(w * .62, h * .78, 4, w * .62, h * .78, 120); sg.addColorStop(0, 'rgba(255,240,200,1)'); sg.addColorStop(.25, 'rgba(255,200,160,.7)'); sg.addColorStop(1, 'rgba(255,170,170,0)'); c.fillStyle = sg; c.fillRect(0, 0, w, h); }
+      const r = mkRng(pink ? 12 : 7);
+      for (let i = 0; i < 7; i++){ const x = r() * w, y = h * (.12 + r() * .4), s = 40 + r() * 70; c.fillStyle = pink ? 'rgba(255,190,205,.75)' : 'rgba(255,255,255,.85)';
+        for (let k = 0; k < 5; k++){ c.beginPath(); c.ellipse(x + (k - 2) * s * .35, y + Math.sin(k) * 6, s * .4, s * .16, 0, 0, 7); c.fill(); } }
+      /* hills, palms and the campus roofs as a silhouette along the bottom */
+      c.fillStyle = pink ? '#5b3d5e' : '#5f8a5a'; c.beginPath(); c.moveTo(0, h); for (let x = 0; x <= w; x += 16) c.lineTo(x, h * .8 - Math.sin(x * .006) * 22 - Math.sin(x * .017) * 8); c.lineTo(w, h); c.fill();
+      c.fillStyle = pink ? '#3e2a44' : '#3f6b44';
+      for (let i = 0; i < 9; i++){ const x = 60 + i * 110 + r() * 30, y = h * .86; c.fillRect(x - 2, y - 46, 4, 46); for (let k = 0; k < 7; k++){ const a = k / 7 * Math.PI - Math.PI; c.beginPath(); c.ellipse(x + Math.cos(a) * 18, y - 48 + Math.sin(a) * 8, 20, 5, a, 0, 7); c.fill(); } }
+      c.fillStyle = pink ? '#4a3148' : '#c9b9a0';
+      for (const [x, bw, bh] of [[120, 120, 60], [300, 90, 46], [520, 160, 70], [740, 110, 52]]){ c.fillRect(x, h - bh - 4, bw, bh); c.fillStyle = pink ? '#7a3a3a' : '#b5442a'; c.fillRect(x - 6, h - bh - 14, bw + 12, 12); c.fillStyle = pink ? '#4a3148' : '#c9b9a0'; }
+    });
+  }
+  function buildLibrary(){
+    const gr = mine(new THREE.Group()); scene.add(gr); const S = {gr};
+    const k = K(), b = k.KB(), X = x => LX + x, Z = z => LZ + z;
+    const ft = canvasTex(128, 128, c => { c.fillStyle = '#9a8a76'; c.fillRect(0, 0, 128, 128); c.strokeStyle = 'rgba(60,45,30,.35)'; c.lineWidth = 2; for (let y = 0; y <= 128; y += 32){ c.beginPath(); c.moveTo(0, y); c.lineTo(128, y); c.stroke(); } }, [LW, LD]);
+    const fl = new THREE.Mesh(new THREE.PlaneGeometry(2 * LW, 2 * LD), new THREE.MeshStandardMaterial({map:ft, roughness:.7}));
+    fl.rotation.x = -Math.PI / 2; fl.position.set(X(0), .01, Z(0)); fl.receiveShadow = SHADOW(); gr.add(fl);
+    const WALL = '#ece6da';
+    k.kSign(b, 'x', X(-LW), Z(-LD), Z(LD), 0, LH, 1, null, WALL); k.kSign(b, 'x', X(LW), Z(-LD), Z(LD), 0, LH, -1, null, WALL); k.kSign(b, 'z', Z(LD), X(-LW), X(LW), 0, LH, -1, null, WALL);
+    k.kQuad(b, [X(-LW), LH, Z(-LD)], [X(LW), LH, Z(-LD)], [X(LW), LH, Z(LD)], [X(-LW), LH, Z(LD)], '#f4f0e6');
+    /* the north wall is all window: a low sill, thin white mullions and transoms */
+    const z0 = Z(-LD);
+    k.kBox(b, X(-LW), 0, z0, X(LW), .5, z0 + .25, '#d8d0c0');
+    for (let x = -LW; x <= LW + .01; x += 2.75) k.kBox(b, X(x) - .07, .5, z0, X(x) + .07, LH, z0 + .14, '#f6f6f2', '');
+    for (const y of [.5, 3.6, LH - .05]) k.kBox(b, X(-LW), y - .06, z0, X(LW), y + .06, z0 + .14, '#f6f6f2', '');
+    /* bookshelves on the side walls: cases full of coloured spines */
+    const COLS = ['#b5442a', '#2f6f3e', '#e0b03a', '#2a3f8f', '#8a5a3c', '#5b2a86', '#c86a8a', '#3a7d8c'];
+    const r = mkRng(3);
+    for (const s of [-1, 1]) for (let z = -LD + 1; z < LD - 1; z += 2.4){
+      const xw = s * LW, xi = s * (LW - .9);
+      k.kBox(b, X(Math.min(xw, xi)), 0, Z(z), X(Math.max(xw, xi)), 4.2, Z(z + 2.2), '#7a5434');
+      for (let sh = 0; sh < 4; sh++){ const y = .3 + sh * 1.0; let zz = z + .1;
+        while (zz < z + 2.05){ const wdt = .08 + r() * .07, ht = .6 + r() * .25; const a1 = xi - s * .02, a2 = xi + s * .25; k.kBox(b, X(Math.min(a1, a2)), y, Z(zz), X(Math.max(a1, a2)), y + ht, Z(zz + wdt), COLS[(r() * COLS.length) | 0], ''); zz += wdt + .01; } } }
+    /* two long study tables with green lamps */
+    for (const tz of [-3.6, .4]){
+      k.kBox(b, X(-6), 1.15, Z(tz - .9), X(6), 1.27, Z(tz + .9), '#a8743f');
+      for (const lx of [-5.6, 5.6]) for (const lz of [-.75, .75]) k.kBox(b, X(lx) - .07, 0, Z(tz + lz) - .07, X(lx) + .07, 1.15, Z(tz + lz) + .07, '#7a5434');
+      for (const lx of [-4, 0, 4]){ k.kBox(b, X(lx) - .04, 1.27, Z(tz) - .04, X(lx) + .04, 1.75, Z(tz) + .04, '#c9a64a'); k.kBox(b, X(lx) - .35, 1.7, Z(tz) - .16, X(lx) + .35, 1.86, Z(tz) + .16, '#2f6f3e'); }
+      for (let i = -5; i <= 5; i += 2) for (const s of [-1, 1]) k.kBox(b, X(i) - .3, .5, Z(tz + s * 1.35) - .3, X(i) + .3, .58, Z(tz + s * 1.35) + .3, '#8a5c30');
+    }
+    const room = kitMesh(b, {roughness:.8}); room.receiveShadow = SHADOW(); gr.add(room);
+    /* the view: day and pink, crossfaded (the pink one in front) */
+    const vg = new THREE.PlaneGeometry(2 * LW + 6, LH + 3);
+    S.day = new THREE.Mesh(vg, new THREE.MeshBasicMaterial({map:skyTex(false), toneMapped:false, fog:false})); S.day.position.set(X(0), LH / 2 + .6, z0 - 3); gr.add(S.day);
+    S.pink = new THREE.Mesh(vg, new THREE.MeshBasicMaterial({map:skyTex(true), transparent:true, opacity:0, depthWrite:false, toneMapped:false, fog:false})); S.pink.position.set(X(0), LH / 2 + .6, z0 - 2.9); gr.add(S.pink);
+    /* a glow of evening light lying across the floor in front of the window */
+    S.glow = new THREE.Mesh(new THREE.PlaneGeometry(2 * LW, 6), new THREE.MeshBasicMaterial({color:'#ff9ec0', transparent:true, opacity:0, depthWrite:false, blending:THREE.AdditiveBlending}));
+    S.glow.rotation.x = -Math.PI / 2; S.glow.position.set(X(0), .03, z0 + 3.2); gr.add(S.glow);
+    /* the wall clock (west wall), hands turn with the time-lapse */
+    { const cg = new THREE.Group(); cg.position.set(X(-LW + .05), 5.4, Z(-1)); cg.rotation.y = Math.PI / 2; gr.add(cg);
+      cg.add(new THREE.Mesh(new THREE.CircleGeometry(.6, 28), new THREE.MeshStandardMaterial({color:'#ffffff', roughness:.4})));
+      cg.add(new THREE.Mesh(new THREE.TorusGeometry(.6, .05, 6, 28), new THREE.MeshStandardMaterial({color:'#2b2a26'})));
+      const hm = new THREE.MeshBasicMaterial({color:'#2b2a26'});
+      S.hh = new THREE.Mesh(new THREE.BoxGeometry(.05, .32, .02).translate(0, .16, .02), hm); S.mh = new THREE.Mesh(new THREE.BoxGeometry(.035, .48, .02).translate(0, .24, .03), hm); cg.add(S.hh, S.mh); }
+    /* our books: two piles that grow through the day, an open book in front of each of us, a coffee */
+    { const bm = new THREE.MeshStandardMaterial({vertexColors:false, color:'#d8d2c4', roughness:.7}); S.piles = [];
+      for (const [px, pz] of [[-1.4, -4.1], [1.5, -4.1]]){ const p = new THREE.Group(); p.position.set(X(px), 1.27, Z(pz)); gr.add(p); S.piles.push(p);
+        for (let i = 0; i < 8; i++){ const m = new THREE.Mesh(new THREE.BoxGeometry(.55, .1, .4), new THREE.MeshStandardMaterial({color:COLS[i % COLS.length], roughness:.7})); m.position.set((r() - .5) * .06, .05 + i * .1, 0); m.rotation.y = (r() - .5) * .3; p.add(m); } }
+      for (const px of [-.6, .6]){ const o = new THREE.Mesh(new THREE.BoxGeometry(.6, .03, .42), bm); o.position.set(X(px), 1.29, Z(-3.15)); gr.add(o); }
+      const cup = new THREE.Mesh(new THREE.CylinderGeometry(.08, .07, .2, 12), new THREE.MeshStandardMaterial({color:'#6b3e20'})); cup.position.set(X(1.1), 1.37, Z(-3.2)); gr.add(cup); }
+    return S;
+  }
+  /* time of day in the library, 0 = morning, 1 = pink evening: the window crossfade, the light, the clock, the book piles */
+  function libTime(S, k){
+    if (!S) return;
+    S.pink.material.opacity = clamp01((k - .55) / .35); S.glow.material.opacity = .35 * clamp01((k - .6) / .3);
+    const hrs = 8 + k * 10.5; S.hh.rotation.z = -hrs / 12 * Math.PI * 2; S.mh.rotation.z = -hrs * Math.PI * 2;
+    S.piles.forEach(p => p.children.forEach((m, i) => { m.visible = i < 2 + Math.round(k * 6); }));
+    const P = SKY.libLive; if (!P) return;
+    const a = SKY.libDay, b = SKY.libPink, t = clamp01((k - .45) / .45);
+    for (const f of P3_COL) P[f].copy(a[f]).lerp(b[f], t); for (const f of P3_NUM) P[f] = a[f] + (b[f] - a[f]) * t; P.d.copy(a.d).lerp(b.d, t).normalize();
+    if (WORLD.light === P){ tgt = P; g(() => applyTime(1)); }
+  }
+  function libraryShots(){
+    if (!SKY.libDay){
+      const C3 = c => new THREE.Color(c);
+      SKY.libDay = preset(P3.day, P3.day, 0, {hs:C3('#fff6e6'), hi:1.0, si:.9, fn:400, ff:1200, win:0, lamp:0, stars:0, moon:0}); SKY.libDay.d = V(-.1, .8, -.6).normalize();
+      SKY.libPink = preset(P3.dusk, P3.dusk, 0, {hs:C3('#ffc4d6'), hg:C3('#6a4a60'), hi:1.05, sc:C3('#ff9fb8'), si:1.0, fn:400, ff:1200, win:.6, lamp:.9, glow:1.4}); SKY.libPink.d = V(.15, .22, -1).normalize();
+      SKY.libLive = preset(P3.day, P3.day, 0, {});
+    }
+    const jj = g(() => XQD.npcs.juanjuan, null);
+    const LL = (x, y, z) => V(LX + x, y, LZ + z);
+    const cast = () => {
+      const S = need('lib', buildLibrary); inSet(SKY.libLive);
+      const P = C.A.me || (C.A.me = actor(g(() => NW.look, null))); scene.add(P.N.root);
+      const J = C.A.jj || (C.A.jj = actor(Object.assign({shape:jj && jj.shape}, jj && jj.look || {skin:'white', face:'glasses', back:'bag', hand:'coffee'}))); scene.add(J.N.root);
+      if (!P.libSet){ place(P, LX - .6, .55, LZ - 2.25, Math.PI); P.sit = true; P.face = null; P.libSet = true; }
+      if (!J.libSet){ place(J, LX + .6, .55, LZ - 2.25, Math.PI); J.sit = true; J.face = null; J.libSet = true; }
+      show('me', 'jj'); return S;
+    };
+    return [
+      { /* ① 早上八点，A3 图书馆：两个人，两摞书 */ dur:8, fadeIn:1, enter(){ hideActors(); const S = cast(); libTime(S, 0); fov(50); camTo(LL(3.2, 3.2, 1.6), LL(-.2, 1.7, -3)); },
+        cues:[[.6, () => cap('A3 图书馆 · 早上八点\n期末周', 3600)], [4.2, () => { C.A.jj.talk = 3; sub('今天不把这三章背完，我们就不走！', '卷卷', 3400); }]],
+        step(t, dt){ const k = ease(t / 8); camTo(LL(3.2 - 1 * k, 3.2, 1.6 - .6 * k), LL(-.2, 1.7, -3)); } },
+      { /* ② 延时：钟转，光走，书越摞越高 */ dur:10, enter(){ hideActors(); cast(); fov(56); },
+        cues:[[.5, () => cap('……', 2000)], [5, () => think('翻书，划线，再翻书。', 2600)]],
+        step(t){ const S = C.set.lib, k = clamp01(t / 10) * .82; libTime(S, k);
+          C.A.me.yaw0 = Math.sin(t * 3.1) * .25; C.A.jj.yaw0 = Math.sin(t * 2.6 + 1) * .25; C.A.me.roll0 = Math.sin(t * 1.7) * .06;
+          camTo(LL(-7.5, 4.6, 5.2), LL(0, 2.2, -3.4)); } },
+      { /* ③ 傍晚：抬头，整面窗都是粉红色的天 */ dur:12, enter(){ hideActors(); const S = cast(); libTime(S, .9); fov(54); C.A.me.yaw0 = C.A.jj.yaw0 = 0; C.A.me.roll0 = 0; },
+        cues:[[1.2, () => { C.A.me.up = .5; }], [2.2, () => think('学了一整天。抬头的时候，天已经变成粉红色了。', 3800)],
+          [6.6, () => { C.A.jj.up = .45; C.A.jj.talk = 3; sub('哇……我们学校的窗户怎么这么大。', '卷卷', 3400); }]],
+        step(t, dt){ libTime(C.set.lib, .9 + .1 * clamp01(t / 12)); const k = ease(t / 12);
+          camTo(LL(.2, 3.1 + .2 * k, 2.2 - 1.2 * k), LL(0, 3.0 + .6 * k, -LD), t < .05 ? 1 : camK(dt, 2)); } },
+      { /* ④ 站到窗边：两个剪影，粉红色的天 */ dur:10, enter(){ hideActors(); cast(); libTime(C.set.lib, 1); fov(50);
+          const P = C.A.me, J = C.A.jj; P.sit = J.sit = false; P.up = J.up = 0;
+          place(P, LX - 1.9, 0, LZ - LD + 2.5, Math.PI); place(J, LX + 1.7, 0, LZ - LD + 2.5, Math.PI);   /* between the first table and the window */ walkTo(P, LX - .7, LZ - LD + 1.3, 1.4); walkTo(J, LX + .7, LZ - LD + 1.4, 1.3); P.face = J.face = Math.PI; },
+        cues:[[5.6, () => think('……明天，也来这里。', 3000)]],
+        step(t, dt){ const k = ease(t / 10); camTo(LL(.4, 1.6 + .5 * k, 3.6 - 1.2 * k), LL(0, 2.8, -LD), t < .05 ? 1 : camK(dt, 2)); } }
+    ];
+  }
+
   /* ---------- 播放、换镜头、结束 ---------- */
   function begin(kind){
     C.on = true; C.kind = kind; C.done = false; C.fov = 0; C.paused = gx.paused; C.nwVis = NW.root.visible; C.dt = 0;
@@ -686,11 +1130,12 @@ body.cine > *:not(canvas):not(.cine-ui):not(script):not(style):not(dialog):not(#
   function beamsShow(){ if (!beamsOff) return; for (const [o, v] of beamsOff) o.visible = v; beamsOff = null; }
   function play(id, o){
     o = o || {};
-    if (C.on || (id !== 'intro' && id !== 'ending')) return false;
+    if (C.on || !['intro', 'ending', 'birthday', 'f1', 'library'].includes(id)) return false;
+    if (id === 'f1' && !window.XF1) return false;
     if (typeof mode !== 'undefined' && mode !== 'naiwa') return false;
     if (g(() => titleOpen, false) || !K() || typeof makeNaiwa !== 'function') return false;
     begin('film'); C.id = id; C.onDone = typeof o.onDone === 'function' ? o.onDone : null;
-    C.shots = id === 'intro' ? introShots() : endingShots();
+    C.shots = id === 'intro' ? introShots() : id === 'ending' ? endingShots() : id === 'f1' ? f1Shots() : id === 'library' ? libraryShots() : birthdayShots();
     /* straight to black (no fade from the game), then the first shot fades in */
     NW.root.visible = false; fadeEl.style.transition = 'none'; fade(1); void fadeEl.offsetWidth; fadeEl.style.transition = '';
     C.i = -1; C.next = 0; C.ph = 'out'; C.ft = 0;

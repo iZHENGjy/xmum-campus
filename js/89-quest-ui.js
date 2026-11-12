@@ -174,7 +174,7 @@
   function welcomeTry(){
     const w = S().welcome; if (!w || !XQ.ready || mode !== 'naiwa' || !wel.hidden || g(() => XCine.busy, false) || g(() => XGuide.on, false) || document.querySelector('dialog[open]')) return;
     const chs = w.chs || [], last = chs.length ? chs[chs.length - 1] : 0, nx = XQ.chapter();
-    wel.querySelector('.q-wp').textContent = `学校新开了主线：七章，从报到一路到去 KLIA 接下一届新生。你来得早，${last > 1 ? `第 1–${last} 章` : '第 1 章'}已经算你完成了` + (nx ? `，接着从第 ${nx.n} 章「${nx.title}」开始。` : '。')
+    wel.querySelector('.q-wp').textContent = `学校新开了主线：${'零一二三四五六七八九十'[XQ.chapters.length] || XQ.chapters.length}章，从报到、过生日、当车手，一路到带下一届新生。你来得早，${last > 1 ? `第 1–${last} 章` : '第 1 章'}已经算你完成了` + (nx ? `，接着从第 ${nx.n} 章「${nx.title}」开始。` : '。')
       + (w.part && nx && w.part.n === nx.n && w.part.done ? `这一章 ${w.part.of} 件事你已经做过 ${w.part.done} 件，还差：${w.part.left.join('、')}。` : '');
     wel.querySelector('.q-wgift').textContent = '补发：' + ['RM ' + (w.rm || 0).toLocaleString()].concat(w.items ? [w.items] : []).join(' + ');
     wel.hidden = false; g(() => { gx.paused = true; }); wel.querySelector('[data-a="diary"]').focus({preventScroll:true});
@@ -249,7 +249,7 @@
     const lines = entries.map(e => `<p class="q-dl${e.r ? ' q-recap' : ''}">${esc(lineOf(e))}${e.r ? '<i>补记</i>' : ''}</p>`).join('');
     h += `<div class="q-dtext">${lines || `<p class="q-dl q-dim">${n === 0 ? '（还没写）' : isCur && st.ph === 'meet' ? '（还没开始。先去找' + esc((D.npcs[c.npc] || {}).name || '') + '。）' : '（这一页还空着。）'}</p>`}</div>`;
     if (n === 0) h += `<button type="button" class="btn q-replay">▶ 重看开场</button>`;
-    else if (XQ.chFinished(c)) h += `<button type="button" class="btn q-replay" data-ch="${n}">▶ 重温这一章${c.endCine ? '（含结尾动画）' : ''}</button>`;
+    else if (XQ.chFinished(c)) h += `<button type="button" class="btn q-replay" data-ch="${n}">▶ 重温这一章${c.endCine || c.replayCine ? '（含动画）' : ''}</button>`;
     /* today's list */
     if (c){
       const all = c.steps.concat([{id:c.id + '_report', text:c.report || '回去找' + ((D.npcs[c.npc] || {}).name || ''), report:true}]);

@@ -42,6 +42,7 @@
     for (const k of ['done', 'paid', 'flags', 'sides', 'hints', 'nudged', 'stepT', 'fired']) if (!S[k] || typeof S[k] !== 'object') S[k] = {};
     for (const k of ['diary', 'msgs', 'days']) if (!Array.isArray(S[k])) S[k] = [];
     S.ch = Math.max(1, Math.min(CH.length + 1, S.ch | 0 || 1));
+    if (S.ph === 'done' && chOf(S.ch)) S.ph = 'meet';   /* a chapter added after they finished (chapter 8): it waits for them */
   }
   read();
   let ready = false, dirty = false;
@@ -86,7 +87,8 @@
     deco:() => g(() => Math.max(0, ...Object.values(XHouse.save.own).map(o => Object.values(o.s || {}).filter(Boolean).length)), 0),
     parts:id => g(() => XParts.count(id), 0),
     unlocked:k => unlocked(k),
-    ch:() => S.ch, today:dayKey
+    ch:() => S.ch, today:dayKey,
+    withMe:id => withMe(id)
   };
   const qDone = st => !!g(() => st.done(Q), false);
 
@@ -121,6 +123,7 @@
     if (r.car && giveCar(r.car, quiet)) out.push(g(() => SHOP.find(s => s.kind === r.car).name, r.car));
     if (r.parts) for (const id2 in r.parts){ const n = g(() => XParts.grant(id2, r.parts[id2], '主线奖励'), 0); if (n) out.push(g(() => (XParts.list.concat(XParts.bps).find(p => p.id === id2) || {}).name, id2) + ' ×' + r.parts[id2]); }
     if (r.items) for (const it of r.items){ if (g(() => { wardSave.own.add(it); wardWrite(); return true; }, false)) out.push(g(() => WD.byId[it].name, it)); }
+    if (r.decal && g(() => { if (wardSave.pOwn.has('d_' + r.decal)) return false; wardSave.pOwn.add('d_' + r.decal); wardWrite(); return true; }, false)) out.push(g(() => WD.byId['d_' + r.decal].name, r.decal));
     if (r.house && window.XHouse && XHouse.grant) g(() => XHouse.grant(r.house));
     if (r.title){ S.title = r.title; out.push('称号「' + r.title + '」'); }
     pay.items = out.filter(t => !/^RM /.test(t));
@@ -182,7 +185,7 @@
     const mid = [c.diaryStart].concat(c.steps.map(s => s.id), [c.diaryEnd]).filter(diaryLine).map(id => ['memo', D.diary[id]]);
     const lines = [['memo', '第 ' + c.n + ' 章 · ' + c.title]].concat(c.intro || [], mid.length ? [['memo', '……']].concat(mid, [['memo', '……']]) : [], c.outro || []);
     fillDiary(c);
-    say(lines, null, () => {   /* null: nobody to turn to, it is a memory (the npc may be across the map) */ if (c.endCine && window.XCine && XCine.play) g(() => XCine.play(c.endCine, {})); });
+    say(lines, null, () => {   /* null: nobody to turn to, it is a memory (the npc may be across the map) */ const cine = c.endCine || c.replayCine; if (cine && window.XCine && XCine.play) g(() => XCine.play(cine, {})); });
     return true;
   }
   function finishChapter(c){
@@ -221,7 +224,8 @@
     if (c) want.add(c.npc);
     for (const n of CH) if (S.ch > n.n) want.add(n.npc);   /* met before: they stay where they are (sides, chatter) */
     if (S.born === 'new' || S.ch > 1) want.add('xiaoman');
-    return [...want].filter(id => D.npcs[id]).slice(0, 6);
+    for (const id in D.npcs){ const a = D.npcs[id].appear; if (a && S.ch >= a) want.add(id); }   /* the shopkeepers and the freshman: from their chapter on */
+    return [...want].filter(id => D.npcs[id]).slice(0, 12);
   }
   function npcBuild(id){
     const n = D.npcs[id], at = npcAt(id); if (!at || typeof makeNaiwa !== 'function') return null;
@@ -241,12 +245,22 @@
     o.lbl.dead = true; o.lbl.el.remove(); const i = labels.indexOf(o.lbl); if (i >= 0) labels.splice(i, 1);
     delete NPC[id];
   }
+  /* an npc that walks with you (chapter 8: the freshman): D.npcs[id].follow() says when */
+  const following = id => { const n = D.npcs[id]; return !!(n && n.follow && g(n.follow, false)); };
   function npcSync(){
     const want = new Set(mode === 'naiwa' ? npcWanted() : []);
     for (const id in NPC) if (!want.has(id)) npcRemove(id);
     const [px, pz] = here(), inside = g(() => indoorNow(), false);
     for (const id of want){
       let o = NPC[id];
+      if (following(id)){
+        if (!o){ o = npcBuild(id); if (!o) continue; o.x = nw.x - Math.sin(nw.h) * 2.6; o.z = nw.z - Math.cos(nw.h) * 2.6; }
+        o.fol = true; o.vis = !inside; const n = D.npcs[id];
+        o.lbl.dead = !o.vis || o.inCar; const txt = n.short || n.name; if (o.lbl.el.textContent !== txt) o.lbl.el.textContent = txt;
+        o.lbl.el.classList.remove('q-bang', 'q-dots');
+        continue;
+      }
+      if (o && o.fol){ o.fol = false; o.inCar = false; o.x = NaN; }   /* stopped following: back to its spot */
       const at = npcAt(id); if (!at){ if (o) npcRemove(id); continue; }
       const far = Math.hypot(at[0] - px, at[1] - pz) > 60 || inside;
       if (!o){ if (far) continue; o = npcBuild(id); if (!o) continue; }
@@ -261,7 +275,9 @@
   /* idle: breathe, look at you when you are close, wave when there is something to say */
   function npcFrame(dt, T){
     for (const id in NPC){
-      const o = NPC[id]; if (!o.vis) continue;
+      const o = NPC[id];
+      if (o.fol && followFrame(o, dt)) continue;
+      if (!o.vis) continue;
       o.t += dt; const N = o.N, [px, pz] = here(), d = Math.hypot(px - o.x, pz - o.z);
       let want = o.h; if (d < 14 && !g(() => driving, null)) want = Math.atan2(px - o.x, pz - o.z);
       if (talking && talking.npc === id) want = Math.atan2(nw.x - o.x, nw.z - o.z);
@@ -277,6 +293,32 @@
       N.eyes[0].scale.y = N.eyes[1].scale.y = (o.t % 3.9) < .12 ? .1 : 1;
     }
   }
+  /* the follower: in a car it rides with you (hidden); on foot it walks beside and a little behind you, running to catch up */
+  function followFrame(o, dt){
+    const N = o.N, car = g(() => driving, null);
+    if (car){ o.inCar = true; N.root.visible = false; o.lbl.dead = true; o.x = car.x; o.z = car.z; return true; }
+    if (o.inCar){ o.inCar = false; o.x = nw.x + Math.cos(nw.h) * 2; o.z = nw.z - Math.sin(nw.h) * 2; }   /* gets out beside you */
+    if (!o.vis){ N.root.visible = false; return true; }
+    N.root.visible = !(talking && talking.hideNpc === o.id);
+    o.t += dt;
+    /* a step behind and to the right, so the camera behind you still sees you */
+    const bx = nw.x - Math.sin(nw.h) * 1.3 - Math.cos(nw.h) * 2, bz = nw.z - Math.cos(nw.h) * 1.3 + Math.sin(nw.h) * 2, dx = bx - o.x, dz = bz - o.z, d = Math.hypot(dx, dz);
+    if (d > 45){ o.x = bx; o.z = bz; }   /* left far behind (a jump, a fall): catch up at once */
+    const sp = d > 1 ? Math.min(11, 2.6 + d * 1.6) : 0, moving = sp > 0;
+    if (moving){ const s = Math.min(d, sp * dt); o.x += dx / d * s; o.z += dz / d * s; o.wph = (o.wph || 0) + dt * sp * 1.6; }
+    const want = moving ? Math.atan2(dx, dz) : Math.atan2(nw.x - o.x, nw.z - o.z);
+    N.root.rotation.y += Math.atan2(Math.sin(want - N.root.rotation.y), Math.cos(want - N.root.rotation.y)) * Math.min(1, dt * 8);
+    const gy = g(() => groundAt(o.x, o.z), 0); N.root.position.set(o.x, gy, o.z); o.lbl.pos.set(o.x, gy + 3.3, o.z);
+    const w = o.wph || 0, [aL, aR] = N.arms, [lL, lR] = N.legs, [eL, eR] = N.elbows || [];
+    if (moving){ lL.rotation.set(Math.sin(w) * .6, 0, 0); lR.rotation.set(-Math.sin(w) * .6, 0, 0); aL.rotation.set(-.25 - Math.sin(w) * .4, 0, .38); aR.rotation.set(-.25 + Math.sin(w) * .4, 0, -.38); N.body.position.y = Math.abs(Math.sin(w)) * .05; N.body.rotation.z = Math.sin(w) * .07; }
+    else { lL.rotation.set(0, 0, 0); lR.rotation.set(0, 0, 0); aL.rotation.set(-.32, 0, .36); aR.rotation.set(-.32, 0, -.36); N.body.position.y = Math.sin(o.t * 2) * .01; N.body.rotation.z = 0; }
+    if (eL){ eL.rotation.set(-1.22, 0, -.32); eR.rotation.set(-1.22, 0, .32); }
+    const talkNow = talking && talking.who === o.id; N.mouth.scale.y = talkNow ? .02 + Math.abs(Math.sin(o.t * 12)) * .05 : .018;
+    N.eyes[0].scale.y = N.eyes[1].scale.y = (o.t % 3.9) < .12 ? .1 : 1;
+    return true;
+  }
+  /* the follower is with you: beside you on foot, or riding in your car */
+  const withMe = id => { const o = NPC[id]; return !!(o && o.fol && (o.inCar || Math.hypot(o.x - nw.x, o.z - nw.z) < 9)); };
   function npcNearId(){
     if (mode !== 'naiwa' || g(() => driving, null)) return null;
     let best = null, bd = 4.2;
@@ -565,7 +607,7 @@
     get talking(){ return !!talking; },
     data:D, chapters:CH, chapter, step:curStep, steps:() => stepsOf(chapter()), stepDone:id => !!S.done[id], Q, qDone,
     unlocked, carLocked, ch1Deliv, ringsOff, calm, lockToast,
-    flag, talk, npcNear:npcNearId, npcAt, npcMark, npcs:NPC, sidesOf, diaryAdd, msg, save, dayNo,
+    flag, talk, say, npcNear:npcNearId, npcAt, npcMark, npcs:NPC, sidesOf, diaryAdd, msg, save, dayNo, pay, withMe,
     on, target, playIntro, replay, chFinished, unlockedTitle:() => S.title,
     ui:null, dev
   };

@@ -86,7 +86,7 @@ const wTabs = {naiwa:WD_SLOTS, car:[['paint', '车漆'], ['decal', '贴花']]};
 const wdOptional = s => !['skin', 'shape', 'paint', 'decal'].includes(s);
 function wardItems(slot){
   if (slot === 'paint') return WD_PAINTS.map(p => WD.byId[p.id]);
-  if (slot === 'decal') return WD_DECALS.map(d => WD.byId['d_' + d.id]);
+  if (slot === 'decal') return WD_DECALS.filter(d => !d.quest || wardSave.pOwn.has('d_' + d.id)).map(d => WD.byId['d_' + d.id]);   /* quest:true = only once the story gives it */
   return WD_ITEMS.filter(it => it.slot === slot && (!it.quest || wardSave.own.has(it.id)));
 }
 const wardOwned = id => id == null || (ward.kind === 'car' ? wardSave.pOwn : wardSave.own).has(id);

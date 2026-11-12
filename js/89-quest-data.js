@@ -1,4 +1,4 @@
-/* XMUM 校园漫游 · 主线剧情的数据：人机奶蛙、七章步骤、支线、日记句子、手机消息、想家独白
+/* XMUM 校园漫游 · 主线剧情的数据：人机奶蛙、八章步骤、支线、采购单、日记句子、手机消息、想家独白
  *
  * 设计依据 docs/quests.md。这里只放数据和判断条件，状态、轮询、奖励、存档都在 js/89-quest.js，界面在 js/89-quest-ui.js。
  * 玩家看得见的文字尽量用「我 / 你」，非写不可时用「奶蛙」（主角名字还没定是否全改，不要批量改「奶娃」）。
@@ -626,6 +626,227 @@ window.XQD = (() => {
       if (ins === 'klia') sawK = true;
       else if (sawK && !ins && !riding) flag('q_erlback');
     }); }
+
+  /* ================= 第二期：采购单、新角色、生日火锅局、搬家、第 8 章（docs/quests.md「第二期」） ================= */
+  /* ---------- 新的人机奶蛙（都是虚构的）：店里的人，从第 4 章起站在店门口；第 8 章的新生阿豆 ---------- */
+  Object.assign(D.people, {
+    rose:{name:'罗丝阿姨', icon:'罗', color:'#e0609a'},
+    durian:{name:'榴莲哥', icon:'榴', color:'#8a9a2c'},
+    kumar:{name:'库马叔', icon:'库', color:'#b5651d'},
+    adi:{name:'阿弟', icon:'弟', color:'#1f86c8'},
+    adou:{name:'阿豆', icon:'豆', color:'#f08a3c'}
+  });
+  /* KIP 商场北面：超市那段墙（x −704 ~ −656，墙在 z 936）前面的停车场边上，面朝北边来的人 */
+  D.npcs.rose = {name:'罗丝阿姨', short:'罗丝阿姨', color:'#e0609a', place:'KIP 超市门口', appear:4, at:[-671, 932, Math.PI],
+    look:{skin:'pink', head:'pearl', outfit:'shirt'}, shape:'chubby',
+    chat:['今天青菜特价，买一送一哦。', '冷冻的东西最后买，路上化了阿姨可不管。', '大乱斗那几个顾客，推车比开车还凶。']};
+  /* 夜市东头的榴莲摊（js/89-pasar-malam.js 的 SPOT.durian 是猫山王挑战的绿圈），站在圈的东边 */
+  D.npcs.durian = {name:'榴莲哥', short:'榴莲哥', color:'#8a9a2c', place:'夜市榴莲摊', appear:4,
+    at:() => { const s = G(() => XPasar.SPOT.durian, null); return s ? [s[0] + 3.6, s[1] + 1.2, -Math.PI / 2] : [503.4, 561.5, -Math.PI / 2]; },
+    look:{skin:'gold', head:'fedora', neck:'chain'}, shape:'big',
+    chat:['猫山王今天刚到，包甜！', '看星纹、看蒂头，别光闻。', '白天收摊，天黑再来 lah。']};
+  /* Al-Hajeera 嘛嘛档：店屋最西头（x 142 起），站在露天座位和店门之间 */
+  D.npcs.kumar = {name:'库马叔', short:'库马叔', color:'#b5651d', place:'Bell 嘛嘛档 Al-Hajeera', appear:4, at:[139.5, 311, Math.PI / 2],
+    look:{skin:'orange', face:'meh', neck:'bowtie'}, shape:'chubby',
+    chat:['拉茶要拉三尺高，泡泡才香。', '二十四小时开，半夜饿了就来。', 'Roti 要趁热吃，冷了就硬了。']};
+  /* 麦当当旁边的加油站，便利店门口 */
+  D.npcs.adi = {name:'阿弟', short:'阿弟', color:'#1f86c8', place:'KIP 那边的加油站', appear:5, at:[-694, 1136, Math.PI],
+    look:{skin:'xmumblue', head:'policecap', outfit:'redvest'}, shape:'slim',
+    chat:['不能加油哦，泵是坏的，便利店可以。', '冰水要不要？天气这么热。', '晚上这条路很多人飙车，你小心。']};
+  /* 第 8 章的新生：平时站在南门小满旁边，第 8 章做任务时跟着你走（js/89-quest.js 的 follow） */
+  D.npcs.adou = {name:'新生阿豆', short:'阿豆', color:'#f08a3c', place:'南门', appear:8, at:[97.5, 240.5, 0],
+    follow:() => !!(window.XQuest && XQuest.ch === 8 && (XQuest.ph === 'steps' || XQuest.ph === 'report')),
+    look:{skin:'orange', back:'bag', neck:'badge'}, shape:'std',
+    chat:['学长，那栋最高的是 A3 对吧？我记住了！', '学长开车好稳，我以后也要学。', '学长，拉茶真的好甜……再来一杯。']};
+
+  /* ---------- 采购单用的店：at 是站的地方（离店门两三步），open() 不开门时买不了（夜市白天收摊） ---------- */
+  const bellAt = (name, dx) => G(() => { const i = BELL_SIGN.n.findIndex(si => OUT_SIGNS[si][0] === name); return i >= 0 ? [BELL_UNITS[i] + (dx || 0), 309.5] : null; }, null);
+  const lyDoor = () => G(() => { const d = DM_DOORS.find(x => x.name === 'LY2') || DM_DOORS[0]; return [d.x + Math.sin(d.h) * 7, d.z + Math.cos(d.h) * 7]; }, [975, 230]);
+  D.shops = {
+    kipmart:{name:'KIP 超市', at:[-680, 931.5]},
+    diy:{name:'DIY 五金百货', at:[-735, 931.5]},
+    kfc:{name:'上校炸鸡', at:[-760, 935]},
+    cake:{name:'秘方蛋糕', at:() => bellAt('秘方蛋糕') || [368.25, 309.5]},
+    bellfruit:{name:'Bell 鲜果蔬菜', at:() => bellAt('鲜果蔬菜') || [153.25, 309.5]},
+    mamak:{name:'Al-Hajeera 嘛嘛档', at:() => bellAt('Nasi Kandar Al-Hajeera') || [145.75, 309.5]},
+    pasar:{name:'夜市水果摊', at:() => { const s = G(() => XPasar.SPOT.fruit || XPasar.SPOT.durian, null); return s ? [s[0], s[1]] : [499.8, 560.3]; },
+      open:() => G(() => XPasar.openG.visible, true), shut:'夜市天黑才开。水果也可以去 Bell 的「鲜果蔬菜」买。'},
+    petrol:{name:'加油站便利店', at:[-690, 1131]},
+    lydorm:{name:'LY 宿舍楼下', at:lyDoor, verb:'搬上车'}
+  };
+  /* ---------- 采购单（js/89-errand.js）：买齐 → 送到 to → 报销（refund）→ onDone
+     item = {id, name, icon, rm, shops:[店 id], cold:秒（买了以后多久内要送到，过了就坏，要重买）, spoil:'坏了的说法'}
+     gift = {店 id:[[谁, 台词]]} 在这家店买这一单的东西时，店里的人说的话（送东西） */
+  const houseDoor = () => { const h = houseFirst(); return h ? [h.door.x, h.door.z] : [117.2, 415.1]; };
+  D.errands = {
+    bday:{title:'生日火锅局', from:'aming', refund:'大家 AA 了，钱转回给你', to:{name:'LY 宿舍楼下', at:lyDoor}, onDone:'birthday',
+      items:[
+        {id:'meat', name:'火锅肉片', icon:'🥩', rm:28, shops:['kipmart'], cold:600, spoil:'化冻了'},
+        {id:'balls', name:'丸子拼盘', icon:'🍢', rm:16, shops:['kipmart'], cold:600, spoil:'化冻了'},
+        {id:'veg', name:'青菜和菇', icon:'🥬', rm:9, shops:['kipmart', 'bellfruit']},
+        {id:'fruit', name:'一袋水果', icon:'🍉', rm:15, shops:['pasar', 'bellfruit']},
+        {id:'tea', name:'一大壶拉茶', icon:'🧋', rm:12, shops:['mamak']},
+        {id:'pot', name:'电磁炉和鸳鸯锅', icon:'🍲', rm:89, shops:['diy']},
+        {id:'chicken', name:'一桶炸鸡', icon:'🍗', rm:35, shops:['kfc']},
+        {id:'cake', name:'生日蛋糕', icon:'🎂', rm:45, shops:['cake']}
+      ],
+      gift:{kipmart:[['rose', '买这么多肉？生日啊？阿姨送你一包火锅底料，生日快乐！']],
+        pasar:[['durian', '寿星公？这块猫山王送你尝，不要钱 lah！']],
+        mamak:[['kumar', '拉茶我多加了一勺炼奶。生日嘛，甜一点。']],
+        diy:[['memo', '店员说：「鸳鸯锅？宿舍偷偷用的吧。」我假装没听见。']]}},
+    move:{title:'搬家', from:'lim', to:{name:'新家门口', at:houseDoor},
+      items:[{id:'boxes', name:'宿舍的行李', icon:'📦', rm:0, shops:['lydorm']}, {id:'table', name:'火锅圆桌和小板凳', icon:'🪑', rm:0, shops:['lydorm']}],
+      gift:{lydorm:[['juanjuan', '我们来帮你搬！……搬完了能在新家吃顿饭吗？'], ['aming', '圆桌带走 lah，以后火锅局在你家开。']]}},
+    rice:{title:'罗丝阿姨的米', from:'rose', to:{name:'Taman Warisan Megah 8 号门口', at:[117.2, 412]},
+      items:[{id:'rice', name:'一袋 10 公斤的米', icon:'🍚', rm:0, shops:['kipmart']}]},
+    durian:{title:'给老周的猫山王', from:'durian', refund:'老周把钱给你了，还说「下次挑熟一点的」', to:{name:'D6 外卖点（老周）', at:[344, -143]},
+      items:[{id:'du', name:'一颗猫山王', icon:'🍈', rm:40, shops:['pasar'], cold:420, spoil:'在车里熏太久了，老周说不要'}]},
+    supper:{title:'给卷卷的夜宵', from:'kumar', refund:'卷卷把钱转给你了', to:{name:'A3 大台阶（卷卷）', at:[110, 123]},
+      items:[{id:'teh', name:'拉茶', icon:'🧋', rm:3, shops:['mamak'], cold:360, spoil:'凉了'}, {id:'roti', name:'Roti Canai', icon:'🫓', rm:2, shops:['mamak'], cold:360, spoil:'凉了'}]},
+    ice:{title:'给 Ben 师傅的冰水', from:'adi', refund:'Ben 师傅把钱给你了', to:{name:'汽车游乐园一园入口（Ben）', at:[-903, 249]},
+      items:[{id:'ice', name:'一箱冰水', icon:'🧊', rm:12, shops:['petrol'], cold:300, spoil:'冰都化了'}]}
+  };
+  const erAt = id => G(() => XErrand.nextAt(id), null);
+  const erCount = id => G(() => XErrand.count(id), null);
+
+  /* ---------- 第 4 章：结尾加生日火锅局 ---------- */
+  { const c4 = D.chapters.find(c => c.n === 4);
+    c4.replayCine = 'birthday';
+    c4.recap = '（补记）阿明带我认识了雪邦：嘛嘛档、得来速、KIP、夜市，还在 LY 宿舍给我过了生日，吃了火锅。';
+    c4.outro = [
+      ['aming', '生日过得开心吧？宿管阿姨吃了三碗，我数着的 lah。'],
+      ['aming', '得来速、夜市、KIP 都跑熟了，你现在比我还像本地人。'],
+      ['aming', '我表哥 Ben 在汽车游乐园开改装铺，只认圈速不认车价。'],
+      ['aming', '他在一园入口等你，出校园往西开就到。别给我丢脸 lah。']
+    ];
+    c4.steps.push(
+      {id:'c4_shop', text:'生日火锅局：照采购单买齐东西', rm:50, isNew:true, errand:'bday', at:() => erAt('bday'), r:0,
+        done:Q => Q.flag('er_bday_all'), count:() => erCount('bday'),
+        hint:{pc:'走到店门口，卡片弹出来按 <kbd>F</kbd> 买下；买到的东西在任务条下面', touch:'走到店门口，点卡片买下；买到的东西在任务条下面'},
+        tip:'肉片和丸子是冷冻的，买了十分钟内要送到，最后再去 KIP。水果夜市天黑才开，白天去 Bell 的鲜果蔬菜。',
+        nudge:'采购单上的店：KIP 超市、DIY 五金、上校炸鸡（都在 KIP 那边），嘛嘛档、秘方蛋糕、鲜果蔬菜（都在 Bell）。'},
+      {id:'c4_party', text:'把东西送到 LY 宿舍楼下', rm:0, isNew:true, errand:'bday', at:() => erAt('bday'), r:0,
+        done:Q => Q.flag('q_bday'),
+        hint:{pc:'到 LY 宿舍楼下的黄圈，按 <kbd>F</kbd> 送到', touch:'到 LY 宿舍楼下的黄圈，点卡片送到'},
+        tip:'大家都在楼上等着了。'}
+    ); }
+  D.diary.c4_shop = '照着阿明的采购单跑了半个雪邦：KIP、五金店、炸鸡、嘛嘛档，还有蛋糕。';
+  D.diary.c4_party = '我的生日。小小的宿舍挤了五个人和一个鸳鸯锅，宿管阿姨来敲门，最后也坐下来吃了一碗。';
+  Object.assign(D.msgs, {
+    mom_bday:{from:'mom', text:'下礼拜你生日，一个人在那边记得吃好一点。'},
+    am_bday:{from:'aming', text:'生日？？那必须在宿舍搞火锅局！采购单发你了，买齐送到 LY 楼下 lah。'},
+    mom_bday2:{from:'mom', text:'生日快乐。吃火锅了？别吃太辣。红包收一下。'}
+  });
+  const stepIs = id => G(() => XQuest.step().id === id, false);
+  D.events.push(
+    {id:'ev_bday_mom', when:() => chIs(4) && stepIs('c4_shop'), msg:'mom_bday'},
+    {id:'ev_bday_am', when:() => chIs(4) && stepIs('c4_shop') && G(() => XQuest.state.msgs.some(e => e.m === 'mom_bday'), false), msg:'am_bday'}
+  );
+
+  /* ---------- 第 3 章：陪卷卷在 A3 图书馆自习一整天（过场 library：大窗外的天从白天变成粉红色） ---------- */
+  const libAt = [112, 116.5];
+  { const c3 = D.chapters.find(c => c.n === 3), i = c3.steps.findIndex(s => s.id === 'c3_exam');
+    c3.replayCine = 'library';
+    c3.steps.splice(i + 1, 0, {id:'c3_study', text:'陪卷卷在 A3 图书馆自习一整天', rm:40, isNew:true, at:libAt, r:5,
+      done:Q => Q.flag('q_study'),
+      hint:{pc:'走到 A3 大台阶东边卷卷那里的黄圈', touch:'走到 A3 大台阶东边卷卷那里的黄圈'},
+      tip:'图书馆北面是一整面落地大窗，傍晚的天会变成粉红色。'}); }
+  D.diary.c3_study = '陪卷卷在 A3 图书馆自习了一整天。抬头的时候，大窗户外面的天整个变成了粉红色。';
+  { let busy = false;
+    D.watch.push((Q, flag) => {
+      if (busy || Q.flag('q_study') || !stepIs('c3_study') || !Q.near(libAt[0], libAt[1], 6) || Q.driving() || G(() => XCine.busy, true)) return;
+      if (window.XCine && XCine.play && XCine.play('library', {onDone:() => { busy = false; flag('q_study'); }})) busy = true; else flag('q_study');
+    }); }
+  /* ---------- 第 5 章：先跟 Ben 师傅去二园看一场比赛（过场 f1），发誓要当车手，后面的步骤是特训和改装 ---------- */
+  const gsAt = () => G(() => { const F = XF1, i = F.SF + 60, p = F.PT[i], n = F.NOR[i]; return [p[0] - n[0] * 11, p[1] - n[1] * 11]; }, [88, 973]);
+  { const c5 = D.chapters.find(c => c.n === 5);
+    c5.replayCine = 'f1';
+    c5.recap = '（补记）跟 Ben 师傅在二园看了一场比赛，发誓要当车手；后来天天改车、飞大跳台、跑雪邦赛道。';
+    c5.intro = [
+      ['ben', '阿明说你会开车？先别急着改车。'],
+      ['ben', '这个周末二园有比赛。跟我去主看台看一场，看完你就知道车是拿来干什么的。'],
+      ['ben', '二园在 Bell Avenue 东南边，主看台在主直道旁边。我先过去，你自己开过来。']
+    ];
+    c5.outro.splice(2, 0, ['ben', '还有这套雪邦赛道涂装，是我们车队以前的。贴上它，你就是车队的人了。']);
+    c5.reward = Object.assign({}, c5.reward, {decal:'sepang', note:'一件航空钛锭 + 鹅颈尾翼配方 + 雪邦赛道涂装'});
+    for (const s of c5.steps) if (!/^特训/.test(s.text)) s.text = '特训：' + s.text;
+    c5.steps.unshift({id:'c5_watch', text:'跟 Ben 师傅去二园主看台看一场比赛', rm:40, isNew:true, at:gsAt, r:6,
+      done:Q => Q.flag('q_f1'),
+      hint:{pc:'开车到二园，主直道旁边的主看台前，走进黄圈', touch:'开车到二园，主直道旁边的主看台前，走进黄圈'},
+      tip:'二园就是雪邦赛道那一园，在 Bell Avenue 东南边的油棕园公路两边。',
+      nudge:'二园在 Bell Avenue 东南边，顺着油棕园公路开，看到大看台就到了。'}); }
+  D.diary.c5_watch = '跟 Ben 师傅在二园看了一场比赛。赛车从面前冲过去，地都在抖。我跟自己说：总有一天，我也要在这条赛道上拿第一。';
+  /* 走进主看台前的黄圈就开演（走路、开车都行；做完这一步就不再放） */
+  { let busy = false;
+    D.watch.push((Q, flag) => {
+      if (busy || Q.flag('q_f1') || !stepIs('c5_watch')) return;
+      const a = gsAt(); if (!a || !Q.near(a[0], a[1], 14) || G(() => XCine.busy, true)) return;
+      if (window.XCine && XCine.play && XCine.play('f1', {onDone:() => { busy = false; flag('q_f1'); }})) busy = true; else flag('q_f1');
+    }); }
+
+  /* ---------- 第 6 章：买了房就搬出宿舍 ---------- */
+  { const c6 = D.chapters.find(c => c.n === 6), i = c6.steps.findIndex(s => s.id === 'c6_house1');
+    c6.steps.splice(i + 1, 0,
+      {id:'c6_move', text:'搬家：把宿舍的行李搬到新家', rm:50, isNew:true, errand:'move', at:() => erAt('move'), r:0,
+        done:Q => Q.flag('er_move_done'), count:() => erCount('move'),
+        hint:{pc:'先到 LY 宿舍楼下把行李搬上车，再开到新家门口按 <kbd>F</kbd>', touch:'先到 LY 宿舍楼下把行李搬上车，再开到新家门口点卡片'},
+        tip:'卷卷和阿明说来帮忙，其实是来蹭饭的。'}); }
+  D.diary.c6_move = '最后一次从 LY 宿舍搬东西下楼。那张火锅圆桌和小板凳，我也带走了。';
+
+  /* ---------- 第 8 章 新学期：换你当学长，带新生阿豆走一遍第 1 章的路（步骤不标 isNew：老玩家也要自己走一遍） ---------- */
+  D.chapters.push({n:8, id:'c8', title:'新学期', npc:'xiaoman', place:'南门', guide:['map'],
+    report:'带阿豆回南门找小满学姐', diaryStart:'c8_start', diaryEnd:'c8_end', startMsg:'xm_ch8', endMsg:'mom_y2',
+    recap:'（补记）带新生阿豆走了一遍我第一天走过的路。',
+    intro:[
+      ['adou', '学、学长好！我叫阿豆，是今年最后一个报到的……'],
+      ['xiaoman', '今年的最后一个，我不带了，交给你。'],
+      ['xiaoman', '先别想着开车啦，走路带他把学校认熟——这句话耳熟吧？'],
+      ['adou', '学长，A3 在哪？我在飞机上就听说 A3 的台阶很宽……']
+    ],
+    outro:[
+      ['adou', '学长，学校好大……可是我好像不怕了。'],
+      ['xiaoman', '一年前，我也是站在这儿，看着你一路走远的。'],
+      ['xiaoman', '以后他就交给你啦。第二年，好好过。'],
+      ['adou', '谢谢学长！我以后也要像你一样！']
+    ],
+    reward:{rm:600, title:'靠谱学长 / 学姐', note:'称号「靠谱学长 / 学姐」'},
+    steps:[
+      {id:'c8_a3', text:'带阿豆走到 A3 大台阶', rm:40, at:[105, 120], r:7,
+        done:Q => Q.near(105, 120, 9) && Q.withMe('adou'),
+        hint:{pc:'阿豆跟在你后面走；开车也行，他会坐上来', touch:'阿豆跟在你后面走；开车也行，他会坐上来'},
+        tip:'阿豆走得慢，回头看看他跟上没有。', nudge:'沿着中轴线往北走，阿豆会跟着你。'},
+      {id:'c8_d6', text:'带阿豆去 D6 食堂认认外卖点', rm:40, at:[342, -146.4], r:6,
+        done:Q => Q.near(342, -146.4, 9) && Q.withMe('adou'),
+        tip:'老周在那儿。阿豆有点怕他。'},
+      {id:'c8_swing', text:'带阿豆去音乐岛的秋千', rm:40, at:[-26, -58], r:5,
+        done:Q => Q.near(-26, -58, 8) && Q.withMe('adou'),
+        tip:'就是你第一天荡过的那架秋千。'},
+      {id:'c8_mamak', text:'带阿豆去嘛嘛档喝一杯拉茶', rm:40, at:[127, 330], r:5,
+        done:Q => Q.near(127, 330, 9) && Q.withMe('adou'),
+        tip:'他第一次喝拉茶，看他会不会也被甜得一激灵。'}
+    ]});
+  D.diary.c8_start = '小满学姐把今年最后一个新生交给我，他叫阿豆。';
+  D.diary.c8_a3 = '阿豆站在 A3 台阶上说「好宽」，跟我第一天说的一模一样。';
+  D.diary.c8_d6 = '带阿豆认了 D6 的外卖点，老周瞪了他一眼，他吓得躲到我身后。';
+  D.diary.c8_swing = '阿豆荡秋千荡到最高的时候喊了一声，我好像听见了一年前的自己。';
+  D.diary.c8_mamak = '请阿豆喝了第一杯拉茶，他被甜得一激灵。我笑出了声。';
+  D.diary.c8_end = '第二年，开始了。';
+  Object.assign(D.msgs, {
+    xm_ch8hi:{from:'xiaoman', text:'回南门一趟？今年最后一个新生到了，我想交给你带。'},
+    xm_ch8:{from:'xiaoman', text:'别走太快，他还不认路。'},
+    mom_y2:{from:'mom', text:'听说你当学长了？妈妈很骄傲。'}
+  });
+  D.events.push({id:'ev_xm_ch8hi', when:() => chIs(8), msg:'xm_ch8hi'});
+
+  /* ---------- 新角色的支线（采购单） ---------- */
+  const erDone = id => Q => Q.flag('er_' + id + '_done');
+  D.sides.push(
+    {id:'rose_rice', npc:'rose', after:'c4', text:'帮罗丝阿姨给 Taman Warisan Megah 8 号送一袋米', rm:60, errand:'rice', done:erDone('rice')},
+    {id:'rose_kip', npc:'rose', after:'c4', text:'KIP 超市大乱斗打到「大促场」', rm:100, done:() => G(() => XKipMart.tier() >= 2, false)},
+    {id:'du_send', npc:'durian', after:'c4', text:'挑一颗猫山王送到 D6 给老周', rm:80, errand:'durian', done:erDone('durian')},
+    {id:'km_supper', npc:'kumar', after:'c4', text:'夜宵：拉茶和 Roti 趁热送到 A3 给卷卷', rm:60, errand:'supper', done:erDone('supper')},
+    {id:'adi_ice', npc:'adi', after:'c5', text:'一箱冰水送去汽车游乐园给 Ben 师傅', rm:100, errand:'ice', done:erDone('ice')}
+  );
   /* CONTENT:END */
 
   return D;
