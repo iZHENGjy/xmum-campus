@@ -416,7 +416,7 @@
     build, release, update, prompt, tryF, target, mini,
     onArrive(){ window.XINDOOR_PITCH = .05; }, onLeave(){ window.XINDOOR_PITCH = null; if (KL.err) KL.err = null; }});
   /* later destinations: the framework already lists them (z reserved: Putrajaya / IOI −3100, the city centre −3600) */
-  XTrain.register({id:'putrajaya', name:'布城 Putrajaya', en:'粉红清真寺 · IOI City Mall · 1 站约 9 分钟再打车', soon:true, mins:9, fare:6, z:-3100});
+  XTrain.register({id:'putrajaya', name:'布城 Putrajaya', en:'粉红清真寺 · 布城湖 · 1 站约 9 分钟再打车（IOI City Mall 在地图东北角，开车就到）', soon:true, mins:9, fare:6, z:-3100});
   XTrain.register({id:'kl', name:'吉隆坡市中心 KL', en:'双子塔 · 默迪卡 118 · 独立广场 · 到 KL Sentral 约 28 分钟', soon:true, mins:28, fare:17, z:-3600});
   window.XKlia = {state:KL, start:errStart, spots:SPOT, rings:RINGS};
 })();
