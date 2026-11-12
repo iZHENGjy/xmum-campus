@@ -340,7 +340,21 @@
   const qLock = k => !!(window.XQuest && !XQuest.unlocked(k));
   let lockTold = false;
   const lockHint = () => { if (lockTold) return; lockTold = true; if (typeof toast === 'function') toast('比赛主线第 5 章开放', '先随便跑跑，找 Ben 师傅报到后开始计时', 3200); };
+  /* before chapter 5: say so the moment you drive or walk into either park (again after you have been out for a while) */
+  let lockIn = false, lockOutT = 0;
+  function lockGate(dt){
+    const c = driving, x = c ? c.x : (typeof nw !== 'undefined' ? nw.x : NaN), z = c ? c.z : (typeof nw !== 'undefined' ? nw.z : NaN);
+    const inside = isFinite(x) && inPark(x, z);
+    if (!inside){ if (lockIn){ lockOutT += dt; if (lockOutT > 45) lockIn = false; } return; }
+    lockOutT = 0;
+    if (lockIn || !qLock('park')) { lockIn = true; return; }
+    lockIn = true; lockTold = true;
+    const f1 = !inBox(BOXES[0], x, z);
+    if (typeof toast === 'function') toast(f1 ? '雪邦赛道 · 主线第 5 章开放' : '汽车游乐园 · 主线第 5 章开放',
+      f1 ? '现在可以进来随便开；计时、纪录、维修区车库和比赛要做到主线第 5 章才开放' : '现在可以进来随便开；计时和纪录要做到主线第 5 章（找 Ben 师傅报到）才开始算', 4200);
+  }
   function parkUpdate(dt){
+    lockGate(dt);
     PS.msg = '';
     const c = driving;
     if (!c){
