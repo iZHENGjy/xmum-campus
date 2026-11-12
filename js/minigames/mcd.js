@@ -795,7 +795,7 @@ window.XMcd = {
 (() => {
   if (typeof opSpot !== 'function' || typeof opRing !== 'function' || typeof opOpen !== 'function' || typeof MDX === 'undefined') return;
   const MC = {near:false, x:-498.6 + MDX, z:778 + MDZ, door:{x:-499.4 + MDX, z:778 + MDZ, h:-Math.PI / 2, name:'麦当当门口'}};
-  MC.S = opSpot('#ffb02e', .45, MC.x, MC.z, '麦当当 · 打工配餐');
+  MC.S = opSpot('#ffb02e', .45, MC.x, MC.z, '麦当当 · 打工配餐', 3.5);   /* a little wider than the drawn ring */
   const NAMES = {classic:['经典', '90 秒普通班，做得越多越好'], rush:['午高峰', '客人越来越多，三个差评就下班'], drive:['得来速', '窗口外的车一辆一辆来，每辆都在计时']};
   function open(){
     if (!window.XMini || !XMini.startAt) return;

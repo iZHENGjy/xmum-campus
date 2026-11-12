@@ -71,6 +71,11 @@ const sideMark = floorMark('#ffd27a', 1.1), winMark = floorMark('#ffd27a', 1.1);
 sideMark.position.set(ROOM_SIDE[0], .04, ROOM_SIDE[1]); winMark.position.set(ROOM_WIN[0], .04, ROOM_WIN[1]); sideMark.visible = winMark.visible = false;
 const exHere = () => EX.on && ROOM.in && EX.door === ROOM.from;      /* inside the building the job is in */
 const exOpenSpots = () => EX.spots.filter(s => !s.done && !s.out);
+/* 新手：还没完成过「抢救期末卷」（第 3 章的主线步骤）时简单一点：卷子固定在教室讲台抽屉、不用找钥匙、多 90 秒。做完一次以后照旧 */
+const exEasy = () => !(prog.ach && prog.ach.exam);
+/* 发现的灵敏度：所有委托都比原来迟钝一点，新手的期末卷再迟钝一些。reach = 看得见 / 听得见的距离，sense = 起疑心的快慢 */
+const exFirst = () => EX.kind === 'exam' && exEasy();
+const exReach = () => exFirst() ? .75 : .9, exSense = () => exFirst() ? .55 : .8;
 const exWant = () => EX.kind === 'exam' ? !EX.got : !EX.done;       /* still something to do inside */
 function exSpots(){
   const pick = ROOM_DESKS.slice();
@@ -80,6 +85,10 @@ function exSpots(){
   if (k === 'hw'){ EX.spots = [S.tray]; S.tray.has = 'goal'; markColor(S.tray.mark, '#4aa3ff'); }
   else if (k === 'phone'){ EX.spots = [S.box, S.tdraw]; S.box.has = 'goal'; S.box.lock = true; S.tdraw.has = 'key'; markColor(S.tdraw.mark, '#ffd24a'); }
   else if (k === 'night'){ EX.spots = [rand([S.podium, S.c1, S.c2, S.d0, S.d1]), rand([S.file, S.box]), rand([S.printer, S.shelf, S.store])]; for (const s of EX.spots){ s.has = 'item'; markColor(s.mark, '#ffd24a'); } }
+  else if (exEasy()){
+    /* the first time (the story step in chapter 3): one gold-ringed spot, the podium drawer in the classroom, no key to find */
+    EX.spots = [S.podium]; EX.paper = S.podium; S.podium.has = 'goal'; markColor(S.podium.mark, '#ffd24a'); EX.hint = 'C';
+  }
   else {
     EX.spots = [S.podium, S.c1, S.c2, S.d0, S.d1, S.file, S.tdraw, S.printer, S.shelf, S.store];
     const bag = EX.spots.slice(), take = f => { const a = f ? bag.filter(f) : bag, s = rand(a); bag.splice(bag.indexOf(s), 1); return s; };
@@ -201,7 +210,7 @@ function exGo(g, tx, tz, speed, dt){
    be on top of you, unless he watched you duck (knows > 0). */
 function guardSees(g, d, dx, dz){
   if (g.state === 'stun' || g.state === 'chat' || nw.state === 'fly') return 0;
-  const night = EX.kind === 'night'; let R = (night ? TORCH_VIEW : GUARD_VIEW) + .7 * pveLevel();
+  const night = EX.kind === 'night'; let R = ((night ? TORCH_VIEW : GUARD_VIEW) + .7 * pveLevel()) * exReach();
   if (EX.hid && g.knows <= 0) R = 1.8; else if (EX.crouch) R *= .6;
   if (d > R) return 0;
   if (d > 1.3 && Math.abs(wgAng(Math.atan2(dx, dz), g.h)) > (night ? TORCH_FOV : GUARD_FOV)) return 0;
@@ -218,7 +227,7 @@ function guardSpot(g){
 function guardsTo(x, z){ for (const g of guards) if (g.on && g.state !== 'stun'){ g.state = 'chase'; g.chat = 0; g.lx = x; g.lz = z; g.lostT = 0; } }
 /* a noise at (x, z) that carries r metres (less through a wall): guards on their rounds walk over, the teacher looks up, the sleeper wakes */
 function exNoise(x, z, r, why, src){
-  if (!exHere()) return; let heard = false; const room = lvRoom(x, z);
+  if (!exHere()) return; let heard = false; const room = lvRoom(x, z); r *= exReach();
   for (const g of guards) if (g.on && (g.state === 'patrol' || g.state === 'look') && Math.hypot(g.x - x, g.z - z) < r * ((lvRoom(g.x, g.z) || g.room) === room ? 1 : .6)){
     g.state = 'look'; g.lx = x; g.lz = z; g.lookT = 2.2; g.walkMax = 9; g.pause = 0; g.scan = rnd() < .5 ? 1 : -1; g.alert = Math.max(g.alert, .3); heard = true;
   }
@@ -244,7 +253,7 @@ function updateGuard(g, dt){
     if (see && dN < 1.6){ g.catchT += dt; if (g.catchT > .35){ guardCaught(g); return true; } } else g.catchT = 0;
     if (!see && (far < .8 || g.lostT > 6)){ g.state = 'look'; g.lookT = 2.6; g.walkMax = 0; g.alert = .6; g.scan = rnd() < .5 ? 1 : -1; tone('square', 440, 330, .12, .05); gxCallout('跟丢了', '保安在原地找你，别动', '#4fd18b'); }
   } else {
-    if (see) g.alert = Math.min(1, g.alert + dt * (EX.alarm ? 2.2 : 1.15) * (.45 + see)); else g.alert = Math.max(0, g.alert - dt * .4);
+    if (see) g.alert = Math.min(1, g.alert + dt * (EX.alarm ? 2.2 : 1.15) * (.45 + see) * exSense()); else g.alert = Math.max(0, g.alert - dt * .4);
     if (g.alert >= 1) guardSpot(g);
     else if (g.state === 'look'){
       if (g.walkMax > 0 && Math.hypot(g.lx - g.x, g.lz - g.z) > .9){ exGo(g, g.lx, g.lz, 3.6, dt); g.walkMax -= dt; }
@@ -259,7 +268,7 @@ function updateGuard(g, dt){
   guardPose(g, dt, {walk:g.state === 'stun' || g.pause > 0 || g.state === 'chat' && !g.chatWalk || g.state === 'look' && g.walkMax <= 0 ? null : g.walkT, run:g.state === 'chase', wet:g.state === 'stun', down:g.state === 'stun' && g.downT > 0});
   g.g.position.set(g.x, 0, g.z);
   /* the cone goes from yellow to red as he gets suspicious; the mark over his head grows with it */
-  const R = (night ? TORCH_VIEW : GUARD_VIEW) + .7 * lv, hot = g.state === 'chase' ? 1 : g.alert, c = night ? g.torch : g.cone;
+  const R = ((night ? TORCH_VIEW : GUARD_VIEW) + .7 * lv) * exReach(), hot = g.state === 'chase' ? 1 : g.alert, c = night ? g.torch : g.cone;
   g.cone.visible = g.torch.visible = false; c.visible = g.state !== 'stun' && g.state !== 'chat'; if (c.visible) exFan(c, g.x, g.z, g.h, night ? TORCH_FOV : GUARD_FOV, R);
   c.material.color.setRGB(1, (night ? .95 : .82) - .6 * hot, (night ? .77 : .29) - .2 * hot); c.material.opacity = (night ? .34 : .16) + .2 * hot;
   g.bang.visible = hot > .08 && g.state !== 'stun'; g.bang.position.set(g.x, 3.3, g.z); g.bang.scale.setScalar(.7 + hot * .9); g.bang.material.color.setRGB(1, .82 - .6 * hot, .29 - .2 * hot);
@@ -306,13 +315,13 @@ function tchUpdate(dt){
   else { T.next -= dt; if (T.next < .9 && !T.warned){ T.warned = true; tone('square', 700, 700, .06, .06); tone('square', 700, 700, .06, .06, .15); } if (T.next <= 0){ T.up = 2.4; T.next = 5 + rnd() * 3.5; tone('square', 900, 900, .1, .06); } }
   const looking = T.up > 0 || T.mad > 0; let see = 0;
   if (looking && nw.state !== 'fly'){
-    const R = EX.hid ? 1.8 : EX.crouch ? 6.5 : 10.5;
+    const R = EX.hid ? 1.8 : (EX.crouch ? 6.5 : 10.5) * exReach();
     if (d < R && Math.abs(wgAng(Math.atan2(dx, dz), T.h)) < .8 && lvSee(T.x, T.z + .9, nw.x, nw.z)) see = 1 - .5 * d / R;
   }
-  if (see && T.mad <= 0){ T.alert = Math.min(1, T.alert + dt * 1.7 * (.5 + see)); if (T.alert >= 1) tchSpot(); } else T.alert = Math.max(0, T.alert - dt * .6);
+  if (see && T.mad <= 0){ T.alert = Math.min(1, T.alert + dt * 1.7 * (.5 + see) * exSense()); if (T.alert >= 1) tchSpot(); } else T.alert = Math.max(0, T.alert - dt * .6);
   T.g.position.set(T.x, -.42, T.z); T.g.rotation.set(looking ? 0 : .38, T.h, 0);
   const hot = T.mad > 0 ? 1 : T.alert, c = T.cone, warn = !looking && T.next < .9;
-  c.visible = true; exFan(c, T.x, T.z, T.h, .8, 10.5);
+  c.visible = true; exFan(c, T.x, T.z, T.h, .8, 10.5 * exReach());
   if (looking){ c.material.color.setRGB(1, .82 - .6 * hot, .29 - .2 * hot); c.material.opacity = .18 + .2 * hot; }
   else { c.material.color.set('#9aa3ad'); c.material.opacity = warn ? .1 + .12 * Math.abs(Math.sin(performance.now() / 70)) : .05; }
   T.bang.visible = looking && hot > .08; T.bang.position.set(T.x, 2.6, T.z); T.bang.scale.setScalar(.7 + hot * .9);
@@ -385,12 +394,14 @@ function exStart(kind){
   const door = opts[(rnd() * opts.length) | 0] || ROOM_DOORS[0], dist = Math.hypot(door.x - at.x, door.z - at.z), run = prog.best.exrun | 0;
   Object.assign(EX, {on:true, kind, t:0, door, got:false, done:false, told:false, alarm:false, alarmT:0, spotted:0, caught:0, hold:0, holdKey:'', sideOpen:false, winOpen:false,
     hint:'', key:false, keyAt:null, seen:'', room:'', crouch:false, hid:false, buddy:kind === 'night' ? 2 : 0, soaks:0, callT:0, alTick:0, items:0, ringT:0, pal:false, tip:0,
-    poOpen:kind !== 'exam', coOpen:kind === 'night', limit:Math.round(K.time(dist))});
+    poOpen:kind !== 'exam', coOpen:kind === 'night', limit:Math.round(K.time(dist)) + (kind === 'exam' && exEasy() ? 90 : 0)});
+  if (kind === 'exam' && exEasy()) EX.key = true;      /* first time: the office door opens without a key */
   exSpots(); guardReset(); guards[0].hasKey = kind === 'phone'; exHideStart(); sfx.ding();
   const streak = run ? ` · 连胜 ${run}，奖金 +${Math.min(5, run) * 10}%` : '', n = door.name;
   gxCallout(K.name, `去 ${n} 教学楼`, K.color);
   toast(K.name, ({
-    exam:`期末卷藏在 ${n} 教学楼的某个抽屉或柜子里，${EX.limit} 秒内找出来送回 A3。办公室锁着，钥匙也得找`,
+    exam:exEasy() ? `期末卷在 ${n} 教学楼教室的讲台抽屉里（发金光的圈），${EX.limit} 秒内拿出来送回 A3。跟着指南针走，看见保安就蹲下躲`
+      : `期末卷藏在 ${n} 教学楼的某个抽屉或柜子里，${EX.limit} 秒内找出来送回 A3。办公室锁着，钥匙也得找`,
     hw:`DDL 过了，老师还在办公室批卷。${EX.limit} 秒内溜进 ${n} 教学楼，趁她低头把作业塞进桌前的作业筐`,
     phone:`同学的手机被没收了，锁在 ${n} 教学楼办公室的没收箱里。钥匙：保安腰上一把（淋他会掉），老师抽屉里一把`,
     night:`${n} 教学楼熄灯了，三个房间各落了一件东西。${EX.limit} 秒内全捡回来。两个保安打着手电`

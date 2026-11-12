@@ -319,9 +319,9 @@ window.XQD = (() => {
         nudge:'交作业的蓝圈在 A3 正门西边，F 接委托。'},
       {id:'c3_exam', text:'抢救期末卷', rm:60, at:G(() => [EX_START.x, EX_START.z], [105, 128.1]), r:0,
         done:Q => Q.ach('exam'),
-        hint:{pc:'A3 正门的蓝圈接「抢救期末卷」，从办公室的抽屉里拿出卷子再跑出来', touch:'A3 正门的蓝圈接「抢救期末卷」，拿到卷子再跑出来', flash:'#act-f'},
-        tip:'卷子锁在办公室抽屉里，拿到以后保安会更警觉，原路跑出来最稳。', guide:'earn',
-        nudge:'期末卷的蓝圈就在 A3 正门口，进去以后找亮着的抽屉。'},
+        hint:{pc:'A3 正门的红圈按 <kbd>F</kbd> 接「抢救期末卷」，跟着指南针拿到卷子，再跑回 A3', touch:'A3 正门的红圈点「接」，跟着指南针拿到卷子，再跑回 A3', flash:'#act-f'},
+        tip:'第一次做不用找钥匙：卷子就在教室的讲台抽屉里。被保安看见就蹲下躲到课桌旁边，拿到卷子以后原路跑出来最稳。', guide:'earn',
+        nudge:'期末卷是 A3 正门口的红圈（蓝圈是别的委托），进去以后翻发金光的讲台抽屉。'},
       {id:'c3_arcade', text:'去 B1 游戏厅玩一局投篮或端盘子', rm:30, at:G(() => [ARC_DOOR.x, ARC_DOOR.z], [432, 11]), r:0,
         done:() => played('hoops') || played('canteen'),
         hint:{pc:'B1 学生活动中心门口的粉圈按 <kbd>F</kbd> 进游戏厅，挑投篮或食堂端盘子', touch:'B1 学生活动中心门口的粉圈点一下进游戏厅，挑投篮或端盘子', flash:'#act-f'},
@@ -926,7 +926,7 @@ window.XQD = (() => {
     const mcdN = () => G(() => XMcd.modes.reduce((n, m) => n + (mgSave.plays['mcd_' + m] | 0), 0), 0);
     let mcd0 = null;
     D.chapters.find(c => c.id === 'c8').steps.push(
-      {id:'c8_mcd', calmNear:true, text:'带阿豆去麦当当打工一班', rm:60, at:[-498.6 + MDX, 778 + MDZ], r:5,
+      {id:'c8_mcd', calmNear:true, text:'带阿豆去麦当当打工一班', rm:60, at:[-498.6 + MDX, 778 + MDZ], r:3,   /* r 3: the story ring sits on the 打工 ring (3.5 m) instead of looking like F works anywhere in 5 m */
         done:() => { const n = mcdN(); if (mcd0 == null) mcd0 = n; return n > mcd0; },
         hint:{pc:'麦当当在 KIP 那边，正门外有黄圈；阿豆跟着你，到了按 F 进后厨配餐', touch:'麦当当在 KIP 那边，正门外有黄圈；阿豆跟着你，到了点「打工」进后厨配餐'},
         tip:'阿豆说他高中在快餐店打过工，看谁叠汉堡快。', nudge:'开车去 KIP 那边的麦当当，正门外黄圈按 F，随便打一局就行。'});
