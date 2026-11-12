@@ -399,7 +399,7 @@ function updateCar(c, dt, inp){
     else vf -= Math.sign(vf) * Math.min(Math.abs(vf), 2.2 * dt);
     vf -= vf * (.1 + (c.wet ? 1.5 : 0)) * dt;
     vf = Math.max(-T.maxV * .35, Math.min(T.maxV, vf));
-    vl -= vl * Math.min(1, (inp.brake ? 1.1 : T.grip * (typeof wxGrip === 'function' ? wxGrip() : 1)) * dt);   /* wet roads grip less (js/17-weather.js) */
+    vl -= vl * Math.min(1, (inp.brake ? 1.1 : T.grip) * dt);
     if (inp.brake) vf -= vf * .55 * dt;
     c.steer += (inp.steer * T.steer - c.steer) * Math.min(1, dt * 7);
     const se = c.steer / (1 + Math.abs(vf) * .025);

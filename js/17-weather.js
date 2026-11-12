@@ -7,8 +7,8 @@
    怎么排：玩家没手动下雨时，隔 2.5–6 分钟来一场，按钟点挑：下午多雷阵雨，上午有时起烟霾（少见），晚上只会转阴，深夜不下雨。
    开了「减少动态效果」的系统设置：不自动下雨，也没有闪电（只有雷声）。
    对玩法的影响都很轻：
-     - 路湿了车抓地力少 18%（wxGrip，js/40-vehicles.js 用），漂移显示「雨中漂移」（js/80-gta.js）
-     - 大雨时一部分路上的学生回室内（只挑镜头看不到的，雨停再出来）
+     - 路湿了开的车抓地力变小（js/89-roadevents.js 已经做了，最多 -30%，这里不再叠加），漂移显示「雨中漂移」（js/80-gta.js，分数不变）
+     - 大雨时一部分路上的学生回室内（n.state = 'shelter'，只挑镜头看不到、没有「活的校园」任务的，雨停再出来；js/89-life.js 跳过它们）
      - 送外卖赶上自然下的大雨：小费 +RM 2，一天最多 8 次。自己点「下雨」不算，所以刷不了 */
 'use strict';
 const XWeather = window.XWeather = (() => {
@@ -24,13 +24,14 @@ const XWeather = window.XWeather = (() => {
   const outside = () => tgt === P3.day || tgt === P3.dusk || tgt === P3.night;
   const say = (a, b) => { if (typeof toast === 'function' && outside() && !(typeof titleOpen !== 'undefined' && titleOpen)) toast(a, b, 2400); };
   function pressRain(on){ if (typeof rainBtn !== 'undefined' && rainBtn) rainBtn.setAttribute('aria-pressed', String(!!on)); }
-  function start(type, dur){
+  function start(type, dur, quiet){
     const T = TYPES[type] || TYPES.clear;
     S.type = type; S.dur = dur || (T.dur ? T.dur[0] + rr() * (T.dur[1] - T.dur[0]) : 0);
     S.tgt.storm = type === 'storm' ? 1 : 0; S.tgt.haze = type === 'haze' ? 1 : 0; S.tgt.cloud = type === 'overcast' ? 1 : type === 'shower' ? .45 : 0;
     const rain = type === 'shower' || type === 'storm';
     wx.target = rain ? 1 : 0; pressRain(rain);
-    if (type === 'storm'){ S.strike = 5 + rr() * 5; say('雷阵雨来了 ⛈', '雪邦的午后雷雨：路面湿滑，开车慢点'); }
+    if (quiet){}
+    else if (type === 'storm'){ S.strike = 5 + rr() * 5; say('雷阵雨来了 ⛈', '雪邦的午后雷雨：路面湿滑，开车慢点'); }
     else if (type === 'shower') say('下雨了', '雪邦的午后阵雨，一会儿就停');
     else if (type === 'haze'){ S.hazeCd = 1800; say('起烟霾了 🌫', 'Jerebu：空气灰黄，远处看不清，太阳成了个橙色的圆'); }
     else if (type === 'overcast') say('转阴了 ☁️', '云压下来了，说不定待会儿要下雨');
@@ -59,7 +60,8 @@ const XWeather = window.XWeather = (() => {
     /* rain switched off by the 下雨 button: the storm goes with it. (A film or the train also zero the rain, but they swap tgt to their own sky first and put it back after) */
     if (outside()){
       if ((S.type === 'shower' || S.type === 'storm') && wx.target < .5){ end(); return; }
-      if (S.type !== 'shower' && S.type !== 'storm' && wx.target > .5) wx.target = 0;   /* rain handed back after the shower already ended */
+      /* rain started by someone else: the road-event shower (js/89-roadevents.js sets wx.target and showers.dur) becomes ours; rain a film or the train hands back after it ended is dropped */
+      if (S.type !== 'shower' && S.type !== 'storm' && wx.target > .5){ if (showers.dur > 0){ start('shower', showers.dur, true); showers.dur = 0; } else wx.target = 0; }
     }
     if (document.hidden) return;
     if (S.type === 'clear'){ S.left -= dt; if (S.left <= 0){ const t = pick(); if (t === 'clear') S.left = 120 + rr() * 120; else start(t); } }
@@ -163,7 +165,7 @@ const XWeather = window.XWeather = (() => {
     _pm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); _fr.setFromProjectionMatrix(_pm);
     const cam = camera.position;
     for (let i = 0; i < npcs.length; i++){
-      const n = npcs[i]; if (n.grp) continue;
+      const n = npcs[i]; if (n.grp || (n.life && n.life.role)) continue;   /* walkers on an errand for js/89-life.js (queues, class, guard rounds) carry on */
       const out = (i * 0.618034) % 1 < want, unseen = !_fr.containsPoint(_pt.set(n.x, 1, n.z)) || Math.hypot(n.x - cam.x, n.z - cam.z) > 140;
       if (!unseen) continue;
       if (out && n.state === 'walk') n.state = 'shelter';
@@ -184,8 +186,6 @@ const XWeather = window.XWeather = (() => {
 function wxDirector(dt){ XWeather.director(dt); }
 /* small icon for the clock button and the phone's round time button */
 function wxIcon(){ return XWeather.types[XWeather.type].icon; }
-/* car grip on wet ground (js/40-vehicles.js): 18 % less when the road is soaked */
-function wxGrip(){ return 1 - .18 * wx.wet; }
 /* rain tip for a delivery (js/50-missions.js): RM 2 in real, heavy, natural rain; at most 8 a day; the player's own 下雨 button does not count */
 function wxTip(){
   if (XWeather.state.manual || wx.rain < .6 || !(XWeather.type === 'shower' || XWeather.type === 'storm')) return 0;
