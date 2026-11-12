@@ -348,6 +348,9 @@
 
   function f1Update(dt){
     F1.msg = '';
+    /* a kart race on this track (js/92-kart-race.js): 人机赛 and 道具赛 laps are not timing laps (contact, items), so the timer rests;
+       in 影线 1v1 it runs as usual, so a clean lap there goes on the board like any practice lap */
+    if (typeof RC !== 'undefined' && RC.st !== 'idle' && RC.T && RC.T.kart && RC.mode !== 'ghost'){ F1.lap = null; F1.idx = -1; return; }
     const c = driving, inP = c && c.x > PAD.x0 - 20 && c.x < PAD.x1 + 20 && c.z > PAD.z0 - 20 && c.z < PAD.z1 + 20;
     if (!c){ F1.lap = null; F1.idx = -1; if (typeof nw !== 'undefined' && nw.x > PAD.x0 && nw.x < PAD.x1 && nw.z > PAD.z0 && nw.z < PAD.z1) F1.msg = '汽车游乐园二园 · 卡丁车赛道：开车来跑，或者到维修区租一辆卡丁车 · 雪邦赛车城坐 ERL 到 KLIA 转机'; return; }
     if (!inP){ F1.lap = null; F1.idx = -1; return; }

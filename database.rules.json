@@ -316,7 +316,7 @@
           "time"
         ],
         "$uid": {
-          ".write": "auth != null && auth.uid === $uid && $track.matches(/^(campus|bell|ridge|offroad|estate)$/) && !root.child('ban').child(auth.uid).exists()",
+          ".write": "auth != null && auth.uid === $uid && $track.matches(/^(campus|bell|ridge|offroad|estate|kart)$/) && !root.child('ban').child(auth.uid).exists()",
           ".validate": "newData.hasChildren(['name', 'time', 'car', 'color', 'd', 'ts']) && (!data.exists() || newData.child('time').val() <= data.child('time').val())",
           "name": {
             ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16 && newData.val() === root.child('users').child(auth.uid).child('name').val()"
