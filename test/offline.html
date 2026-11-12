@@ -16,7 +16,8 @@ fetch('../index.html', {cache:'no-store'}).then(r => r.text()).then(html => {
   html = html.replace(/<head>/i, '<head><base href="../">')
     .replace(/<script src="js\/firebase-config\.js[^"]*"><\/script>/, mock ? '<script src="test/firebase-mock.js"><\/script>' : '<script>window.XMUM_FIREBASE = null;<\/script>')
     .replace(/<script src="js\/stats\.js[^"]*"><\/script>/, '')
-    .replace(/(src="js\/[^"?]+\.js)\?v=(\d+)"/g, '$1?v=$2&nc=' + Date.now() + '"');   /* always the files on disk, never a cached copy */
+    .replace(/(src="js\/[^"?]+\.js)\?v=(\d+)"/g, '$1?v=$2&nc=' + Date.now() + '"')
+    .replace(/(href="css\/[^"?]+\.css)\?v=(\d+)"/g, '$1?v=$2&nc=' + Date.now() + '"');   /* always the files on disk, never a cached copy (the stylesheet too) */
   /* ?run=<js>：页面加载 1.5 秒后执行一段脚本，给无头浏览器截图摆场景用 */
   const run = new URLSearchParams(location.search).get('run');
   if (run) html = html.replace(/<\/body>/i, '<script>setTimeout(() => { (0, eval)(' + JSON.stringify(run).replace(/</g, '\\u003c') + '); }, 1500);<\/script></body>');

@@ -556,6 +556,7 @@ body.wd-open #socStat,body.wd-open #socMenu,body.wd-open #socCard,body.wd-open #
   function askRide(p){
     if (driving){ toast('你自己在开车', '下车再搭别人的车', 1600); return; }
     if (S.duel){ toast('比赛中不能搭车', '', 1400); return; }
+    if (window.XQuest && XQuest.carLocked()){ XQuest.lockToast(); return; }   /* story chapter 1: no cars yet, not even a ride (js/89-quest.js) */
     invite(p.uid, 'ride', {}, {answer(ok, data){
       if (!ok) return;
       const q = peer(p.uid);
