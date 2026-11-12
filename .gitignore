@@ -15,3 +15,6 @@ xmum-backup-*.asc
 test/rules/results.md
 test/rules/old.json
 test/rules/package-lock.json
+
+# leaderboard snapshot, made at deploy (.github/boards-snapshot.py)
+data/boards.json
