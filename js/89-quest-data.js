@@ -926,7 +926,7 @@ window.XQD = (() => {
     const mcdN = () => G(() => XMcd.modes.reduce((n, m) => n + (mgSave.plays['mcd_' + m] | 0), 0), 0);
     let mcd0 = null;
     D.chapters.find(c => c.id === 'c8').steps.push(
-      {id:'c8_mcd', text:'带阿豆去麦当当打工一班', rm:60, at:[-498.6 + MDX, 778 + MDZ], r:3,   /* no calmNear: it would hide the 打工 ring this step is about */
+      {id:'c8_mcd', calmNear:true, text:'带阿豆去麦当当打工一班', rm:60, at:[-498.6 + MDX, 778 + MDZ], r:3,   /* r 3: the story ring sits on the 打工 ring (3.5 m) instead of looking like F works anywhere in 5 m */
         done:() => { const n = mcdN(); if (mcd0 == null) mcd0 = n; return n > mcd0; },
         hint:{pc:'麦当当在 KIP 那边，正门外有黄圈；阿豆跟着你，到了按 F 进后厨配餐', touch:'麦当当在 KIP 那边，正门外有黄圈；阿豆跟着你，到了点「打工」进后厨配餐'},
         tip:'阿豆说他高中在快餐店打过工，看谁叠汉堡快。', nudge:'开车去 KIP 那边的麦当当，正门外黄圈按 F，随便打一局就行。'});
