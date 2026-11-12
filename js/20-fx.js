@@ -176,15 +176,20 @@ function engineStart(kind){
   o.connect(f); o2.connect(f); f.connect(g).connect(a.destination); o.start(); o2.start();
   const sk = a.createBufferSource(); sk.buffer = noiseBuf; sk.loop = true; const sf = a.createBiquadFilter(); sf.type = 'bandpass'; sf.frequency.value = 1800; sf.Q.value = 3;
   const sg = a.createGain(); sg.gain.value = 0; sk.connect(sf).connect(sg).connect(a.destination); sk.start();
-  engine = {o, o2, g, sk, sg, base:({bus:38, cart:90, patrol:85, rr:40, mase:58, p911:66, lambo:72, myvi:62, gwag:44, moto:96})[kind] || 55};
+  engine = {o, o2, f, g, sk, sg, lt:0, still:0, base:({bus:38, cart:90, patrol:85, rr:40, mase:58, p911:66, lambo:72, myvi:62, gwag:44, moto:96})[kind] || 55};
 }
 function engineStop(){ if (!engine) return; try { engine.o.stop(); engine.o2.stop(); engine.sk.stop(); } catch(e){} engine = null; }
+/* idle: quiet and muffled (it used to sit at .045 behind an open 600 Hz filter, a constant buzz while parked); after a few
+   seconds standing still it settles to a soft tick-over. Speed opens the filter and brings the volume up as before. */
+const ENG_IDLE = .016, ENG_REST = .007;
 function engineUpdate(speed, slip, on){
   if (!engine || !AC) return; const t = AC.currentTime;
+  const dt = engine.lt ? Math.min(.25, Math.max(0, t - engine.lt)) : 0; engine.lt = t;
+  engine.still = speed < 1.5 ? engine.still + dt : 0;
   const f = engine.base + speed * 3.2;
   engine.o.frequency.setTargetAtTime(f, t, .05); engine.o2.frequency.setTargetAtTime(f * .5, t, .05);
-  /* 仓库主人：空转太吵。停着只有原来的三分之一（.015），踩油门、开起来才响；开到 90 km/h 全油门和原来差不多（.085 / .095） */
-  const thr = typeof ndThrottle === 'function' ? Math.min(1, Math.abs(ndThrottle())) : 0;   /* W/S or the stick, js/94-tuning-drive.js */
-  engine.g.gain.setTargetAtTime(soundOn && on ? .015 + thr * .02 + Math.min(.05, speed * .002) : 0, t, .08);
+  engine.f.frequency.setTargetAtTime(260 + Math.min(900, speed * 15), t, .1);
+  const rest = Math.min(1, Math.max(0, (engine.still - 2.5) / 3));
+  engine.g.gain.setTargetAtTime(soundOn && on ? ENG_IDLE + (ENG_REST - ENG_IDLE) * rest + Math.min(.06, speed * .0024) : 0, t, .12);
   engine.sg.gain.setTargetAtTime(soundOn && on && slip > 3 ? Math.min(.16, slip * .012) : 0, t, .05);
 }
