@@ -250,7 +250,9 @@
   kFlat(rd, LOT.x0, LOT.z0, LOT.x1, LOT.z1, .05, ASPH);
   kFlat(mk, LOT.x0, LOT.z0 - .1, LOT.x1, LOT.z0 + .15, .07, YEL);
   for (let x = 925; x < 935.5; x += 1.2) kFlat(mk, x, LOT.z0 + .8, x + .6, ISL_Z[0] - .8, .07, LINE);   /* zebra crossing to the doors */
-  for (const [x0, x1] of ISL){ kBox(b, x0, 0, ISL_Z[0], x1, .32, ISL_Z[1], '#bdb6aa', 'ny'); kFlat(b, x0 + .3, ISL_Z[0] + .3, x1 - .3, ISL_Z[1] - .3, .33, '#5f8a3e'); }
+  /* the grass islands are flush with the road (owner: you can drive and walk across them): a painted kerb and grass on the ground layer, no collider;
+     the palms and lamps on them are the usual knock-down instances, the canopy columns stay solid */
+  for (const [x0, x1] of ISL){ kFlat(rd, x0, ISL_Z[0], x1, ISL_Z[1], .057, '#bdb6aa'); kFlat(rd, x0 + .3, ISL_Z[0] + .3, x1 - .3, ISL_Z[1] - .3, .063, '#5f8a3e'); }
   /* parking stalls: the car park is split by the middle aisle (the boulevard runs on to the doors) and edge aisles */
   const STALL = 2.6, HALF = [[846, 920.8], [939.2, 1014]];
   for (const [z0, z1] of ROW_Z) for (const [x0, x1] of HALF){
@@ -278,11 +280,11 @@
     spawn:[CX, -298, 0]};
   pickables.push(MALL.mesh);
 
-  /* ---- colliders and minimap: the wing, the two mosaic blocks reach the walk, the towers, the islands, the canopy columns ---- */
+  /* ---- colliders and minimap: the wing, the two mosaic blocks reach the walk, the towers, the canopy columns (the grass islands are drive-over) ---- */
   addBox((MB.x0 + MB.x1) / 2, (MB.z0 + MB.z1) / 2, (MB.x1 - MB.x0) / 2, (MB.z1 - MB.z0) / 2, 0);
   for (const [x0, x1] of MOS) addBox((x0 + x1) / 2, (MB.z1 + MOS_Z) / 2, (x1 - x0) / 2, (MOS_Z - MB.z1) / 2 + .01, 0);
   for (const T of TOWERS){ addBox((T.x0 + T.x1) / 2, (T.z0 + T.z1) / 2, (T.x1 - T.x0) / 2, (T.z1 - T.z0) / 2, 0); addFp({t:0, x:(T.x0 + T.x1) / 2, z:(T.z0 + T.z1) / 2, w:T.x1 - T.x0, d:T.z1 - T.z0, rot:0, color:'#5f86ad'}); }
-  for (const [x0, x1] of ISL) addBox((x0 + x1) / 2, (ISL_Z[0] + ISL_Z[1]) / 2, (x1 - x0) / 2, (ISL_Z[1] - ISL_Z[0]) / 2, 0);
+  addCircle(883, -290, .2);   /* the drop-off sign's post */
   for (const [x, z] of PILLARS) addCircle(x, z, .5);
   for (const x of BOLLARDS) addCircle(x, LOT.z0 - .5, .18);
   addFp({t:0, x:(MB.x0 + MB.x1) / 2, z:(MB.z0 + MB.z1) / 2, w:MB.x1 - MB.x0, d:MB.z1 - MB.z0, rot:0, color:'#b9b4aa'});
