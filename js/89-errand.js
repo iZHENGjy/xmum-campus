@@ -10,7 +10,8 @@
  * 存档：都在主线存档的 flags 里（js/89-quest.js）：er_单子_东西 = 买的时间，er_单子_spent = 花了多少，er_单子_all = 买齐了，er_单子_done = 送到了。
  * 界面：任务条下面一行袋子（买到的亮、没买的灰、冷冻的带倒计时）；小地图上要去的店是黄点，买齐了送到的地方是绿点；
  *   主线这一步的指南针指最近的一家还要去的店（买齐了指送到的地方）。
- * 对外：window.XErrand = {active(), nextAt(id), count(id), bought(id, item), dev:{fill(id), clear(id)}} */
+ * 对外：window.XErrand = {active(), nextAt(id), count(id), bought(id, item), give(id, item, why), dev:{fill(id), clear(id)}}
+ *   give：别的玩法里已经买到的东西直接算进单子（夜市猫山王挑战挑到真猫山王 → 老周那张单子），不再花钱、不记报销。 */
 'use strict';
 (() => {
   if (typeof gx === 'undefined' || !window.XQD || !window.XQuest) return;
@@ -179,6 +180,12 @@ body.cine .er-bag{display:none}
 
   window.XErrand = {
     active:() => ACT.slice(), nextAt, count, bought:(id, item) => !!(E[id] && F()['er_' + id + '_' + item]),
+    give(id, item, why){
+      const it = E[id] && E[id].items.find(x => x.id === item);
+      if (!it || done(id) || has(id, it) || !active().includes(id)) return false;
+      flag('er_' + id + '_' + it.id, now()); if (allIn(id)) flag('er_' + id + '_all');
+      g(() => toast(it.icon + ' ' + it.name + ' 算进「' + E[id].title + '」了', why || ('送到 ' + E[id].to.name), 3200)); sync(true); return true;
+    },
     dev:{
       fill(id){ for (const it of E[id].items) flag('er_' + id + '_' + it.id, now()); flag('er_' + id + '_all'); sync(true); return '买齐了：' + E[id].title; },
       clear(id){ for (const k of Object.keys(F())) if (k.indexOf('er_' + id + '_') === 0) flag(k, false); sync(true); return '清空了：' + E[id].title; },
