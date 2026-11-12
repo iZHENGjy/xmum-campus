@@ -71,6 +71,8 @@ const sideMark = floorMark('#ffd27a', 1.1), winMark = floorMark('#ffd27a', 1.1);
 sideMark.position.set(ROOM_SIDE[0], .04, ROOM_SIDE[1]); winMark.position.set(ROOM_WIN[0], .04, ROOM_WIN[1]); sideMark.visible = winMark.visible = false;
 const exHere = () => EX.on && ROOM.in && EX.door === ROOM.from;      /* inside the building the job is in */
 const exOpenSpots = () => EX.spots.filter(s => !s.done && !s.out);
+/* 新手：还没完成过「抢救期末卷」（第 3 章的主线步骤）时简单一点：卷子固定在教室讲台抽屉、不用找钥匙、多 90 秒。做完一次以后照旧 */
+const exEasy = () => !(prog.ach && prog.ach.exam);
 const exWant = () => EX.kind === 'exam' ? !EX.got : !EX.done;       /* still something to do inside */
 function exSpots(){
   const pick = ROOM_DESKS.slice();
@@ -80,6 +82,10 @@ function exSpots(){
   if (k === 'hw'){ EX.spots = [S.tray]; S.tray.has = 'goal'; markColor(S.tray.mark, '#4aa3ff'); }
   else if (k === 'phone'){ EX.spots = [S.box, S.tdraw]; S.box.has = 'goal'; S.box.lock = true; S.tdraw.has = 'key'; markColor(S.tdraw.mark, '#ffd24a'); }
   else if (k === 'night'){ EX.spots = [rand([S.podium, S.c1, S.c2, S.d0, S.d1]), rand([S.file, S.box]), rand([S.printer, S.shelf, S.store])]; for (const s of EX.spots){ s.has = 'item'; markColor(s.mark, '#ffd24a'); } }
+  else if (exEasy()){
+    /* the first time (the story step in chapter 3): one gold-ringed spot, the podium drawer in the classroom, no key to find */
+    EX.spots = [S.podium]; EX.paper = S.podium; S.podium.has = 'goal'; markColor(S.podium.mark, '#ffd24a'); EX.hint = 'C';
+  }
   else {
     EX.spots = [S.podium, S.c1, S.c2, S.d0, S.d1, S.file, S.tdraw, S.printer, S.shelf, S.store];
     const bag = EX.spots.slice(), take = f => { const a = f ? bag.filter(f) : bag, s = rand(a); bag.splice(bag.indexOf(s), 1); return s; };
@@ -385,12 +391,14 @@ function exStart(kind){
   const door = opts[(rnd() * opts.length) | 0] || ROOM_DOORS[0], dist = Math.hypot(door.x - at.x, door.z - at.z), run = prog.best.exrun | 0;
   Object.assign(EX, {on:true, kind, t:0, door, got:false, done:false, told:false, alarm:false, alarmT:0, spotted:0, caught:0, hold:0, holdKey:'', sideOpen:false, winOpen:false,
     hint:'', key:false, keyAt:null, seen:'', room:'', crouch:false, hid:false, buddy:kind === 'night' ? 2 : 0, soaks:0, callT:0, alTick:0, items:0, ringT:0, pal:false, tip:0,
-    poOpen:kind !== 'exam', coOpen:kind === 'night', limit:Math.round(K.time(dist))});
+    poOpen:kind !== 'exam', coOpen:kind === 'night', limit:Math.round(K.time(dist)) + (kind === 'exam' && exEasy() ? 90 : 0)});
+  if (kind === 'exam' && exEasy()) EX.key = true;      /* first time: the office door opens without a key */
   exSpots(); guardReset(); guards[0].hasKey = kind === 'phone'; exHideStart(); sfx.ding();
   const streak = run ? ` · 连胜 ${run}，奖金 +${Math.min(5, run) * 10}%` : '', n = door.name;
   gxCallout(K.name, `去 ${n} 教学楼`, K.color);
   toast(K.name, ({
-    exam:`期末卷藏在 ${n} 教学楼的某个抽屉或柜子里，${EX.limit} 秒内找出来送回 A3。办公室锁着，钥匙也得找`,
+    exam:exEasy() ? `期末卷在 ${n} 教学楼教室的讲台抽屉里（发金光的圈），${EX.limit} 秒内拿出来送回 A3。跟着指南针走，看见保安就蹲下躲`
+      : `期末卷藏在 ${n} 教学楼的某个抽屉或柜子里，${EX.limit} 秒内找出来送回 A3。办公室锁着，钥匙也得找`,
     hw:`DDL 过了，老师还在办公室批卷。${EX.limit} 秒内溜进 ${n} 教学楼，趁她低头把作业塞进桌前的作业筐`,
     phone:`同学的手机被没收了，锁在 ${n} 教学楼办公室的没收箱里。钥匙：保安腰上一把（淋他会掉），老师抽屉里一把`,
     night:`${n} 教学楼熄灯了，三个房间各落了一件东西。${EX.limit} 秒内全捡回来。两个保安打着手电`
