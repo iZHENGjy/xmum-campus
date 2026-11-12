@@ -142,7 +142,7 @@ const fmtP = v => 'RM ' + Math.round(v).toLocaleString();
 
 /* the tile's picture: a drawn outline of the item filled with its colour (js/ui-shop-icons.js), else the colour dot */
 const wardSwHTML = (it, sw) => {
-  const g = sw && typeof wdGlyph === 'function' ? wdGlyph(it) : null;
+  const g = sw && sw !== 'transparent' && typeof wdGlyph === 'function' ? wdGlyph(it) : null;
   return g ? `<span class="wd-sw gly"><span class="gl" style="background:${sw};--m:url('${g}')"></span></span>` : `<span class="wd-sw${sw ? '' : ' none'}" style="${sw ? 'background:' + sw : ''}"></span>`;
 };
 function wardRender(){
