@@ -265,7 +265,7 @@ function drawMini(cx, cz, yaw, o){
     mg.fillStyle = col; mg.strokeStyle = '#1f2a33'; mg.lineWidth = 2 * u; mg.beginPath(); mg.arc(px, pz, edge ? r - 2 * u : r, 0, 7); mg.fill(); mg.stroke(); };
   if (mode === 'naiwa'){
     for (const c of cars) if (c !== driving && c.root.visible){ mg.save(); mg.translate(X(c.x), Z(c.z)); mg.rotate(-c.h); mg.fillStyle = c.patrol ? '#e74c3c' : '#ffffff'; mg.fillRect(-c.T.W * k * 1.5, -c.T.L * k * .75, c.T.W * k * 3, c.T.L * k * 1.5); mg.restore(); }
-    if (mission.on) dot(mission.to.x, mission.to.z, '#4fd18b', 9); else if (!gx.busy()) for (const pk of PICKUPS) dot(pk.x, pk.z, pk === hotPk && !pk.cool ? '#ffc93c' : '#ff8a3d', 8);
+    if (mission.on) dot(mission.to.x, mission.to.z, '#4fd18b', 9); else if (!gx.busy() && !(window.XQuest && XQuest.ringsOff && XQuest.ringsOff())) for (const pk of PICKUPS) dot(pk.x, pk.z, pk === hotPk && !pk.cool ? '#ffc93c' : '#ff8a3d', 8);
     gx.mini(dot);
   }
   if (mode === 'hole') holeMiniPUs(mg, X, Z);   /* black-hole power-ups on the minimap (js/70-hole.js) */

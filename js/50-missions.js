@@ -78,13 +78,14 @@ function offerMission(pk){
 }
 function updateMission(dt, px, pz){
   const T = performance.now() / 1000;
-  const busy = gx.busy();
-  for (const pk of PICKUPS){ pk.m.visible = !mission.on && !busy && mode === 'naiwa'; pk.m.scale.y = 1 + Math.sin(T * 3) * .15; }
+  const busy = gx.busy(), qOff = !!(window.XQuest && XQuest.ringsOff && XQuest.ringsOff());   /* story chapter 1, before the first-delivery step */
+  for (const pk of PICKUPS){ pk.m.visible = !mission.on && !busy && !qOff && mode === 'naiwa'; pk.m.scale.y = 1 + Math.sin(T * 3) * .15; }
   destMark.visible = mission.on && mode === 'naiwa';
   if (mode !== 'naiwa') return;
   refreshHot();
   if (!mission.on){
     if (busy){ missionEl.classList.remove('urgent'); return; }
+    if (qOff){ missionEl.textContent = '先跟着主线认认路，外卖等会儿再接'; missionEl.classList.remove('urgent'); return; }
     missionEl.textContent = typeof OFFER !== 'undefined' && !OFFER.on ? '现在不接单 · 路过光圈不弹卡片' : '到橙色光圈挑一单外卖'; missionEl.classList.remove('urgent');
     /* near a ring the card with its orders comes up (a little before the ring, so there is time to read it while rolling in); without js/89-offers.js the order starts at once, as before */
     for (const pk of PICKUPS){

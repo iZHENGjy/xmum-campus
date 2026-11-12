@@ -15,7 +15,7 @@
  * 上锁：开车（第 1 章做完）；汽车游乐园的比赛（第 5 章开始）；小火车（第 7 章开始）。别的文件问 window.XQuest.unlocked('drive'|'park'|'train')。
  *
  * 对外：window.XQuest = {
- *   ready, state（只读副本）, ch, ph, chapter(), step()（当前步骤）, steps(), unlocked(key), carLocked(), ch1Deliv(),
+ *   ready, state（只读副本）, ch, ph, chapter(), step()（当前步骤）, steps(), unlocked(key), carLocked(), ch1Deliv(), ringsOff(),
  *   flag(k, v)（玩法里的「新」钩子：XQuest.flag('map') 之类）, talk(npcId), npcNear(), diaryAdd(id, v), msg(id),
  *   on(evt, fn)（'step' 'chapter' 'msg' 'diary' 'talk' 'state'）, target()（指南针要指的地方）,
  *   dev:{reset(), vet(), skip(n), homesick(), state()}（测试模式和控制台）
@@ -376,6 +376,14 @@
 
   /* ---------- chapter 1 deliveries: campus only, 1.5× time (js/50-missions.js asks) ---------- */
   const ch1Deliv = () => S.born === 'new' && S.ch === 1;
+  /* chapter 1 before the first-delivery step: the pick-up rings, their map dots and the old 「到橙色光圈挑一单外卖」 line stay away,
+     so a new player's first minutes are only 小满 and the compass (js/50-missions.js, js/90-main.js ask) */
+  const ringsOff = () => {
+    if (!ch1Deliv()) return false;
+    const c = chapter(), st = curStep(); if (!c || !st) return false; if (st.meet) return true;
+    const i = c.steps.findIndex(s => s.id === 'c1_deliv1'), j = c.steps.findIndex(s => s.id === st.id);
+    return i >= 0 && j >= 0 && j < i;
+  };
 
   /* ---------- the intro: the first time a new player goes into 奶娃 mode ---------- */
   const GATE = {x:96, z:242, h:Math.PI};   /* just inside the main gate (the 南门 spawn of walk mode), facing up the axis toward A3 */
@@ -482,7 +490,11 @@
     }
     for (const s of D.sides){ if (sideReady(s) && qDone(s)){ S.sides[s.id] = 'done'; add('side_' + s.id, {rm:s.rm, parts:s.parts}); } }
     for (const ev of D.events) if (qDone({done:ev.when})) S.fired[ev.id] = now();   /* old news: no flood of "first time" messages */
-    S.welcome = {rm:Math.round(rm), chs, items:items.join('、')};
+    /* the same part from several chapters is one line on the card: 轮毂坯件 ×3 + ×4 → ×7 */
+    const merged = new Map();
+    for (const t of items){ const m = /^(.*) ×(\d+)$/.exec(t), k = m ? m[1] : t; merged.set(k, (merged.get(k) || 0) + (m ? +m[2] : 1)); }
+    const itemsTxt = [...merged].map(([k, n]) => n > 1 ? k + ' ×' + n : k).join('、');
+    S.welcome = {rm:Math.round(rm), chs, items:itemsTxt};
     save(); emit('state');
   }
 
@@ -526,7 +538,7 @@
     get ready(){ return ready; }, get state(){ return S; }, get ch(){ return S.ch; }, get ph(){ return S.ph; }, get born(){ return S.born; },
     get talking(){ return !!talking; },
     data:D, chapters:CH, chapter, step:curStep, steps:() => stepsOf(chapter()), stepDone:id => !!S.done[id], Q, qDone,
-    unlocked, carLocked, ch1Deliv, lockToast,
+    unlocked, carLocked, ch1Deliv, ringsOff, lockToast,
     flag, talk, npcNear:npcNearId, npcAt, npcMark, npcs:NPC, sidesOf, diaryAdd, msg, save, dayNo,
     on, target, playIntro, unlockedTitle:() => S.title,
     ui:null, dev

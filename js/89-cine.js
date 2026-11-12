@@ -674,8 +674,16 @@ body.cine > *:not(canvas):not(.cine-ui):not(script):not(style):not(dialog):not(#
     C.on = true; C.kind = kind; C.done = false; C.fov = 0; C.paused = gx.paused; C.nwVis = NW.root.visible; C.dt = 0;
     gx.paused = true; for (const k in keys) keys[k] = false; g(() => engineUpdate(0, 0, false));
     document.body.classList.add('cine'); skipEl.classList.toggle('on', kind === 'film');
-    radioDuck(true); worldSave(); clearText();
+    radioDuck(true); worldSave(); clearText(); beamsHide();
   }
+  /* the tall glowing marker beams (check-in coins, pick-up rings, activity starts, the delivery target…: every mesh on beamGeo, js/10-world.js)
+     cut straight through a shot of the sky; off for the length of a cutscene, each back as it was after */
+  let beamsOff = null;
+  function beamsHide(){
+    if (beamsOff || typeof beamGeo === 'undefined') return; beamsOff = [];
+    scene.traverse(o => { if (o.isMesh && o.geometry === beamGeo){ beamsOff.push([o, o.visible]); o.visible = false; } });
+  }
+  function beamsShow(){ if (!beamsOff) return; for (const [o, v] of beamsOff) o.visible = v; beamsOff = null; }
   function play(id, o){
     o = o || {};
     if (C.on || (id !== 'intro' && id !== 'ending')) return false;
@@ -744,6 +752,7 @@ body.cine > *:not(canvas):not(.cine-ui):not(script):not(style):not(dialog):not(#
   }
   function finishCommon(){
     C.on = false; C.kind = ''; C.ph = ''; C.shots = null;
+    beamsShow();
     gx.paused = !!C.paused;
     document.body.classList.remove('cine'); skipEl.classList.remove('on'); radioDuck(false);
     g(() => canvas.focus({preventScroll:true}));
