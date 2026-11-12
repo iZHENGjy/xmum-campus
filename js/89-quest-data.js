@@ -61,8 +61,9 @@ window.XQD = (() => {
       ['xiaoman', () => K('走，我陪你走一段。先去 A3 大台阶，跟着屏幕上面的指南针走，按住 Shift 能跑。', '走，我陪你走一段。先去 A3 大台阶，跟着屏幕上面的指南针走，摇杆推到底就是跑。')]
     ],
     outro:[
-      ['xiaoman', '第一单就送到了？可以啊，比我当年强多了。'],
-      ['xiaoman', '喏，这是一辆 Myvi 的钥匙，学长毕业留下的，旧是旧了点，跑得动。'],
+      /* driving is open from the start now: if you already took someone's car for a spin, she noticed */
+      ['xiaoman', () => G(() => XQuest.state.flags.q_car1, false) ? '第一单就送到了？我还看见你开着别人的车满校园跑了……行吧，会开就好。' : '第一单就送到了？可以啊，比我当年强多了。'],
+      ['xiaoman', '喏，这是一辆 Myvi 的钥匙，学长毕业留下的，旧是旧了点，跑得动。以后开自己的车。'],
       ['xiaoman', () => K('开车：W / S 油门刹车，A / D 转向，按住空格漂移，F 下车。车就停在你旁边。', '开车：左下摇杆推着走，右下「漂移」按住甩尾，「下车」下来。车就停在你旁边。')],
       ['xiaoman', '学校里那些发光的圈——比赛、潜入委托、宿舍搜刮、B1 游戏厅——从今天起都对你开放了，地图上都标着。'],
       ['xiaoman', '开车去 D6 食堂找站长老周，他那儿缺人跑单，开车送比走路挣得多。我回南门了，有事来找我！']
@@ -87,10 +88,10 @@ window.XQD = (() => {
         onTalk:() => { if (typeof offerToggle === 'function' && typeof OFFER !== 'undefined' && !OFFER.on) offerToggle(true); },
         hint:{pc:'小满学姐就在你旁边，按 <kbd>F</kbd> 跟她说话', touch:'小满学姐就在你旁边，点「说话」', flash:'#act-f'},
         tip:'小满一路跟着你，到了 A3 她会自己开口。'},
-      {id:'c1_deliv1', text:'走路送出第一单外卖', rm:30,
+      {id:'c1_deliv1', text:'送出第一单外卖', rm:30,
         done:Q => Q.ach('deliv1'),
         hint:{pc:'走进橙色光圈，按 <kbd>F</kbd> 或 <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> 接单', touch:'走进橙色光圈，点卡片上的单子接单', flash:'#mini'},
-        tip:'这一章的外卖只派校园里的单，时间也多给一半，走路跑步都来得及。', guide:'earn',
+        tip:'这一章的外卖只派校园里的单，时间也多给一半，走路跑步都来得及；会开车的话开车也行。', guide:'earn',
         nudge:'LY3 食堂就在 A3 北边，门口有橙色圈圈，从那儿接单最近。'},
       {id:'c1_run', opt:true, text:'跑起来（连续跑 3 秒）', rm:10, isNew:true,
         done:Q => Q.flag('run3'),
@@ -99,11 +100,12 @@ window.XQD = (() => {
     ]});
   /* 小满第 1 章跟着你走（新玩家）；到了 A3、送完第一单，她自己开口，不用找她按 F */
   D.npcs.xiaoman.follow = () => !!(window.XQuest && XQuest.ch === 1 && G(() => XQuest.state.born === 'new', false) && (XQuest.ph === 'steps' || XQuest.ph === 'report'));
-  { let wait = 0;
+  { let wait = 0, told = false;
     D.watch.push((Q, flag, dt) => {
       if (!window.XQuest || XQuest.ch !== 1 || XQuest.talking || G(() => XCine.busy, true) || G(() => gx.paused, true) || G(() => mission.on, false)) { wait = 0; return; }
       const xmTalk = XQuest.ph === 'steps' && G(() => XQuest.step().id === 'c1_xm', false) && Q.near(105, 120, 16);
       const keys = XQuest.ph === 'report';
+      if ((xmTalk || keys) && Q.driving() && !told){ told = true; G(() => toast('停下来聊两句', '小满学姐有话跟你说，下车就行', 2800)); }
       if (!(xmTalk || keys) || !Q.withMe('xiaoman') || Q.driving()){ wait = 0; return; }
       wait += dt || .5; if (wait >= 1) { wait = 0; XQuest.talk('xiaoman'); }
     }); }
@@ -529,7 +531,8 @@ window.XQD = (() => {
     intro:[
       ['xiaoman', '来啦！还记得你报到那天吗？钱包里就几十块，走路送外卖。'],
       ['xiaoman', '明天又有一批新生到 KLIA，迎新的人手不够……'],
-      ['xiaoman', '这次换你去接。小火车已经通了，坐一站就到机场。'],
+      /* the train is open from the start now: if you already rode it, she knows */
+      ['xiaoman', () => G(() => (prog.life.erlRides | 0) > 0, false) ? '这次换你去接。小火车你自己已经坐过了？那这次带着任务去，坐一站就到机场。' : '这次换你去接。小火车坐一站就到机场。'],
       ['xiaoman', '到了先去问讯台帮帮忙，饿了すき家的牛丼不错。接到新生，坐车回来找我。']
     ],
     outro:[

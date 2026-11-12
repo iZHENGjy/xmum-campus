@@ -15,7 +15,7 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;'})[c]);
   const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
   const S = () => XQ.state;
-  const quiet = () => !!S().quiet;
+  const quiet = () => !!S().quiet || !!S().hideQ;   /* 收起主线 hides the hints, the ring and the map star too */
   const person = id => D.people[id] || (D.npcs[id] ? {name:D.npcs[id].name, icon:(D.npcs[id].short || D.npcs[id].name)[0], color:D.npcs[id].color} : {name:id, icon:'?', color:'#888'});
   const hintText = h => h ? (TOUCH ? h.touch || '' : h.pc || '') : '';
 
@@ -75,7 +75,8 @@
   ph.innerHTML = '<i class="q-av"></i><div><b></b><span></span></div>';
   document.body.appendChild(ph);
   const phQ = []; let phT = 0, phBusy = false;
-  const holdNotes = () => g(() => XCine.busy, false) || !box.hidden || g(() => heat > 0, false) || g(() => gx.extBusy(), false) || g(() => XGuide.on, false) || mode !== 'naiwa' || !!document.querySelector('.q-welcome:not([hidden])');
+  /* phone notes wait: a film, a talk, a chase, an activity (gx.extBusy covers the door games), a mini-game (XMini.active), the guide open */
+  const holdNotes = () => g(() => XCine.busy, false) || !!g(() => XMini.active, null) || !box.hidden || g(() => heat > 0, false) || g(() => gx.extBusy(), false) || g(() => XGuide.on, false) || mode !== 'naiwa' || !!document.querySelector('.q-welcome:not([hidden])');
   function phShow(){
     if (phBusy || !phQ.length || holdNotes()) return;
     const e = phQ.shift(), m = D.msgs[e.m]; if (!m) return;
@@ -91,13 +92,20 @@
 
   /* ================= the quest bar (under the delivery line in the wallet panel) ================= */
   const bar = el('button', 'mission q-bar'); bar.type = 'button'; bar.id = 'qbar'; bar.hidden = true;
-  { const m = document.getElementById('mission'); if (m) m.after(bar); }
+  /* 收起主线: a small × right of the bar. The bar, the hints, the compass target, the ground ring and the map star go away until
+     the diary's switch brings them back (仓库主人：「剧情模式不要把玩家自己的探索限制太死」) */
+  const barX = el('button', 'q-barx'); barX.type = 'button'; barX.hidden = true; barX.textContent = '×'; barX.title = '收起主线（日记里可以再打开）'; barX.setAttribute('aria-label', '收起主线');
+  { const m = document.getElementById('mission'); if (m){ m.after(bar); bar.after(barX); } }
+  barX.addEventListener('click', e => { e.stopPropagation(); g(() => ac()); S().hideQ = true; XQ.save(); barSync(); hintSync(true);
+    g(() => toast('主线收起了', TOUCH ? '想再看：暂停 → 指南 → 日记，打开「显示主线」' : '想再看：按 P 打开日记，打开「显示主线」', 3200)); });
   bar.addEventListener('click', () => { g(() => ac()); view = null; g(() => XGuide.open('diary')); });
   function barSync(){
     const c = XQ.chapter(), st = XQ.step();
     const yr = st && st.id === 'y1_end';   /* the 大一 ending after the last chapter (js/89-yearend.js) */
-    const show = mode === 'naiwa' && (yr || (!!c && S().ph !== 'done'));   /* always: the 收起 box only hides the operation tips */
-    bar.hidden = !show; if (!show) return;
+    const show = mode === 'naiwa' && !S().hideQ && (yr || (!!c && S().ph !== 'done'));
+    bar.hidden = barX.hidden = !show; if (!show) return;
+    /* the × sits on the bar's line, right end (other rows get inserted after the bar, so it is placed, not flowed) */
+    { const top = bar.offsetTop + Math.max(0, (bar.offsetHeight - 22) / 2 + 3) + 'px'; if (barX.style.top !== top) barX.style.top = top; }
     const all = XQ.steps(), i = Math.max(0, all.findIndex(s => s.id === (st && st.id))), cnt = st && st.count ? g(() => st.count(XQ.Q), null) : null;
     const why = st ? XQ.waitWhy(st).split('。')[0] : '';   /* the bar gets the first sentence; the diary's list has the whole of it */
     const t = yr ? '尾声 · ' + st.text : `主线 ${c.n}/${XQ.chapters.length} · ${st ? st.text.replace(/（.*?）/g, '') : ''}` + (why ? `（${why}）` : cnt ? ` ${cnt[0]}/${cnt[1]}` : st && !st.meet && !st.solo ? ` · ${i + 1}/${all.length}` : '');
@@ -285,6 +293,7 @@
     const ms = st.msgs.filter(e => (e.c | 0) === n || (n === 0 && !e.c)).slice(-3);
     h += `<aside class="q-dphone"><span class="q-dph">手机</span>${ms.length ? ms.map(e => { const m = D.msgs[e.m]; if (!m) return ''; const p = person(m.from); return `<div class="q-msg"><i class="q-av" style="background:${p.color || '#888'}">${esc(p.icon)}</i><div><b>${esc(p.name)}</b><span>${esc(m.text)}</span></div></div>`; }).join('') : '<p class="q-dim">还没有消息</p>'}</aside>`;
     h += '</div>';
+    h += `<label class="q-quiet q-show"><input type="checkbox" ${st.hideQ ? '' : 'checked'}> 显示主线（任务条、指南针、地上的光圈）。想自己逛就关掉</label>`;
     h += `<label class="q-quiet"><input type="checkbox" ${st.quiet ? 'checked' : ''}> 不显示操作提示（任务条和指南针照常显示）</label>`;
     return h;
   }
@@ -297,7 +306,8 @@
     { const y = q('.q-y1'); if (y) y.addEventListener('click', () => { XGuide.close(); setTimeout(() => g(() => XYear.card()), 80); }); }
     const r = q('.q-replay'); if (r) r.addEventListener('click', () => { const ch = +r.dataset.ch || 0; XGuide.close(); setTimeout(() => ch ? XQ.replay(ch) : XQ.playIntro(true), 80); });
     sec.querySelectorAll('.q-more').forEach(b => b.addEventListener('click', () => XGuide.open ? (() => { const id = b.dataset.g, i = XGuide.pages.indexOf(id); if (i >= 0) XGuide.go(i); })() : 0));
-    const cb = q('.q-quiet input'); if (cb) cb.addEventListener('change', () => { S().quiet = cb.checked; XQ.save(); barSync(); hintSync(true); });
+    const cb = q('.q-quiet:not(.q-show) input'); if (cb) cb.addEventListener('change', () => { S().quiet = cb.checked; XQ.save(); barSync(); hintSync(true); });
+    const sh = q('.q-show input'); if (sh) sh.addEventListener('change', () => { S().hideQ = !sh.checked; XQ.save(); barSync(); hintSync(true); });
   }
   /* the sticky notes: side jobs, grouped by who gave them */
   function notesBody(){
