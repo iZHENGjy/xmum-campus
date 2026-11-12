@@ -1,12 +1,13 @@
 # 好友（`js/96-friends.js`）
 
-只在联机、而且数据库规则已经发布时出现（`XNet.online`）。离线页面、预览版（离线）、连不上 Firebase 的玩家整套隐藏，不报错。
+联机时出现（`XNet.online`）。离线页面、预览版（离线）、连不上 Firebase 的玩家整套隐藏，不报错。
+数据库规则还没发布（读写被拒绝）时，入口照样显示，面板里写「好友功能暂时不可用」，F 菜单里的「加好友」灰掉，别人的好友请求自动回「对方的好友功能暂时不可用」；每 2 分钟自己再试一次，规则发布后不用刷新就恢复。
 
 ## 怎么玩
 
 | 做什么 | 电脑 | 手机 |
 |---|---|---|
-| 加好友（4 米内） | 走到他旁边按 **F**，菜单里选「⭐ 加好友」 | 点他头上的「点我互动」，选「⭐ 加好友」 |
+| 加好友（只在互动菜单里） | 走到他旁边按 **F**，菜单里选「⭐ 加好友」；已经是好友显示「已是好友」，发过请求显示「已发送」（被拒绝显示「对方没同意」），都灰掉 | 点他头上的「点我互动」，同一个菜单 |
 | 回应好友请求 | 邀请卡上 **F** 加 / **X** 不了 | 点卡片上的按钮 |
 | 好友列表 | **Y**，或顶上「在线 N 人」旁边的「⭐ 好友」，或暂停面板右上角 | 「车行」「暂停」那一排的「⭐ 好友」，或暂停面板 |
 | 去找好友 | 列表里「导航过去」，或大地图（M）上点粉色星星 | 同左；小地图点开大地图 |
@@ -19,11 +20,14 @@
 - 上限 50 个。请求限频：同一个人 60 秒一次，10 分钟最多 6 次；还有互动通道本身的限频（同一种邀请 8 秒一次、被拒以后 25 秒、一次只能等一个回音）。
 - 屏蔽了的人：他的好友请求直接忽略（`js/96-social.js` 本来就丢掉屏蔽的人的邀请），你也不能加他。
 - 第一次加上好友解锁成就「交个朋友」。
+- 第一次有别的玩家走到 12 米内（不在剧情对话、过场里），提示一次「走近别人按 F，选『加好友』」（手机：「点别人头上的『点我互动』，选『加好友』」）。
+- 好友面板只看好友（没有单独加好友的列表）；还没好友时写怎么加。
+- 大地图只画好友（粉色星星）。以前大地图会把 3D 场景里所有名字标签都画上去，其中也有附近其他玩家头顶的名字，等于把没加好友的人的位置画在了地图上；现在 `js/90-main.js` 的 `miniNames` 跳过玩家名字（`data-net`）和表情气泡。3D 场景里附近玩家头顶的名字照旧（本来就看得到他们）。
 - 游客（没用 Google 登录）也能加好友，好友跟着这台设备的匿名账号走；用 Google 登录的话换设备也在。
 
 ## 数据库
 
-**改了 `database.rules.json`，需要重新发布规则。** 没发布之前读 `/friends` 会被拒绝，好友功能自己关掉（按钮不出现），其他照常。
+**改了 `database.rules.json`，需要重新发布规则。** 没发布之前读 `/friends` 会被拒绝，好友面板显示「好友功能暂时不可用」，其他照常。
 
 | 路径 | 内容 | 谁能读 | 谁能写 |
 |---|---|---|---|
@@ -68,7 +72,7 @@ XFriends.ask(uid)          // 发好友请求（他要在附近、在线）
 
 **两个人互测**：两个浏览器窗口 `/test/social.html?p=a`、`/test/social.html?p=b`，走到一起按 F 加好友。一边控制台 `__mock.goOffline()` / `__mock.goOnline()` 看另一边的「刚刚在线」和上线提醒。
 
-假数据库只模拟了一条规则：读 `/fst/{uid}` 要求 uid 的列表里有你（开始订阅时查一次）。其他写入规则要用测试用的 Firebase 项目（`js/firebase-config.preview.js`）或 Firebase 控制台的「规则模拟器」测。
+假数据库只模拟了两条规则：读 `/fst/{uid}` 要求 uid 的列表里有你（开始订阅时查一次）；加 `&nofriendrules`（或 `&oldrules`）时 `/friends`、`/freq`、`/fst` 全部拒绝，看「好友功能暂时不可用」。其他写入规则要用测试用的 Firebase 项目（`js/firebase-config.preview.js`）或 Firebase 控制台的「规则模拟器」测。
 
 ## 截图
 
@@ -77,4 +81,9 @@ XFriends.ask(uid)          // 发好友请求（他要在附近、在线）
 | ![好友列表](screenshots/friends-desktop-list.jpg) | ![好友列表](screenshots/friends-phone-list.jpg) |
 | ![好友请求](screenshots/friends-desktop-invite.jpg) | ![好友请求](screenshots/friends-phone-invite.jpg) |
 | ![大地图](screenshots/friends-desktop-map.jpg) | ![大地图](screenshots/friends-phone-map.jpg) |
+| ![菜单里加好友](screenshots/friends-desktop-menu.jpg) | ![菜单里加好友](screenshots/friends-phone-menu.jpg) |
+| ![还没好友](screenshots/friends-desktop-empty.jpg) | ![还没好友](screenshots/friends-phone-empty.jpg) |
+| ![暂时不可用](screenshots/friends-desktop-down.jpg) | ![暂时不可用](screenshots/friends-phone-down.jpg) |
+| ![菜单里灰掉](screenshots/friends-desktop-menu-down.jpg) | ![已发送](screenshots/friends-phone-sent.jpg) |
+| ![第一次的提示](screenshots/friends-desktop-hint.jpg) | |
 | | ![按钮](screenshots/friends-phone-hud.jpg) |
