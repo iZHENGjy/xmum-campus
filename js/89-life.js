@@ -264,9 +264,12 @@
 
   /* ---------- tick: wraps updateNPCs (runs every frame in every mode) ---------- */
   function tick(dt){
-    const band = bandNow();
-    if (band !== L.band){ L.band = band; L.min = BANDS[band][0]; }
-    const [b0, b1] = BANDS[band]; L.min += dt; if (L.min >= b1) L.min = b0 + (L.min - b1);
+    if (window.XClock) L.min = XClock.hour() * 60;   /* the shared campus clock (js/17-clock.js) */
+    else {
+      const band = bandNow();
+      if (band !== L.band){ L.band = band; L.min = BANDS[band][0]; }
+      const [b0, b1] = BANDS[band]; L.min += dt; if (L.min >= b1) L.min = b0 + (L.min - b1);
+    }
     const ph = phaseAt(L.min);
     if (ph !== L.phase){
       L.phase = ph;
@@ -300,7 +303,7 @@
 
   window.XLife = {
     clock:() => hhmm(L.min), phase:() => L.phase && L.phase.id, graph:NODES, queues:QUEUES, routeOf:route,
-    set(h, m){ let v = h * 60 + (m || 0); L.band = bandNow(); if (L.band === 'night' && v < 12 * 60) v += 1440; L.min = v; return hhmm(L.min); },
+    set(h, m){ if (window.XClock){ XClock.set(h + (m || 0) / 60); L.min = XClock.hour() * 60; return hhmm(L.min); } let v = h * 60 + (m || 0); L.band = bandNow(); if (L.band === 'night' && v < 12 * 60) v += 1440; L.min = v; return hhmm(L.min); },
     roles(){ const o = {}; for (const n of WALKERS){ const r = n.state === 'lifeoff' ? 'hidden' : n.life ? n.life.role : 'walk'; o[r] = (o[r] || 0) + 1; } return o; },
     state:L
   };
