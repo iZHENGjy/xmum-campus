@@ -491,6 +491,19 @@ const WD_DECALS = [
     side:(g, w, h) => { wdNebula(g, w, h, '#151a4d', [[.2, .4, .2, 'rgba(122,70,200,.6)'], [.6, .5, .25, 'rgba(40,110,210,.55)'], [.9, .3, .15, 'rgba(190,80,190,.4)']]); wdStars(g, w, h, 160); },
     top:(g, w, h) => { wdNebula(g, w, h, '#151a4d', [[.3, .2, .5, 'rgba(122,70,200,.5)'], [.6, .7, .6, 'rgba(40,110,210,.5)']]); wdStars(g, w, h, 180); }}
 ];
+/* 雪邦赛道涂装：主线第 5 章的奖励（js/89-quest-data.js），quest:true 不在店里卖，拿到了才出现在贴花里 */
+WD_DECALS.push({id:'sepang', name:'雪邦赛道涂装', desc:'Ben 师傅车队的旧涂装：赛道图、路肩红白条、33 号', price:0, tier:'l', quest:true, read:true,
+  side:(g, w, h) => {
+    g.fillStyle = '#16181d'; g.fillRect(0, 34, w, 64);
+    for (let x = 0; x < w; x += 24){ g.fillStyle = (x / 24) % 2 ? '#f6f4ee' : '#d92b16'; g.fillRect(x, 98, 24, 14); }
+    g.strokeStyle = '#ffd23a'; g.lineWidth = 4; g.lineJoin = 'round'; g.beginPath();
+    [[60, 80], [96, 46], [150, 50], [170, 74], [214, 70], [232, 46], [196, 40], [120, 40], [70, 56], [60, 80]].forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke();
+    g.fillStyle = '#f6f4ee'; g.beginPath(); g.arc(330, 66, 30, 0, 7); g.fill();
+    g.fillStyle = '#d92b16'; g.font = '900 40px "Noto Sans SC",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('33', 330, 68);
+    g.fillStyle = '#f6f4ee'; g.font = '900 24px "Noto Sans SC",sans-serif'; g.fillText('SEPANG', 438, 66); },
+  top:(g, w, h) => {
+    g.fillStyle = '#d92b16'; g.fillRect(100, 0, 26, h); g.fillStyle = '#f6f4ee'; g.fillRect(130, 0, 26, h);
+    for (let y = 0; y < 64; y += 16) for (let x = 0; x < 2; x++){ g.fillStyle = ((y / 16 + x) % 2) ? '#111' : '#f6f4ee'; g.fillRect(100 + x * 28, y, 28, 16); } }});
 const WD_PAINT = {}, WD_DECAL = {};
 WD_PAINTS.forEach(p => { WD_PAINT[p.id] = p; WD.byId[p.id] = Object.assign({slot:'paint'}, p); });
 WD_DECALS.forEach(d => { WD_DECAL[d.id] = d; WD.byId['d_' + d.id] = Object.assign({slot:'decal'}, d, {id:'d_' + d.id}); });

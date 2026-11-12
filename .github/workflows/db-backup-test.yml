@@ -1,0 +1,25 @@
+# Offline tests for the database backup scripts (fake Google token endpoint, fake database,
+# throwaway keys). Runs on PRs that touch them. Uses no secrets and never contacts Firebase.
+name: 数据库备份 · 测试
+
+on:
+  pull_request:
+    paths:
+      - scripts/db_backup.py
+      - scripts/db_restore.py
+      - test/db_backup_test.py
+      - .github/workflows/db-backup*.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - run: python3 test/db_backup_test.py

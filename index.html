@@ -15,8 +15,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&display=swap">
-<link rel="stylesheet" href="css/style.css?v=21">
-<link rel="stylesheet" href="css/arcade.css?v=21">
+<link rel="stylesheet" href="css/style.css?v=24">
+<link rel="stylesheet" href="css/arcade.css?v=24">
 </head>
 <body class="titled" data-mode="orbit">
 <canvas id="c" class="grab" tabindex="0" aria-label="三维校园场景"></canvas>
@@ -170,6 +170,7 @@
       <button type="button" class="t-btn" id="tWard"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 2.5c0 1.1.9 2 2 2s2-.9 2-2l3.5 1.8-1 3-1.5-.6V13.5h-6V6.7l-1.5.6-1-3z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>衣橱</button>
       <button type="button" class="t-btn" id="tHow"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="4" width="13" height="8.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4 7h1M7.5 7h1M11 7h1M5 9.8h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>玩法</button>
       <button type="button" class="t-btn" id="tSound" aria-pressed="true"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h2.5L8 3v10L4.5 10H2Z" fill="currentColor"/><path class="on" d="M10.5 5.5c1.3 1.4 1.3 3.6 0 5M12.5 3.8c2.2 2.4 2.2 6 0 8.4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path class="off" d="M10.5 6l4 4M14.5 6l-4 4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span>声音开</span></button>
+      <button type="button" class="t-btn" id="tLang" title="Language / 语言"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M1.8 8h12.4M8 1.8c-2.2 2.4-2.2 10 0 12.4M8 1.8c2.2 2.4 2.2 10 0 12.4" fill="none" stroke="currentColor" stroke-width="1.2"/></svg><span lang="en">English</span></button>
       <span class="t-fb"><button type="button" class="t-btn" id="tFb" data-fb aria-describedby="tFbNeed"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M5.5 7h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>反馈</button><span class="fb-need" id="tFbNeed">需要 GitHub 账号</span></span>
       <div class="t-gfx" role="group" aria-labelledby="tGfxL">
         <span class="t-gfx-l" id="tGfxL">画质</span>
@@ -211,7 +212,7 @@
         <dt><kbd>M</kbd></dt><dd>大地图：拖动平移、滚轮缩放，再按 <kbd>M</kbd> 或 <kbd>Esc</kbd> 关（手机点右上角小地图）</dd>
         <dt><kbd>P</kbd></dt><dd>游戏指南：怎么赚钱、被通缉怎么办、改装零件去哪儿拿（手机在「暂停」和标题页「指南」里）</dd>
         <dt><kbd>Esc</kbd></dt><dd>暂停，看这局战绩和成就</dd>
-        <dt>电台</dt><dd>点左下角的电台小条打开面板：选台（霓虹夜驾、芙蓉湖 Lo-fi、赛道 EDM）、单曲循环、收藏到这辆车、外放（每分钟 RM 0.5，40 米内的玩家听得到）；按钮栏的「电台」一点换一个台</dd>
+        <dt>电台</dt><dd>点左下角的电台小条打开面板：选台（霓虹夜驾、芙蓉湖 Lo-fi、赛道 EDM）、单曲循环、收藏到这辆车、外放（每分钟 RM 0.5，40 米内的玩家听得到）、开关电台</dd>
         <dt><kbd>G</kbd></dt><dd>打开 XMUM 车行（站在南草坪转台旁），里面有喷漆店和改装车间</dd>
         <dt>改装车间</dt><dd>轮毂、宽体、尾翼、霓虹、排气、姿态。要花金币和改装道具（送外卖、抓小偷、猴子大战、宿舍撤离、小游戏奖牌、成就都会掉），下单后按真实时间施工，车照样能开，完工回车行提车</dd>
         <dt><kbd>C</kbd></dt><dd>奶娃衣橱：换皮肤、身形、衣服和配件</dd>
@@ -220,7 +221,8 @@
         <dt>猴山</dt><dd>树林西北的小山，从东边的路沿土路上山顶。猴子会抢东西，还会躲水、躲石头、上树、传外卖，用水枪淋或者大笑（<kbd>R</kbd>）赶跑；山顶的棕色光圈是「猴子大战」</dd>
         <dt>教学楼门口</dt><dd>A1、A2、A4、A5 门口的黄圈按 <kbd>F</kbd> 进去：走廊、教室、打印室、教师办公室</dd>
         <dt>教学楼潜入</dt><dd>A3 门口的红圈「抢救期末卷」和蓝圈的轮换委托。按住 <kbd>F</kbd> 翻找，<kbd>Q</kbd> 蹲下（没声音，停在家具旁边就是躲起来）；别进保安和老师的扇形视野，别跑</dd>
-        <dt>校门外</dt><dd>麦当当得来速（开车点餐送回学校）、KIP 超市大乱斗（商场门口进门，和 AI 顾客抢货、互撞、结账）、蜜雪冰橙打工、山梁拉力；夜晚 Bell 后巷有夜市；傍晚起 Taman Warisan Megah 南边的 Kota Warisan 大夜市开市，榴莲摊有猫山王挑战（挑榴莲、砍价）；正门对面 Bell 西头的 24 小时嘛嘛档 Al-Hajeera，空椅子旁按 <kbd>F</kbd> 坐下点餐</dd>
+        <dt>校门外</dt><dd>麦当当得来速（开车点餐送回学校）、KIP 超市大乱斗（商场门口进门，和 AI 顾客抢货、互撞、结账）、蜜雪冰橙打工、山梁拉力；夜晚 Bell 后巷有夜市；傍晚起 Taman Warisan Megah 南边的 Kota Warisan 大夜市开市，榴莲摊有猫山王挑战（挑榴莲、砍价）；正门对面 Bell 西头的 24 小时嘛嘛档 Al-Hajeera，空椅子旁按 <kbd>F</kbd> 坐下点餐；东北角 IOI City Mall 的 SUKI-YA 火锅放题，红圈按 <kbd>F</kbd> 付钱进店涮火锅</dd>
+        <dt>麦当当配餐</dt><dd>麦当当正门外的黄圈按 <kbd>F</kbd> 进后厨打工：看小票从下往上叠汉堡，配薯条、饮料（加不加冰）、玩具，打包交餐；经典、午高峰、得来速三个模式各有排行榜</dd>
         <dt>ERL 小火车</dt><dd>Salak Tinggi 站（地图上的紫色点）：站厅门口紫圈按 <kbd>F</kbd> 选站，刷卡进站、按门边按钮上车（<kbd>Esc</kbd> 跳过过场），一站到 KLIA 机场：问讯台接「送机赶时间」跑腿单，还有 24 小时的すき家</dd>
         <dt>偷外卖的小偷</dt><dd>送单时车速 54 以上他抢不到；被抢了就追上去，<kbd>E</kbd> 水枪淋他，走到身边按 <kbd>F</kbd> 拿回来</dd>
         <dt>买房装修</dt><dd>Bell Avenue 后面挂「出售」牌子的排屋，门口按 <kbd>F</kbd> 看房、买下；在家按 <kbd>F</kbd> 装修：五套风格、九个位置的家具一件件买，墙面地板另换，全部算进总资产。走到沙发、椅子、床、灶台旁边按 <kbd>F</kbd> 坐下、躺下、做饭，走动就起来。楼梯口按 <kbd>F</kbd> 上下楼。开自己的车到车棚前下车，车自动停好；第一套房子自动设成出生点（装修面板里能改）</dd>
@@ -277,6 +279,7 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="js/quality.js?v=21"></script>
+<script src="js/i18n.js?v=21"></script>
 <script src="js/00-core.js?v=21"></script>
 <script src="js/09-azone.js?v=21"></script>
 <script src="js/10-world.js?v=21"></script>
@@ -284,7 +287,10 @@
 <script src="js/13-outskirts.js?v=21"></script>
 <script src="js/15-props.js?v=21"></script>
 <script src="js/16-ambient.js?v=21"></script>
+<script src="js/17-clock.js?v=21"></script>
+<script src="js/17-weather.js?v=21"></script>
 <script src="js/18-gfx.js?v=21"></script>
+<script src="js/19-light.js?v=21"></script>
 <script src="js/20-fx.js?v=21"></script>
 <script src="js/30-naiwa.js?v=21"></script>
 <script src="js/32-wardrobe.js?v=21"></script>
@@ -313,6 +319,7 @@
 <script src="js/minigames/hoops.js?v=21"></script>
 <script src="js/minigames/kipmart.js?v=21"></script>
 <script src="js/minigames/bigeat.js?v=21"></script>
+<script src="js/minigames/mcd.js?v=21"></script>
 <script src="js/89-dorm.js?v=21"></script>
 <script src="js/89-dorm-ui.js?v=21"></script>
 <script src="js/89-house.js?v=21"></script>
@@ -320,12 +327,16 @@
 <script src="js/89-swing-monkeys.js?v=21"></script>
 <script src="js/89-train.js?v=21"></script>
 <script src="js/89-klia.js?v=21"></script>
+<script src="js/89-ioi.js?v=21"></script>
 <script src="js/92-racing.js?v=21"></script>
 <script src="js/92-stuntpark.js?v=21"></script>
 <script src="js/92-stuntpark-deco.js?v=21"></script>
 <script src="js/92-f1park.js?v=21"></script>
+<script src="js/92-f1-tuning.js?v=21"></script>
 <script src="js/93-tuning-ui.js?v=21"></script>
 <script src="js/94-tuning-drive.js?v=21"></script>
+<script src="js/94-f1-drive.js?v=21"></script>
+<script src="js/94-f1-paddock.js?v=21"></script>
 <script src="js/94-showcase.js?v=21"></script>
 <script src="js/97-wall.js?v=21"></script>
 <script src="js/95-radio.js?v=21"></script>
@@ -339,13 +350,19 @@
 <script src="js/89-cine.js?v=21"></script>
 <script src="js/89-quest-data.js?v=21"></script>
 <script src="js/89-quest.js?v=21"></script>
+<script src="js/89-errand.js?v=21"></script>
+<script src="js/89-kitty.js?v=21"></script>
 <script src="js/89-quest-ui.js?v=21"></script>
+<script src="js/89-stuntjumps.js?v=21"></script>
+<script src="js/89-photo.js?v=21"></script>
+<script src="js/89-life.js?v=21"></script>
+<script src="js/89-roadevents.js?v=21"></script>
 <script src="js/98-perf.js?v=21"></script>
 <script src="js/99-edge.js?v=21"></script>
 <script src="js/stats.js?v=21"></script>
 <script src="js/feedback.js?v=21"></script>
 <script src="js/hud-brand.js?v=21"></script>
 <!-- 预览版测试模式（无限金币和道具）：只有部署预览版时注入的 guard 设了 XMUM_PREVIEW、并且在 /preview/ 下才加载，正式版不会下载这个文件 -->
-<script>if (window.XMUM_PREVIEW === true && /\/preview\//.test(location.pathname)) document.write('<script src="js/preview-cheats.js?v=21"><\/script>');</script>
+<script>if (window.XMUM_PREVIEW === true && /\/preview\//.test(location.pathname)) document.write('<script src="js/preview-cheats.js?v=24"><\/script>');</script>
 </body>
 </html>

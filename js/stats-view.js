@@ -2,6 +2,7 @@
  * but computed in the browser straight from the database, so it is current every time it opens
  * instead of waiting for GitHub's scheduled run. Keep the two in step when changing either.
  * Reads only the public /stats and /boards paths; no login, writes nothing.
+ * /stats/h (seconds per clock hour) is read for the last 7 days only, one small node per day.
  */
 'use strict';
 (() => {
@@ -193,6 +194,41 @@ text{font-family:${FONT}}`;
     const body = hbarPanel(24, 34, 430, '时间都花在哪个玩法', modes, pct) + hbarPanel(486, 34, 310, '用什么设备玩（人）', devs, v => v.toLocaleString('en'));
     return svg(W, H, body, '玩法时长占比和设备分布', '玩法时长占比：' + modes.map(([a, b]) => `${a} ${pct(b)}`).join('，') + '。设备：' + devs.map(([a, b]) => `${a} ${b} 人`).join('，'));
   }
+  /* ---------- time of day (/stats/h, recorded since the hour chart was added) and how long each player has played ---------- */
+  const HDAYS = 7;
+  function chartHours(H, today){
+    const W = 820, HT = 280, x0 = 56, y0 = 70, pw = W - 56 - 24, ph = HT - 70 - 44;
+    const days = Array.from({length:HDAYS}, (_, i) => addDays(today, -i)).filter(d => H[d] && typeof H[d] === 'object');
+    const sec = Array(24).fill(0), ppl = Array.from({length:24}, () => new Set());
+    for (const d of days) for (const [hh, us] of Object.entries(H[d] || {})){
+      const h = +hh; if (!(h >= 0 && h < 24) || !us || typeof us !== 'object') continue;
+      for (const [u, v] of Object.entries(us)) if (isNum(v) && v > 0){ sec[h] += v; ppl[h].add(d + u); }
+    }
+    const n = Math.max(1, days.length), mins = sec.map(v => v / 60 / n), people = ppl.map(p => p.size / n);
+    const [top, step] = niceMax(Math.max(1, ...mins));
+    const gap = 4, bw = (pw - gap * 23) / 24, nowH = +new Date(Date.now() + MYT).toISOString().slice(11, 13);
+    let body = text(24, 32, '一天里大家几点在玩', 't1', 16, 'start', 700) +
+      text(24, 52, days.length ? `马来西亚时间 · 最近 ${days.length} 天平均，每个钟点大家一共玩了多少分钟 · 深色是现在这个钟点` : '马来西亚时间', 't2', 12);
+    body += axisFrame(x0, y0, pw, ph, top, step, v => v.toFixed(0));
+    mins.forEach((m, h) => {
+      const x = x0 + h * (bw + gap), hh = m / top * ph;
+      body += `<g><title>${String(h).padStart(2, '0')}:00–${String(h + 1).padStart(2, '0')}:00：平均 ${fmtNum(m)} 分钟，约 ${fmtNum(people[h])} 人</title>${barUp(x, y0 + ph - hh, bw, hh, h === nowH ? 's2' : 's1', 3)}</g>`;
+      if (h % 3 === 0) body += text(x + bw / 2, y0 + ph + 18, String(h).padStart(2, '0') + ':00', 'mu', 11, 'middle');
+    });
+    if (!days.length) body += text(x0 + pw / 2, y0 + ph / 2, '从这次更新开始记录，过一两天就能看出大家几点在玩', 'mu', 13, 'middle');
+    else { const iMax = mins.indexOf(Math.max(...mins)); body += text(W - 24, 32, `最热闹：${String(iMax).padStart(2, '0')}:00–${String(iMax + 1).padStart(2, '0')}:00`, 't1', 13, 'end', 600); }
+    return svg(W, HT, body, '一天里大家几点在玩', mins.map((m, h) => `${h} 点 ${fmtNum(m)} 分钟`).join('；'));
+  }
+  const BUCKETS = [[0, 5, '5 分钟以内'], [5, 15, '5–15 分钟'], [15, 30, '15–30 分钟'], [30, 60, '半小时–1 小时'], [60, 120, '1–2 小时'], [120, 300, '2–5 小时'], [300, Infinity, '5 小时以上']];
+  function chartPerPlayer(raw){
+    const P = Object.values(raw.p || {}).filter(p => p && isNum(p.s) && p.s > 0);
+    const rows = BUCKETS.map(([a, b, l]) => [l, P.filter(p => p.s / 60 >= a && p.s / 60 < b).length]);
+    const W = 820, HT = 32 + 20 + rows.length * 34 + 28;
+    const sorted = P.map(p => p.s / 60).sort((a, b) => a - b), med = sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0;
+    let body = hbarPanel(24, 34, 560, '每个玩家一共玩了多久（人）', rows, v => v.toLocaleString('en'));
+    body += text(W - 24, 34, `一半的人玩了 ${med >= 60 ? (med / 60).toFixed(1) + ' 小时' : Math.round(med) + ' 分钟'} 以上`, 't1', 13, 'end', 600);
+    return svg(W, HT, body, '每个玩家一共玩了多久', rows.map(([l, v]) => `${l} ${v} 人`).join('，'));
+  }
   function table(S){
     const rows = [...S.daily].reverse().map(d => `<tr><td>${d.day}</td><td>${d.new}</td><td>${d.back}</td><td>${d.extra}</td><td>${(d.sec / 60).toFixed(0)}</td></tr>`).join('');
     return `<table><thead><tr><th>日期</th><th>新玩家</th><th>回访玩家</th><th>排行榜补算</th><th>总时长（分钟）</th></tr></thead><tbody>${rows}</tbody></table>`;
@@ -209,14 +245,18 @@ text{font-family:${FONT}}`;
     if (!cfg || !cfg.databaseURL){ status.textContent = '这个版本没有开联机，没有数据可看。'; return; }
     const base = cfg.databaseURL.replace(/\/$/, '');
     try {
-      const raw = (await getJSON(base, 'stats')) || {};
+      const now0 = Date.now(), today0 = dayOf(now0);
+      const [p, d, ...hs] = await Promise.all([getJSON(base, 'stats/p'), getJSON(base, 'stats/d'),
+        ...Array.from({length:HDAYS}, (_, i) => getJSON(base, 'stats/h/' + addDays(today0, -i)).catch(() => null))]);
+      const raw = {p:p || {}, d:d || {}, h:{}};
+      hs.forEach((v, i) => { if (v) raw.h[addDays(today0, -i)] = v; });
       raw.boards = {};
       await Promise.all(BOARDS.map(async b => { try { raw.boards[b] = (await getJSON(base, 'boards/' + b)) || {}; } catch(e){ raw.boards[b] = {}; } }));
       const now = Date.now(), today = dayOf(now), hm = new Date(now + MYT).toISOString().slice(11, 19);
       const S = summarize(raw, today);
       uid = 0;
       const wrap = c => `<div class="scroll">${c}</div>`;
-      out.innerHTML = tilesHTML(S, `${today} ${hm}（马来西亚时间）读取，每分钟自动刷新`) + wrap(chartDaily(S)) + wrap(chartPlaytime(S)) + wrap(chartModes(S)) +
+      out.innerHTML = tilesHTML(S, `${today} ${hm}（马来西亚时间）读取，每分钟自动刷新`) + wrap(chartDaily(S)) + wrap(chartPlaytime(S)) + wrap(chartHours(raw.h, today)) + wrap(chartPerPlayer(raw)) + wrap(chartModes(S)) +
         `<details><summary>看具体数字</summary>${table(S)}</details>`;
       status.textContent = '';
     } catch(e){

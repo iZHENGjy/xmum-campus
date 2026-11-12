@@ -1,13 +1,14 @@
-/* XMUM 校园漫游 · 汽车游乐园二园：雪邦风格的 F1 赛道 + 东边的特技区
+/* XMUM 校园漫游 · 汽车游乐园二园：雪邦赛道（一整块园区都是赛道）
  *
  * 位置：Bell Avenue 东南、油棕园公路两边（js/12-terrain.js 的 park2 地块，x -230 ~ 1070，z 675 ~ 1195，压平到 y = 0）。
- *   - 雪邦赛道（西边）：照着雪邦国际赛道的平面图描的，约 1:1.8，一圈约 3 公里、15 个弯、路宽 14 米。油棕园公路在园里那一段
- *     就是它的后直道（路线没改，「油棕园公路冲刺」照样跑），公路往东北出园时在 7、8 号弯之间横穿赛道（平交路口）。
- *     起点线在主直道上，从起点线出发计时：三个计时段、每圈成绩，最快一圈存 prog.best.sepLap（只在本机）。
- *     主直道和后直道之间是主看台，主直道另一边是维修区和赛事控制塔；发卡弯外有砂石缓冲区和轮胎墙。
- *   - 特技区（东边，公路东侧，一圈服务道路围着）：超级大跳台（9 米高，落地区 300 米）、双回环（第二个更大）、
- *     波浪道接三连跳台；一块漂移广场；看台对着大跳台落地区。物理沿用 js/92-stuntpark.js（跳台侧面算墙、凸起会起飞、回环脚本驱动）。
- * 纪录：sepLap（秒）、bigjump2（米）；回环圈数和一园共用 loops。 */
+ *   以前公路东边是特技区（超级大跳台、双回环、三连跳、漂移广场），仓库主人说去掉，和赛道合并成一条更大的赛道。
+ *   西半边还是照雪邦国际赛道描的（约 1:1.8：主直道、1–6 号弯、发卡弯、后直道），原来 7、8 号弯那个小回头弯换成东边的新赛段：
+ *   过了平交路口一条约 450 米的东直道（全油门），东北角一个快弯，东边一段左右连续弯，东南角，再一条南直道往西，
+ *   两个弯接回原来的 9 号弯。一圈约 4.3 公里，18 个弯。东边的新赛段和 9–14 号弯都在公路同一侧，所以只多绕路、不多横穿公路。
+ *   油棕园公路在园里那一段还是后直道（路线没改，「油棕园公路冲刺」照样跑），公路往东北出园时在 6、7 号弯之间横穿赛道（平交路口，只有这一个）。
+ *   起点线在主直道上，从起点线出发计时：三个计时段、每圈成绩，最快一圈存 prog.best.sepLap（只在本机；旧赛道的成绩换赛道时清掉了）。
+ *   主直道和后直道之间是主看台，主直道另一边是维修区和赛事控制塔；慢弯外有砂石缓冲区和轮胎墙。
+ * 纪录：sepLap（秒）。旧的 bigjump2（超级大跳台）不再显示，存档里留着也没影响。 */
 'use strict';
 (() => {
   const P = window.XPark; if (!P || !P.kit) return;
@@ -22,8 +23,13 @@
     [248,413],[250,429],[258,446],[262,468],[256,490],[236,484],[200,468],[164,454],[136,462],[110,470],[84,456],[64,432],
     [66,416], [330,372],                       /* the back straight: replaced by the estate road between these two */
     [348,370],[358,362],[352,352],[334,349]];   /* T15 hairpin */
-  const TURNS = [[1, 38, 361], [2, 50, 342], [3, 70, 290], [4, 202, 211], [5, 254, 290], [6, 304, 282], [7, 386, 360], [8, 396, 396], [9, 248, 413], [10, 258, 446],
+  /* the old corners (image px); the old 7 and 8 are gone, the east section has its own (world, below). Numbered again in race order */
+  const OLDT = [[1, 38, 361], [2, 50, 342], [3, 70, 290], [4, 202, 211], [5, 254, 290], [6, 304, 282], [9, 248, 413], [10, 258, 446],
     [11, 256, 490], [12, 164, 454], [13, 110, 470], [14, 64, 432], [15, 356, 360]];
+  /* the east section (world x, z), from just past the level crossing round the land where the stunt zone was, back to the old 9 */
+  const EAST = [[560, 876], [640, 866], [760, 846], [880, 826], [968, 810], [1018, 822], [1040, 862], [1042, 940], [1024, 1010], [1040, 1080], [1038, 1132], [1012, 1166],
+    [960, 1176], [900, 1176], [790, 1172], [690, 1170], [632, 1150], [608, 1100], [600, 1045], [570, 1004]];
+  const EAST_T = [[1030, 838], [1026, 1010], [1022, 1158], [618, 1128], [586, 1012]];   /* the new corners: NE, the east kink, SE, the two on the way back */
   const T14 = [66, 416], T15 = [330, 372], A = [-60, 1100], SCALE = 1.8, HW = 7;
   const ROAD = OUT_ROADS.find(r => r.id === 'estate');
   const nearest = (pts, x, z) => { let bi = 0, bd = 1e9; pts.forEach((p, i) => { const d = (p[0] - x) ** 2 + (p[1] - z) ** 2; if (d < bd){ bd = d; bi = i; } }); return bi; };
@@ -31,55 +37,79 @@
   const map = ([x, y]) => [A[0] + SCALE * ((x - T14[0]) * cph - (y - T14[1]) * sph), A[1] + SCALE * ((x - T14[0]) * sph + (y - T14[1]) * cph)];
   const ctrl = [];
   for (const q of SEP){
+    if (q[0] === 390 && q[1] === 364){ for (const e of EAST) ctrl.push(e.slice()); continue; }
+    if ((q[0] === 398 && q[1] === 384) || (q[0] === 394 && q[1] === 400) || (q[0] === 370 && q[1] === 406)) continue;
     if (q[0] === T14[0] && q[1] === T14[1]){ const i0 = nearest(ROAD.p, ...map(T14)), i1 = nearest(ROAD.p, ...map(T15)); for (let i = i0; i <= i1; i += 2) ctrl.push(ROAD.p[i].slice()); continue; }
     if (q[0] === T15[0] && q[1] === T15[1]) continue;
     ctrl.push(map(q));
   }
-  const curve = new THREE.CatmullRomCurve3(ctrl.map(([x, z]) => new THREE.Vector3(x, 0, z)), true, 'centripetal');
-  const LEN = curve.getLength(), N = Math.round(LEN / 3);
-  const PT = curve.getSpacedPoints(N).slice(0, N).map(v => [v.x, v.z]);   /* closed: PT[N] would be PT[0] */
+  const spaced = pts => { const cv = new THREE.CatmullRomCurve3(pts.map(([x, z]) => new THREE.Vector3(x, 0, z)), true, 'centripetal'), n = Math.round(cv.getLength() / 3);
+    return cv.getSpacedPoints(n).slice(0, n).map(v => [v.x, v.z]); };   /* closed: point n would be point 0 */
+  /* At 1:1.8 the traced corners 1, 2, 9, 11, 14 and 15 came out at a 9–12 m radius on a 14 m road: tighter than a car-park ramp.
+     Ease them: smooth the line where the radius is under RMIN (hairpins 9 and 15 a bit less), never moving the points on the
+     public road (the back straight keeps the estate road's route), then resample every 3 m. */
+  const RMIN = 16, RMIN_HP = 13;
+  const PT = (() => {
+    let Q = spaced(ctrl);
+    const n = Q.length, onRoad = Q.map(([x, z]) => { const q = ROAD.p[nearest(ROAD.p, x, z)]; return Math.hypot(q[0] - x, q[1] - z) < ROAD.w / 2 + 1; });
+    /* the ends of the back straight are corners 14 and 15 themselves: let the first and last 30 m of the road stretch move */
+    { let b0 = -1, bl = 0; for (let i = 0; i < n; i++){ if (!onRoad[i] || onRoad[(i - 1 + n) % n]) continue; let l = 0; while (onRoad[(i + l) % n] && l < n) l++; if (l > bl){ bl = l; b0 = i; } }
+      if (b0 >= 0) for (let d = 0; d < 10; d++){ onRoad[(b0 + d) % n] = false; onRoad[(b0 + bl - 1 - d) % n] = false; } }
+    const hp = [9, 15].map(t => { const [, x, y] = OLDT.find(r => r[0] === t); return map([x, y]); });
+    const rmin = Q.map(([x, z]) => hp.some(([hx, hz]) => Math.hypot(hx - x, hz - z) < 40) ? RMIN_HP : RMIN);
+    const k3 = (a, b, c) => { const ab = Math.hypot(b[0] - a[0], b[1] - a[1]), bc = Math.hypot(c[0] - b[0], c[1] - b[1]), ca = Math.hypot(a[0] - c[0], a[1] - c[1]);
+      return Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])) * 2 / (ab * bc * ca || 1); };
+    for (let pass = 0; pass < 600; pass++){
+      const hot = new Uint8Array(n); let any = false;
+      for (let i = 0; i < n; i++) if (k3(Q[(i - 3 + n) % n], Q[i], Q[(i + 3) % n]) > 1 / rmin[i]){ any = true; for (let d = -8; d <= 8; d++) hot[(i + d + n) % n] = 1; }
+      if (!any) break;
+      Q = Q.map((p, i) => { if (!hot[i] || onRoad[i]) return p; const a = Q[(i - 1 + n) % n], b = Q[(i + 1) % n]; return [p[0] + ((a[0] + b[0]) / 2 - p[0]) * .6, p[1] + ((a[1] + b[1]) / 2 - p[1]) * .6]; });
+    }
+    return spaced(Q);
+  })();
+  const N = PT.length, LEN = N * 3;
   const wi = i => ((i % N) + N) % N, at = i => PT[wi(i)];
   const TAN = PT.map((_, i) => { const a = at(i - 1), b = at(i + 1), l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / l, (b[1] - a[1]) / l]; });
   const NOR = TAN.map(([tx, tz]) => [-tz, tx]);   /* left of the direction of travel */
   /* signed curvature (1/m, + turning left), smoothed */
   const CURV = PT.map((_, i) => { const [ax, az] = TAN[wi(i - 2 + N)], [bx, bz] = TAN[wi(i + 2)]; return Math.asin(Math.max(-1, Math.min(1, ax * bz - az * bx))) / 12; });
   const SF = nearest(PT, ...map([262, 354]));   /* start / finish line on the main straight */
-  const turnIdx = TURNS.map(([n, x, y]) => [n, nearest(PT, ...map([x, y]))]);
-
-  /* ---------- the stunt zone (east of the public road): service road all round, three lanes running north ---------- */
-  const SZ = {x0:650, x1:1045, z0:750, z1:1192};
-  const SJ = {x:1000, z:1069, fx:0, fz:-1, L:22, W:14, H:9, park:true};          /* super jump: low end z 1080, lip z 1058 */
-  const SJ_LIP = SJ.z - SJ.L / 2, SJ_BASE = SJ.z + SJ.L / 2, SJ_LAND = {hw:17, z1:SJ_LIP, z0:SJ_LIP - 300};
-  const LOOP_A = {x:900, z:1100, R:8, w:7, hw:2.8, g:20}, LOOP_B = {x:907, z:1010, R:10, w:7, hw:3.2, g:20};
-  const SX = 820;                                                                  /* rollers and the three step-up jumps */
-  const ROLL2 = {x:SX, zs:1182, hw:4, len:50, f:u => .7 * (1 - Math.cos(PI2 * u / 10))};
-  const KICK = [{x:SX, z:1106, fx:0, fz:-1, L:8, W:8, H:2.4, park:true}, {x:SX, z:1036, fx:0, fz:-1, L:8, W:8, H:3, park:true}, {x:SX, z:955, fx:0, fz:-1, L:10, W:8, H:3.6, park:true}];
-  const pw = pts => u => { for (let i = 1; i < pts.length; i++){ const [u0, y0] = pts[i - 1], [u1, y1] = pts[i]; if (u <= u1) return y0 + (y1 - y0) * (u - u0) / (u1 - u0); } return 0; };
-  const MOUNDS = [{x:SX, zs:1088, hw:4, len:40, f:pw([[0, 0], [6, 2.6], [10, 2.6], [40, 0]])}, {x:SX, zs:1016, hw:4, len:46, f:pw([[0, 0], [6, 3.2], [10, 3.2], [46, 0]])},
-    {x:SX, zs:932, hw:4, len:60, f:pw([[0, 0], [7, 3.6], [11, 3.6], [60, 0]])}];
-  const DRIFT = {x:715, z:1095, r:30};
-  RAMPS.push(SJ, ...KICK); P.SHAPES.push(ROLL2, ...MOUNDS); P.LOOPS.push(LOOP_A, LOOP_B);
+  const turnIdx = OLDT.map(([, x, y]) => nearest(PT, ...map([x, y]))).concat(EAST_T.map(([x, z]) => nearest(PT, x, z)))
+    .sort((a, b) => ((a - SF + N) % N) - ((b - SF + N) % N)).map((i, k) => [k + 1, i]);   /* [number, point], 1 … 18 from the line */
+  const TN = n => turnIdx[n - 1][1];
+  /* half width per point: 7 m on the straights, up to 9 m (an 18 m road) through the slow corners, eased in over ~40 m.
+     Not round the start line (the grid and the gantry are drawn for 14 m). */
+  const HWI = (() => {
+    const raw = CURV.map(c => Math.abs(c) > 1 / 45 ? 9 : Math.abs(c) > 1 / 90 ? 8 : Math.abs(c) > 1 / 240 ? 7.5 : HW), dil = raw.map((_, i) => { let m = HW; for (let d = -10; d <= 10; d++) m = Math.max(m, raw[wi(i + d)]); return m; });
+    return dil.map((_, i) => { if (Math.min(wi(i - SF), wi(SF - i)) < 30) return HW; let s = 0; for (let d = -7; d <= 7; d++) s += dil[wi(i + d)]; return s / 15; });
+  })();
+  const KERB = 2.4;   /* kerb width outside the white line (was 1.5) */
 
   /* ---------- ground paint: circuit, pit lane, run-offs, stunt-zone lanes and service road (one mesh) ---------- */
   const G = mk(), Y0 = .1, Y1 = .125;
-  /* a band beside the circuit from offset o0 to o1 (left +) over points i0..i1, colour per segment */
-  function band(i0, i1, o0, o1, y, colAt){
+  /* a band beside the circuit from offset o0 to o1 (left +) over points i0..i1, colour per segment.
+     edge: the offsets are measured from the white line, so they follow the widened corners (HWI) */
+  function band(i0, i1, o0, o1, y, colAt, edge){
     for (let i = i0; i < i1; i++){
-      const a = at(i), b = at(i + 1), na = NOR[wi((i % N) + N)], nb = NOR[wi(((i + 1) % N) + N)];
+      const a = at(i), b = at(i + 1), na = NOR[wi(i)], nb = NOR[wi(i + 1)];
       const c = colAt(i); if (!c) continue;
-      quad(G, [a[0] + na[0] * o0, y, a[1] + na[1] * o0], [b[0] + nb[0] * o0, y, b[1] + nb[1] * o0], [b[0] + nb[0] * o1, y, b[1] + nb[1] * o1], [a[0] + na[0] * o1, y, a[1] + na[1] * o1], c, UPN);
+      const ea = edge ? HWI[wi(i)] - HW : 0, eb = edge ? HWI[wi(i + 1)] - HW : 0;
+      const A0 = o0 + Math.sign(o0) * ea, A1 = o1 + Math.sign(o1) * ea, B0 = o0 + Math.sign(o0) * eb, B1 = o1 + Math.sign(o1) * eb;
+      quad(G, [a[0] + na[0] * A0, y, a[1] + na[1] * A0], [b[0] + nb[0] * B0, y, b[1] + nb[1] * B0], [b[0] + nb[0] * B1, y, b[1] + nb[1] * B1], [a[0] + na[0] * A1, y, a[1] + na[1] * A1], c, UPN);
     }
   }
-  band(0, N, -HW, HW, Y0, () => ASPH);
-  band(0, N, HW - .55, HW - .3, Y1, () => PAINT); band(0, N, -HW + .3, -HW + .55, Y1, () => PAINT);
-  /* kerbs where it turns (both sides), gravel traps outside the slow corners */
-  const tight = i => Math.abs(CURV[wi((i % N) + N)]) > 1 / 75;
-  band(0, N, HW - .2, HW + 1.3, Y1, i => tight(i) || tight(i - 3) || tight(i + 3) ? ((i >> 1) % 2 ? WHITE : RED) : null);
-  band(0, N, -HW - 1.3, -HW + .2, Y1, i => tight(i) || tight(i - 3) || tight(i + 3) ? ((i >> 1) % 2 ? WHITE : RED) : null);
-  const slow = i => Math.abs(CURV[wi((i % N) + N)]) > 1 / 32;
+  band(0, N, -HW, HW, Y0, () => ASPH, true);
+  band(0, N, HW - .55, HW - .3, Y1, () => PAINT, true); band(0, N, -HW + .3, -HW + .55, Y1, () => PAINT, true);
+  /* kerbs where it turns (both sides, 2.4 m wide), gravel traps outside the slow corners */
+  const tight = i => Math.abs(CURV[wi(i)]) > 1 / 170;   /* fast corners (3, 7, 10, 12) get kerbs too: they are the track limit there */
+  const kerbAt = i => tight(i) || tight(i - 4) || tight(i + 4) || tight(i - 9) || tight(i + 9);   /* run on ~25 m past the corner, where you drift wide on the way out */
+  band(0, N, HW - .2, HW + KERB, Y1, i => kerbAt(i) ? ((i >> 1) % 2 ? WHITE : RED) : null, true);
+  band(0, N, -HW - KERB, -HW + .2, Y1, i => kerbAt(i) ? ((i >> 1) % 2 ? WHITE : RED) : null, true);
+  const slow0 = i => Math.abs(CURV[wi(i)]) > 1 / 32;
+  const slow = i => slow0(i) || slow0(i - 5) || slow0(i + 5) || slow0(i - 10) || slow0(i + 10);   /* the eased hairpins have two tight bits: one gravel trap over both */
   const GRAVEL = '#cdb48a';
-  band(0, N, HW + 1.3, HW + 15, Y0 - .02, i => slow(i) && CURV[wi(i)] < 0 ? GRAVEL : null);   /* outside of a right-hander is the left side */
-  band(0, N, -HW - 15, -HW - 1.3, Y0 - .02, i => slow(i) && CURV[wi(i)] > 0 ? GRAVEL : null);
+  band(0, N, HW + KERB, HW + 20, Y0 - .02, i => slow(i) && CURV[wi(i)] < 0 ? GRAVEL : null, true);   /* outside of a right-hander is the left side */
+  band(0, N, -HW - 20, -HW - KERB, Y0 - .02, i => slow(i) && CURV[wi(i)] > 0 ? GRAVEL : null, true);
   /* start / finish: chequered line, grid boxes behind it, a painted name */
   { const [x, z] = at(SF), [tx, tz] = TAN[SF], [nx, nz] = NOR[SF];
     for (let r = 0; r < 2; r++) for (let q = 0; q < 14; q++){ const o0 = -HW + q, o1 = o0 + 1, s0 = r * 1, s1 = s0 + 1;
@@ -96,33 +126,19 @@
   { const s = PIT.side; band(PIT.i0, PIT.i1, s > 0 ? HW + 4 : -HW - 14, s > 0 ? HW + 14 : -HW - 4, Y0, () => ASPH);
     band(PIT.i0, PIT.i1, s > 0 ? HW + 13.4 : -HW - 13.6, s > 0 ? HW + 13.6 : -HW - 13.4, Y1, () => PAINT);
     band(PIT.i0 - 12, PIT.i0, s > 0 ? HW : -HW - 6, s > 0 ? HW + 6 : -HW, Y0, () => ASPH); band(PIT.i1, PIT.i1 + 12, s > 0 ? HW : -HW - 6, s > 0 ? HW + 6 : -HW, Y0, () => ASPH); }
-  /* the stunt zone: service road, lanes, landing strip with lines, drift pad */
-  const sRect = (x0, z0, x1, z1, col, y) => flat(G, x0, z0, x1, z1, y == null ? Y0 : y, col || ASPH);
-  sRect(SZ.x0 - 5, SZ.z0 - 5, SZ.x1 + 5, SZ.z0 + 5); sRect(SZ.x0 - 5, SZ.z1 - 5, SZ.x1 + 5, SZ.z1 + 5); sRect(SZ.x0 - 5, SZ.z0 - 5, SZ.x0 + 5, SZ.z1 + 5); sRect(SZ.x1 - 5, SZ.z0 - 5, SZ.x1 + 5, SZ.z1 + 5);
-  { const r = ROAD.p, i = nearest(r, SZ.x0, SZ.z0); sRect(Math.min(r[i][0], SZ.x0) - 4, SZ.z0 - 5, SZ.x0, SZ.z0 + 5); }   /* joins the public road */
-  for (const z of [SZ.z0, SZ.z1]) for (const s of [-1, 1]) sRect(SZ.x0, z + s * 4.6 - .15, SZ.x1, z + s * 4.6 + .15, PAINT, Y1);
-  const lane = (x, hw, z0, z1) => { sRect(x - hw, z0, x + hw, z1); for (const s of [-1, 1]) sRect(x + s * (hw - .35) - .18, z0, x + s * (hw - .35) + .18, z1, PAINT, Y1); };
-  lane(SJ.x, 8, SJ_BASE, SZ.z1 - 5); lane(SJ.x, SJ_LAND.hw, SJ_LAND.z0, SJ_LIP);
-  for (let d = 25; SJ_LIP - d >= SJ_LAND.z0; d += 25){ const z = SJ_LIP - d; sRect(SJ.x - SJ_LAND.hw + .5, z - (d % 100 ? .3 : .55), SJ.x + SJ_LAND.hw - .5, z + (d % 100 ? .3 : .55), d % 100 ? PAINT : '#ffd23a', Y1); }
-  for (let z = SZ.z1 - 5, k = 0; z > SJ_BASE; z -= 3, k++) for (const s of [-1, 1]) sRect(SJ.x + s * 8 - .6, Math.max(SJ_BASE, z - 3), SJ.x + s * 8 + .6, z, k % 2 ? WHITE : RED, Y1);
-  lane(LOOP_A.x, 3.5, LOOP_A.z, SZ.z1 - 5); lane(LOOP_B.x, 3.8, LOOP_B.z, LOOP_A.z); lane(LOOP_B.x + LOOP_B.w, 3.8, SZ.z0 + 5, LOOP_B.z);
-  lane(SX, 4.5, SZ.z0 + 5, SZ.z1 - 5);
-  { const ring = (r0, r1, col, y) => { for (let k = 0; k < 72; k++){ const a0 = PI2 * k / 72, a1 = PI2 * (k + 1) / 72, Q = (r, a) => [DRIFT.x + Math.cos(a) * r, y, DRIFT.z + Math.sin(a) * r]; quad(G, Q(r0, a0), Q(r1, a0), Q(r1, a1), Q(r0, a1), typeof col === 'function' ? col(k) : col, UPN); } };
-    ring(0, DRIFT.r, ASPH, Y0); ring(DRIFT.r - 1.3, DRIFT.r, k => k % 2 ? WHITE : RED, Y1); ring(9, 9.6, PAINT, Y1); ring(18, 18.5, PAINT, Y1); ring(0, 1.4, '#ffd23a', Y1);
-    sRect(DRIFT.x + DRIFT.r - 4, DRIFT.z - 4, SZ.x0 + 5, DRIFT.z + 4); }
   { const m = new THREE.Mesh(toGeo(G), regWet(M('#ffffff', {vertexColors:true, roughness:.85, polygonOffset:true, polygonOffsetFactor:-10, polygonOffsetUnits:-40}), .3)); m.receiveShadow = true; scene.add(m); }   /* stronger than the road's markings (js/13-outskirts.js), so the back straight reads as circuit */
 
   /* ---------- printed boards: one atlas (turn numbers, names, ads), one mesh ---------- */
-  const CELLS = [['雪邦赛道 · 汽车游乐园二园', '#c8322a', '#ffffff'], ['超级大跳台', '#1f2a33', '#ffd23a'], ['双回环', '#1b5aa6', '#ffffff'], ['三连跳', '#2f6f3e', '#ffffff'],
+  const CELLS = [['雪邦赛道 · 汽车游乐园二园', '#c8322a', '#ffffff'], ['东直道 · 全油门', '#1f2a33', '#ffd23a'], ['雪邦车队 · XMUM RACING', '#1b5aa6', '#ffffff'], ['刹车！BRAKE', '#2f6f3e', '#ffffff'],
     ['维修区 PIT LANE', '#e8e4dc', '#c8322a'], ['赛事控制中心', '#1f2a33', '#ffffff'], ['奶娃汽水 · 一口气跑一圈', '#e8412c', '#ffffff'], ['芙蓉湖轮胎 · 抓地一流', '#111111', '#ffd23a'],
     ['雪邦机油 · 转得更久', '#ffd23a', '#1f2a33'], ['XMUM 车行 · 兰博鸡尼到货', '#2a3f8f', '#ffffff'], ['飞跃保险 · 落地才算数', '#2b9a8f', '#ffffff'], ['油棕园公路 · 与赛道共用', '#3d3d3d', '#ff8a3d'],
-    ['漂移广场', '#e48aa8', '#ffffff'], ['雪兰莪飞车俱乐部', '#3d3d3d', '#ffd23a'], ['START · FINISH', '#ffffff', '#111111', 'chk'], ['小心横穿 · 平交路口', '#ffd23a', '#c8322a']];
-  const SH = 112, NUM0 = 16 * SH, atlas = (() => {   /* 16 strips of 1024 x 112, then two rows of 128-px turn numbers: 1024 x 2048 in all */
+    ['雪邦赛道 · 4 公里 18 个弯', '#e48aa8', '#ffffff'], ['雪兰莪飞车俱乐部', '#3d3d3d', '#ffd23a'], ['START · FINISH', '#ffffff', '#111111', 'chk'], ['小心横穿 · 平交路口', '#ffd23a', '#c8322a']];
+  const SH = 104, NUM0 = 16 * SH, atlas = (() => {   /* 16 strips of 1024 x 104, then three rows of 128-px turn numbers: 1024 x 2048 in all */
     const cv = document.createElement('canvas'); cv.width = 1024; cv.height = 2048; const g = cv.getContext('2d'); g.textAlign = 'center'; g.textBaseline = 'middle';
     CELLS.forEach(([t, bg, fg, deco], i) => { const y = i * SH; g.fillStyle = bg; g.fillRect(0, y, 1024, SH);
       if (deco === 'chk') for (let k = 0; k < 64; k++){ g.fillStyle = (k + (k > 31 ? 1 : 0)) % 2 ? '#111111' : '#ffffff'; g.fillRect((k % 32) * 32, y + (k > 31 ? SH - 14 : 0), 32, 14); }
-      g.fillStyle = fg; g.font = `900 ${t.length > 10 ? 58 : 76}px sans-serif`; g.fillText(t, 512, y + SH / 2 + 2, 980); });
-    for (let n = 1; n <= 15; n++){ const x = ((n - 1) % 8) * 128, y = NUM0 + Math.floor((n - 1) / 8) * 128; g.fillStyle = '#ffffff'; g.fillRect(x + 4, y + 4, 120, 120); g.strokeStyle = '#c8322a'; g.lineWidth = 10; g.strokeRect(x + 9, y + 9, 110, 110); g.fillStyle = '#1f2a33'; g.font = '900 72px sans-serif'; g.fillText(String(n), x + 64, y + 68); }
+      g.fillStyle = fg; g.font = `900 ${t.length > 10 ? 56 : 72}px sans-serif`; g.fillText(t, 512, y + SH / 2 + 2, 980); });
+    for (let n = 1; n <= 24; n++){ const x = ((n - 1) % 8) * 128, y = NUM0 + Math.floor((n - 1) / 8) * 128; g.fillStyle = '#ffffff'; g.fillRect(x + 4, y + 4, 120, 120); g.strokeStyle = '#c8322a'; g.lineWidth = 10; g.strokeRect(x + 9, y + 9, 110, 110); g.fillStyle = '#1f2a33'; g.font = '900 72px sans-serif'; g.fillText(String(n), x + 64, y + 68); }
     const t = new THREE.CanvasTexture(cv); t.anisotropy = ANISO; return t;
   })();
   const AH = 2048, AB = {p:[], uv:[], n:[]};
@@ -153,7 +169,7 @@
     for (let k = 0; k < 4; k++){ const a = ry + k * Math.PI / 2; strip(5, tx + Math.sin(a) * 5.8, tz + Math.cos(a) * 5.8, 21.7, 11, 1.4, [Math.sin(a), Math.cos(a)]); }
     const [px, pz] = at(SF + 30), [pnx, pnz] = NOR[wi(SF + 30)]; strip(4, px + pnx * (off - s * 5.6), pz + pnz * (off - s * 5.6), 7.4, 30, 2.6, [-pnx * s, -pnz * s]);
     /* pit wall between the track and the pit lane */
-    for (let i = PIT.i0 + 2; i < PIT.i1 - 2; i += 2){ const [ax, az] = at(i), [n1, n2] = NOR[wi(i)]; box(.5, .9, 6.2, ax + n1 * s * (HW + 2), .45, az + n2 * s * (HW + 2), (i >> 1) % 2 ? '#e8e4dc' : '#c8322a', yawOf(TAN[wi(i)])); }
+    for (let i = PIT.i0 + 2; i < PIT.i1 - 2; i += 2){ const [ax, az] = at(i), [n1, n2] = NOR[wi(i)]; box(.5, .9, 6.2, ax + n1 * s * Math.max(HW + 2, HWI[wi(i)] + 1), .45, az + n2 * s * Math.max(HW + 2, HWI[wi(i)] + 1), (i >> 1) % 2 ? '#e8e4dc' : '#c8322a', yawOf(TAN[wi(i)])); }
   }
   /* start-light gantry over the line */
   { const [x, z] = at(SF + 2), [nx, nz] = NOR[wi(SF + 2)], ry = yawOf(TAN[wi(SF + 2)]);
@@ -180,25 +196,21 @@
     stand(x + nx * off, z + nz * off, 120, 10, face, true);
     void ry; }
   /* T15 stand outside the hairpin and a T1 stand */
-  for (const [n, d, len, rows] of [[1, 26, 60, 8]]){   /* (no room outside 15: the public road runs past it) */
-    const i = turnIdx.find(t => t[0] === n)[1], [x, z] = at(i), c = CURV[wi(i)], s = c > 0 ? -1 : 1, [nx, nz] = NOR[wi(i)];
+  for (const [n, d0, len, rows] of [[1, 23, 60, 8]]){   /* (no room outside 15: the public road runs past it) */
+    const i = TN(n), [x, z] = at(i), c = CURV[wi(i)], s = c > 0 ? -1 : 1, [nx, nz] = NOR[wi(i)], d = HWI[wi(i)] + d0;   /* behind the gravel and the tyre wall */
     stand(x + nx * s * d, z + nz * s * d, len, rows, Math.atan2(-nx * s, -nz * s), true);
   }
-  /* stunt zone stands: west of the super-jump landing strip, by the double loop, by the step-up jumps */
-  stand(SJ.x - SJ_LAND.hw - 12, 880, 90, 9, Math.PI / 2, true);
-  stand(LOOP_A.x - LOOP_A.hw - 6, 1062, 56, 7, Math.PI / 2, true);
-  stand(SX - 16, 1010, 90, 8, Math.PI / 2, true);
   /* more stands round the circuit, outside the corners, wherever the footprint is clear of the track and the public road */
   { const clear = (cx, cz, fx, fz, len, D) => {
       const rx = fz, rz = -fx;
       for (let a = -len / 2; a <= len / 2; a += 5) for (let d = -2; d <= D + 4; d += 4){ const x = cx + rx * a - fx * d, z = cz + rz * a - fz * d;
-        for (let j = 0; j < N; j += 2) if (Math.hypot(PT[j][0] - x, PT[j][1] - z) < HW + 4) return false;
+        for (let j = 0; j < N; j += 2) if (Math.hypot(PT[j][0] - x, PT[j][1] - z) < HWI[j] + (slow(j) ? 24 : 4)) return false;
         const q = ROAD.p[nearest(ROAD.p, x, z)]; if (Math.hypot(q[0] - x, q[1] - z) < ROAD.w / 2 + 4) return false;
         if (x < PAD.x0 + 5 || x > PAD.x1 - 5 || z < PAD.z0 + 5 || z > PAD.z1 - 5) return false; }
       return true; };
-    for (const [n, len, rows] of [[4, 70, 8], [9, 60, 8], [11, 70, 8], [13, 50, 7], [5, 50, 7]]){
-      const i = turnIdx.find(t => t[0] === n)[1], [x, z] = at(i), s = CURV[wi(i)] > 0 ? -1 : 1, [nx, nz] = NOR[wi(i)];
-      for (const d of [24, 30, 38]){
+    for (const [n, len, rows] of [[4, 70, 8], [7, 80, 9], [9, 70, 8], [10, 60, 8], [12, 60, 8], [14, 70, 8], [16, 50, 7], [5, 50, 7]]){   /* 7 NE corner, 9 SE corner, 10 the right back towards the old 9 */
+      const i = TN(n), [x, z] = at(i), s = CURV[wi(i)] > 0 ? -1 : 1, [nx, nz] = NOR[wi(i)];
+      for (const d of [24, 30, 38, 46]){
         const cx = x + nx * s * d, cz = z + nz * s * d, face = Math.atan2(-nx * s, -nz * s);
         if (clear(cx, cz, Math.sin(face), Math.cos(face), len, rows * 1.4)){ stand(cx, cz, len, rows, face, true); break; }
       }
@@ -224,10 +236,10 @@
   { let run = null; const flush = () => { if (run && run.length > 6){ const a = run[0], b = run[run.length - 1], cx = (a[0] + b[0]) / 2, cz = (a[1] + b[1]) / 2, L = Math.hypot(b[0] - a[0], b[1] - a[1]); addBox(cx, cz, L / 2 + .5, .7, -Math.atan2(b[1] - a[1], b[0] - a[0])); } run = null; };
     for (let i = 0; i < N; i++){
       const c = CURV[i]; if (!(Math.abs(c) > 1 / 32) || (i % 2)){ if (!(Math.abs(c) > 1 / 32)) flush(); continue; }
-      const s = c > 0 ? -1 : 1, [x, z] = at(i), [nx, nz] = NOR[i], o = s * (HW + 16.5), px = x + nx * o, pz = z + nz * o;
+      const s = c > 0 ? -1 : 1, [x, z] = at(i), [nx, nz] = NOR[i], o = s * (HWI[i] + 21.5), px = x + nx * o, pz = z + nz * o;
       /* not across the public road, the pit lane or another part of the track */
       if (Math.hypot(...ROAD.p[nearest(ROAD.p, px, pz)].map((v, k) => v - [px, pz][k])) < 12){ flush(); continue; }
-      let clash = false; for (let j = 0; j < N; j += 4) if (Math.abs(j - i) > 30 && Math.abs(j - i) < N - 30 && Math.hypot(PT[j][0] - px, PT[j][1] - pz) < HW + 6){ clash = true; break; }
+      let clash = false; for (let j = 0; j < N; j += 4) if (Math.abs(j - i) > 30 && Math.abs(j - i) < N - 30 && Math.hypot(PT[j][0] - px, PT[j][1] - pz) < HWI[j] + 6){ clash = true; break; }
       if (clash){ flush(); continue; }
       (run || (run = [])).push([px, pz]);
       for (let h = 0; h < (TOUCH ? 2 : 3); h++) TY.push([px, h * .3 + .15, pz, h === (TOUCH ? 1 : 2) ? ((i >> 1) % 2 ? '#c8322a' : '#f4f1ea') : '#1c1c1e']);
@@ -240,56 +252,29 @@
   const glowParts = [], LIGHTS = [];
   for (let i = 0; i < N; i += 70){ const [x, z] = at(i), c = CURV[i]; const s = c > 0 ? -1 : 1, [nx, nz] = NOR[i], px = x + nx * s * (HW + 32), pz = z + nz * s * (HW + 32);
     if (Math.hypot(...ROAD.p[nearest(ROAD.p, px, pz)].map((v, k) => v - [px, pz][k])) < 14) continue;
-    let ok = true; for (let j = 0; j < N; j += 3) if (Math.hypot(PT[j][0] - px, PT[j][1] - pz) < HW + 8){ ok = false; break; } if (ok) LIGHTS.push([px, pz]); }
-  LIGHTS.push([SZ.x0 + 12, SZ.z0 + 15], [SZ.x1 - 12, SZ.z0 + 15], [SZ.x0 + 12, SZ.z1 - 15], [SZ.x1 - 12, SZ.z1 - 15], [SJ.x - 30, 980], [SJ.x + 30, 980]);
+    let ok = true; for (let j = 0; j < N; j += 3) if (Math.hypot(PT[j][0] - px, PT[j][1] - pz) < HWI[j] + 8){ ok = false; break; } if (ok) LIGHTS.push([px, pz]); }
   for (const [x, z] of LIGHTS){
     parts.push(geoTint(geoAt(new THREE.CylinderGeometry(.22, .4, 24, 6, 1, true), x, 12, z), '#9aa0a6')); addCircle(x, z, .6);
     const f = Math.atan2(250 - x, 950 - z); box(4.6, 2.4, .5, x + Math.sin(f) * .6, 24.5, z + Math.cos(f) * .6, '#2b2e33', f);
     glowParts.push(geoAt(new THREE.BoxGeometry(4, 1.9, .1), x + Math.sin(f) * .9, 24.5, z + Math.cos(f) * .9, 0, f, 0));
   }
   /* turn-number boards on the outside of each corner, ads along the straights */
-  for (const [n, i] of turnIdx){ const c = CURV[wi(i)], s = c > 0 ? -1 : 1, [x, z] = at(i), [nx, nz] = NOR[wi(i)], o = s * (HW + 9);
+  for (const [n, i] of turnIdx){ const c = CURV[wi(i)], s = c > 0 ? -1 : 1, [x, z] = at(i), [nx, nz] = NOR[wi(i)], o = s * (HWI[wi(i)] + 9);
     box(.15, 2.4, .15, x + nx * o, 1.2, z + nz * o, '#9aa0a6'); num(n, x + nx * o, z + nz * o, 2.4, 2.2, [-nx * s, -nz * s]); }
   for (let i = 0; i < N; i += 9){
     if (Math.abs(CURV[i]) > 1 / 120) continue;
     for (const s of [-1, 1]){
       if (i > PIT.i0 - 15 && i < PIT.i1 + 15 && s === PIT.side) continue;
-      const [x, z] = at(i), [nx, nz] = NOR[i], o = s * (HW + 6), px = x + nx * o, pz = z + nz * o;
+      const [x, z] = at(i), [nx, nz] = NOR[i], o = s * (HWI[i] + 6), px = x + nx * o, pz = z + nz * o;
       if (Math.hypot(...ROAD.p[nearest(ROAD.p, px, pz)].map((v, k) => v - [px, pz][k])) < 9) continue;
-      let ok = true; for (let j = 0; j < N; j += 3) if (Math.abs(j - i) > 8 && Math.abs(j - i) < N - 8 && Math.hypot(PT[j][0] - px, PT[j][1] - pz) < HW + 3){ ok = false; break; }
+      let ok = true; for (let j = 0; j < N; j += 3) if (Math.abs(j - i) > 8 && Math.abs(j - i) < N - 8 && Math.hypot(PT[j][0] - px, PT[j][1] - pz) < HWI[j] + 3){ ok = false; break; }
       if (!ok) continue;
       box(.12, 1.1, 6, px, .55, pz, '#e8e4dc', yawOf(TAN[i]) + 0);
       strip(6 + ((i / 9) & 7), px - nx * s * .07, pz - nz * s * .07, .02, 6, 1.06, [-nx * s, -nz * s]);
     }
   }
 
-  /* ---------- the stunt kit: super jump, kickers, rollers, mounds, two loops ---------- */
-  P.solid(SB, SJ.x, SJ_BASE, SJ.W / 2, P.kickProf(SJ, 12), i => i % 2 ? WHITE : RED, RED, k => k % 2 ? WHITE : RED);
-  { const a = Math.atan2(SJ.H, SJ.L), Lr = Math.hypot(SJ.L, SJ.H);
-    for (const s of [-1, 1]){ const x = SJ.x + s * (SJ.W / 2 + .18); parts.push(geoTint(geoAt(new THREE.BoxGeometry(.16, .16, Lr), x, SJ.H / 2 + 1.05, SJ.z, a, 0, 0), WHITE));
-      for (let k = 0; k <= 8; k++){ const u = SJ.L * k / 8; parts.push(geoTint(geoAt(new THREE.BoxGeometry(.18, 1.1, .18), x, SJ.H * u / SJ.L + .5, SJ_BASE - u), k % 2 ? WHITE : RED)); } } }
-  for (const K of KICK) P.solid(SB, K.x, K.z + K.L / 2, K.W / 2, P.kickProf(K, 6), i => i % 2 ? WHITE : RED, RED, k => k % 2 ? WHITE : RED);
-  P.solid(SB, ROLL2.x, ROLL2.zs, ROLL2.hw, P.sample(ROLL2.f, ROLL2.len, .5), (i, u0) => Math.floor(u0 / 5) % 2 ? DARK : YEL, DARK);
-  for (const Mo of MOUNDS) P.solid(SB, Mo.x, Mo.zs, Mo.hw, P.sample(Mo.f, Mo.len, 1.5), (i, u0) => u0 < 6 ? (i % 2 ? WHITE : RED) : (i % 2 ? '#7b7f85' : '#8f939a'), '#8a6a4a');
-  for (const LP of [LOOP_A, LOOP_B]){
-    const Nn = 96, Pp = (th, off, d) => { const s = Math.sin(th), c = Math.cos(th), lat = LP.w * th / PI2 + off; return [LP.x + lat, LP.R * (1 - c) + c * d, LP.z - LP.R * s + s * d]; };
-    for (let i = 0; i < Nn; i++){
-      const t0 = PI2 * i / Nn, t1 = PI2 * (i + 1) / Nn, n = [0, Math.cos((t0 + t1) / 2), Math.sin((t0 + t1) / 2)], no = [0, -n[1], -n[2]];
-      quad(SB, Pp(t0, -LP.hw, .03), Pp(t0, LP.hw, .03), Pp(t1, LP.hw, .03), Pp(t1, -LP.hw, .03), Math.floor(i / 4) % 2 ? WHITE : (LP === LOOP_A ? RED : '#1b5aa6'), n);
-      quad(SB, Pp(t0, -LP.hw, -.3), Pp(t0, LP.hw, -.3), Pp(t1, LP.hw, -.3), Pp(t1, -LP.hw, -.3), '#8d9196', no);
-      for (const s of [-1, 1]){ const off = s * LP.hw; quad(SB, Pp(t0, off, .03), Pp(t1, off, .03), Pp(t1, off, -.3), Pp(t0, off, -.3), WHITE, [s, 0, 0]); }
-    }
-    const xa = LP.x - LP.hw - 1.6, xb = LP.x + LP.w + LP.hw + 1.6;
-    for (const x of [xa, xb]){ box(.7, LP.R, .7, x, LP.R / 2, LP.z, '#3b3f44'); addCircle(x, LP.z, .5); }
-    parts.push(geoTint(geoAt(new THREE.CylinderGeometry(.22, .22, xb - xa, 8), (xa + xb) / 2, LP.R, LP.z, 0, 0, Math.PI / 2), '#3b3f44'));
-    for (const x of [LP.x - LP.hw - .5, LP.x + LP.w + LP.hw + .5]){ addBox(x, LP.z, .2, LP.R + 1, 0); for (let k = 0; k < 6; k++){ const z0 = LP.z - LP.R - 1 + (2 * LP.R + 2) * k / 6; box(.4, .9, (2 * LP.R + 2) / 6, x, .45, z0 + (LP.R + 1) / 6, k % 2 ? WHITE : RED); } }
-  }
-  /* banners over the three stunt lanes where they leave the service road */
-  for (const [x, hw, cell] of [[SJ.x, 11, 1], [LOOP_A.x, 7, 2], [SX, 8, 3]]){
-    for (const s of [-1, 1]){ box(.6, 7.6, .6, x + s * hw, 3.8, SZ.z1 - 12, '#3b3f44'); addBox(x + s * hw, SZ.z1 - 12, .4, .4, 0); }
-    box(2 * hw + .6, 1.8, .4, x, 7.5, SZ.z1 - 12, '#1f2a33'); strip(cell, x, SZ.z1 - 11.78, 6.7, 2 * hw - .4, 1.6, [0, 1], true);
-  }
-  /* entrance arches over the public road where it comes into the park, and a level-crossing sign by the 7–8 crossing */
+  /* entrance arches over the public road where it comes into the park, and a level-crossing sign by the 6–7 crossing */
   function arch(i, cell){
     const [x, z] = ROAD.p[i], a = ROAD.p[Math.max(0, i - 1)], b = ROAD.p[Math.min(ROAD.p.length - 1, i + 1)], l = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1, tx = (b[0] - a[0]) / l, tz = (b[1] - a[1]) / l, nx = -tz, nz = tx, ry = Math.atan2(tx, tz), w = ROAD.w / 2 + 9;   /* pillars well clear of the tarmac: the road bends at the north gate */
     for (const s of [-1, 1]){ box(2.2, 13, 2.2, x + nx * s * w, 6.5, z + nz * s * w, '#c8322a'); addCircle(x + nx * s * w, z + nz * s * w, 1.3); }
@@ -299,7 +284,7 @@
   arch(nearest(ROAD.p, 636, PAD.z0 + 8), 0); arch(nearest(ROAD.p, PAD.x0 + 15, 1135), 0);
   { /* where the public road crosses the circuit */
     let bi = 0, bd = 1e9, bj = 0; for (let j = 0; j < ROAD.p.length; j++){ const [x, z] = ROAD.p[j]; if (z > 905 || z < 700) continue; for (let i = 0; i < N; i += 2){ const d = Math.hypot(PT[i][0] - x, PT[i][1] - z); if (d < bd){ bd = d; bi = i; bj = j; } } }
-    if (bd < 6){ const [x, z] = PT[bi], [nx, nz] = NOR[bi]; for (const s of [-1, 1]){ const px = x + nx * s * (HW + 7), pz = z + nz * s * (HW + 7); box(.15, 3, .15, px, 1.5, pz, '#9aa0a6'); strip(15, px, pz, 3, 6, .75, [-nx * s, -nz * s], true); } P.CROSS = [x, z]; }
+    if (bd < 6){ const [x, z] = PT[bi], [nx, nz] = NOR[bi]; for (const s of [-1, 1]){ const px = x + nx * s * (HWI[bi] + 7), pz = z + nz * s * (HWI[bi] + 7); box(.15, 3, .15, px, 1.5, pz, '#9aa0a6'); strip(15, px, pz, 3, 6, .75, [-nx * s, -nz * s], true); } P.CROSS = [x, z]; }
   }
 
   /* mown-grass stripes over the whole park, its own mesh with a light depth offset so the public road and the paint stay on top */
@@ -317,13 +302,13 @@
   if (TY.length){
     const im = new THREE.InstancedMesh(new THREE.CylinderGeometry(.45, .45, .3, 10), M('#ffffff', {roughness:.85}), TY.length), m4 = new THREE.Matrix4(), c = new THREE.Color();
     TY.forEach(([x, y, z, col], i) => { im.setMatrixAt(i, m4.makeTranslation(x, y, z)); im.setColorAt(i, c.set(col)); });
-    im.castShadow = !TOUCH; im.receiveShadow = true; im.geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(200, 1, 930), 520); scene.add(im);
+    im.castShadow = !TOUCH; im.receiveShadow = true; im.geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(420, 1, 935), 700); scene.add(im);
   }
   const CR = {body:null, head:null, cheer:0, t:0, ph:[]};
   if (seats.length){
     const SHIRT = ['#c8322a', '#2f86d6', '#ffd23a', '#f4f1ea', '#2f6f3e', '#e48aa8', '#1f2a33', '#ff8a3d'].map(c => new THREE.Color(c)), SKIN = ['#f1c9a5', '#d9a77e', '#a8714a', '#f4d8be'].map(c => new THREE.Color(c));
     const mkIm = (geo, cols) => { const im = new THREE.InstancedMesh(geo, M('#ffffff', {roughness:.8}), seats.length); seats.forEach((_, i) => im.setColorAt(i, cols[(rr() * cols.length) | 0])); im.receiveShadow = true;
-      im.geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(450, 4, 930), 650); scene.add(im); return im; };
+      im.geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(420, 4, 935), 700); scene.add(im); return im; };
     CR.body = mkIm(new THREE.BoxGeometry(.5, .62, .36).translate(0, .31, 0), SHIRT); CR.head = mkIm(new THREE.BoxGeometry(.3, .3, .3).translate(0, .8, 0), SKIN);
     CR.ph = seats.map(() => rr() * PI2);
   }
@@ -346,7 +331,7 @@
     SCREENS.push({cv, g:cv.getContext('2d'), tex, m});
   }
   { const i = SF + 70, [x, z] = at(i), s = PIT.side, [nx, nz] = NOR[wi(i)], o = s * (HW + 52); bigScreen(x + nx * o, z + nz * o, Math.atan2(-nx * s, -nz * s)); }   /* behind the pits, over their roofs */
-  bigScreen(SJ.x - 40, 760, Math.atan2(SJ.x - (SJ.x - 40), SJ_BASE - 760) );
+  { const i = wi(TN(7) - 8), [x, z] = at(i), [tx, tz] = TAN[i], [nx, nz] = NOR[i], s = CURV[TN(7)] > 0 ? -1 : 1, o = s * (HWI[i] + 34); bigScreen(x + nx * o + tx * 30, z + nz * o + tz * 30, Math.atan2(-tx, -tz)); }   /* at the end of the east straight, facing the cars coming at it */
   const fmtT = P.fmtT, fmt2 = t => t == null ? '—' : Math.floor(t / 60) + ':' + (t % 60).toFixed(2).padStart(5, '0');
   function screens(big, sub){
     for (const S of SCREENS){ const g = S.g;
@@ -355,15 +340,14 @@
       g.fillStyle = '#ffd23a'; g.font = '900 64px sans-serif'; g.fillText(big, 256, 112, 490);
       g.fillStyle = '#e8edf2'; g.font = '700 26px sans-serif'; g.fillText(sub, 256, 170, 490);
       const b = prog.best; g.fillStyle = '#1f2a33'; g.fillRect(0, 222, 512, 66); g.fillStyle = '#9fd3ff'; g.font = '700 24px sans-serif';
-      g.fillText(`最快一圈 ${fmt2(b.sepLap)}  ·  超级大跳台 ${b.bigjump2 != null ? b.bigjump2 + ' 米' : '—'}`, 256, 255, 496); S.tex.needsUpdate = true; }
+      g.fillText(`最快一圈 ${fmt2(b.sepLap)}  ·  一圈 ${(LEN / 1000).toFixed(1)} 公里 · ${turnIdx.length} 个弯`, 256, 255, 496); S.tex.needsUpdate = true; }
   }
   screens('雪邦赛道', '一圈约 ' + (LEN / 1000).toFixed(1) + ' 公里 · 从起点线出发计时');
 
   /* ---------- labels and the minimap ---------- */
   addLabel('汽车游乐园二园 · 雪邦赛道', ...(() => { const [x, z] = at(SF); return [x, 16, z]; })());
-  addLabel('超级大跳台', SJ.x, SJ.H + 5, SJ.z, true); addLabel('双回环', LOOP_A.x + 4, 2 * LOOP_B.R + 5, (LOOP_A.z + LOOP_B.z) / 2, true);
-  addLabel('三连跳', SX, 6, 1030, true); addLabel('漂移广场', DRIFT.x, 4, DRIFT.z, true); addLabel('维修区', ...(() => { const [x, z] = at(SF + 60), [nx, nz] = NOR[wi(SF + 60)], o = PIT.side * (HW + 22); return [x + nx * o, 10, z + nz * o]; })(), true);
-  for (const [n, i] of turnIdx) if ([1, 4, 9, 15].includes(n)){ const [x, z] = at(i); addLabel(n + ' 号弯', x, 4, z, true); }
+  addLabel('维修区', ...(() => { const [x, z] = at(SF + 60), [nx, nz] = NOR[wi(SF + 60)], o = PIT.side * (HW + 22); return [x + nx * o, 10, z + nz * o]; })(), true);
+  for (const [n, i] of turnIdx) if ([1, 4, 7, 9, 12, 18].includes(n)){ const [x, z] = at(i); addLabel(n + ' 号弯', x, 4, z, true); }
   if (typeof drawOutMini === 'function'){
     const miniBase = drawOutMini;
     drawOutMini = function(mg, X, Z, k){
@@ -371,13 +355,6 @@
       mg.lineJoin = 'round'; mg.lineCap = 'round';
       mg.strokeStyle = '#8f8b84'; mg.lineWidth = Math.max(2.5, HW * 2 * k); mg.beginPath(); for (let i = 0; i <= N; i += 3){ const [x, z] = at(i); i ? mg.lineTo(X(x), Z(z)) : mg.moveTo(X(x), Z(z)); } mg.closePath(); mg.stroke();
       mg.strokeStyle = '#ffffff'; mg.lineWidth = 1; mg.beginPath(); { const [x, z] = at(SF), [nx, nz] = NOR[SF]; mg.moveTo(X(x + nx * HW), Z(z + nz * HW)); mg.lineTo(X(x - nx * HW), Z(z - nz * HW)); } mg.stroke();
-      mg.fillStyle = '#8f8b84';
-      const r = (x0, z0, x1, z1) => mg.fillRect(X(x0), Z(z0), (x1 - x0) * k, (z1 - z0) * k);
-      r(SZ.x0 - 5, SZ.z0 - 5, SZ.x1 + 5, SZ.z0 + 5); r(SZ.x0 - 5, SZ.z1 - 5, SZ.x1 + 5, SZ.z1 + 5); r(SZ.x0 - 5, SZ.z0, SZ.x0 + 5, SZ.z1); r(SZ.x1 - 5, SZ.z0, SZ.x1 + 5, SZ.z1);
-      r(SJ.x - 8, SJ_BASE, SJ.x + 8, SZ.z1); r(SJ.x - SJ_LAND.hw, SJ_LAND.z0, SJ.x + SJ_LAND.hw, SJ_LIP); r(LOOP_A.x - 3.5, LOOP_A.z, LOOP_A.x + 3.5, SZ.z1); r(LOOP_B.x + LOOP_B.w - 3.8, SZ.z0, LOOP_B.x + LOOP_B.w + 3.8, LOOP_B.z); r(SX - 4.5, SZ.z0, SX + 4.5, SZ.z1);
-      mg.beginPath(); mg.arc(X(DRIFT.x), Z(DRIFT.z), DRIFT.r * k, 0, 7); mg.fill();
-      mg.fillStyle = '#e8412c'; mg.beginPath(); mg.moveTo(X(SJ.x), Z(SJ_LIP) - 3); mg.lineTo(X(SJ.x + 7) + 2, Z(SJ_BASE) + 2); mg.lineTo(X(SJ.x - 7) - 2, Z(SJ_BASE) + 2); mg.closePath(); mg.fill();
-      mg.strokeStyle = '#e8412c'; mg.lineWidth = 3; for (const LP of [LOOP_A, LOOP_B]){ mg.beginPath(); mg.arc(X(LP.x + LP.w / 2), Z(LP.z), Math.max(3, LP.R * k), 0, 7); mg.stroke(); }
       const [lx, lz] = at(SF);
       if (typeof mini !== 'undefined' && mg.canvas === mini && X(lx) > -80 && X(lx) < mg.canvas.width + 80 && Z(lz) > -20 && Z(lz) < mg.canvas.height + 20){
         mg.font = '700 13px sans-serif'; mg.textAlign = 'center'; mg.lineWidth = 3; mg.strokeStyle = 'rgba(31,42,51,.85)'; mg.strokeText('雪邦赛道', X(lx), Z(lz) - 8); mg.fillStyle = '#ffffff'; mg.fillText('雪邦赛道', X(lx), Z(lz) - 8); mg.textAlign = 'start';
@@ -389,9 +366,9 @@
   const F1 = {idx:-1, lap:null, msg:'', lastLap:null};
   const SEC = [SF, (SF + Math.round(N / 3)) % N, (SF + Math.round(2 * N / 3)) % N];
   const along = i => ((i - SF) % N + N) % N;   /* how far round from the line, in points */
-  if (typeof GX_MORE !== 'undefined') GX_MORE.push({id:'sepLap', name:'汽车游乐园二园 · 雪邦赛道', fmt:v => `最快一圈 ${fmt2(v)}`}, {id:'bigjump2', name:'汽车游乐园二园 · 超级大跳台', fmt:v => `最远 ${Math.round(v)} 米`});
-  P.JUMPS.push({r:SJ, key:'bigjump2', name:'超级大跳台', on:(d, rec, kmh) => { screens(`${d} 米`, rec ? `超级大跳台 · 新纪录！起飞 ${kmh} km/h` : `超级大跳台 · 起飞 ${kmh} km/h`); if (d >= 40) CR.cheer = d >= 120 ? 3.5 : 2.2; }});
-  const prevLoop = P.onLoop; P.onLoop = (n, kmh) => { if (prevLoop) prevLoop(n, kmh); const c = driving; if (c && c.x > SZ.x0){ screens('双回环', `进环 ${kmh} km/h · 一共 ${n} 圈`); CR.cheer = 1.6; } };
+  if (typeof GX_MORE !== 'undefined') GX_MORE.push({id:'sepLap', name:'汽车游乐园二园 · 雪邦赛道', fmt:v => `最快一圈 ${fmt2(v)}`});
+  /* the circuit changed (the stunt zone became the east section): a best lap from the old, shorter layout is not comparable, clear it once */
+  try { if (localStorage.getItem('xmum-f1-layout') !== '2'){ if (prog.best.sepLap != null){ delete prog.best.sepLap; if (typeof saveGame === 'function') saveGame(); } localStorage.setItem('xmum-f1-layout', '2'); } } catch(e){}
   function f1Update(dt){
     F1.msg = '';
     const c = driving, inP = c && c.x > PAD.x0 - 20 && c.x < PAD.x1 + 20 && c.z > PAD.z0 - 20 && c.z < PAD.z1 + 20;
@@ -414,12 +391,14 @@
           /* crossed the line going forward */
           if (a1 < a0 && a0 > N - 80 && P.qLock('park')){ P.lockHint(); F1.lap = null; }   /* main story: timing opens at chapter 5 */
           else if (a1 < a0 && a0 > N - 80){
-            if (F1.lap && F1.lap.prog > N * .95){
+            if (F1.lap && F1.lap.prog > N * .95 && F1.lap.bad){ P.call(`一圈 ${fmt2(F1.lap.t)} · 不计成绩`, F1.lap.bad); screens(fmt2(F1.lap.t), '超出赛道界限 · 不计成绩'); }
+            else if (F1.lap && F1.lap.prog > N * .95){
               const t = F1.lap.t, best = prog.best.sepLap, rec = best == null || t < best; F1.lastLap = t;
               if (rec){ prog.best.sepLap = Math.round(t * 100) / 100; saveGame(); }
               addStunt('雪邦赛道一圈', 500); CR.cheer = rec ? 3 : 1.5;
               P.call(`一圈 ${fmt2(t)}`, rec ? (best == null ? '第一圈！纪录已保存' : `新纪录！快了 ${(best - t).toFixed(2)} 秒`) : `纪录 ${fmt2(best)} · 慢了 ${(t - best).toFixed(2)} 秒`);
               screens(fmt2(t), rec ? '新纪录！' : '最快一圈 ' + fmt2(best));
+              if (window.XF1 && XF1.onLap) try { XF1.onLap(t, rec); } catch(e){ console.warn(e); }   /* js/94-f1-drive.js and the paddock's test-driver jobs */
             } else if (!F1.lap) P.call('雪邦赛道 · 计时开始', '跑完一整圈回到起点线');
             F1.lap = {t:0, prog:0, sec:1, splits:[]};
           } else if (F1.lap){
@@ -431,11 +410,6 @@
     }
     if (F1.lap){ F1.lap.t += dt; if (F1.lap.t > 600) F1.lap = null; else F1.msg = `雪邦赛道 ${fmt2(F1.lap.t)} · 第 ${F1.lap.sec} 段` + (prog.best.sepLap != null ? ` · 纪录 ${fmt2(prog.best.sepLap)}` : ''); }
     else if (bd < 40 && Math.hypot(c.vx, c.vz) < 22) F1.msg = '雪邦赛道：开过主直道上的起点线开始计时' + (prog.best.sepLap != null ? ` · 纪录 ${fmt2(prog.best.sepLap)}` : '');
-    if (!F1.msg && c.x > SZ.x0 - 10 && Math.hypot(c.vx, c.vz) < 22){
-      if (Math.abs(c.x - SJ.x) < 10 && c.z > SJ_BASE) F1.msg = '超级大跳台：往北全速冲，9 米高的跳台' + (prog.best.bigjump2 ? ` · 纪录 ${prog.best.bigjump2} 米` : '');
-      else if (Math.abs(c.x - LOOP_A.x) < 5 && c.z > LOOP_A.z) F1.msg = `双回环：${Math.ceil(P.lpMin(LOOP_B) * 3.6)} km/h 以上才转得过第二个大环`;
-      else if (Math.abs(c.x - SX) < 6 && c.z > 1100) F1.msg = '三连跳：波浪道接三个越来越高的跳台';
-    }
   }
   {
     const base = Object.assign({}, gx);
@@ -450,5 +424,5 @@
       if (CR.cheer > 0){ CR.cheer -= dt; CR.t += dt; if (camera.position.distanceTo(_p.set(300, 0, 930)) < 900) crowdPose(CR.t); if (CR.cheer <= 0) crowdPose(0); }
     };
   }
-  window.XF1 = {PT, N, LEN, SF, SEC, TAN, NOR, CURV, turnIdx, PIT, SJ, SJ_LIP, SJ_BASE, LOOP_A, LOOP_B, SX, KICK, MOUNDS, ROLL2, DRIFT, SZ, S:F1, screens, seats:seats.length, tyres:TY.length, map};
+  window.XF1 = {PT, N, LEN, SF, SEC, TAN, NOR, CURV, HWI, HW, KERB, kerbAt, slow, PAD, ROAD, turnIdx, PIT, EAST, S:F1, screens, seats:seats.length, tyres:TY.length, map};
 })();

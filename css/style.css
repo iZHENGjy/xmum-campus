@@ -843,7 +843,7 @@ body.wd-open #dmBag,body.wd-open #dmLoot,body.wd-open #dmPad{display:none!import
 @media (prefers-reduced-motion: reduce){ .brand-tog svg{transition:none} }
 /* 手机横屏（矮屏）的 HUD 在文件末尾「手机横屏 2.0」一段 */
 /* ---------- 矮的桌面窗口和横放的平板：三个按钮排成一行、小地图小一号，小地图不再压到右下的操作按钮 ---------- */
-@media (min-height:521px) and (max-height:820px) and (min-width:761px){
+@media (min-height:521px) and (max-height:820px) and (min-width:561px){
   body.naiwa #gstat{grid-template-columns:repeat(3,minmax(0,1fr))}
   body.naiwa #gstat>*{grid-column:1 / -1}
   body.naiwa #gstat>.gbtn{grid-column:auto;padding:0 2px;font-size:11.5px;white-space:nowrap}
@@ -1087,10 +1087,6 @@ body.wd-open #tnGain{top:auto;bottom:calc(var(--safe-b) + 24px);left:calc((100% 
 .rd-chk{display:flex;gap:8px;align-items:flex-start;color:#cfd5de;font-size:12.5px;line-height:1.4;cursor:pointer}
 .rd-chk input{margin-top:2px;accent-color:var(--rd)}
 .rd-off{color:#ff8a80}
-#acts #act-m{order:-1}
-body.rd-car #act-w{grid-column:auto}   /* in the car the water gun is off anyway: 电台 shares its row so the button stack stays as tall as before */
-#acts #act-m.rd-act-on{border-color:color-mix(in srgb,var(--rd) 70%,var(--line))}
-#acts #act-m.rd-act-on b{color:var(--rd);text-shadow:0 0 1px rgba(0,0,0,.35)}
 body.wd-open #radio,body.sp-run #radio,body.titled #radio{display:none!important}
 @media (pointer:coarse){
   #radio{left:50%;transform:translateX(-50%);bottom:auto;top:calc(var(--safe-t) + 190px);align-items:center}
@@ -1572,10 +1568,13 @@ body.titled:has(#embedTip:not([hidden])) #title .t-wrap{padding-top:56px}
 #qtalk .q-line{margin:0;font:600 16px/1.6 var(--body);color:var(--ink);min-height:3.2em}
 #qtalk .q-skip{all:unset;cursor:pointer;flex:none;align-self:flex-start;padding:8px 14px;border-radius:999px;background:var(--chip);color:var(--muted);font:600 13px/1.2 var(--body)}
 #qtalk .q-skip:focus-visible{outline:2px solid var(--tile)}
-#qtalk .q-next{position:absolute;right:16px;bottom:8px;color:var(--tile);font-size:14px;animation:qBlink 1s infinite}
+#qtalk .q-next{position:absolute;right:16px;bottom:8px;color:var(--tile);font-size:13px;font-weight:700;animation:qNudge 1.4s infinite;display:flex;align-items:center;gap:5px;white-space:nowrap}
+#qtalk .q-next kbd{display:inline-block;min-width:22px;padding:1px 6px;border-radius:6px;border:1px solid currentColor;border-bottom-width:3px;font:inherit;font-size:13px;line-height:1.4;text-align:center;background:#fff}
 body.q-talking #prompt,body.q-talking #qhint{visibility:hidden}
 @keyframes qUp{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
 @keyframes qBlink{50%{opacity:.25}}
+@keyframes qNudge{50%{opacity:.55}}
+#qtalk .q-tx{padding-bottom:14px}
 .q-bar{all:unset;display:block;box-sizing:border-box;width:100%;cursor:pointer;font-size:12px;line-height:1.5;color:var(--ink);border-top:1px dashed var(--line);padding-top:6px;margin-top:2px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
 .q-bar::before{content:'★ ';color:#e0a400}
@@ -1692,3 +1691,54 @@ body:not(.naiwa) .q-bar{display:none}
 .gd-txt ul.q-todo li,.q-note li{padding-left:10px}
 .gd-txt ul.q-todo li::before,.q-note li::before{content:none}
 .q-note li{padding-left:0!important}
+
+/* a mid-size window (561–900 wide, or 521–760 tall): the right column (top bar, wallet, minimap) used to run down into the
+   on-screen buttons. Shorter wallet rows, a smaller minimap, shorter buttons; on narrow ones the buttons go four to a row. */
+@media (min-width:561px) and (min-height:521px) and (max-height:760px), (min-width:561px) and (max-width:900px) and (min-height:521px){
+  body.naiwa #gstat .grow{padding-top:1px;padding-bottom:1px}
+  body.naiwa #gstat .grow span,body.naiwa #gstat .grow b{line-height:1.25}
+  body.naiwa #mini{width:96px;height:96px;border-width:2px}
+  #acts{gap:6px}
+  #acts button{min-height:40px;padding-top:4px;padding-bottom:4px}
+}
+@media (min-width:561px) and (max-width:900px) and (min-height:521px){
+  #acts{grid-template-columns:repeat(4,auto)}   /* 水枪 spans the top row, the other four sit in one row under it */
+}
+
+/* 761–960 wide: the top-left card and the top-right bar leave no room for the compass between them, and the key line at the bottom
+   runs into the buttons; both go where the narrow layout puts them, above the buttons in the lower middle */
+@media (min-width:761px) and (max-width:960px){
+  #compass{top:auto;bottom:calc(var(--safe-b) + 206px)}
+  #prompt{bottom:calc(var(--safe-b) + 162px)}
+}
+
+/* sideways rows (.wd-tabs, .tn-inv): ‹ › buttons at the ends that have more behind them (js/88-wardrobe-ui.js), the first-time label on › */
+.sx-wrap{position:relative;flex:none;min-width:0}
+.sx-btn{position:absolute;top:50%;z-index:2;display:none;align-items:center;gap:4px;height:30px;min-width:30px;padding:0 8px;margin-top:-15px;border-radius:999px;
+  border:1px solid var(--line);background:var(--panel-solid);color:var(--tile);font:800 18px/1 var(--body, sans-serif);box-shadow:0 2px 10px var(--shadow);cursor:pointer}
+.sx-wrap .wd-tabs + .sx-btn,.sx-wrap .wd-tabs ~ .sx-btn{margin-top:-17px}
+.sx-bl{left:-6px}.sx-br{right:-6px}
+.sx-wrap.sx-l .sx-bl,.sx-wrap.sx-r .sx-br{display:flex}
+.sx-btn:focus-visible{outline:2px solid var(--tile);outline-offset:2px}
+.sx-tip{font-size:12px;font-weight:700;white-space:nowrap}
+body.sx-known .sx-tip{display:none}
+body:not(.sx-known) .sx-wrap.sx-r .sx-br{animation:sxNudge 1.3s ease-in-out infinite}
+@keyframes sxNudge{50%{transform:translateX(3px)}}
+@media (prefers-reduced-motion: reduce){ body:not(.sx-known) .sx-wrap.sx-r .sx-br{animation:none} }
+
+/* 矮窗口（电脑窗口拉得很矮、手机竖屏但浏览器地址栏和键盘占掉一截）：改装车间整块面板一起滚，
+   关闭按钮和底下的「下单施工 / 提车」钉在面板里，永远点得到。原来零件栏、施工位、属性、分栏加起来比面板还高，底栏被挤出屏幕。 */
+@media (max-height:640px), (max-width:760px) and (max-height:820px){
+  #tune{overflow-y:auto;overscroll-behavior:contain;padding:10px 12px 8px;scroll-padding:36px 0 120px}   /* 指引把零件滚出来时，别停在钉住的底栏后面 */
+  #tune>*{flex:none}
+  #tune .tn-list{overflow:visible;margin:0;padding:0 0 4px}
+  #tune>.x{position:sticky;top:-2px;align-self:flex-end;margin:-4px -6px -30px 0;z-index:2;background:linear-gradient(var(--panel-solid),var(--panel-solid)),var(--panel-solid)}
+  #tune .wd-foot{position:sticky;bottom:-8px;z-index:1;margin:6px -12px -8px;padding:7px 12px 8px;background:linear-gradient(var(--panel-solid),var(--panel-solid)),var(--panel-solid)}
+  .tn-where{max-height:2.95em}
+  /* 底栏文字和按钮并排，别把按钮挤到第二行，多占一截高度 */
+  #tune .wd-foot{flex-wrap:nowrap}
+  #tune .wd-sel{flex:1 1 auto;min-width:0}
+  #tune .wd-btns{flex:none}
+}
+/* 窄又矮：面板本来只占下面 70% 高，太挤；拉高到只在顶上留出任务条那一截 */
+@media (max-width:560px) and (max-height:640px), (max-width:760px) and (min-height:521px) and (max-height:640px){ #tune{height:calc(100% - 64px - var(--safe-t) - var(--safe-b))} }

@@ -1,4 +1,4 @@
-/* XMUM 校园漫游 · 主线剧情的数据：人机奶蛙、七章步骤、支线、日记句子、手机消息、想家独白
+/* XMUM 校园漫游 · 主线剧情的数据：人机奶蛙、八章步骤、支线、采购单、日记句子、手机消息、想家独白
  *
  * 设计依据 docs/quests.md。这里只放数据和判断条件，状态、轮询、奖励、存档都在 js/89-quest.js，界面在 js/89-quest-ui.js。
  * 玩家看得见的文字尽量用「我 / 你」，非写不可时用「奶蛙」（主角名字还没定是否全改，不要批量改「奶娃」）。
@@ -32,12 +32,14 @@
 window.XQD = (() => {
   const D = {people:{}, npcs:{}, chapters:[], sides:[], diary:{}, msgs:{}, events:[], homesick:{}, watch:[]};
   const K = (pc, touch) => (typeof TOUCH !== 'undefined' && TOUCH) ? touch : pc;
+  const npcAt0 = id => window.XQuest && XQuest.npcAt ? XQuest.npcAt(id) : null;
 
   /* ---------- 发消息的人 ---------- */
   Object.assign(D.people, {
     mom:{name:'妈妈', icon:'妈', color:'#e8708a'},
     xiaoman:{name:'小满学姐', icon:'满', color:'#3f8fe6'},
-    memo:{name:'日记', icon:'📖', color:'#a07a52'}   /* the voice of 「重温这一章」 (js/89-quest.js replay) */
+    memo:{name:'日记', icon:'📖', color:'#a07a52'},   /* the voice of 「重温这一章」 (js/89-quest.js replay) */
+    cat:{name:'小橘', icon:'🐱', color:'#e39a4c'}       /* the campus cat (js/89-kitty.js) */
   });
 
   /* ---------- 人机奶蛙（角色都是虚构的） ---------- */
@@ -58,7 +60,7 @@ window.XQD = (() => {
       ['xiaoman', '第一站：顺着屏幕上面的指南针，走到 A3 大台阶。去吧！']
     ],
     outro:[
-      ['xiaoman', '五单全送到了？还荡了秋千？可以啊，比我当年强多了。'],
+      ['xiaoman', '两单都送到了？还荡了秋千？可以啊，比我当年强多了。'],
       ['xiaoman', '喏，这是一辆 Myvi 的钥匙，学长毕业留下的，旧是旧了点，跑得动。'],
       ['xiaoman', () => K('开车：W / S 油门刹车，A / D 转向，按住空格漂移，F 下车。车就停在你旁边。', '开车：左下摇杆推着走，右下「漂移」按住甩尾，「下车」下来。车就停在你旁边。')],
       ['xiaoman', '还有，学校里那些发光的圈——比赛、潜入委托、宿舍搜刮、B1 游戏厅——从今天起都对你开放了，地图上都标着，想玩哪个去哪个。'],
@@ -66,7 +68,7 @@ window.XQD = (() => {
     ],
     reward:{rm:200, car:'myvi', note:'一辆 Myvi，从此能开车'},
     steps:[
-      {id:'c1_a3', text:'跟着指南针走到 A3 大台阶', rm:20, at:[105, 120], r:7, isNew:true,
+      {id:'c1_a3', calmNear:true, text:'跟着指南针走到 A3 大台阶', rm:20, at:[105, 120], r:7, isNew:true,
         done:Q => Q.near(105, 120, 9),
         hint:{pc:'<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 走路，跟着屏幕上方的指南针', touch:'左下摇杆走路，跟着指南针', flash:'#joy'},
         tip:'A3 是学校正中间那栋最高的楼，台阶很宽，顺着中轴线一直往北走就到了。', guide:'keys',
@@ -87,13 +89,26 @@ window.XQD = (() => {
         done:Q => Q.ward('neck') === 'badge',
         hint:{pc:'按 <kbd>C</kbd> 打开衣橱，在「颈部」里选迎新工作牌', touch:'点右上角「奶娃衣橱」，在「颈部」里选迎新工作牌', flash:'#wardBtn'},
         tip:'工作牌是开学那天学姐给的，在衣橱「颈部」那一栏，不要钱。'},
+      /* 送外卖之前先回南门：小满讲怎么接单（橙色光圈、接单卡、接单开关），说完把接单开关打开 */
+      {id:'c1_xm', text:'回南门找小满学姐，学怎么接外卖', rm:10, isNew:true, at:() => npcAt0('xiaoman'), r:0,
+        talkTo:'xiaoman', talkFlag:'q_c1xm', done:Q => Q.flag('q_c1xm'),
+        lines:[
+          ['xiaoman', '学校认得差不多了吧？接下来教你挣钱。'],
+          ['xiaoman', 'D6 食堂、LY3 食堂、B1 餐厅门口都有橙色的光圈。走进去会弹一张单子，挑一单就接。'],
+          ['xiaoman', () => K('接单开关在屏幕上面指南针的旁边，按 J 也能开关。要开着才会弹单子哦。', '接单开关在屏幕上面指南针的旁边，点一下就能开关。要开着才会弹单子哦。')],
+          ['xiaoman', '这个月只派校园里的单，时间也多给你一半，走路跑步都来得及。去吧！']
+        ],
+        onTalk:() => { if (typeof offerToggle === 'function' && typeof OFFER !== 'undefined' && !OFFER.on) offerToggle(true); },
+        hint:{pc:'回南门，走到小满学姐旁边按 <kbd>F</kbd> 说话', touch:'回南门，走到小满学姐旁边点「说话」', flash:'#act-f'},
+        tip:'小满在南门里面，校碑旁边。'},
       {id:'c1_deliv1', text:'走路送出第一单外卖', rm:30,
         done:Q => Q.ach('deliv1'),
         hint:{pc:'走进橙色光圈，按 <kbd>F</kbd> 或 <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> 接单', touch:'走进橙色光圈，点卡片上的单子接单', flash:'#mini'},
         tip:'这一章的外卖只派校园里的单，时间也多给一半，走路跑步都来得及。', guide:'earn',
         nudge:'D6 食堂门口有橙色圈圈，从那儿接单最近。'},
-      {id:'c1_deliv5', text:'再送四单（一共 5 单）', rm:60,
-        done:Q => Q.life('deliv') >= 5, count:Q => [Math.min(5, Q.life('deliv')), 5],
+      /* 仓库主人：走路送两单意思一下就够了（id 还叫 c1_deliv5，存档里记的是 id，不改） */
+      {id:'c1_deliv5', text:'再送一单（一共 2 单）', rm:60,
+        done:Q => Q.life('deliv') >= 2, count:Q => [Math.min(2, Q.life('deliv')), 2],
         hint:{pc:'看屏幕上方的倒计时，跟着指南针跑', touch:'看屏幕上方的倒计时，跟着指南针跑'},
         tip:'送晚了顾客会给差评，跑起来！', guide:'earn',
         nudge:'送单的时候摇杆推到底跑，时间很宽裕的。'},
@@ -101,7 +116,13 @@ window.XQD = (() => {
         done:Q => Q.ach('swing'),
         hint:{pc:'走到秋千旁按 <kbd>F</kbd> 坐上去，按住 <kbd>空格</kbd> 越荡越高', touch:'走到秋千旁点「上车」坐上去，按住「荡」越荡越高', flash:'#act-f'},
         tip:'秋千在音乐岛西边的草坪上，荡高了松手能飞出去。',
-        nudge:'秋千在音乐岛西边，树林边的草坪上，地图上找「秋千」两个字。'}
+        nudge:'秋千在音乐岛西边，树林边的草坪上，地图上找「秋千」两个字。'},
+      /* 遇到校园里的小猫（js/89-kitty.js）：慢慢走过去，按 F 喂小鱼干，拍张照发给妈妈 */
+      {id:'c1_cat', calmNear:true, text:'喂喂校园里的小猫，拍张照发给妈妈', rm:20, isNew:true, kitty:true, at:() => window.XKitty ? XKitty.nearestAt() : null, r:0,
+        done:Q => Q.flag('q_cat'),
+        hint:{pc:'慢慢走过去（别按 <kbd>Shift</kbd> 跑），走到它旁边按 <kbd>F</kbd>', touch:'摇杆轻轻推，慢慢走过去，走到它旁边点「喂猫」', flash:'#act-f'},
+        tip:'校园里到处都有小猫，晒太阳、打盹。一跑过去它们就溜了。',
+        nudge:'指南针指着最近的一只小猫，慢慢走过去就不会把它吓跑。'}
     ]});
 
   D.diary.c1_start = '小满学姐塞给我一个工作牌，说先走路把学校认熟。';
@@ -109,11 +130,14 @@ window.XQD = (() => {
   D.diary.c1_deliv1 = '送出了第一单外卖，手心全是汗。';
   D.diary.c1_late = '送第一单外卖的时候差点迟到，跑得腿都软了。';
   D.diary.c1_swing = '在音乐岛旁边荡秋千，荡到最高的时候好像能飞起来。';
+  D.diary.c1_cat = '学校里有一只橘猫，喂了它两块小鱼干，拍了张照发给妈妈。妈妈说它比我可爱。';
+  D.diary.c1_cat_keep = '学校里有一只橘猫，喂了它两块小鱼干。照片没发，自己留着看。';
   D.diary.c1_end = '学姐把一辆 Myvi 的钥匙交给我。我有车了！';
   D.diary.homesick = '{when}有一架黄色的飞机从头顶飞过去……我想家了。';
   D.diary.intro = '飞机落地的时候，窗外全是一排一排的油棕树。';
 
   D.msgs.mom_arrive = {from:'mom', text:'到学校了吗？到了跟妈说一声。'};
+  D.msgs.mom_cat = {from:'mom', text:'好可爱！！是学校里的猫吗？你也要按时吃饭，别光喂猫。'};
   D.msgs.mom_rain = {from:'mom', text:'刚看了天气，雪邦下雨了吗？记得带伞。'};
   D.msgs.mom_video = {from:'mom', text:'视频吗？你爸也在。'};
   D.msgs.mom_car = {from:'mom', text:'开车慢点！！'};
@@ -153,7 +177,17 @@ window.XQD = (() => {
   }), false);
   const SHOWROOM_AT = () => G(() => [SHOWROOM[0], SHOWROOM[1]], [42, 196]);
   const stationDoor = () => G(() => XTrain.station.door, {x:950, z:520});
+  /* KLIA 里的步骤：还在校园这边时指向 Salak Tinggi 站门口（先坐车过去），到了 KLIA 里就交给那边自己的指引 */
+  const toKlia = () => G(() => XTrain.inside, null) === 'klia' ? null : (d => [d.x, d.z])(stationDoor());
 
+
+  /* 指南针用的「最近的……」：没有固定地点的步骤指向最近能做这件事的地方 */
+  const nearestOf = list => { const P = G(() => driving ? [driving.x, driving.z] : [nw.x, nw.z], [0, 0]); let b = null, bd = 1e9; for (const a of list){ if (!a) continue; const d = Math.hypot(a[0] - P[0], a[1] - P[1]); if (d < bd){ bd = d; b = a; } } return b; };
+  const nearChallenge = () => nearestOf(G(() => GX_ACTS.map(a => [a.start[0], a.start[1]]), []).concat(G(() => [[EX_START.x, EX_START.z]], [])));
+  const nearOutPickup = () => nearestOf(G(() => PICKUPS.filter(p => p.out).map(p => [p.x, p.z]), []));
+  const nearFlag = () => nearestOf(G(() => XRace.tracks.map(t => [t.ev.x, t.ev.z]), []));   /* the chequered-flag event points (js/92-racing.js T.ev) */
+  const myHouseDoor = () => { const h = houseFirst(); return h ? [h.door.x, h.door.z] : null; };
+  const saleDoor = () => G(() => { const h = XHouse.houses.find(x => x.id === 'h8') || XHouse.houses[0]; return [h.door.x, h.door.z]; }, [117.2, 415.1]);
   /* ---------- 发消息的人机奶蛙 ---------- */
   Object.assign(D.people, {
     laozhou:{name:'站长老周', icon:'周', color:'#e67e22'},
@@ -198,11 +232,11 @@ window.XQD = (() => {
     intro:[
       ['laozhou', '你就是小满说的那个新生？有车了？'],
       ['laozhou', '有车了那就别给我磨蹭。先跑个早八冲刺练练手，再给我把单子跑够。'],
-      ['laozhou', '开着车被保安追，就冲进 Bell 那间喷漆车间，门一关，谁也认不出你。'],
+      ['laozhou', '开着车被保安追，先拐几个弯把他甩出视线，再冲进 Bell 那间喷漆车间，门一关，谁也认不出你。被他看着开进去可不行。'],
       ['laozhou', '车想跑快点，去车行里的改装车间改一改。去吧，单子不等人。']
     ],
     outro:[
-      ['laozhou', '十五单，没超时几单……行吧，比我想的快一点点。'],
+      ['laozhou', '八单，没超时几单……行吧，比我想的快一点点。'],
       ['laozhou', '别得意。这包改装零件拿着，轮毂、漆、涡轮，够你折腾一阵子。'],
       ['laozhou', '对了，你那个室友卷卷在 A3 台阶上转圈，好像快哭了，去看看她。']
     ],
@@ -213,8 +247,9 @@ window.XQD = (() => {
         hint:{pc:'开车进蓝色光圈开始，跟着指南针在时限内冲到终点', touch:'开车进蓝色光圈开始，跟着指南针冲到终点'},
         tip:'早八冲刺的起点在 LY 宿舍区西边，从宿舍一路冲到教学楼，迟到了也能重来。', guide:'earn',
         nudge:'早八冲刺的蓝圈在 LY 宿舍区西头，开车进圈就开始。'},
-      {id:'c2_deliv15', text:'累计送 15 单外卖', rm:50,
-        done:Q => Q.life('deliv') >= 15, count:Q => [Math.min(15, Q.life('deliv')), 15],
+      /* 仓库主人：送 8 单就够了（id 还叫 c2_deliv15，存档里记的是 id，不改） */
+      {id:'c2_deliv15', text:'累计送 8 单外卖', rm:50,
+        done:Q => Q.life('deliv') >= 8, count:Q => [Math.min(8, Q.life('deliv')), 8],
         hint:{pc:'开车进橙色光圈，<kbd>F</kbd> 或 <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> 接单', touch:'开车进橙色光圈，点卡片上的单子接单', flash:'#mini'},
         tip:'开车送比走路快多了，远一点的单子钱也多。', guide:'earn',
         nudge:'D6 食堂门口的橙圈单子最多，接了就跟着指南针开。'},
@@ -230,9 +265,9 @@ window.XQD = (() => {
         nudge:'水枪工坊在车行面板最下面，最便宜的回水泵 RM 80。'},
       {id:'c2_repaint', text:'被通缉时开车冲进喷漆车间', rm:50, at:G(() => [XSPRAY.door.x, XSPRAY.door.z], [115, 316]), r:0,
         done:Q => Q.ach('repaint'),
-        hint:{pc:'被保安盯上（屏幕上有星星）时，开着自己的车冲进 Bell 的喷漆车间', touch:'被保安盯上（屏幕上有星星）时，开着自己的车冲进 Bell 的喷漆车间'},
+        hint:{pc:'先开车撞一下校园里巡逻的保安车，让他追你（钱包里出现星星），再甩开他的视线（拐弯、穿过树林），开进南门外 Bell 的喷漆车间', touch:'先开车撞一下校园里巡逻的保安车，让他追你（钱包里出现星星），再甩开他的视线（拐弯、穿过树林），开进南门外 Bell 的喷漆车间'},
         tip:'卷帘门一落，自动换漆，警戒清零，每颗星收 RM 50。', guide:'cops',
-        nudge:'先在校园里撞两下保安车让它追你，再开去南门外 Bell 那间喷漆车间。'},
+        nudge:'先在校园里撞两下保安车让它追你，甩开他的视线，再开去南门外 Bell 那间喷漆车间。'},
       {id:'c2_car', text:'买一辆 RM 500 以上的车', rm:0, parts:{rim:3, lacq:3}, at:SHOWROOM_AT(), r:0,
         done:Q => Q.ownedAny(['p911', 'mase', 'moto', 'lambo', 'gwag', 'rr']),
         hint:{pc:'攒够 RM 500，按 <kbd>G</kbd> 打开车行买一辆保时洁 911 或更好的', touch:'攒够 RM 500，点右上角「车行」买一辆保时洁 911 或更好的', flash:'#garageBtn'},
@@ -245,7 +280,7 @@ window.XQD = (() => {
     ]});
   D.diary.c2_start = '站长老周嫌我慢，说有车了就别磨蹭。我觉得他就是嘴硬。';
   D.diary.c2_early8 = '跑了一次早八冲刺，原来每天早上大家都是这么拼的。';
-  D.diary.c2_deliv15 = '十五单了！D6 门口的阿姨都认得我了。';
+  D.diary.c2_deliv15 = '八单了！D6 门口的阿姨都认得我了。';
   D.diary.c2_tea = '在蜜雪冰橙摇了一下午奶茶，手腕好酸，可是好好玩。';
   D.diary.c2_repaint = '被保安追得心都快跳出来，冲进喷漆车间那一刻，卷帘门落下，世界安静了。';
   D.diary.c2_car = '我买了第一辆自己挣钱买的车。坐进去的时候，手在方向盘上摸了好久。';
@@ -289,7 +324,7 @@ window.XQD = (() => {
         hint:{pc:'走到 LY 宿舍门口的紫圈按 <kbd>F</kbd> 进去，搜点东西再从门口撤出来', touch:'走到 LY 宿舍门口的紫圈点一下进去，搜点东西再撤出来', flash:'#act-f'},
         tip:'宿管阿姨在走廊里巡，躲在门后等她走过去再出来。', guide:'earn',
         nudge:'LY 宿舍门口都有紫圈，LY2 离中轴线最近。'},
-      {id:'c3_gold', text:'任意挑战拿一块金牌', rm:60,
+      {id:'c3_gold', at:() => nearChallenge(), r:0, text:'任意挑战拿一块金牌', rm:60,
         done:Q => Q.ach('gold'),
         hint:{pc:'挑战赛、潜入委托、蜜雪冰橙打工……任何一样拿到金牌都算', touch:'挑战赛、潜入委托、蜜雪冰橙打工……任何一样拿到金牌都算'},
         tip:'早八冲刺和蜜雪冰橙打工都比较容易拿金牌，多试几次。', guide:'earn',
@@ -341,12 +376,12 @@ window.XQD = (() => {
         hint:{pc:'夜市东头榴莲摊前的绿圈按 <kbd>F</kbd>，挑一颗真的猫山王再砍价', touch:'夜市东头榴莲摊前的绿圈点一下，挑一颗真的猫山王再砍价', flash:'#act-f'},
         tip:'看底部的星纹、看蒂头、摇一摇、闻一闻，五次机会别浪费。', guide:'earn',
         nudge:'夜市在 Bell 后巷往东南，榴莲摊在最东头，地上有绿圈。'},
-      {id:'c4_thief', text:'抓住一个偷外卖的小偷', rm:50,
+      {id:'c4_thief', at:() => nearOutPickup(), r:0, text:'抓住一个偷外卖的小偷', rm:50,
         done:Q => Q.ach('thief1'),
         hint:{pc:'送校外的单子时小偷会来抢，追上去用水枪淋他，走到身边按 <kbd>F</kbd> 拿回来', touch:'送校外的单子时小偷会来抢，追上去用水枪淋他，走到身边点一下拿回来'},
         tip:'车速 54 以上小偷抢不到你；被抢了就追，他跑不远。', guide:'earn',
         nudge:'接 Bell 或 KIP 那边的外卖单，开慢一点，小偷就会出来。'},
-      {id:'c4_race', text:'去格子旗跑完一场竞速', rm:40, at:G(() => XRace.tracks[0].start.slice(0, 2), [192, 246.6]), r:0,
+      {id:'c4_race', text:'去格子旗跑完一场竞速', rm:40, at:() => nearFlag(), r:0,
         done:Q => Q.ach('race1'),
         hint:{pc:'开车到地图上的格子旗，进圈开始比赛', touch:'开车到地图上的格子旗，进圈开始比赛', flash:'#mini'},
         tip:'地图上有五个格子旗，校园环线离得最近。', guide:'earn',
@@ -396,14 +431,14 @@ window.XQD = (() => {
       {id:'c5_seplap', text:'二园雪邦赛道跑一圈', rm:60, at:G(() => XF1.PT[XF1.SF].slice(0, 2), [258.9, 912.2]), r:0,
         done:Q => Q.best('sepLap'),
         hint:{pc:'开到二园的雪邦赛道，从主直道的起点线出发跑一整圈', touch:'开到二园的雪邦赛道，从主直道的起点线出发跑一整圈'},
-        tip:'一圈大约 3 公里、15 个弯，发卡弯前早点刹车。', guide:'tune',
+        tip:window.XF1D ? '一圈 4.3 公里、18 个弯，看路边的刹车牌和建议车速；冲出去了按「回赛道」。' : '一圈大约 3 公里、15 个弯，发卡弯前早点刹车。', guide:'tune',
         nudge:'二园在 Bell Avenue 东南边的油棕园公路两边，起点线在主看台前面。'},
-      {id:'c5_racewin', text:'赢一场人机赛或道具赛', rm:60,
+      {id:'c5_racewin', at:() => nearFlag(), r:0, text:'赢一场人机赛或道具赛', rm:60,
         done:Q => Q.ach('racewin'),
         hint:{pc:'格子旗进圈后选「人机赛」或「道具赛」，跑第一', touch:'格子旗进圈后选「人机赛」或「道具赛」，跑第一'},
         tip:'道具赛里护盾能挡水弹，加速留到直道再用。', guide:'tune',
         nudge:'校园环线最短，在那儿开人机赛最容易赢。'},
-      {id:'c5_ghostwin', text:'在影线 1v1 里跑赢对手', rm:40,
+      {id:'c5_ghostwin', at:() => nearFlag(), r:0, text:'在影线 1v1 里跑赢对手', rm:40,
         done:Q => Q.ach('ghostwin'),
         hint:{pc:'格子旗进圈后选「影线 1v1」，跑赢那条半透明的影子', touch:'格子旗进圈后选「影线 1v1」，跑赢那条半透明的影子'},
         tip:'影线是别人跑过的最快一圈，跟紧它学走线。', guide:'tune'}
@@ -446,11 +481,11 @@ window.XQD = (() => {
         hint:{pc:'送外卖、打工、比赛都能挣钱；车、改装、家具都算进总资产', touch:'送外卖、打工、比赛都能挣钱；车、改装、家具都算进总资产'},
         tip:'总资产 = 现金 + 车 + 改装 + 房子和家具，买东西不会让它变少。', guide:'rich',
         nudge:'挣钱最快的是跨区外卖和挑战赛金牌，晚上的夜宵单价也高。'},
-      {id:'c6_house1', text:'买下第一套房', rm:0,
+      {id:'c6_house1', at:saleDoor, r:0, text:'买下第一套房', rm:0,
         done:Q => Q.ach('house1'),
         hint:{pc:'看房时按 <kbd>F</kbd>「买下」', touch:'看房时点「买下」', flash:'#act-f'},
         tip:'最便宜的是 4 号，RM 7,400；8 号正对校门。', guide:'house'},
-      {id:'c6_deco3', text:'摆上 3 件家具', rm:100, isNew:true,
+      {id:'c6_deco3', at:() => myHouseDoor(), r:0, text:'摆上 3 件家具', rm:100, isNew:true,
         done:() => decoMost() >= 3, count:() => [Math.min(3, decoMost()), 3],
         hint:{pc:'在家里按 <kbd>F</kbd> 打开装修，挑三件摆上', touch:'在家里点「装修」，挑三件摆上', flash:'#act-f'},
         tip:'九个位置，五种风格，学生宿舍风最便宜。', guide:'house'},
@@ -459,7 +494,7 @@ window.XQD = (() => {
         done:() => { const s = hzS(); return !!(s.park && s.own[s.park]); },
         hint:{pc:'开着自己的车到自家门口的车棚，停稳按 <kbd>F</kbd> 下车', touch:'开着自己的车到自家门口的车棚，停稳点「下车」', flash:'#act-f'},
         tip:'车停进车棚，下次上线车还在家门口。', guide:'house'},
-      {id:'c6_sofa', text:'在自家沙发上坐一会儿', rm:20, isNew:true,
+      {id:'c6_sofa', at:() => myHouseDoor(), r:0, text:'在自家沙发上坐一会儿', rm:20, isNew:true,
         done:Q => Q.flag('q_sofa5'),
         hint:{pc:'在家里走到沙发旁按 <kbd>F</kbd> 坐下，坐 5 秒', touch:'在家里走到沙发旁点「坐下」，坐 5 秒', flash:'#act-f'},
         tip:'先在装修里摆一张沙发，再坐上去发会儿呆。', guide:'house'}
@@ -495,12 +530,12 @@ window.XQD = (() => {
         hint:{pc:'进站走到站台，车门边按 <kbd>F</kbd> 开门上车', touch:'进站走到站台，车门边点「开门」上车', flash:'#act-f'},
         tip:'Salak Tinggi 坐 KLIA Transit 一站，大约 7 分钟。', guide:'earn',
         nudge:'站门口有紫色的圈，走进去再上二楼站台。'},
-      {id:'c7_klia', text:'问讯台的送机单拿一块奖牌', rm:60,
+      {id:'c7_klia', at:() => toKlia(), r:0, text:'问讯台的送机单拿一块奖牌', rm:60,
         done:Q => Q.best('klia'),
         hint:{pc:'KLIA 大厅中间的问讯台按 <kbd>F</kbd> 接一单，按住 <kbd>Shift</kbd> 跑', touch:'KLIA 大厅中间的问讯台点一下接单，摇杆推到底跑', flash:'#act-f'},
         tip:'旅客拖着行李车，撞到会扣时间，绕着走。', guide:'earn',
         nudge:'问讯台在 KLIA 大厅正中间，航班屏下面。'},
-      {id:'c7_sukiya', text:'在すき家吃碗牛丼', rm:20,
+      {id:'c7_sukiya', at:() => toKlia(), r:0, text:'在すき家吃碗牛丼', rm:20,
         done:Q => Q.ach('sukiya'),
         hint:{pc:'KLIA 大厅西边的すき家门口按 <kbd>F</kbd>', touch:'KLIA 大厅西边的すき家门口点一下', flash:'#act-f'},
         tip:'牛丼（并）RM 12.90，热乎乎的。'},
@@ -535,7 +570,7 @@ window.XQD = (() => {
     mom_house:{from:'mom', text:'你哪来的钱买房？？'},
     mom_end:{from:'mom', text:'一年了，长大了。放假回来妈给你做好吃的。'},
     lz_hi:{from:'laozhou', text:'小满说你有车了？D6 外卖点，过来，别让我等。'},
-    lz_mid:{from:'laozhou', text:'十五单了？还行，没我当年快。'},
+    lz_mid:{from:'laozhou', text:'八单了？还行，没我当年快。'},
     lz_end:{from:'laozhou', text:'单子还多，有空就回来跑。别跟别人说我夸过你。'},
     jj_hi:{from:'juanjuan', text:'室友救命！！！A3 大台阶，快来！！'},
     jj_mid:{from:'juanjuan', text:'卷子拿到了？？？我哭了真的'},
@@ -602,6 +637,8 @@ window.XQD = (() => {
     {id:'ben_wide', npc:'ben', after:'c5', text:'同一辆车装上宽体和尾翼', rm:100, done:Q => Q.ach('tunewide')},
     {id:'ben_top', npc:'ben', after:'c5', text:'提到一件顶级改装', rm:150, done:Q => Q.ach('tunetop')},
     {id:'ben_bp', npc:'ben', after:'c5', text:'集齐 5 张改装配方', rm:100, parts:{plan:2}, done:Q => Q.ach('tunebp')},
+    /* 隐藏特技跳台（js/89-stuntjumps.js，比主线脚本晚加载，所以运行时再问 XJumps） */
+    {id:'ben_jump', npc:'ben', after:'c5', text:'找到一个藏起来的特技跳台，飞过去', rm:60, done:() => G(() => XJumps.count() >= 1, false)},
     {id:'ben_cars', npc:'ben', after:'c5', text:'把车行里的车全部买下', rm:150, done:Q => Q.ach('allcars')},
     {id:'lim_deco9', npc:'lim', after:'c6', text:'一套房九个位置都摆上家具', rm:120, done:Q => Q.ach('deco9')},
     {id:'lim_set', npc:'lim', after:'c6', text:'整屋换成同一种风格', rm:150, done:Q => Q.ach('decoset')}
@@ -626,6 +663,281 @@ window.XQD = (() => {
       if (ins === 'klia') sawK = true;
       else if (sawK && !ins && !riding) flag('q_erlback');
     }); }
+
+  /* ================= 第二期：采购单、新角色、生日火锅局、搬家、第 8 章（docs/quests.md「第二期」） ================= */
+  /* ---------- 新的人机奶蛙（都是虚构的）：店里的人，从第 4 章起站在店门口；第 8 章的新生阿豆 ---------- */
+  Object.assign(D.people, {
+    rose:{name:'罗丝阿姨', icon:'罗', color:'#e0609a'},
+    durian:{name:'榴莲哥', icon:'榴', color:'#8a9a2c'},
+    kumar:{name:'库马叔', icon:'库', color:'#b5651d'},
+    adi:{name:'阿弟', icon:'弟', color:'#1f86c8'},
+    adou:{name:'阿豆', icon:'豆', color:'#f08a3c'}
+  });
+  /* KIP 商场北面：超市那段墙（x −704 ~ −656，墙在 z 936）前面的停车场边上，面朝北边来的人 */
+  D.npcs.rose = {name:'罗丝阿姨', short:'罗丝阿姨', color:'#e0609a', place:'KIP 超市门口', appear:4, at:[-671, 932, Math.PI],
+    look:{skin:'pink', head:'pearl', outfit:'shirt'}, shape:'chubby',
+    chat:['今天青菜特价，买一送一哦。', '冷冻的东西最后买，路上化了阿姨可不管。', '大乱斗那几个顾客，推车比开车还凶。']};
+  /* 夜市东头的榴莲摊（js/89-pasar-malam.js 的 SPOT.durian 是猫山王挑战的绿圈），站在圈的东边 */
+  D.npcs.durian = {name:'榴莲哥', short:'榴莲哥', color:'#8a9a2c', place:'夜市榴莲摊', appear:4,
+    at:() => { const s = G(() => XPasar.SPOT.durian, null); return s ? [s[0] + 6.5, s[1] + 1.2, -Math.PI / 2] : [506.3, 561.5, -Math.PI / 2]; },
+    look:{skin:'gold', head:'fedora', neck:'chain'}, shape:'big',
+    chat:['猫山王今天刚到，包甜！', '看星纹、看蒂头，别光闻。', '白天收摊，天黑再来 lah。']};
+  /* Al-Hajeera 嘛嘛档：店屋最西头（x 142 起），站在露天座位和店门之间 */
+  D.npcs.kumar = {name:'库马叔', short:'库马叔', color:'#b5651d', place:'Bell 嘛嘛档 Al-Hajeera', appear:4, at:[139.5, 311, Math.PI / 2],
+    look:{skin:'orange', face:'meh', neck:'bowtie'}, shape:'chubby',
+    chat:['拉茶要拉三尺高，泡泡才香。', '二十四小时开，半夜饿了就来。', 'Roti 要趁热吃，冷了就硬了。']};
+  /* 麦当当旁边的加油站，便利店门口 */
+  D.npcs.adi = {name:'阿弟', short:'阿弟', color:'#1f86c8', place:'KIP 那边的加油站', appear:5, at:[-694, 1136, Math.PI],
+    look:{skin:'xmumblue', head:'policecap', outfit:'redvest'}, shape:'slim',
+    chat:['不能加油哦，泵是坏的，便利店可以。', '冰水要不要？天气这么热。', '晚上这条路很多人飙车，你小心。']};
+  /* 第 8 章的新生：平时站在南门小满旁边，第 8 章做任务时跟着你走（js/89-quest.js 的 follow） */
+  D.npcs.adou = {name:'新生阿豆', short:'阿豆', color:'#f08a3c', place:'南门', appear:8, at:[97.5, 240.5, 0],
+    follow:() => !!(window.XQuest && XQuest.ch === 8 && (XQuest.ph === 'steps' || XQuest.ph === 'report')),
+    look:{skin:'orange', back:'bag', neck:'badge'}, shape:'std',
+    chat:['学长，那栋最高的是 A3 对吧？我记住了！', '学长开车好稳，我以后也要学。', '学长，拉茶真的好甜……再来一杯。']};
+
+  /* ---------- 采购单用的店：at 是站的地方（离店门两三步），open() 不开门时买不了（夜市白天收摊） ---------- */
+  const bellAt = (name, dx) => G(() => { const i = BELL_SIGN.n.findIndex(si => OUT_SIGNS[si][0] === name); return i >= 0 ? [BELL_UNITS[i] + (dx || 0), 309.5] : null; }, null);
+  const lyDoor = () => G(() => { const d = DM_DOORS.find(x => x.name === 'LY2') || DM_DOORS[0]; return [d.x + Math.sin(d.h) * 7, d.z + Math.cos(d.h) * 7]; }, [975, 230]);
+  D.shops = {
+    kipmart:{name:'KIP 超市', at:[-680, 931.5]},
+    diy:{name:'DIY 五金百货', at:[-735, 931.5]},
+    kfc:{name:'上校炸鸡', at:[-760, 935]},
+    cake:{name:'秘方蛋糕', at:() => bellAt('秘方蛋糕') || [368.25, 309.5]},
+    bellfruit:{name:'Bell 鲜果蔬菜', at:() => bellAt('鲜果蔬菜') || [153.25, 309.5]},
+    mamak:{name:'Al-Hajeera 嘛嘛档', at:() => bellAt('Nasi Kandar Al-Hajeera') || [145.75, 309.5]},
+    pasar:{name:'夜市水果摊', at:() => { const s = G(() => XPasar.SPOT.fruit || XPasar.SPOT.durian, null); return s ? [s[0] - 8, s[1]] : [491.8, 560.3];   /* 8 m west of the durian ring, so the two cards never share a spot */ },
+      open:() => G(() => XPasar.openG.visible, true), shut:'夜市天黑才开。水果也可以去 Bell 的「鲜果蔬菜」买。'},
+    petrol:{name:'加油站便利店', at:[-690, 1131]},
+    lydorm:{name:'LY 宿舍楼下', at:lyDoor, verb:'搬上车'}
+  };
+  /* ---------- 采购单（js/89-errand.js）：买齐 → 送到 to → 报销（refund）→ onDone
+     item = {id, name, icon, rm, shops:[店 id], cold:秒（买了以后多久内要送到，过了就坏，要重买）, spoil:'坏了的说法'}
+     gift = {店 id:[[谁, 台词]]} 在这家店买这一单的东西时，店里的人说的话（送东西） */
+  const houseDoor = () => { const h = houseFirst(); return h ? [h.door.x, h.door.z] : [117.2, 415.1]; };
+  D.errands = {
+    bday:{title:'生日火锅局', from:'aming', refund:'大家 AA 了，钱转回给你', to:{name:'LY 宿舍楼下', at:lyDoor}, onDone:'birthday',
+      items:[
+        {id:'meat', name:'火锅肉片', icon:'🥩', rm:28, shops:['kipmart'], cold:600, spoil:'化冻了'},
+        {id:'balls', name:'丸子拼盘', icon:'🍢', rm:16, shops:['kipmart'], cold:600, spoil:'化冻了'},
+        {id:'veg', name:'青菜和菇', icon:'🥬', rm:9, shops:['kipmart', 'bellfruit']},
+        {id:'fruit', name:'一袋水果', icon:'🍉', rm:15, shops:['pasar', 'bellfruit']},
+        {id:'tea', name:'一大壶拉茶', icon:'🧋', rm:12, shops:['mamak']},
+        {id:'pot', name:'电磁炉和鸳鸯锅', icon:'🍲', rm:89, shops:['diy']},
+        {id:'chicken', name:'一桶炸鸡', icon:'🍗', rm:35, shops:['kfc']},
+        {id:'cake', name:'生日蛋糕', icon:'🎂', rm:45, shops:['cake']}
+      ],
+      gift:{kipmart:[['rose', '买这么多肉？生日啊？阿姨送你一包火锅底料，生日快乐！']],
+        pasar:[['durian', '寿星公？这块猫山王送你尝，不要钱 lah！']],
+        mamak:[['kumar', '拉茶我多加了一勺炼奶。生日嘛，甜一点。']],
+        diy:[['memo', '店员说：「鸳鸯锅？宿舍偷偷用的吧。」我假装没听见。']]}},
+    move:{title:'搬家', from:'lim', to:{name:'新家门口', at:houseDoor},
+      items:[{id:'boxes', name:'宿舍的行李', icon:'📦', rm:0, shops:['lydorm']}, {id:'table', name:'火锅圆桌和小板凳', icon:'🪑', rm:0, shops:['lydorm']}],
+      gift:{lydorm:[['juanjuan', '我们来帮你搬！……搬完了能在新家吃顿饭吗？'], ['aming', '圆桌带走 lah，以后火锅局在你家开。']]}},
+    rice:{title:'罗丝阿姨的米', from:'rose', to:{name:'Taman Warisan Megah 8 号门口', at:[117.2, 412]},
+      items:[{id:'rice', name:'一袋 10 公斤的米', icon:'🍚', rm:0, shops:['kipmart']}]},
+    durian:{title:'给老周的猫山王', from:'durian', refund:'老周把钱给你了，还说「下次挑熟一点的」', to:{name:'D6 外卖点（老周）', at:[344, -143]},
+      items:[{id:'du', name:'一颗猫山王', icon:'🍈', rm:40, shops:['pasar'], cold:420, spoil:'在车里熏太久了，老周说不要'}]},
+    supper:{title:'给卷卷的夜宵', from:'kumar', refund:'卷卷把钱转给你了', to:{name:'A3 大台阶（卷卷）', at:[110, 123]},
+      items:[{id:'teh', name:'拉茶', icon:'🧋', rm:3, shops:['mamak'], cold:360, spoil:'凉了'}, {id:'roti', name:'Roti Canai', icon:'🫓', rm:2, shops:['mamak'], cold:360, spoil:'凉了'}]},
+    ice:{title:'给 Ben 师傅的冰水', from:'adi', refund:'Ben 师傅把钱给你了', to:{name:'汽车游乐园一园入口（Ben）', at:[-903, 249]},
+      items:[{id:'ice', name:'一箱冰水', icon:'🧊', rm:12, shops:['petrol'], cold:300, spoil:'冰都化了'}]}
+  };
+  const erAt = id => G(() => XErrand.nextAt(id), null);
+  const erCount = id => G(() => XErrand.count(id), null);
+
+  /* ---------- 第 4 章：结尾加生日火锅局 ---------- */
+  { const c4 = D.chapters.find(c => c.n === 4);
+    c4.replayCine = 'birthday';
+    c4.recap = '（补记）阿明带我认识了雪邦：嘛嘛档、得来速、KIP、夜市，还在 LY 宿舍给我过了生日，吃了火锅。';
+    c4.outro = [
+      ['aming', '生日过得开心吧？宿管阿姨吃了三碗，我数着的 lah。'],
+      ['aming', '得来速、夜市、KIP 都跑熟了，你现在比我还像本地人。'],
+      ['aming', '我表哥 Ben 在汽车游乐园开改装铺，只认圈速不认车价。'],
+      ['aming', '他在一园入口等你，出校园往西开就到。别给我丢脸 lah。']
+    ];
+    c4.steps.push(
+      {id:'c4_shop', text:'生日火锅局：照采购单买齐东西', rm:50, isNew:true, errand:'bday', at:() => erAt('bday'), r:0,
+        done:Q => Q.flag('er_bday_all'), count:() => erCount('bday'),
+        hint:{pc:'走到店门口，卡片弹出来按 <kbd>F</kbd> 买下；买到的东西在任务条下面', touch:'走到店门口，点卡片买下；买到的东西在任务条下面'},
+        tip:'肉片和丸子是冷冻的，买了十分钟内要送到，最后再去 KIP。水果夜市天黑才开，白天去 Bell 的鲜果蔬菜。',
+        nudge:'采购单上的店：KIP 超市、DIY 五金、上校炸鸡（都在 KIP 那边），嘛嘛档、秘方蛋糕、鲜果蔬菜（都在 Bell）。'},
+      {id:'c4_party', text:'把东西送到 LY 宿舍楼下', rm:0, isNew:true, errand:'bday', at:() => erAt('bday'), r:0,
+        done:Q => Q.flag('q_bday'),
+        hint:{pc:'到 LY 宿舍楼下的黄圈，按 <kbd>F</kbd> 送到', touch:'到 LY 宿舍楼下的黄圈，点卡片送到'},
+        tip:'大家都在楼上等着了。'}
+    ); }
+  D.diary.c4_shop = '照着阿明的采购单跑了半个雪邦：KIP、五金店、炸鸡、嘛嘛档，还有蛋糕。';
+  D.diary.c4_party = '我的生日。小小的宿舍挤了五个人和一个鸳鸯锅，宿管阿姨来敲门，最后也坐下来吃了一碗。';
+  Object.assign(D.msgs, {
+    mom_bday:{from:'mom', text:'下礼拜你生日，一个人在那边记得吃好一点。'},
+    am_bday:{from:'aming', text:'生日？？那必须在宿舍搞火锅局！采购单发你了，买齐送到 LY 楼下 lah。'},
+    mom_bday2:{from:'mom', text:'生日快乐。吃火锅了？别吃太辣。红包收一下。'}
+  });
+  const stepIs = id => G(() => XQuest.step().id === id, false);
+  D.events.push(
+    {id:'ev_bday_mom', when:() => chIs(4) && stepIs('c4_shop'), msg:'mom_bday'},
+    {id:'ev_bday_am', when:() => chIs(4) && stepIs('c4_shop') && G(() => XQuest.state.msgs.some(e => e.m === 'mom_bday'), false), msg:'am_bday'}
+  );
+
+  /* ---------- 第 3 章：陪卷卷在 A3 图书馆自习一整天（过场 library：大窗外的天从白天变成粉红色） ---------- */
+  const libAt = [112, 116.5];
+  { const c3 = D.chapters.find(c => c.n === 3), i = c3.steps.findIndex(s => s.id === 'c3_exam');
+    c3.replayCine = 'library';
+    c3.steps.splice(i + 1, 0, {id:'c3_study', text:'陪卷卷在 A3 图书馆自习一整天', rm:40, isNew:true, at:libAt, r:5,
+      done:Q => Q.flag('q_study'),
+      hint:{pc:'走到 A3 大台阶东边卷卷那里的黄圈', touch:'走到 A3 大台阶东边卷卷那里的黄圈'},
+      tip:'图书馆北面是一整面落地大窗，傍晚的天会变成粉红色。'}); }
+  D.diary.c3_study = '陪卷卷在 A3 图书馆自习了一整天。抬头的时候，大窗户外面的天整个变成了粉红色。';
+  { let busy = false;
+    D.watch.push((Q, flag) => {
+      if (busy || Q.flag('q_study') || !stepIs('c3_study') || !Q.near(libAt[0], libAt[1], 6) || Q.driving() || G(() => XCine.busy, true)) return;
+      if (window.XCine && XCine.play && XCine.play('library', {onDone:() => { busy = false; flag('q_study'); }})) busy = true; else flag('q_study');
+    }); }
+  /* ---------- 第 5 章：先跟 Ben 师傅去二园看一场比赛（过场 f1），发誓要当车手，后面的步骤是特训和改装 ---------- */
+  const gsAt = () => G(() => { const F = XF1, i = F.SF + 60, p = F.PT[i], n = F.NOR[i]; return [p[0] - n[0] * 11, p[1] - n[1] * 11]; }, [88, 973]);
+  { const c5 = D.chapters.find(c => c.n === 5);
+    c5.replayCine = 'f1';
+    c5.recap = '（补记）跟 Ben 师傅在二园看了一场比赛，发誓要当车手；后来天天改车、飞大跳台、跑雪邦赛道。';
+    c5.intro = [
+      ['ben', '阿明说你会开车？先别急着改车。'],
+      ['ben', '这个周末二园有比赛。跟我去主看台看一场，看完你就知道车是拿来干什么的。'],
+      ['ben', '二园在 Bell Avenue 东南边，主看台在主直道旁边。我先过去，你自己开过来。']
+    ];
+    c5.outro.splice(2, 0, ['ben', '还有这套雪邦赛道涂装，是我们车队以前的。贴上它，你就是车队的人了。']);
+    c5.reward = Object.assign({}, c5.reward, {decal:'sepang', note:'一件航空钛锭 + 鹅颈尾翼配方 + 雪邦赛道涂装'});
+    for (const s of c5.steps) if (!/^特训/.test(s.text)) s.text = '特训：' + s.text;
+    c5.steps.unshift({id:'c5_watch', text:'跟 Ben 师傅去二园主看台看一场比赛', rm:40, isNew:true, at:gsAt, r:6,
+      done:Q => Q.flag('q_f1'),
+      hint:{pc:'开车到二园，主直道旁边的主看台前，走进黄圈', touch:'开车到二园，主直道旁边的主看台前，走进黄圈'},
+      tip:'二园就是雪邦赛道那一园，在 Bell Avenue 东南边的油棕园公路两边。',
+      nudge:'二园在 Bell Avenue 东南边，顺着油棕园公路开，看到大看台就到了。'}); }
+  D.diary.c5_watch = '跟 Ben 师傅在二园看了一场比赛。赛车从面前冲过去，地都在抖。我跟自己说：总有一天，我也要在这条赛道上拿第一。';
+  /* 走进主看台前的黄圈就开演（走路、开车都行；做完这一步就不再放） */
+  { let busy = false;
+    D.watch.push((Q, flag) => {
+      if (busy || Q.flag('q_f1') || !stepIs('c5_watch')) return;
+      const a = gsAt(); if (!a || !Q.near(a[0], a[1], 14) || G(() => XCine.busy, true)) return;
+      if (window.XCine && XCine.play && XCine.play('f1', {onDone:() => { busy = false; flag('q_f1'); }})) busy = true; else flag('q_f1');
+    }); }
+
+  /* 第 5 章「特训」接上维修区车库（js/94-f1-paddock.js，PR #120）：车库在才加这两步，没合并时第 5 章照旧。
+     只要求进一次车库、做一次换胎挑战；赛车（RM 3,500）和 F1 件不写进主线，材料照车库自己的规矩慢慢掉，主线不额外发。 */
+  if (window.XF1Tune && window.XPaddock){
+    const c5 = D.chapters.find(c => c.n === 5), i = c5.steps.findIndex(s => s.id === 'c5_watch') + 1;
+    const door = () => G(() => [XF1Tune.door.x, XF1Tune.door.z], null);
+    c5.steps.splice(i, 0,
+      {id:'c5_paddock', text:'特训：去维修区车库找车队经理 Ken', rm:30, isNew:true, at:door, r:0,
+        done:() => G(() => XPaddock.save.n > 0 || XF1Tune.inPaddock(), false),
+        hint:{pc:'主直道边的维修区，橙色圈那间车库门口，下车走进去按 <kbd>F</kbd>', touch:'主直道边的维修区，橙色圈那间车库门口，下车走进去点「进车库」'},
+        tip:'Ben 师傅以前在雪邦车队待过，车队经理 Ken 是他的老朋友。',
+        nudge:'车库就在主看台对面的维修区，门口有橙色圈。'},
+      {id:'c5_pit', text:'特训：在车库里做一次换胎挑战', rm:40, isNew:true, at:door, r:0,
+        done:() => G(() => XPaddock.save.pitBest != null, false),
+        hint:{pc:'车库中间那辆 F1 赛车前按 <kbd>F</kbd>：哪个轮子亮就点哪个，每个点三下，最后点「放车」', touch:'走到车库中间的 F1 赛车前点「换胎挑战」：哪个轮子亮就点哪个，每个点三下，最后点「放车」'},
+        tip:'做完就算，不用拿金牌。改赛车的材料就是从这些活里慢慢攒的。',
+        nudge:'进车库后走到中间那辆架起来的赛车前面。'});
+    D.diary.c5_paddock = 'Ben 师傅带我进了雪邦车队的车库。Ken 看了我一眼，说：「先从换胎学起。」';
+    D.diary.c5_pit = '第一次给真的赛车换胎，手抖得螺母都拧歪了。Ken 说比他第一次快。';
+  }
+
+  /* ---------- 第 6 章：买了房就搬出宿舍 ---------- */
+  { const c6 = D.chapters.find(c => c.n === 6), i = c6.steps.findIndex(s => s.id === 'c6_house1');
+    c6.steps.splice(i + 1, 0,
+      {id:'c6_move', text:'搬家：把宿舍的行李搬到新家', rm:50, isNew:true, errand:'move', at:() => erAt('move'), r:0,
+        done:Q => Q.flag('er_move_done'), count:() => erCount('move'),
+        hint:{pc:'先到 LY 宿舍楼下把行李搬上车，再开到新家门口按 <kbd>F</kbd>', touch:'先到 LY 宿舍楼下把行李搬上车，再开到新家门口点卡片'},
+        tip:'卷卷和阿明说来帮忙，其实是来蹭饭的。'}); }
+  D.diary.c6_move = '最后一次从 LY 宿舍搬东西下楼。那张火锅圆桌和小板凳，我也带走了。';
+
+  /* ---------- 第 8 章 新学期：换你当学长，带新生阿豆走一遍第 1 章的路（步骤不标 isNew：老玩家也要自己走一遍） ---------- */
+  D.chapters.push({n:8, id:'c8', title:'新学期', npc:'xiaoman', place:'南门', guide:['map'],
+    report:'带阿豆回南门找小满学姐', diaryStart:'c8_start', diaryEnd:'c8_end', startMsg:'xm_ch8', endMsg:'mom_y2',
+    recap:'（补记）带新生阿豆走了一遍我第一天走过的路。',
+    intro:[
+      ['adou', '学、学长好！我叫阿豆，是今年最后一个报到的……'],
+      ['xiaoman', '今年的最后一个，我不带了，交给你。'],
+      ['xiaoman', '先别想着开车啦，走路带他把学校认熟——这句话耳熟吧？'],
+      ['adou', '学长，A3 在哪？我在飞机上就听说 A3 的台阶很宽……']
+    ],
+    outro:[
+      ['adou', '学长，学校好大……可是我好像不怕了。'],
+      ['xiaoman', '一年前，我也是站在这儿，看着你一路走远的。'],
+      ['xiaoman', '以后他就交给你啦。第二年，好好过。'],
+      ['adou', '谢谢学长！我以后也要像你一样！']
+    ],
+    reward:{rm:600, title:'靠谱学长 / 学姐', note:'称号「靠谱学长 / 学姐」'},
+    steps:[
+      {id:'c8_a3', calmNear:true, text:'带阿豆走到 A3 大台阶', rm:40, at:[105, 120], r:7,
+        done:Q => Q.near(105, 120, 9) && Q.withMe('adou'),
+        hint:{pc:'阿豆跟在你后面走；开车也行，他会坐上来', touch:'阿豆跟在你后面走；开车也行，他会坐上来'},
+        tip:'阿豆走得慢，回头看看他跟上没有。', nudge:'沿着中轴线往北走，阿豆会跟着你。'},
+      {id:'c8_d6', hint:{pc:'走回 D6 食堂的外卖点，阿豆跟着你；开车他会坐上来', touch:'走回 D6 食堂的外卖点，阿豆跟着你；开车他会坐上来'}, calmNear:true, text:'带阿豆去 D6 食堂认认外卖点', rm:40, at:[342, -146.4], r:6,
+        done:Q => Q.near(342, -146.4, 9) && Q.withMe('adou'),
+        tip:'老周在那儿。阿豆有点怕他。'},
+      {id:'c8_swing', hint:{pc:'去音乐岛西边的秋千，阿豆跟着你', touch:'去音乐岛西边的秋千，阿豆跟着你'}, calmNear:true, text:'带阿豆去音乐岛的秋千', rm:40, at:[-26, -58], r:5,
+        done:Q => Q.near(-26, -58, 8) && Q.withMe('adou'),
+        tip:'就是你第一天荡过的那架秋千。'},
+      {id:'c8_mamak', hint:{pc:'出南门去 Bell 嘛嘛档的露天座位，阿豆跟着你', touch:'出南门去 Bell 嘛嘛档的露天座位，阿豆跟着你'}, calmNear:true, text:'带阿豆去嘛嘛档喝一杯拉茶', rm:40, at:[127, 330], r:5,
+        done:Q => Q.near(127, 330, 9) && Q.withMe('adou'),
+        tip:'他第一次喝拉茶，看他会不会也被甜得一激灵。'}
+    ]});
+  /* 麦当当打工一班（js/minigames/mcd.js，PR #116）：游戏在才加这一步，没合并时第 8 章照旧四步。
+     打一局就算：记下这一步第一次检查时的局数，之后多一局就打勾（刷新页面会重新记，最多要多打一局） */
+  if (window.XMcd && typeof MDX !== 'undefined'){
+    const mcdN = () => G(() => XMcd.modes.reduce((n, m) => n + (mgSave.plays['mcd_' + m] | 0), 0), 0);
+    let mcd0 = null;
+    D.chapters.find(c => c.id === 'c8').steps.push(
+      {id:'c8_mcd', calmNear:true, text:'带阿豆去麦当当打工一班', rm:60, at:[-498.6 + MDX, 778 + MDZ], r:5,
+        done:() => { const n = mcdN(); if (mcd0 == null) mcd0 = n; return n > mcd0; },
+        hint:{pc:'麦当当在 KIP 那边，正门外有黄圈；阿豆跟着你，到了按 F 进后厨配餐', touch:'麦当当在 KIP 那边，正门外有黄圈；阿豆跟着你，到了点「打工」进后厨配餐'},
+        tip:'阿豆说他高中在快餐店打过工，看谁叠汉堡快。', nudge:'开车去 KIP 那边的麦当当，正门外黄圈按 F，随便打一局就行。'});
+    D.diary.c8_mcd = '带阿豆去麦当当后厨打了一班工。他叠汉堡比我还快，我假装没看见。';
+  }
+  /* 第 8 章最后：请阿豆去 IOI 吃 SUKI-YA 火锅（js/89-ioi.js）。走进店里就算（自助餐的钱照付） */
+  if (window.XIOI && XIOI.SUKI){
+    D.chapters.find(c => c.id === 'c8').steps.push(
+      {id:'c8_suki', calmNear:true, text:'周末请阿豆去 IOI 吃 SUKI-YA 火锅', rm:60, at:[XIOI.SUKI.x, XIOI.SUKI.z], r:5,
+        done:Q => Q.flag('q_suki8'),
+        hint:{pc:'IOI City Mall 在地图东北角，SUKI-YA 门口的红圈按 <kbd>F</kbd> 付钱进店', touch:'IOI City Mall 在地图东北角，SUKI-YA 门口的红圈点「吃火锅」付钱进店'},
+        tip:'阿豆说他第一次吃火锅放题。记得叫上卷卷和阿明——他们一定会说好。',
+        nudge:'开车去地图东北角的 IOI City Mall，SUKI-YA 在商场正门左手边。'});
+    D.diary.c8_suki = '请阿豆吃了 SUKI-YA。他吃到第三盘肉的时候说：「学长，我想家了。」我说：「我也是。所以我们一起吃。」';
+    D.watch.push((Q, flag) => { if (!Q.flag('q_suki8') && stepIs('c8_suki') && window.XINDOOR === 'sukiya') flag('q_suki8'); });
+  }
+  D.diary.c8_start = '小满学姐把今年最后一个新生交给我，他叫阿豆。';
+  D.diary.c8_a3 = '阿豆站在 A3 台阶上说「好宽」，跟我第一天说的一模一样。';
+  D.diary.c8_d6 = '带阿豆认了 D6 的外卖点，老周瞪了他一眼，他吓得躲到我身后。';
+  D.diary.c8_swing = '阿豆荡秋千荡到最高的时候喊了一声，我好像听见了一年前的自己。';
+  D.diary.c8_mamak = '请阿豆喝了第一杯拉茶，他被甜得一激灵。我笑出了声。';
+  D.diary.c8_end = '第二年，开始了。';
+  Object.assign(D.msgs, {
+    xm_ch8hi:{from:'xiaoman', text:'回南门一趟？今年最后一个新生到了，我想交给你带。'},
+    xm_ch8:{from:'xiaoman', text:'别走太快，他还不认路。'},
+    mom_y2:{from:'mom', text:'听说你当学长了？妈妈很骄傲。'}
+  });
+  D.events.push({id:'ev_xm_ch8hi', when:() => chIs(8), msg:'xm_ch8hi'});
+
+  /* ---------- 新角色的支线（采购单） ---------- */
+  const erDone = id => Q => Q.flag('er_' + id + '_done');
+  D.sides.push(
+    {id:'rose_rice', npc:'rose', after:'c4', text:'帮罗丝阿姨给 Taman Warisan Megah 8 号送一袋米', rm:60, errand:'rice', done:erDone('rice')},
+    {id:'rose_kip', npc:'rose', after:'c4', text:'KIP 超市大乱斗打到「大促场」', rm:100, done:() => G(() => XKipMart.tier() >= 2, false)},
+    {id:'du_send', npc:'durian', after:'c4', text:'挑一颗猫山王送到 D6 给老周', rm:80, errand:'durian', done:erDone('durian')},
+    {id:'km_supper', npc:'kumar', after:'c4', text:'夜宵：拉茶和 Roti 趁热送到 A3 给卷卷', rm:60, errand:'supper', done:erDone('supper')},
+    {id:'adi_ice', npc:'adi', after:'c5', text:'一箱冰水送去汽车游乐园给 Ben 师傅', rm:100, errand:'ice', done:erDone('ice')}
+  );
+  /* ---------- 按钮指引：这一步要点哪些按钮，从「已经点到最里面」往外排；屏幕上能看到的第一个会发光，旁边写「点这里」（js/89-quest-ui.js） ---------- */
+  { const tune = [['#tuneGo', '点这里下单施工；完工后也是点这里提车'], ['#tune .tn-it.q-can:not(.sel)', '挑这个零件：道具和钱都够'], ['#tuneTabs .q-cantab', '换到这一栏，有现在就能做的零件'], ['#shop .tn-entry', '点「改装车间」'], ['#garageBtn', '点「车行」']];
+    const PRESS = {
+      c1_badge:[['#ward [data-id="badge"]', '点迎新工作牌戴上'], ['#wardTabs [data-tab="neck"]', '点「颈部」'], ['#wardBtn', '点「奶娃衣橱」']],
+      c1_guide:[['#gxPauseBtn', '点「暂停」，再点「指南」', 'touch']],
+      c1_map:[['#mini', '点小地图打开大地图', 'touch']],
+      c2_wg1:[['#shop .gx-wup .btn.buy', '点这里升级水枪'], ['#garageBtn', '点「车行」']],
+      c2_car:[['#shop [data-buy="p911"]', '买这辆保时洁 911'], ['#garageBtn', '点「车行」']],
+      c2_tune1:tune, c5_midtune:tune
+    };
+    for (const c of D.chapters) for (const s of c.steps) if (PRESS[s.id]) s.press = PRESS[s.id]; }
   /* CONTENT:END */
 
   return D;

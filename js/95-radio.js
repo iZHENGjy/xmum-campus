@@ -1,7 +1,7 @@
 /* XMUM 校园漫游 · 车载电台：三个台、全部浏览器现场合成（没有音频文件），可以外放给附近的人听
  *
  * 玩法：
- *   上车自动开电台，下车淡出。点按钮栏里的「电台」换台（霓虹夜驾 → 芙蓉湖 Lo-fi → 赛道 EDM → 关）。M 键现在是大地图（js/ui-guide.js），电台没有快捷键了。
+ *   上车自动开电台，下车淡出。换台、开关都在电台小条点开的面板里（按钮栏原来的「电台」按钮已去掉）。M 键现在是大地图（js/ui-guide.js），电台没有快捷键了。
  *   左下角（手机在上方）的小条显示台名、曲名、段落；点它打开面板：选台、下一首、单曲循环、收藏到这辆车、外放、音量、自动切 EDM。
  *   每首 32 小节（约 1 到 1 分半），播完自动接下一首；单曲循环打开时一直放这首。
  *   收藏：把这首的编号（种子）记在这款车上，下次坐进同款车接着循环放。
@@ -614,10 +614,9 @@
     <div class="rd-row"><button type="button" class="rd-btn rd-off" id="rdPow">⏻ 关电台</button></div>`;
   document.body.appendChild(hudEl); document.body.appendChild(panel);
   const $r = id => document.getElementById(id);
-  /* the 电台 button in the touch button bar, next to 上车 / 漂移 / 喇叭 */
+  /* the old 电台 button of the button bar: no longer shown (the strip's panel does everything); kept detached so the code that updates it stays simple */
   const actBtn = document.createElement('button'); actBtn.type = 'button'; actBtn.id = 'act-m'; actBtn.hidden = true;
   actBtn.innerHTML = '<b>电台</b>'; actBtn.setAttribute('aria-label', '电台：换台，换到最后一个是关');
-  { const acts = document.getElementById('acts'); if (acts) acts.appendChild(actBtn); }
   actBtn.addEventListener('pointerdown', e => { e.preventDefault(); cycle(); });
   actBtn.addEventListener('contextmenu', e => e.preventDefault());
 
@@ -649,7 +648,7 @@
     hudEl.style.setProperty('--rd', R.on ? st.acc : '#8a93a3'); panel.style.setProperty('--rd', st.acc);
     $r('rdFq').textContent = R.on ? st.freq : 'OFF';
     $r('rdSt').textContent = R.on ? st.name : '电台关了';
-    $r('rdTr').textContent = R.on ? (S ? '♪ ' + S.title + ' #' + String(S.k % 1000).padStart(3, '0') : '—') : (TOUCH ? '点「电台」打开' : '点这里打开');
+    $r('rdTr').textContent = R.on ? (S ? '♪ ' + S.title + ' #' + String(S.k % 1000).padStart(3, '0') : '—') : '点这里打开';
     $r('rdLoopTag').hidden = !(R.on && R.loop); $r('rdAirTag').hidden = !(R.on && R.air);
     hudEl.classList.toggle('rd-off', !R.on); hudEl.classList.toggle('rd-onair', R.on && R.air);
     actBtn.querySelector('b').textContent = R.on ? st.short : '电台';

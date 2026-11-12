@@ -209,7 +209,7 @@ function bankStunt(){
 function updateStunt(dt, sp){
   const c = driving;
   if (c && !c.air && c.slip > 5 && sp > 10){
-    stunt.pts += c.slip * dt * 8 * stunt.mult; stunt.label = '漂移'; stunt.idle = 0; stunt.mult = Math.min(8, stunt.mult + dt * .3);
+    stunt.pts += c.slip * dt * 8 * stunt.mult; stunt.label = wx.wet > .4 ? '雨中漂移' : '漂移'; stunt.idle = 0; stunt.mult = Math.min(8, stunt.mult + dt * .3);
     stunt.driftT += dt;
     if (stunt.driftT > 3 && !stunt.longDone){ stunt.longDone = true; addStunt('超长漂移', 250); gx.callout('超长漂移', '+250 × 连击'); }
   } else if (!c || c.slip < 3){ stunt.driftT = 0; stunt.longDone = false; }
@@ -321,6 +321,8 @@ function renderShop(){
 }
 $('#shopList').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b || b.disabled) return; ac();
+  /* story chapter 1 (js/89-quest.js): no driving yet, so no buying or calling up cars; 小满 hands over a Myvi at the end of it */
+  if ((b.dataset.buy || b.dataset.sum) && window.XQuest && XQuest.carLocked && XQuest.carLocked()){ toast('现在还用不上车', '第 1 章做完，小满学姐会送你一辆 Myvi', 2600); sfx.fail(); return; }
   if (b.dataset.buy){
     const it = SHOP.find(x => x.kind === b.dataset.buy); if (money < it.price) return;
     money -= it.price; owned.add(it.kind); moneyChanged(); closeShop(); summon(it.kind); toast('提车成功：' + it.name, `余额 RM ${money.toFixed(2)}`, 2600);

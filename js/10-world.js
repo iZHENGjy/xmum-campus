@@ -1,7 +1,7 @@
 /* XMUM 校园漫游 · 地面、道路、湖、所有楼、植物、天空、打卡点、昼夜 */
 'use strict';
 /* ---------- weather state (driven by js/16-weather.js, applied in applyTime) and the surfaces that look wet after rain ---------- */
-const wx = {rain:0, wet:0, target:0};
+const wx = {rain:0, wet:0, target:0, storm:0, haze:0, cloud:0, flash:0};   /* storm / haze / cloud / flash: js/17-weather.js */
 const wetMats = [];
 function regWet(m, minR){ wetMats.push([m, m.color.clone(), m.roughness, minR]); return m; }
 
@@ -916,7 +916,8 @@ const sky = new THREE.Mesh(new THREE.SphereGeometry(5200, 24, 12), new THREE.Sha
       float s = max(dot(d, sunDir), 0.0);
       c += sunCol * glow * (pow(s, 900.0) * 1.6 + pow(s, 40.0) * 0.22 + pow(s, 5.0) * 0.10) * smoothstep(-0.06, 0.04, d.y);
       gl_FragColor = vec4(c, 1.0);
-    }`}));
+      #include <tonemapping_fragment>
+    }`}));   /* tone mapping like every other material (js/19-light.js), so the sky still meets the fog at the horizon */
 sky.renderOrder = 100; sky.frustumCulled = false; scene.add(sky);
 const starGeo = new THREE.BufferGeometry(); const sv = [];
 for (let i = 0; i < 1400; i++){ const a = rnd() * 6.283, e = Math.asin(.08 + rnd() * .92), R = 4000; sv.push(Math.cos(a) * Math.cos(e) * R, Math.sin(e) * R, Math.sin(a) * Math.cos(e) * R); }
@@ -984,9 +985,10 @@ const cur = {d:P3.day.d.clone()};
 P3_COL.forEach(f => cur[f] = P3.day[f].clone()); P3_NUM.forEach(f => cur[f] = P3.day[f]);
 let tgt = P3.day;
 function applyTime(k){
-  for (const f of P3_COL) cur[f].lerp(tgt[f], k);
-  cur.d.lerp(tgt.d, k).normalize();
-  for (const f of P3_NUM) cur[f] += (tgt[f] - cur[f]) * k;
+  const to = typeof clockTarget === 'function' ? clockTarget(tgt) : tgt;   /* outdoors: the sky of the clock's hour (js/17-clock.js) */
+  for (const f of P3_COL) cur[f].lerp(to[f], k);
+  cur.d.lerp(to.d, k).normalize();
+  for (const f of P3_NUM) cur[f] += (to[f] - cur[f]) * k;
   scene.background.copy(cur.bg); scene.fog.color.copy(cur.bg); scene.fog.near = cur.fn; scene.fog.far = cur.ff;
   skyU.hor.value.copy(cur.bg); skyU.top.value.copy(cur.top); skyU.sunCol.value.copy(cur.sc); skyU.sunDir.value.copy(cur.d); skyU.glow.value = cur.glow;
   sky.position.copy(camera.position);
