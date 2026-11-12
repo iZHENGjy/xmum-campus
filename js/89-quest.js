@@ -214,6 +214,7 @@
   function npcMark(id){
     const c = chapter();
     if (c && c.npc === id && (S.ph === 'meet' || S.ph === 'report')) return '!';
+    { const st = S.ph === 'steps' ? curStep() : null; if (st && st.talkTo === id) return '!'; }
     if (sidesOf(id).some(s => !S.sides[s.id])) return '!';
     if (c && c.npc === id && S.ph === 'steps') return '…';
     return '';
@@ -347,6 +348,11 @@
       });
       return;
     }
+    { const st = curStep();
+      if (c && S.ph === 'steps' && st && st.talkTo === id && !S.flags[st.talkFlag]){
+        say(st.lines || [[id, '……']], id, () => { flag(st.talkFlag); if (st.onTalk) g(st.onTalk); checkSteps(false); });
+        return;
+      } }
     const fresh = sidesOf(id).filter(s => !S.sides[s.id]);
     if (fresh.length){
       const lines = [[id, fresh.length > 1 ? '对了，还有几件事想拜托你：' : '对了，还有件事想拜托你：']].concat(fresh.map(s => [id, '· ' + s.text + (s.rm ? `（RM ${s.rm}）` : '')]));

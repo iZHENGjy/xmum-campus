@@ -32,6 +32,7 @@
 window.XQD = (() => {
   const D = {people:{}, npcs:{}, chapters:[], sides:[], diary:{}, msgs:{}, events:[], homesick:{}, watch:[]};
   const K = (pc, touch) => (typeof TOUCH !== 'undefined' && TOUCH) ? touch : pc;
+  const npcAt0 = id => window.XQuest && XQuest.npcAt ? XQuest.npcAt(id) : null;
 
   /* ---------- 发消息的人 ---------- */
   Object.assign(D.people, {
@@ -87,6 +88,18 @@ window.XQD = (() => {
         done:Q => Q.ward('neck') === 'badge',
         hint:{pc:'按 <kbd>C</kbd> 打开衣橱，在「颈部」里选迎新工作牌', touch:'点右上角「奶娃衣橱」，在「颈部」里选迎新工作牌', flash:'#wardBtn'},
         tip:'工作牌是开学那天学姐给的，在衣橱「颈部」那一栏，不要钱。'},
+      /* 送外卖之前先回南门：小满讲怎么接单（橙色光圈、接单卡、接单开关），说完把接单开关打开 */
+      {id:'c1_xm', text:'回南门找小满学姐，学怎么接外卖', rm:10, isNew:true, at:() => npcAt0('xiaoman'), r:0,
+        talkTo:'xiaoman', talkFlag:'q_c1xm', done:Q => Q.flag('q_c1xm'),
+        lines:[
+          ['xiaoman', '学校认得差不多了吧？接下来教你挣钱。'],
+          ['xiaoman', 'D6 食堂、LY3 食堂、B1 餐厅门口都有橙色的光圈。走进去会弹一张单子，挑一单就接。'],
+          ['xiaoman', () => K('接单开关在屏幕上面指南针的旁边，按 J 也能开关。要开着才会弹单子哦。', '接单开关在屏幕上面指南针的旁边，点一下就能开关。要开着才会弹单子哦。')],
+          ['xiaoman', '这个月只派校园里的单，时间也多给你一半，走路跑步都来得及。去吧！']
+        ],
+        onTalk:() => { if (typeof offerToggle === 'function' && typeof OFFER !== 'undefined' && !OFFER.on) offerToggle(true); },
+        hint:{pc:'回南门，走到小满学姐旁边按 <kbd>F</kbd> 说话', touch:'回南门，走到小满学姐旁边点「说话」', flash:'#act-f'},
+        tip:'小满在南门里面，校碑旁边。'},
       {id:'c1_deliv1', text:'走路送出第一单外卖', rm:30,
         done:Q => Q.ach('deliv1'),
         hint:{pc:'走进橙色光圈，按 <kbd>F</kbd> 或 <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> 接单', touch:'走进橙色光圈，点卡片上的单子接单', flash:'#mini'},

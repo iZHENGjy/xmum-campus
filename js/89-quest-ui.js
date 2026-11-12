@@ -7,7 +7,7 @@
  *   操作提示：电脑在屏幕下方写按键；手机不写按键，对应的按钮闪一圈黄边。做完就消失。
  *   对话框：屏幕下方，左边头像，右边名字和一句话；空格 / 回车 / F / 点一下翻下一句，Esc 或「跳过」直接跳完。对话时游戏不暂停，奶蛙站住。
  *   手机通知：右上角，图标 + 名字 + 一句话，3 秒收起；过场、对话、比赛、被保安追的时候先攒着。
- *   日记页底下的开关「收起任务条和提示」：关掉以后只留指南针，主线照样记进度。 */
+ *   日记页底下的开关「不显示操作提示」：只收起屏幕下方那条按键提示，任务条和指南针照常显示。 */
 'use strict';
 (() => {
   const XQ = window.XQuest; if (!XQ) return;
@@ -93,7 +93,7 @@
   bar.addEventListener('click', () => { g(() => ac()); view = null; g(() => XGuide.open('diary')); });
   function barSync(){
     const c = XQ.chapter(), st = XQ.step();
-    const show = mode === 'naiwa' && !quiet() && !!c && S().ph !== 'done';
+    const show = mode === 'naiwa' && !!c && S().ph !== 'done';   /* always: the 收起 box only hides the operation tips */
     bar.hidden = !show; if (!show) return;
     const all = XQ.steps(), i = Math.max(0, all.findIndex(s => s.id === (st && st.id))), cnt = st && st.count ? g(() => st.count(XQ.Q), null) : null;
     const t = `主线 ${c.n}/${XQ.chapters.length} · ${st ? st.text.replace(/（.*?）/g, '') : ''}` + (cnt ? ` ${cnt[0]}/${cnt[1]}` : st && !st.meet ? ` · ${i + 1}/${all.length}` : '');
@@ -277,7 +277,7 @@
     const ms = st.msgs.filter(e => (e.c | 0) === n || (n === 0 && !e.c)).slice(-3);
     h += `<aside class="q-dphone"><span class="q-dph">手机</span>${ms.length ? ms.map(e => { const m = D.msgs[e.m]; if (!m) return ''; const p = person(m.from); return `<div class="q-msg"><i class="q-av" style="background:${p.color || '#888'}">${esc(p.icon)}</i><div><b>${esc(p.name)}</b><span>${esc(m.text)}</span></div></div>`; }).join('') : '<p class="q-dim">还没有消息</p>'}</aside>`;
     h += '</div>';
-    h += `<label class="q-quiet"><input type="checkbox" ${st.quiet ? 'checked' : ''}> 收起任务条和提示（只留指南针，主线照样记进度）</label>`;
+    h += `<label class="q-quiet"><input type="checkbox" ${st.quiet ? 'checked' : ''}> 不显示操作提示（任务条和指南针照常显示）</label>`;
     return h;
   }
   function diaryMount(sec){
