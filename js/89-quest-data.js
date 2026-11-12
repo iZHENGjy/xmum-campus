@@ -447,7 +447,7 @@ window.XQD = (() => {
       /* 二园现在是卡丁车场（js/92-f1park.js 的 XKart，PR #128）；雪邦赛车城挪到下一版。id 还叫 c5_seplap（存档记的是 id，跑过的照样算） */
       {id:'c5_seplap', text:window.XKart ? '二园卡丁车场跑一圈' : '二园雪邦赛道跑一圈', rm:60,
         at:window.XKart ? XKart.start.slice(0, 2) : G(() => XF1.PT[XF1.SF].slice(0, 2), [258.9, 912.2]), r:0,
-        done:Q => window.XKart ? Q.best(XKart.lapKey) || Q.best('sepLap') : Q.best('sepLap'),
+        done:Q => window.XKart ? Q.best(XKart.lapKey) || Q.best('sepLap') || Q.best('kartRace') : Q.best('sepLap'),   /* kartRace: finished a kart race (js/92-kart-race.js) */
         hint:window.XKart ? {pc:'二园维修区有免费的卡丁车：走到黄圈按 <kbd>F</kbd> 租一辆（开自己的车也行），从起点线出发跑一整圈', touch:'二园维修区有免费的卡丁车：走到黄圈点「租卡丁车」（开自己的车也行），从起点线出发跑一整圈'}
           : {pc:'开到二园的雪邦赛道，从主直道的起点线出发跑一整圈', touch:'开到二园的雪邦赛道，从主直道的起点线出发跑一整圈'},
         tip:window.XKart ? `一圈 ${(XKart.len / 1000).toFixed(1)} 公里、${XKart.turns} 个弯。卡丁车弯里灵、直道慢，跑车反过来。` : '一圈大约 3 公里、15 个弯，发卡弯前早点刹车。', guide:'tune',

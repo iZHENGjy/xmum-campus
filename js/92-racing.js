@@ -14,8 +14,8 @@
  */
 'use strict';
 const RC_KEY = 'xmum-race-v1', RC_MAX = 1e6, RC_DT = .1;
-const rcSave = {best:{}, ghost:{}, wins:{}};
-(function(){ try { const d = JSON.parse(localStorage.getItem(RC_KEY) || 'null'); if (d) for (const k of ['best', 'ghost', 'wins']) if (d[k] && typeof d[k] === 'object') rcSave[k] = d[k]; } catch(e){} })();
+const rcSave = {best:{}, ghost:{}, wins:{}, day:{}};   /* day: {track:{d:'2026-11-12', n:prize races today}} for tracks with a daily prize cap (T.dayCap) */
+(function(){ try { const d = JSON.parse(localStorage.getItem(RC_KEY) || 'null'); if (d) for (const k of ['best', 'ghost', 'wins', 'day']) if (d[k] && typeof d[k] === 'object') rcSave[k] = d[k]; } catch(e){} })();
 function rcWrite(){ try { localStorage.setItem(RC_KEY, JSON.stringify(rcSave)); } catch(e){} }
 const rcFmt = t => { if (!(t >= 0) || !isFinite(t)) return '—'; const m = Math.floor(t / 60), s = t - m * 60; return m + ':' + s.toFixed(2).padStart(5, '0'); };
 
@@ -31,6 +31,14 @@ function rcPath(pts, closed){
     TX[i] = (X[b] - X[a]) / l; TZ[i] = (Z[b] - Z[a]) / l;
   }
   return {X, Z, TX, TZ, S, N, closed, L:closed ? S[N] : S[N - 1]};
+}
+/* a closed path from points that are already evenly spaced (a circuit that has its own centre line, e.g. the kart track): no resampling */
+function rcPathRaw(pts){
+  const N = pts.length, X = new Float32Array(N), Z = new Float32Array(N), TX = new Float32Array(N), TZ = new Float32Array(N), S = new Float32Array(N + 1);
+  pts.forEach(([x, z], i) => { X[i] = x; Z[i] = z; });
+  for (let i = 1; i <= N; i++){ const j = i % N; S[i] = S[i - 1] + Math.hypot(X[j] - X[i - 1], Z[j] - Z[i - 1]); }
+  for (let i = 0; i < N; i++){ const a = (i + N - 1) % N, b = (i + 1) % N, l = Math.hypot(X[b] - X[a], Z[b] - Z[a]) || 1; TX[i] = (X[b] - X[a]) / l; TZ[i] = (Z[b] - Z[a]) / l; }
+  return {X, Z, TX, TZ, S, N, closed:true, L:S[N]};
 }
 /* point and direction at arc length s */
 function rcAt(P, s){
@@ -74,8 +82,10 @@ const RC_TRACKS = [
     desc:'从 KIP 出发，顺着山路往南，穿过南边山里的油棕园，冲回 Jalan Sunsuria。',
     pts:() => rcEvery(rcRoad('kip').p.filter(p => p[1] > 935), 6).concat(rcEvery(rcRoad('estate').p, 6).slice(1), [[630, 300]])}
 ];
-for (const T of RC_TRACKS){
+function rcPrep(T){
   let pts = typeof T.pts === 'function' ? T.pts() : T.pts;
+  if (T.raw){ T.P = rcPathRaw(pts); T.s0 = 0; T.s1 = T.P.L * T.laps; }
+  else {
   if (!T.closed){
     /* a run-up behind the start line for the grid */
     const [x0, z0] = pts[0], [x1, z1] = pts[1], l = Math.hypot(x1 - x0, z1 - z0) || 1, ux = (x1 - x0) / l, uz = (z1 - z0) / l;
@@ -84,11 +94,13 @@ for (const T of RC_TRACKS){
   T.P = rcPath(pts, T.closed);
   T.s0 = T.closed ? 0 : rcNear(T.P, pts[2][0], pts[2][1]).s;
   T.s1 = T.closed ? T.P.L * T.laps : T.P.L - 4;
+  }
   const len = T.closed ? T.P.L : T.s1 - T.s0, nc = Math.max(3, Math.round(len / 120));
   T.len = len; T.cps = [];
   for (let lap = 0; lap < (T.closed ? T.laps : 1); lap++) for (let k = 1; k <= nc; k++) T.cps.push(T.s0 + lap * len + len * k / nc);
   T.ncp = nc;
 }
+RC_TRACKS.forEach(rcPrep);
 
 /* ---------- world dressing: event flags, start/finish lines, the off-road trail, checkpoint rings ---------- */
 const rcGlow = (c, op) => new THREE.MeshBasicMaterial({color:c, transparent:true, opacity:op, side:THREE.DoubleSide, depthWrite:false, blending:THREE.AdditiveBlending});
@@ -101,14 +113,15 @@ const rcRingGeo = new THREE.CylinderGeometry(1, 1, 3.6, 40, 1, true).translate(0
 const rcFlagGeo = (() => { const g = new THREE.PlaneGeometry(3.2, 2.1); g.translate(1.6, 6.9, 0); return g; })();
 const rcPoleGeo = new THREE.CylinderGeometry(.09, .12, 8, 6).translate(0, 4, 0);
 const rcPoleMat = M('#e8e6e0', {metalness:.4, roughness:.4}), rcFlagMat = new THREE.MeshStandardMaterial({map:rcCheckTex, side:THREE.DoubleSide, roughness:.8});
-for (const T of RC_TRACKS){
-  const s = T.closed ? 6 : T.s0 - 18, [x, z, tx, tz] = rcAt(T.P, s), o = -(T.w / 2 + 6), ex = x - tz * o, ez = z + tx * o, ey = groundAt(ex, ez);
+function rcFlag(T){
+  const s = T.closed ? 6 : T.s0 - 18, [x, z, tx, tz] = rcAt(T.P, s), o = -(T.w / 2 + 6), ex = T.evAt ? T.evAt[0] : x - tz * o, ez = T.evAt ? T.evAt[1] : z + tx * o, ey = groundAt(ex, ez);
   const g = new THREE.Group(); g.position.set(ex, ey, ez);
   const ring = new THREE.Mesh(rcRingGeo, rcGlow(T.color, .5)); ring.scale.set(6.5, 1, 6.5);
   const pole = new THREE.Mesh(rcPoleGeo, rcPoleMat), flag = new THREE.Mesh(rcFlagGeo, rcFlagMat); flag.rotation.y = Math.atan2(tx, tz);
   pole.castShadow = flag.castShadow = true; g.add(ring, pole, flag); g.visible = false; scene.add(g);
   T.ev = {x:ex, z:ez, g, ring, lbl:addLabel(T.icon + ' ' + T.name, ex, ey + 10, ez, true)}; T.ev.lbl.dead = true;
 }
+RC_TRACKS.forEach(rcFlag);
 /* start and finish lines (checkered strips across the road) and the dirt trail of the off-road track: one mesh each */
 (function(){
   const pos = [], uv = [], put = (T, s) => {
@@ -210,7 +223,7 @@ function rcGhostTimeAt(G, prog){
 const rcOnline = () => !!(window.XNet && XNet.online && window.firebase && firebase.database);
 function rcSubmit(T, time, samples, car, color){
   if (!rcOnline()) return;
-  try { XNet.miniSubmit('race_' + T.id, RC_MAX - Math.round(time * 100)); } catch(e){}
+  if (T.board !== false) try { XNet.miniSubmit('race_' + T.id, RC_MAX - Math.round(time * 100)); } catch(e){}   /* board:false: the track keeps its own board (the kart track: clean laps, js/92-f1park.js) */
   const name = XNet.claimedName ? XNet.claimedName() : '';
   if (!name || !samples) return;
   try {
@@ -232,13 +245,13 @@ function rcGhostList(T){
 if (window.XMini){
   const baseBoard = XMini.board.bind(XMini), gd = Object.getOwnPropertyDescriptor(XMini, 'games');
   XMini.board = id => {
-    const T = RC_TRACKS.find(t => 'race_' + t.id === id); if (!T) return baseBoard(id);
+    const T = RC_TRACKS.find(t => 'race_' + t.id === id && t.board !== false); if (!T) return baseBoard(id);
     const what = T.closed ? '最快单圈' : '最快完赛';
     return {name:T.name, icon:T.icon, fmt:v => rcFmt((RC_MAX - (+v || 0)) / 100), what:`${T.icon} ${T.name} · ${what}（人机赛和影线 1v1 都算，道具赛不算）`,
       local:() => { const b = rcSave.best[T.id], t = b && (T.closed ? b.lap : b.run); return t ? RC_MAX - Math.round(t * 100) : 0; },
       empty:`还没跑过「${T.name}」，去地图上找格子旗`, top:n => (window.XNet && XNet.miniTop ? XNet.miniTop('race_' + T.id, n) : Promise.resolve([]))};
   };
-  if (gd && gd.get) Object.defineProperty(XMini, 'games', {configurable:true, get(){ return gd.get.call(XMini).concat(RC_TRACKS.map(t => ({id:'race_' + t.id, name:t.name, icon:t.icon, board:true}))); }});
+  if (gd && gd.get) Object.defineProperty(XMini, 'games', {configurable:true, get(){ return gd.get.call(XMini).concat(RC_TRACKS.filter(t => t.board !== false).map(t => ({id:'race_' + t.id, name:t.name, icon:t.icon, board:true}))); }});
 }
 
 /* ---------- race state ---------- */
@@ -248,21 +261,31 @@ const RC = {st:'idle', T:null, mode:'', racers:[], me:null, t:0, cd:0, beep:0, g
 let rcPromptMsg = '';
 const rcRand = mkRng(8128);
 
-/* AI cars: created once, reused, kept out of `cars` */
-function rcAiCar(k){
-  if (RC.pool[k]) return RC.pool[k];
-  const [name, color, kind] = RC_AI[k], c = makeCar(kind, color, 0, 6000 + k * 20, 0);
+/* AI cars: created once, reused, kept out of `cars`. A track with aiKind (the kart track) gets its own set of that car, in the same names and colours */
+function rcAiCar(k, kind0){
+  const key = kind0 ? kind0 + k : k;
+  if (RC.pool[key]) return RC.pool[key];
+  const [name, color, kind] = RC_AI[k], c = makeCar(kind0 || kind, color, 0, 6000 + k * 20, 0);
   cars.splice(cars.indexOf(c), 1); c.root.visible = false; c.rcName = name;
-  return RC.pool[k] = c;
+  return RC.pool[key] = c;
+}
+/* today's prize races on a track with a daily cap (T.dayCap) */
+function rcDay(T){
+  const today = typeof dayKey === 'function' ? dayKey() : new Date().toDateString();
+  let d = rcSave.day[T.id]; if (!d || d.d !== today) d = rcSave.day[T.id] = {d:today, n:0};
+  return d;
 }
 
 /* ---------- start / finish ---------- */
 function rcGrid(T, k){
+  if (T.grid) return T.grid(k);
   const row = Math.floor(k / 2), side = k % 2 ? 1 : -1, s = T.s0 - 9 - row * 8.5, [x, z, tx, tz] = rcAt(T.P, s), o = side * Math.min(3, T.w / 2 - 1.4);
   return [x - tz * o, z + tx * o, Math.atan2(tx, tz), s];
 }
+const rcAiN = T => T.ai ? T.ai() : TOUCH ? 3 : 4;
 function rcPlace(c, x, z, h){ Object.assign(c, {x, z, h, vx:0, vz:0, y:groundAt(x, z), vy:0, air:false, airT:0, lastVy:0, pitch:0, steer:0, slip:0}); c.root.position.set(x, c.y, z); c.root.rotation.set(0, h, 0); }
 function rcStart(T, mode, ghostSrc){
+  if (T.prep && T.prep(mode) === false) return false;   /* the kart track: puts you in a hired kart first */
   const c = driving; if (!c || c.wrecked){ toast('先开一辆好车', '赛车要自己开着车来', 2200); return false; }
   rcCardClose();
   heat = 0; try { despawnChasers(); } catch(e){}
@@ -279,18 +302,21 @@ function rcStart(T, mode, ghostSrc){
       if (!carBlocked(o, nx, nz, o.h) && rcNear(T.P, nx, nz, q.i).d > T.w / 2 + 2){ RC.moved.push([o, o.x, o.z, o.h]); rcPlace(o, nx, nz, o.h); break; }
     }
   }
-  const n = mode === 'ghost' ? 0 : TOUCH ? 3 : 4, racers = [];
+  const n = mode === 'ghost' ? 0 : rcAiN(T), racers = [];
   for (let k = 0; k < n; k++){
-    const a = rcAiCar(k), base = CAR_T[a.kind], skill = .9 + .1 * (k % 3) / 2 + rcRand() * .04;
+    const a = rcAiCar(k, T.aiKind), base = CAR_T[a.kind], skill = .9 + .1 * (k % 3) / 2 + rcRand() * .04;
     a.T = Object.assign({}, base, {maxV:c.rcBaseV * skill, acc:c.rcBaseA * (.92 + rcRand() * .08), grip:Math.max(base.grip, 7.2)});
     Object.assign(a, {hp:100, wrecked:false, rcBaseV:a.T.maxV, rcBaseA:a.T.acc}); a.root.visible = true; if (!a.root.parent) scene.add(a.root);
-    racers.push({car:a, ai:true, name:a.rcName, color:RC_AI[k][1], skill, lane:0, laneT:0, errT:6 + rcRand() * 14, err:'', errLeft:0, stuck:0, rev:0, offT:0});
+    if (T.aiCar) T.aiCar(a, k, RC_AI[k][1]);   /* the kart track sits a driver in each kart */
+    /* aLat: how hard this driver takes the corners (m/s² of side grip it trusts); the kart track sets its own range */
+    const aLat = T.aLat ? T.aLat[0] + (T.aLat[1] - T.aLat[0]) * Math.min(1, (skill - .9) / .14 + (rcRand() - .5) * .3) : 10.5;
+    racers.push({car:a, ai:true, name:a.rcName, color:RC_AI[k][1], skill, aLat, lane:0, laneT:0, errT:6 + rcRand() * 14, err:'', errLeft:0, stuck:0, rev:0, offT:0});
   }
   racers.push({car:c, ai:false, name:typeof uiName !== 'undefined' && uiName ? uiName : '奶娃', color:'#ff8a3d'});
   racers.forEach((r, k) => {
     const [x, z, h, s] = rcGrid(T, k); rcPlace(r.car, x, z, h);
     const q = rcNear(T.P, x, z);
-    Object.assign(r, {d:s, s:q.s, hint:q.i, lat:q.lat, off:q.d, next:0, fin:null, lapStart:0, best:null, item:null, itemT:0, shield:0, spin:0, spinDir:1, boost:0});
+    Object.assign(r, {d:s, s:q.s, hint:q.i, lat:q.lat, off:q.d, next:0, fin:null, lapStart:0, best:null, cleanBest:null, item:null, itemT:0, shield:0, spin:0, spinDir:1, boost:0});
   });
   RC.ghost = null;
   if (mode === 'ghost' && ghostSrc){ const G = rcGhostFrom(T, ghostSrc); if (G){ G.mesh = rcGhostCar(G.car, G.color); RC.ghost = G; } }
@@ -324,14 +350,13 @@ function rcFinish(){
   const prog = r => r.fin != null ? 1e9 - r.fin : r.d;
   rs.sort((a, b) => prog(b) - prog(a));
   const place = rs.indexOf(me) + 1, done = me.fin != null, mode = RC.mode;
-  const runT = done ? me.fin : null, lap = me.best;
+  const runT = done ? me.fin : null, lap = T.lapOk ? me.cleanBest : me.best;   /* lapOk (the kart track): only laps inside the track limits count as records and ghosts */
   /* records, ghost, boards (not for item races) */
   const rec = rcSave.best[T.id] || (rcSave.best[T.id] = {}); let newRec = false;
   const mainT = T.closed ? lap : runT;
   /* RC.nos: nitro or a driving skill was used (js/94-tuning-drive.js), so the run stays off the board and is not kept as a ghost */
   if (mode !== 'items' && mainT && !RC.nos){
     if (!(rec[T.closed ? 'lap' : 'run'] <= mainT)){ rec[T.closed ? 'lap' : 'run'] = Math.round(mainT * 100) / 100; newRec = true; }
-    if (runT && !(rec.run <= runT)) rec.run = Math.round(runT * 100) / 100;
     const g = rcSave.ghost[T.id];
     const recArr = T.closed ? RC.bestRec : RC.rec;
     if (recArr && recArr.length >= 8 && (!g || mainT < g.t)){
@@ -339,9 +364,10 @@ function rcFinish(){
       rcSubmit(T, mainT, d, me.car.kind, '#' + me.car.paint.color.getHexString());
     } else if (newRec) rcSubmit(T, mainT, null);
   }
+  if (mode !== 'items' && runT && !RC.nos && !(rec.run <= runT)) rec.run = Math.round(runT * 100) / 100;
   /* pay and achievements */
   let pay = 0, head = '', sub = '';
-  const k = Math.max(.6, Math.min(1.5, T.len * (T.closed ? T.laps : 1) / 1400));
+  const k = T.pay || Math.max(.6, Math.min(1.5, T.len * (T.closed ? T.laps : 1) / 1400));
   if (mode === 'ghost'){
     const G = RC.ghost, win = !!(G && mainT && mainT < G.t);
     pay = done ? Math.round((win ? 70 : 15) * k) : 0;
@@ -353,12 +379,15 @@ function rcFinish(){
     head = done ? `第 ${place} 名` : '没跑完'; sub = runT ? '完赛 ' + rcFmt(runT) + (lap && T.closed ? ' · 最快圈 ' + rcFmt(lap) : '') : '';
     if (done && place === 1){ unlock('racewin'); rcSave.wins[T.id] = (rcSave.wins[T.id] || 0) + 1; }
   }
-  const allDone = () => RC_TRACKS.every(t => rcSave.best[t.id] && rcSave.best[t.id].done), allBefore = allDone();
-  if (done){ unlock('race1'); rec.done = 1; if (RC_TRACKS.every(t => rcSave.best[t.id] && rcSave.best[t.id].done)) unlock('raceall'); }
+  const allDone = () => RC_TRACKS.every(t => t.extra || (rcSave.best[t.id] && rcSave.best[t.id].done)), allBefore = allDone();   /* 全图车手: the five road tracks (an added track such as the kart one does not count) */
+  if (done){ unlock('race1'); rec.done = 1; if (allDone()) unlock('raceall'); }
+  /* a daily prize cap (T.dayCap, RM per day): past it the race still counts, it just pays nothing and drops no parts */
+  let capped = false, dayLeft = null;
+  if (T.dayCap && pay){ const D = rcDay(T), left = Math.max(0, T.dayCap - D.n); capped = left <= 0; pay = Math.min(pay, left); D.n += pay; dayLeft = T.dayCap - D.n; }
   rcWrite(); if (pay) earn(pay);
   /* 改装零件 (js/93-tuning-ui.js): by place, or for beating the ghost; the first win on a track brings the 氮气 recipe, all five tracks the engine one */
   let loot = [];
-  if (window.XParts && done){
+  if (window.XParts && done && !capped){
     const P = window.XParts, ghostWin = mode === 'ghost' && head.startsWith('跑赢');
     loot = mode === 'ghost' ? P.reward('ghost', ghostWin ? 0 : 3, ghostWin ? '跑赢影线' : '影线 1v1') : P.reward('race', place - 1, `竞速第 ${place} 名`);
     const bp = (id, why) => { const had = P.has(id); if (P.grant(id, 1, why)) loot.push({id:had ? 'plan' : id, n:1}); };
@@ -368,7 +397,8 @@ function rcFinish(){
   if (done && (place === 1 && mode !== 'ghost' || head.startsWith('跑赢'))) for (let i = 0; i < 5; i++) tone('triangle', 523 * Math.pow(1.19, i), 523 * Math.pow(1.19, i), .18, .13, i * .09); else sfx.ding();
   gx.callout(head, sub, T.color);
   const lines = mode === 'ghost' ? [] : rs.map((r, i) => `${i + 1}. ${r.ai ? r.name : '你'} · ${r.fin != null ? (r.est ? '约 ' : '') + rcFmt(r.fin) : '未完赛'}`);
-  RC.result = {T, mode, head, sub, pay, newRec, lines, loot, nos:!!RC.nos};
+  RC.result = {T, mode, head, sub, pay, newRec, lines, loot, nos:!!RC.nos, capped, dayLeft, done};
+  if (T.onFinish) try { T.onFinish(RC.result, me); } catch(e){ console.warn(e); }
   rcCleanup();
   rcCardResult(RC.result);
 }
@@ -382,22 +412,25 @@ const rcCurv = (T, s, sp) => {
 function rcAiDrive(r, dt, lead){
   const c = r.car, T = RC.T, sp = Math.hypot(c.vx, c.vz), fx = Math.sin(c.h), fz = Math.cos(c.h);
   /* lane: drift to a new line now and then, sidestep a slower car right ahead */
-  r.laneT -= dt; if (r.laneT <= 0){ r.laneT = 3 + rcRand() * 4; r.laneGoal = (rcRand() * 2 - 1) * Math.max(0, T.w / 2 - 2.2); }
+  r.laneT -= dt; if (r.laneT <= 0){ r.laneT = 3 + rcRand() * 4; r.laneGoal = (rcRand() * 2 - 1) * Math.max(0, T.w / 2 - 2.2) * (T.line ? .25 : 1); }   /* on a track with a racing line: stay close to it */
   for (const o of RC.racers){
     if (o === r) continue; const ds = o.d - r.d;
-    if (ds > 0 && ds < 11 + sp * .3){ const q = rcNear(T.P, o.car.x, o.car.z, o.hint); if (Math.abs(q.lat - r.lane) < 2.6) r.laneGoal = q.lat > 0 ? q.lat - 3.2 : q.lat + 3.2; }
+    if (ds > 0 && ds < 11 + sp * .3){
+      const q = rcNear(T.P, o.car.x, o.car.z, o.hint), base = T.line ? T.line(r.s) : 0;
+      if (Math.abs(q.lat - base - r.lane) < 2.6) r.laneGoal = (q.lat > base + r.lane ? q.lat - 3.2 : q.lat + 3.2) - base;
+    }
   }
   r.laneGoal = Math.max(-(T.w / 2 - 1.6), Math.min(T.w / 2 - 1.6, r.laneGoal || 0));
   r.lane += (r.laneGoal - r.lane) * Math.min(1, dt * 1.2);
-  const look = 7 + sp * .55, [px, pz, tx, tz] = rcAt(T.P, r.s + look), gx2 = px - tz * r.lane, gz = pz + tx * r.lane;
+  const look = 7 + sp * .55, [px, pz, tx, tz] = rcAt(T.P, r.s + look), ln = T.line ? Math.max(-(T.w / 2 - 1.6), Math.min(T.w / 2 - 1.6, T.line(r.s + look) + r.lane)) : r.lane, gx2 = px - tz * ln, gz = pz + tx * ln;
   let dh = Math.atan2(gx2 - c.x, gz - c.z) - c.h; dh = Math.atan2(Math.sin(dh), Math.cos(dh));
   /* rubber band against the player, corner speed from the curvature ahead, the odd mistake */
-  const gap = RC.me ? RC.me.d - r.d : 0, rub = gap > 0 ? 1 + Math.min(.14, gap / 500) : 1 - Math.min(.16, -gap / 420);
+  const gap = RC.me ? RC.me.d - r.d : 0, rb = T.rub || [.14, .16, 500], rub = gap > 0 ? 1 + Math.min(rb[0], gap / rb[2]) : 1 - Math.min(rb[1], -gap / (rb[2] * .84));   /* rub: [most help when behind, most slowdown when ahead, metres per 100 %] */
   r.errT -= dt;
   if (r.errT <= 0 && !r.errLeft){ r.err = rcRand() < .55 ? 'wobble' : 'late'; r.errLeft = r.err === 'wobble' ? 1.1 : 2.6; r.errT = 10 + rcRand() * (28 - r.skill * 14); }
   if (r.errLeft){ r.errLeft = Math.max(0, r.errLeft - dt); if (!r.errLeft) r.err = ''; }
   c.T.maxV = r.car.rcBaseV * rub * (r.boost > 0 ? 1.35 : 1); c.T.acc = r.car.rcBaseA * (r.boost > 0 ? 2 : 1);
-  const vCorner = Math.sqrt(10.5 / Math.max(rcCurv(T, r.s, sp), 1e-4)) * (r.err === 'late' ? 1.3 : 1);
+  const vCorner = Math.sqrt((r.aLat || 10.5) / Math.max(rcCurv(T, r.s, sp), 1e-4)) * (r.err === 'late' ? 1.3 : 1);
   const vT = Math.min(c.T.maxV, vCorner) * (lead && RC.mode !== 'ghost' ? .99 : 1);
   let steer = Math.max(-1, Math.min(1, dh * 2.4)), thr = sp < vT ? 1 : sp > vT + 2.5 ? -1 : .15;
   if (r.err === 'wobble') steer = Math.max(-1, Math.min(1, steer + Math.sin(RC.t * 9 + r.skill * 40) * .7));
@@ -421,7 +454,7 @@ function rcBump(a, b){
   if (!carBlocked(b, b.x + nx * pb, b.z + nz * pb, b.h)){ b.x += nx * pb; b.z += nz * pb; }
   const rv = (b.vx - a.vx) * nx + (b.vz - a.vz) * nz;
   if (rv < 0){
-    const j = -1.3 * rv / (ia + ib); a.vx -= j * ia * nx; a.vz -= j * ia * nz; b.vx += j * ib * nx; b.vz += j * ib * nz;
+    const j = -(RC.T && RC.T.bump || 1.3) * rv / (ia + ib); a.vx -= j * ia * nx; a.vz -= j * ia * nz; b.vx += j * ib * nx; b.vz += j * ib * nz;
     if (-rv > 5 && (a === driving || b === driving)){ sfx.crash(Math.min(1, -rv / 22) * .7); camShake = Math.max(camShake, Math.min(1.4, -rv / 14)); }
   }
 }
@@ -438,7 +471,7 @@ function rcProgress(r, dt){
       r.next++;
       if (T.closed && r.next % T.ncp === 0){
         const lt = RC.t - r.lapStart; r.lapStart = RC.t; if (r.best == null || lt < r.best) r.best = lt;
-        if (r === RC.me) rcLapDone(lt);
+        if (r === RC.me){ const ok = !T.lapOk || T.lapOk(); if (ok && (r.cleanBest == null || lt < r.cleanBest)) r.cleanBest = lt; rcLapDone(lt, ok); }
       }
       if (r === RC.me && r.next < T.cps.length) rcChime(r.next);
       if (r.next >= T.cps.length && r.fin == null){ r.fin = RC.t; if (!T.closed && !r.ai && (r.best == null || r.fin < r.best)) r.best = r.fin; if (!r.ai) RC.recDone = true; }
@@ -446,9 +479,9 @@ function rcProgress(r, dt){
   }
 }
 const rcChime = n => { for (let i = 0; i < 3; i++) tone('triangle', 660 * Math.pow(1.26, i + (n % 4) * .5), 660 * Math.pow(1.26, i + (n % 4) * .5), .14, .12, i * .06); };
-function rcLapDone(lt){
+function rcLapDone(lt, ok){
   const T = RC.T, me = RC.me;
-  if (RC.mode !== 'items' && (!RC.bestRecT || lt < RC.bestRecT)){ RC.bestRec = RC.lapRec.slice(); RC.bestRecT = lt; }
+  if (RC.mode !== 'items' && ok !== false && (!RC.bestRecT || lt < RC.bestRecT)){ RC.bestRec = RC.lapRec.slice(); RC.bestRecT = lt; }
   RC.lapRec = [];
   const lapN = Math.floor(me.next / T.ncp);
   if (lapN < T.laps) gx.callout(`第 ${lapN + 1} 圈`, '上一圈 ' + rcFmt(lt), T.color);
@@ -618,6 +651,8 @@ function rcItems(dt){
 #rcItem[disabled]{opacity:.45}
 #rcBtns kbd,#rcItem kbd{font-size:10px;margin-left:4px;opacity:.6}
 @media (pointer:coarse){#rcItem{left:auto;top:auto;right:calc(var(--safe-r, 0px) + 16px);bottom:calc(var(--safe-b, 0px) + 222px);min-width:104px;min-height:58px;font-size:16px}#rcBtns kbd,#rcItem kbd{display:none}}
+/* an item race on the kart track: the corner-speed chip of js/94-f1-drive.js (#f1Adv, added to the page after #rcItem) sits just above the item button in portrait */
+@media (pointer:coarse) and (orientation:portrait){#rcItem:not([hidden]) ~ #f1Adv{bottom:calc(var(--safe-b, 0px) + 290px + max(0px, (var(--tc-s, 1) - 1) * 170px))}}
 #rcCard{position:fixed;z-index:30;left:50%;top:50%;transform:translate(-50%,-50%);width:min(440px,calc(100vw - 28px));max-height:calc(100vh - 40px);overflow:auto;padding:18px 18px 16px;box-sizing:border-box}
 #rcCard h2{margin:2px 0 6px;font-size:22px} #rcCard p{margin:4px 0;font-size:14px;line-height:1.5}
 #rcCard .rc-meta{font-size:13px;color:var(--muted);margin:6px 0 10px}
@@ -682,9 +717,9 @@ function rcCardOpen(T){
   const b = rcSave.best[T.id] || {}, g = rcSave.ghost[T.id], km = (T.len * (T.closed ? T.laps : 1) / 1000).toFixed(1);
   rcCard.innerHTML = `<button class="x" type="button" id="rcX" aria-label="关闭">×</button>
     <div class="eyebrow">赛事 · ${T.closed ? T.laps + ' 圈' : '冲刺'} · ${km} 公里</div><h2 id="rcCardT">${T.icon} ${T.name}</h2><p>${T.desc}</p>
-    <div class="rc-meta">本机最好：${T.closed ? '单圈 ' + rcFmt(b.lap) + ' · 完赛 ' + rcFmt(b.run) : rcFmt(b.run)}${rcSave.wins[T.id] ? ` · 赢过 ${rcSave.wins[T.id]} 场` : ''}</div>
+    <div class="rc-meta">本机最好：${T.closed ? '单圈 ' + rcFmt(T.bestLap ? T.bestLap() : b.lap) + ' · 完赛 ' + rcFmt(b.run) : rcFmt(b.run)}${rcSave.wins[T.id] ? ` · 赢过 ${rcSave.wins[T.id]} 场` : ''}${T.dayCap ? ` · 今日奖金 RM ${rcDay(T).n}/${T.dayCap}` : ''}</div>
     <div class="rc-modes"><button class="btn primary" type="button" data-m="ai">人机赛</button><button class="btn primary" type="button" data-m="items">道具赛</button><button class="btn primary" type="button" data-m="ghost">影线 1v1</button></div>
-    <p class="rc-meta">人机赛：${TOUCH ? 3 : 4} 辆 AI 车，按名次发奖金。道具赛：撞开问号箱拿道具（${TOUCH ? '点「道具」' : 'X 键'}用）。影线 1v1：没有 AI，和一辆半透明的影子车比${T.closed ? '单圈' : '用时'}。</p>
+    <p class="rc-meta">${T.note ? T.note + '<br>' : ''}人机赛：${rcAiN(T)} 辆 AI ${T.aiKind ? CAR_T[T.aiKind].name : '车'}，按名次发奖金。道具赛：撞开问号箱拿道具（${TOUCH ? '点「道具」' : 'X 键'}用）。影线 1v1：没有 AI，和一辆半透明的影子车比${T.closed ? '单圈' : '用时'}。</p>
     <div id="rcGhosts" hidden><h3>选一个影线对手</h3><ul class="rc-list" id="rcGl"></ul></div>
     <h3>排行榜前三</h3><ul class="rc-list" id="rcTop"><li>${rcOnline() ? '读取中…' : window.XNet && XNet.offText ? XNet.offText() : '联机未开启，成绩只存在本机'}</li></ul>`;
   rcCard.hidden = false;
@@ -716,7 +751,7 @@ function rcCardResult(R){
   rcCard.innerHTML = `<button class="x" type="button" id="rcX" aria-label="关闭">×</button>
     <div class="eyebrow">${R.T.icon} ${R.T.name} · ${{ai:'人机赛', items:'道具赛', ghost:'影线 1v1'}[R.mode]}</div><h2 id="rcCardT">${R.head}</h2><p>${R.sub || ''}${R.newRec ? ' · 新纪录！' : ''}</p>
     ${R.lines.length ? `<ul class="rc-list">${R.lines.map(l => `<li>${l}</li>`).join('')}</ul>` : ''}
-    <p class="rc-meta">${R.pay ? '奖金 +RM ' + R.pay : '没跑完，没有奖金'}${R.mode === 'items' ? ' · 道具赛不上榜' : R.nos ? ' · 用了氮气或技能，这场不上榜' : ''}</p>${window.XParts ? XParts.chips(R.loot) : ''}
+    <p class="rc-meta">${R.capped ? `今天的奖金领满了（每天 RM ${R.T.dayCap}），明天再来` : R.pay ? '奖金 +RM ' + R.pay + (R.dayLeft != null ? ` · 今天还能领 RM ${R.dayLeft}` : '') : R.done ? '这场没有奖金' : '没跑完，没有奖金'}${R.mode === 'items' ? ' · 道具赛不上榜' : R.nos ? ' · 用了氮气或技能，这场不上榜' : R.T.boardNote ? ' · ' + R.T.boardNote(R.mode) : ''}</p>${window.XParts ? XParts.chips(R.loot) : ''}
     <div class="hrow"><button class="btn primary" type="button" id="rcAgain">再来一场</button><button class="btn" type="button" id="rcOk">好</button></div>`;
   rcCard.hidden = false;
   const close = () => { rcCard.hidden = true; rcCardFor = null; gx.paused = false; canvas.focus({preventScroll:true}); };
@@ -737,7 +772,8 @@ function rcIdle(dt, px, pz, hide){
     if (RC.rearm === T){ if (d > 16) RC.rearm = null; continue; }
     if (d < 7){
       const sp = driving ? Math.hypot(driving.vx, driving.vz) : 0;
-      if (!driving) rcPromptMsg = `开车进圈参加「${T.name}」`;
+      if (!driving && T.walkIn){ if (nw.state !== 'fly'){ rcCardOpen(T); break; } }
+      else if (!driving) rcPromptMsg = `开车进圈参加「${T.name}」`;
       else if (sp > 14) rcPromptMsg = `慢一点进圈 · ${T.name}`;
       else { rcCardOpen(T); break; }
     }
@@ -807,8 +843,18 @@ function raceTryF(){
     return baseEject.apply(this, arguments);
   };
 }
+/* a track from another file (it may be built after this one loads, like the kart track in js/92-kart-race.js). Optional fields:
+   raw (pts already spaced every few metres, closed), evAt [x, z] for the flag, grid(k) → [x, z, h, s], ai() AI count, aiKind (every AI drives this car),
+   aLat [lo, hi] corner grip of the AI, rub [up, down, metres] rubber band, bump (push of a hit), line(s) racing-line offset (+ left), pay (prize factor), dayCap (RM a day),
+   prep(mode) (before the start; false cancels), lapOk() (is the lap that just ended clean), bestLap(), board:false (no /mini/race_<id> board of its own),
+   boardNote(mode), walkIn (on foot opens the card), note (a line on the card), onFinish(result, me), extra (not one of the five for 全图车手) */
+function rcAddTrack(T){
+  if (RC_TRACKS.some(t => t.id === T.id)) return null;
+  T.extra = true; rcPrep(T); rcFlag(T); RC_TRACKS.push(T); T.ev.g.visible = false; T.ev.lbl.dead = true;
+  return T;
+}
 window.XRace = {
-  tracks:RC_TRACKS, state:RC, start:rcStart, abort:rcAbort, enc:rcEnc, dec:rcDec, near:rcNear, at:rcAt,
+  tracks:RC_TRACKS, state:RC, start:rcStart, addTrack:rcAddTrack, abort:rcAbort, enc:rcEnc, dec:rcDec, near:rcNear, at:rcAt,
   sim:{
     step(sec, each){
       const dt = 1 / 60; let n = Math.round(sec / dt), t = performance.now() / 1000;
