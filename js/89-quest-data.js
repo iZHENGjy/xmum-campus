@@ -236,7 +236,7 @@ window.XQD = (() => {
       ['laozhou', '车想跑快点，去车行里的改装车间改一改。去吧，单子不等人。']
     ],
     outro:[
-      ['laozhou', '十五单，没超时几单……行吧，比我想的快一点点。'],
+      ['laozhou', '八单，没超时几单……行吧，比我想的快一点点。'],
       ['laozhou', '别得意。这包改装零件拿着，轮毂、漆、涡轮，够你折腾一阵子。'],
       ['laozhou', '对了，你那个室友卷卷在 A3 台阶上转圈，好像快哭了，去看看她。']
     ],
@@ -247,8 +247,9 @@ window.XQD = (() => {
         hint:{pc:'开车进蓝色光圈开始，跟着指南针在时限内冲到终点', touch:'开车进蓝色光圈开始，跟着指南针冲到终点'},
         tip:'早八冲刺的起点在 LY 宿舍区西边，从宿舍一路冲到教学楼，迟到了也能重来。', guide:'earn',
         nudge:'早八冲刺的蓝圈在 LY 宿舍区西头，开车进圈就开始。'},
-      {id:'c2_deliv15', text:'累计送 15 单外卖', rm:50,
-        done:Q => Q.life('deliv') >= 15, count:Q => [Math.min(15, Q.life('deliv')), 15],
+      /* 仓库主人：送 8 单就够了（id 还叫 c2_deliv15，存档里记的是 id，不改） */
+      {id:'c2_deliv15', text:'累计送 8 单外卖', rm:50,
+        done:Q => Q.life('deliv') >= 8, count:Q => [Math.min(8, Q.life('deliv')), 8],
         hint:{pc:'开车进橙色光圈，<kbd>F</kbd> 或 <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> 接单', touch:'开车进橙色光圈，点卡片上的单子接单', flash:'#mini'},
         tip:'开车送比走路快多了，远一点的单子钱也多。', guide:'earn',
         nudge:'D6 食堂门口的橙圈单子最多，接了就跟着指南针开。'},
@@ -279,7 +280,7 @@ window.XQD = (() => {
     ]});
   D.diary.c2_start = '站长老周嫌我慢，说有车了就别磨蹭。我觉得他就是嘴硬。';
   D.diary.c2_early8 = '跑了一次早八冲刺，原来每天早上大家都是这么拼的。';
-  D.diary.c2_deliv15 = '十五单了！D6 门口的阿姨都认得我了。';
+  D.diary.c2_deliv15 = '八单了！D6 门口的阿姨都认得我了。';
   D.diary.c2_tea = '在蜜雪冰橙摇了一下午奶茶，手腕好酸，可是好好玩。';
   D.diary.c2_repaint = '被保安追得心都快跳出来，冲进喷漆车间那一刻，卷帘门落下，世界安静了。';
   D.diary.c2_car = '我买了第一辆自己挣钱买的车。坐进去的时候，手在方向盘上摸了好久。';
@@ -569,7 +570,7 @@ window.XQD = (() => {
     mom_house:{from:'mom', text:'你哪来的钱买房？？'},
     mom_end:{from:'mom', text:'一年了，长大了。放假回来妈给你做好吃的。'},
     lz_hi:{from:'laozhou', text:'小满说你有车了？D6 外卖点，过来，别让我等。'},
-    lz_mid:{from:'laozhou', text:'十五单了？还行，没我当年快。'},
+    lz_mid:{from:'laozhou', text:'八单了？还行，没我当年快。'},
     lz_end:{from:'laozhou', text:'单子还多，有空就回来跑。别跟别人说我夸过你。'},
     jj_hi:{from:'juanjuan', text:'室友救命！！！A3 大台阶，快来！！'},
     jj_mid:{from:'juanjuan', text:'卷子拿到了？？？我哭了真的'},

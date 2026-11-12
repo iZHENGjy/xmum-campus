@@ -338,5 +338,34 @@
     setTimeout(() => g(() => toast(TOUCH ? '要做的事都写在日记里' : '按 P 看日记', TOUCH ? '点钱包下面那行「主线」打开' : '要做的事、操作说明都在里面 · M 打开大地图', 3600)), 2600);
   });
 
+  /* ================= first visit to the car shop and to the tuning workshop: what this place is, in three lines ================= */
+  const INTRO = {
+    shop:{sel:'#shop', after:'.shop-h', title:'XMUM 车行能做什么',
+      lines:['<b>买车</b>：挑一辆点「买下」，钱从钱包里扣。买过的车随时点「开出来 / 叫来修好」，车会开到你身边，顺便修好。',
+        '<b>改装车间</b>、<b>喷漆店</b>：就是下面这排按钮。改装只给你自己的车：换轮毂、尾翼、涡轮……车会变快、变样子。',
+        '<b>水枪工坊</b>：往下翻到底，花钱升级水枪的水量和射程，打保安、赶猴子都用得上。']},
+    tune:{sel:'#tune', after:'.shop-h', title:'改装车间怎么用',
+      lines:['<b>① 道具</b>：最上面一排是你的改装道具（轮毂坯件、赛车漆料、碳纤维板……）。送外卖、挑战拿牌、每天打卡都会掉。',
+        '<b>② 下单施工</b>：下面选一个部位（轮毂、车身、尾翼……）、挑一个零件，点「下单施工」：花一点钱，用掉道具，零件进施工位。普通改装几十秒完工，越好的越久。',
+        '<b>③ 提车</b>：完工后回到这里点「提车」，零件就装到车上了。可以先下单，去送几单外卖再回来提车。']}
+  };
+  function introShow(k){
+    const I = INTRO[k], st = S(); if (!I || st.flags['intro_' + k]) return;
+    const panel = document.querySelector(I.sel); if (!panel || panel.querySelector('.q-intro')) return;
+    const box = el('div', 'q-intro'); box.setAttribute('role', 'note');
+    box.innerHTML = `<b class="q-ih">${esc(I.title)}</b>` + I.lines.map(l => `<p>${l}</p>`).join('') + '<button type="button" class="btn">知道了</button>';
+    box.querySelector('button').addEventListener('click', () => { XQ.flag('intro_' + k); box.remove(); g(() => ac()); });
+    const after = panel.querySelector(I.after); if (after) after.after(box); else panel.prepend(box);
+  }
+  { const st = document.createElement('style'); st.textContent = `
+.q-intro{margin:6px 0 10px;padding:10px 12px;border-radius:12px;background:rgba(255,210,58,.16);border:1px solid rgba(201,150,20,.4);font-size:13px;line-height:1.55;color:var(--ink)}
+.q-intro .q-ih{display:block;font-size:14px;margin-bottom:4px}
+.q-intro p{margin:2px 0}
+.q-intro .btn{margin-top:6px;min-height:34px;padding:4px 14px}
+#tune .q-intro{flex:none;max-height:none}
+.q-intro{flex-shrink:0}`; document.head.appendChild(st); }
+  if (typeof openShop === 'function'){ const base = openShop; openShop = function(){ const r = base.apply(this, arguments); g(() => introShow('shop')); return r; }; }
+  if (typeof tnOpen === 'function'){ const base = tnOpen; tnOpen = function(){ const r = base.apply(this, arguments); g(() => { if (tn.on) introShow('tune'); }); return r; }; }
+
   XQ.ui = {say:sayUI, frame, card:cardShow, get talkOpen(){ return !box.hidden; }, end:talkEnd, next:talkNext};
 })();

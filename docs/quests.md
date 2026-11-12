@@ -132,7 +132,7 @@ KLIA 到达大厅，这次是你举着「XMUM 新生」小旗。一只刚下飞�
 | 步骤 | 怎么算完成 | 奖励 |
 |---|---|---|
 | 开车跑一次早八冲刺 | `prog.ach.early8` | RM 30 |
-| 累计送 15 单外卖 | `prog.life.deliv >= 15` | RM 50 |
+| 累计送 8 单外卖 | `prog.life.deliv >= 8` | RM 50 |
 | 去蜜雪冰橙打一次工 | `prog.best.o_tea != null` | RM 30 |
 | 在水枪工坊升级一次 | `prog.ach.wg1` | RM 30 |
 | 被通缉时冲进喷漆车间 | `prog.ach.repaint` | RM 50 |
