@@ -38,7 +38,8 @@ window.XQD = (() => {
   Object.assign(D.people, {
     mom:{name:'妈妈', icon:'妈', color:'#e8708a'},
     xiaoman:{name:'小满学姐', icon:'满', color:'#3f8fe6'},
-    memo:{name:'日记', icon:'📖', color:'#a07a52'}   /* the voice of 「重温这一章」 (js/89-quest.js replay) */
+    memo:{name:'日记', icon:'📖', color:'#a07a52'},   /* the voice of 「重温这一章」 (js/89-quest.js replay) */
+    cat:{name:'小橘', icon:'🐱', color:'#e39a4c'}       /* the campus cat (js/89-kitty.js) */
   });
 
   /* ---------- 人机奶蛙（角色都是虚构的） ---------- */
@@ -115,7 +116,13 @@ window.XQD = (() => {
         done:Q => Q.ach('swing'),
         hint:{pc:'走到秋千旁按 <kbd>F</kbd> 坐上去，按住 <kbd>空格</kbd> 越荡越高', touch:'走到秋千旁点「上车」坐上去，按住「荡」越荡越高', flash:'#act-f'},
         tip:'秋千在音乐岛西边的草坪上，荡高了松手能飞出去。',
-        nudge:'秋千在音乐岛西边，树林边的草坪上，地图上找「秋千」两个字。'}
+        nudge:'秋千在音乐岛西边，树林边的草坪上，地图上找「秋千」两个字。'},
+      /* 遇到校园里的小猫（js/89-kitty.js）：慢慢走过去，按 F 喂小鱼干，拍张照发给妈妈 */
+      {id:'c1_cat', text:'喂喂校园里的小猫，拍张照发给妈妈', rm:20, isNew:true, kitty:true, at:() => window.XKitty ? XKitty.nearestAt() : null, r:0,
+        done:Q => Q.flag('q_cat'),
+        hint:{pc:'慢慢走过去（别按 <kbd>Shift</kbd> 跑），走到它旁边按 <kbd>F</kbd>', touch:'摇杆轻轻推，慢慢走过去，走到它旁边点「喂猫」', flash:'#act-f'},
+        tip:'校园里到处都有小猫，晒太阳、打盹。一跑过去它们就溜了。',
+        nudge:'指南针指着最近的一只小猫，慢慢走过去就不会把它吓跑。'}
     ]});
 
   D.diary.c1_start = '小满学姐塞给我一个工作牌，说先走路把学校认熟。';
@@ -123,11 +130,14 @@ window.XQD = (() => {
   D.diary.c1_deliv1 = '送出了第一单外卖，手心全是汗。';
   D.diary.c1_late = '送第一单外卖的时候差点迟到，跑得腿都软了。';
   D.diary.c1_swing = '在音乐岛旁边荡秋千，荡到最高的时候好像能飞起来。';
+  D.diary.c1_cat = '学校里有一只橘猫，喂了它两块小鱼干，拍了张照发给妈妈。妈妈说它比我可爱。';
+  D.diary.c1_cat_keep = '学校里有一只橘猫，喂了它两块小鱼干。照片没发，自己留着看。';
   D.diary.c1_end = '学姐把一辆 Myvi 的钥匙交给我。我有车了！';
   D.diary.homesick = '{when}有一架黄色的飞机从头顶飞过去……我想家了。';
   D.diary.intro = '飞机落地的时候，窗外全是一排一排的油棕树。';
 
   D.msgs.mom_arrive = {from:'mom', text:'到学校了吗？到了跟妈说一声。'};
+  D.msgs.mom_cat = {from:'mom', text:'好可爱！！是学校里的猫吗？你也要按时吃饭，别光喂猫。'};
   D.msgs.mom_rain = {from:'mom', text:'刚看了天气，雪邦下雨了吗？记得带伞。'};
   D.msgs.mom_video = {from:'mom', text:'视频吗？你爸也在。'};
   D.msgs.mom_car = {from:'mom', text:'开车慢点！！'};

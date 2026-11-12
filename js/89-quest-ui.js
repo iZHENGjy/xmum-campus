@@ -98,7 +98,7 @@
     const show = mode === 'naiwa' && !!c && S().ph !== 'done';   /* always: the 收起 box only hides the operation tips */
     bar.hidden = !show; if (!show) return;
     const all = XQ.steps(), i = Math.max(0, all.findIndex(s => s.id === (st && st.id))), cnt = st && st.count ? g(() => st.count(XQ.Q), null) : null;
-    const t = `主线 ${c.n}/${XQ.chapters.length} · ${st ? st.text.replace(/（.*?）/g, '') : ''}` + (cnt ? ` ${cnt[0]}/${cnt[1]}` : st && !st.meet ? ` · ${i + 1}/${all.length}` : '');
+    const t = `主线 ${c.n}/${XQ.chapters.length} · ${st ? st.text.replace(/（.*?）/g, '') : ''}` + (cnt ? ` ${cnt[0]}/${cnt[1]}` : st && !st.meet && !st.solo ? ` · ${i + 1}/${all.length}` : '');
     if (bar.textContent !== t){ bar.textContent = t; bar.title = t + '（点开日记）'; }
     bar.classList.toggle('q-bang', !!st && (st.meet || st.report));
   }
@@ -107,7 +107,7 @@
   const hint = el('div', 'panel q-hint'); hint.id = 'qhint'; hint.hidden = true; document.body.appendChild(hint);
   let flashEl = null, hintId = '';
   function hintSync(force){
-    const st = XQ.step(), h = st && st.hint, busy = !box.hidden || g(() => XCine.busy, false) || mode !== 'naiwa' || quiet() || g(() => gx.paused, false) || S().ph !== 'steps';
+    const st = XQ.step(), h = st && st.hint, busy = !box.hidden || g(() => XCine.busy, false) || mode !== 'naiwa' || quiet() || g(() => gx.paused, false) || (S().ph !== 'steps' && !(st && st.solo));
     const want = !busy && h && !XQ.stepDone(st.id) ? st : null;
     const id = want ? want.id : '';
     if (id === hintId && !force) return;

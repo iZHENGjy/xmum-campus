@@ -96,8 +96,12 @@
   const chapter = () => chOf(S.ch);
   const reportStep = c => ({id:c.id + '_report', text:c.report || ('回去找' + ((D.npcs[c.npc] || {}).name || '')), report:true, at:() => npcAt(c.npc), r:0});
   const stepsOf = c => c ? c.steps.concat([reportStep(c)]) : [];
+  /* just got the keys at the end of chapter 1: before anything else, get into the Myvi 小满 parked beside you */
+  const carStep = () => ({id:'c1_car0', solo:true, text:'坐上你的 Myvi（车就停在旁边）', at:() => { const c = g(() => myCar, null); return c ? [c.x, c.z] : null; }, r:0,
+    hint:{pc:'走到车旁按 <kbd>F</kbd> 上车；开车：<kbd>W</kbd><kbd>S</kbd> 油门刹车，<kbd>A</kbd><kbd>D</kbd> 转向', touch:'走到车旁点「上车」；左下摇杆开车', flash:'#act-f'}});
   function curStep(){
     const c = chapter(); if (!c) return null;
+    if (S.born === 'new' && S.ch === 2 && S.ph === 'meet' && S.done.c1_report && !S.flags.q_car1 && g(() => myCar, null)) return carStep();
     if (S.ph === 'meet') return {id:c.id + '_meet', text:'去找' + ((D.npcs[c.npc] || {}).name || '') + '（' + (c.place || '') + '）', meet:true, at:() => npcAt(c.npc), r:0};
     if (S.ph === 'report') return reportStep(c);
     return c.steps.find(s => !S.done[s.id]) || reportStep(c);
@@ -435,6 +439,14 @@
   { let was = false, tLeft = 0;
     setInterval(() => { const on = g(() => mission.on, false); if (on) tLeft = g(() => mission.t, 99); if (was && !on && tLeft > 0 && tLeft < 15 && g(() => prog.life.deliv, 0) > 0) flag('lateDeliv'); was = on; }, 250); }
 
+  /* the story sends you to a person right now (meet, report, "go and talk to"): within 15 m of them no order cards, so F and the
+     ring by 老周 / 阿明 do not turn the visit into a delivery (js/89-offers.js asks) */
+  function visiting(){
+    const c = chapter(), st = curStep(); if (!c || !st) return false;
+    const who = st.meet || st.report ? c.npc : st.talkTo; if (!who) return false;
+    const o = NPC[who], a = o ? [o.x, o.z] : npcAt(who); if (!a) return false;
+    const [px, pz] = here(); return Math.hypot(px - a[0], pz - a[1]) < 15;
+  }
   /* where the compass points: the step's place, or the npc to see */
   function target(){
     const st = curStep(); if (!st || !st.at) return null;
@@ -522,6 +534,7 @@
     const today = dayKey(); if (S.days[S.days.length - 1] !== today && !S.days.includes(today)){ S.days.push(today); if (S.days.length > 400) S.days.shift(); save(); }
     if (mode === 'naiwa'){
       if (S.ph === 'steps') checkSteps(false);
+      if (!S.flags.q_car1 && g(() => driving, null) && unlocked('drive')){ flag('q_car1'); emit('state'); }   /* first time behind the wheel */
       checkSides(false);
       /* the first-time events (diary lines, mum's messages) */
       for (const ev of D.events){
@@ -615,7 +628,7 @@
     get ready(){ return ready; }, get state(){ return S; }, get ch(){ return S.ch; }, get ph(){ return S.ph; }, get born(){ return S.born; },
     get talking(){ return !!talking; },
     data:D, chapters:CH, chapter, step:curStep, steps:() => stepsOf(chapter()), stepDone:id => !!S.done[id], Q, qDone,
-    unlocked, carLocked, ch1Deliv, ringsOff, calm, lockToast,
+    unlocked, carLocked, ch1Deliv, ringsOff, calm, lockToast, visiting,
     flag, talk, say, npcNear:npcNearId, npcAt, npcMark, npcs:NPC, sidesOf, diaryAdd, msg, save, dayNo, pay, withMe,
     on, target, playIntro, replay, chFinished, unlockedTitle:() => S.title,
     ui:null, dev
