@@ -4,7 +4,8 @@
  * 指南针左边一个 🎯 小按钮，点开一张小菜单：
  *   自动（原来的样子：正在做的事 → 送外卖 → 主线 → 最近的取餐点）· 主线 · 某一条支线（接了的才列出来）· 外卖 · 每日目标 · 关掉
  * 选了以后一直记着（localStorage xmum-guide），刷新也在。
- * 比赛、挑战、被保安追、找好友这些「正在做的事」照样优先用它们自己的箭头（它们比你选的更急），做完又回到你选的。
+ * 比赛、挑战、被保安追这些「正在做的事」照样优先用它们自己的箭头（它们比你选的更急），做完又回到你选的。
+ * 找好友的导航也优先，但它是你自己点的：菜单最上面会列出来，在菜单里另选一项就把找好友的导航取消。
  * 怎么接：js/50-missions.js 的 updateCompass 开头问一句 XGuidePick.pick(px, pz)：返回 {x, z, label} 就指那里，返回 {text} 就只显示文字、
  *   不画箭头，返回 null 就照原来的规则。
  * 对外：window.XGuidePick = {pick(px, pz), mode, set(mode), open()} */
@@ -82,8 +83,10 @@
   const menu = document.createElement('div'); menu.id = 'gPickMenu'; menu.hidden = true; menu.setAttribute('role', 'menu'); document.body.appendChild(menu);
   const NAMES = {auto:'自动', main:'主线', deliv:'外卖', daily:'每日目标', off:'关掉'};
   function render(){
-    const it = (m, icon, text) => `<button type="button" role="menuitemradio" aria-checked="${mode === m}" data-m="${m}"><i>${mode === m ? '✓' : icon}</i><span>${text}</span></button>`;
-    let h = '<h5>指南针指什么</h5>' + it('auto', '✨', '自动（正在做的事优先，再到主线）') + it('main', '★', '主线');
+    const fr = g(() => XFriends.nav ? XFriends.navName : '', '');
+    const it = (m, icon, text) => { const on = mode === m && !fr; return `<button type="button" role="menuitemradio" aria-checked="${on}" data-m="${m}"><i>${on ? '✓' : icon}</i><span>${text}</span></button>`; };
+    let h = '<h5>指南针指什么</h5>' + (fr ? `<button type="button" role="menuitemradio" aria-checked="true" data-m="friend"><i>✓</i><span>⭐ 正在找 ${fr.replace(/[<>&]/g, '')}（选别的就取消）</span></button>` : '')
+      + it('auto', '✨', '自动（正在做的事优先，再到主线）') + it('main', '★', '主线');
     const S = openSides();
     if (S.length){ h += '<h5>支线</h5>'; for (const s of S) h += it('side:' + s.id, '📌', s.text.replace(/[<>&]/g, '')); }
     h += '<h5>别的</h5>' + it('deliv', '🛵', '外卖（取餐点 / 送达点）') + it('daily', '📅', '每日目标') + it('off', '🚫', '关掉指南针');
@@ -100,8 +103,11 @@
   btn.addEventListener('click', e => { e.stopPropagation(); g(() => ac()); menu.hidden ? open() : close(); });
   btn.addEventListener('pointerdown', e => e.stopPropagation());
   menu.addEventListener('pointerdown', e => e.stopPropagation());
-  menu.addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (!b) return; set(b.dataset.m); close();
-    g(() => toast('指南针', b.dataset.m === 'auto' ? '自动：正在做的事优先，再到主线' : '指向：' + b.querySelector('span').textContent, 1800)); });
+  menu.addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (!b) return;
+    if (b.dataset.m === 'friend'){ close(); return; }   /* keep finding the friend */
+    const stopped = g(() => XFriends.stopNav(), false);   /* picking anything else ends the friend navigation */
+    set(b.dataset.m); close();
+    g(() => toast('指南针', (stopped ? '不找好友了 · ' : '') + (b.dataset.m === 'auto' ? '自动：正在做的事优先，再到主线' : '指向：' + b.querySelector('span').textContent), 1800)); });
   document.addEventListener('pointerdown', e => { if (!menu.hidden && !menu.contains(e.target) && e.target !== btn) close(); }, true);
   window.addEventListener('keydown', e => { if (!menu.hidden && e.code === 'Escape'){ e.preventDefault(); e.stopPropagation(); close(); } }, true);
   function sync(){ btn.classList.toggle('set', mode !== 'auto'); btn.title = '指南针指什么（现在：' + (NAMES[mode] || '支线') + '）'; }

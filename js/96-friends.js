@@ -645,6 +645,8 @@ body.wd-open #frPanel,body.arc-in #frPanel,body.arc-in #frBtn{display:none!impor
     get active(){ return F.on; }, get unavailable(){ return F.down; }, cap:CAP,
     get list(){ return [...F.list.keys()].map(uid => ({uid, name:nameOf(uid), online:F.onl.has(uid), status:statusOf(uid)})); },
     get nav(){ return F.nav ? F.nav.uid : null; },
+    get navName(){ return F.nav ? F.nav.name : ''; },
+    stopNav(){ if (!F.nav) return false; F.nav = null; F.dirty = true; return true; },   /* the compass picker (js/89-guide-pick.js) */
     isFriend, open, close, toggle, navTo, unfriend, ask:uid => { const p = XSocial.peer(uid); if (p) askFriend(p); }, areaName,
     _F:F
   };

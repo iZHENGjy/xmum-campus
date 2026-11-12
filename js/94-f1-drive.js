@@ -99,7 +99,9 @@
     let over = 0;
     if (asphalt && !brake && v > 8 && Math.abs(c._f1want) > .35){
       let kc = 0; const ahead = Math.round(Math.min(CFG.look * 60, 6 + v * CFG.look / 3));   /* looks further ahead the faster you go */
-      for (let d = 0; d <= ahead; d += 2){ const cv = W.tr.CURV[W.tr.wi(W.i + d)]; if (Math.sign(cv) === Math.sign(c._f1want)) kc = Math.max(kc, Math.abs(cv)); }
+      /* CURV < 0 where the track bends the way positive steering turns the car (js/92-f1park.js: asin(a × b); js/40-vehicles.js: h += v/wb·tan(steer)),
+         so steering INTO the bend means opposite signs */
+      for (let d = 0; d <= ahead; d += 2){ const cv = W.tr.CURV[W.tr.wi(W.i + d)]; if (Math.sign(cv) === -Math.sign(c._f1want)) kc = Math.max(kc, Math.abs(cv)); }
       if (kc > 1 / 400){ const vOk = Math.sqrt(aMax * CFG.grip / kc); if (v > vOk) over = Math.min(1, (v - vOk) / Math.max(4, vOk) * 3) * Math.min(1, Math.abs(c._f1want) * 1.4); }
     }
     steer *= k;
@@ -115,7 +117,11 @@
     if (asphalt){
       T.grip = save1 * m.grip * (1 + m.df * q * .8) * (1 - CFG.slide * over); T.acc = save2 * m.acc;   /* asking too much: the tyres slide, the car runs a little wide */
       const top = save0 * (1 + m.vmax), cap = top > VKNEE ? VKNEE + (top - VKNEE) * .5 : top;   /* no halving any more: only past 360 km/h */
-      T.maxV = v > cap ? Math.max(cap, v - 9 * dt) : cap;   /* above the circuit top speed: eases down like drag, no sudden clamp */
+      /* nitro (js/94-tuning-drive.js) raises the cap here, and that wrapper is told not to multiply maxV again: easing first and
+         multiplying after meant v - 9·dt × (1 + nitro) > v, so under nitro the circuit had no top speed at all */
+      const nos = c === driving && typeof ND !== 'undefined' && ND.mult > .001 ? 1 + ND.mult : 1, capN = cap * nos;
+      T.maxV = v > capN ? Math.max(capN, v - 9 * dt) : capN;   /* above the circuit top speed: eases down like drag, no sudden clamp */
+      c._f1nos = nos > 1;
     } else {
       brake = false;                                         /* no handbrake spins on the grass or in the gravel */
       T.grip = Math.max(save1, 7) * 1.25 * Math.min(1, m.off + .2);
@@ -123,7 +129,7 @@
       T.maxV = Math.min(save0, Math.max(v - 3 * dt, W.s === 'gravel' ? 10 : 32));
     }
     if (thr < 0 && vf > .5) T.acc *= m.brake;               /* the brakes scale with the car's pull (js/40-vehicles.js); carbon brakes add to that */
-    try { base(c, dt, {thr, steer, brake}); } finally { T.maxV = save0; T.grip = save1; T.acc = save2; }
+    try { base(c, dt, {thr, steer, brake}); } finally { T.maxV = save0; T.grip = save1; T.acc = save2; c._f1nos = false; }
     if (!asphalt && !c.air){ const f = Math.exp(-(W.s === 'gravel' ? 2.6 : .5) * dt); c.vx *= f; c.vz *= f; }
     /* scrub and assist: take speed off along the direction of travel */
     const dec = (over > .02 ? CFG.scrub * over * (1 + CFG.sv * v / 50) : 0) + assist * CFG.assist, sp = Math.hypot(c.vx, c.vz);
