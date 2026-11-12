@@ -174,7 +174,7 @@
     <p class="q-wp"></p><p class="q-wgift"></p><div class="q-wbtns"><button type="button" class="btn buy" data-a="diary">翻翻日记</button><button type="button" class="btn" data-a="intro">看开场</button></div></div>`;
   document.body.appendChild(wel);
   function welcomeTry(){
-    const w = S().welcome; if (!w || !XQ.ready || mode !== 'naiwa' || !wel.hidden || g(() => XCine.busy, false) || g(() => XGuide.on, false) || document.querySelector('dialog[open]')) return;
+    const w = S().welcome; if (!w || !XQ.ready || mode !== 'naiwa' || !wel.hidden || g(() => XCine.busy, false) || g(() => XQ.introPending(), false) || g(() => XGuide.on, false) || document.querySelector('dialog[open]')) return;
     const chs = w.chs || [], last = chs.length ? chs[chs.length - 1] : 0, nx = XQ.chapter();
     wel.querySelector('.q-wp').textContent = `学校新开了主线：${'零一二三四五六七八九十'[XQ.chapters.length] || XQ.chapters.length}章，从报到、过生日、当车手，一路到带下一届新生。你来得早，${last > 1 ? `第 1–${last} 章` : '第 1 章'}已经算你完成了` + (nx ? `，接着从第 ${nx.n} 章「${nx.title}」开始。` : '。')
       + (w.part && nx && w.part.n === nx.n && w.part.done ? `这一章 ${w.part.of} 件事你已经做过 ${w.part.done} 件，还差：${w.part.left.join('、')}。` : '');
