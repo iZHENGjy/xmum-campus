@@ -721,7 +721,7 @@ function rcCardOpen(T){
     <div class="rc-modes"><button class="btn primary" type="button" data-m="ai">人机赛</button><button class="btn primary" type="button" data-m="items">道具赛</button><button class="btn primary" type="button" data-m="ghost">影线 1v1</button></div>
     <p class="rc-meta">${T.note ? T.note + '<br>' : ''}人机赛：${rcAiN(T)} 辆 AI ${T.aiKind ? CAR_T[T.aiKind].name : '车'}，按名次发奖金。道具赛：撞开问号箱拿道具（${TOUCH ? '点「道具」' : 'X 键'}用）。影线 1v1：没有 AI，和一辆半透明的影子车比${T.closed ? '单圈' : '用时'}。</p>
     <div id="rcGhosts" hidden><h3>选一个影线对手</h3><ul class="rc-list" id="rcGl"></ul></div>
-    <h3>排行榜前三</h3><ul class="rc-list" id="rcTop"><li>${rcOnline() ? '读取中…' : '联机未开启，成绩只存在本机'}</li></ul>`;
+    <h3>排行榜前三</h3><ul class="rc-list" id="rcTop"><li>${rcOnline() ? '读取中…' : window.XNet && XNet.offText ? XNet.offText() : '联机未开启，成绩只存在本机'}</li></ul>`;
   rcCard.hidden = false;
   rcCard.querySelector('#rcX').addEventListener('click', rcCardClose);
   rcCard.querySelectorAll('[data-m]').forEach(bt => bt.addEventListener('click', () => {

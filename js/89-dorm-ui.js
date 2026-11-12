@@ -138,7 +138,7 @@ const dmHasBoard = () => !!(window.XMini && XMini.board && XMini.board(DM_BOARD)
 let dmNetReq = 0;
 function dmUiBoard(el){
   const N = window.XNet, best = Math.round(+prog.best.dorm || 0), req = ++dmNetReq, mine = best ? `你的单局最高 RM ${best}` : '带东西撤离一次就有成绩';
-  if (!N || !N.online || !N.miniSubmit || !N.miniTop){ el.textContent = `${mine} · 联机未开启，成绩只保存在本机`; return; }
+  if (!N || !N.online || !N.miniSubmit || !N.miniTop){ el.textContent = `${mine} · ${N && N.offText ? N.offText() : '联机未开启，成绩只保存在本机'}`; return; }
   if (!best){ el.textContent = mine; return; }
   el.textContent = `${mine} · 正在提交成绩…`;
   Promise.resolve(N.miniSubmit(DM_BOARD, best)).then(() => N.miniTop(DM_BOARD, 50)).then(rows => {
