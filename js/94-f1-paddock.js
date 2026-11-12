@@ -11,15 +11,22 @@
  *   2. 测试车手：经理给一个目标圈速（按你开的车算），出去在雪邦赛道上跑一圈干净的计时圈（出界的圈不算），达标按档给风洞数据。
  *      第一次金牌一定给 F1 引擎模式配方。10 分钟内有效，没达标可以接着跑。
  *   3. 车队跑腿：去赛道边某个地方（1 号弯救援车、控制塔、9 号弯轮胎墙……）拿一样东西，再送回车库门口，限时，剩的时间越多越好。
- *   另外：雪邦赛道上每跑完一圈干净的计时圈也掉赛车胎胶料（TN_DROPS.f1lap，有冷却和每日上限）。
- * 存档 localStorage 'xmum-paddock-v1' = {pitBest, pitGold, testGold, n}。对外 window.XPaddock（测试用）。 */
+ *   另外：雪邦赛道上每跑完一圈干净的计时圈也有一点几率掉赛车胎胶料（TN_DROPS.f1lap，有冷却和每日上限）。
+ * 平衡（仓库主人：「不能一下出一堆」）：每样活每天最多 3 次给材料（计时圈 2 次），同一天第 2、3 次的几率乘 0.6、0.35；
+ *   测试车手的金 / 银 / 铜三个目标，每辆车每个目标每天只领一次；领完了照样能玩、刷纪录，结算时写明「今天领完了」。
+ *   材料只在一局结束时发一次：中途退出、重开、回赛道都不会再发。
+ * 赛车改装店（车库左边的柜台）：只改赛车。方程式赛车 RM 3,500 在这里买，F1 赛道件在这里装（改装界面借用改装车间的）；
+ *   赛车停在维修区车道上，「开赛车出去」把它摆到车库门口。赛车只能在汽车游乐园一园、二园（雪邦赛道和特技区）里开：
+ *   开到园区边上会被挡回来并提示「赛车不能上公路」；它不在车行里，叫车叫不来。
+ * 存档 localStorage 'xmum-paddock-v1' = {pitBest, pitGold, testGold, n, rc, paid}。
+ * 对外：window.XPaddock（测试用），window.XF1Tune（给主线等其他功能接：店的位置、有没有赛车、装没装 F1 件、材料数）。 */
 'use strict';
 (() => {
   const F = window.XF1, P = window.XPark; if (!F || !P || typeof gx === 'undefined') return;
   const g = (f, d) => { try { return f(); } catch(e){ return d; } };
   const OX = 0, OZ = -4700, W2 = 13, D2 = 9, WH = 3.4;
   const L = (x, z) => [OX + x, OZ + z];
-  const SAVE = {pitBest:null, pitGold:false, testGold:false, n:0};
+  const SAVE = {pitBest:null, pitGold:false, testGold:false, n:0, rc:false, paid:{d:'', k:{}}};
   try { Object.assign(SAVE, JSON.parse(localStorage.getItem('xmum-paddock-v1') || '{}')); } catch(e){}
   const save = () => { try { localStorage.setItem('xmum-paddock-v1', JSON.stringify(SAVE)); } catch(e){} };
   const locked = () => !!(P.qLock && P.qLock('park'));
@@ -34,7 +41,7 @@
 
   /* ---------- the garage (built on first entry) ---------- */
   const G = new THREE.Group(); G.position.set(OX, 0, OZ); G.visible = false; scene.add(G);
-  const cols = [], spots = {exit:{x:0, z:7.6, r:1.9, label:'出去'}, boss:{x:8.6, z:-4.6, r:2.2, label:'车队经理'}, pit:{x:0, z:3.2, r:2.2, label:'换胎挑战'}};
+  const cols = [], spots = {exit:{x:0, z:7.6, r:1.9, label:'出去'}, boss:{x:8.6, z:-4.6, r:2.2, label:'车队经理'}, pit:{x:0, z:3.2, r:2.2, label:'换胎挑战'}, shop:{x:-8.2, z:4.4, r:2.2, label:'赛车改装店'}};
   const marks = {}, lbls = [];
   let built = false, boss = null, screens = null;
   function canvasTex(w, h, draw){ const cv = document.createElement('canvas'); cv.width = w; cv.height = h; draw(cv.getContext('2d'), w, h); const t = new THREE.CanvasTexture(cv); t.anisotropy = typeof ANISO !== 'undefined' ? ANISO : 1; return t; }
@@ -70,6 +77,7 @@
     for (let k = 0; k < 9; k++) box(.06, .1 + (k % 3) * .12, .5, W2 - .26, 1.6 + (k % 3) * .4, .8 + (k / 3 | 0) * 1.8, ['#c8322a', '#ffd23a', '#8d9196'][k % 3]);
     box(3.6, .8, 1.2, 8.6, .4, -7.4, '#2b2e33'); for (const k of [-1, 0, 1]){ box(1.1, .7, .06, 8.6 + k * 1.15, 1.3, -7.75, '#111214'); box(.08, .45, .08, 8.6 + k * 1.15, .9, -7.75, '#3b3f44'); }
     box(1.4, .45, .7, -4, .23, -7.6, '#1b5aa6'); box(1.4, .45, .7, -2.4, .23, -7.6, '#1b5aa6');                 /* flight cases */
+    box(.8, 1, 2.6, -10.1, .5, 4.4, '#2b2e33'); box(.9, .06, 2.7, -10.1, 1.02, 4.4, '#c8322a'); box(.5, .3, .4, -10.1, 1.2, 3.8, '#111214');   /* 赛车改装店 counter, a till */
     const geo = geoMerge(parts), mesh = new THREE.Mesh(geo, M('#ffffff', {vertexColors:true, roughness:.6})); mesh.receiveShadow = true; G.add(mesh);
     { const im = new THREE.InstancedMesh(new THREE.CylinderGeometry(.33, .33, .36, 14).rotateZ(Math.PI / 2), M('#1c1c1e', {roughness:.85}), tyres.length), m4 = new THREE.Matrix4();
       tyres.forEach(([x, y, z], i) => { im.setMatrixAt(i, m4.makeRotationY(Math.PI / 2).setPosition(x, y, z)); }); G.add(im);
@@ -80,6 +88,8 @@
       cx.fillStyle = '#ffffff'; cx.font = '900 66px sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText('雪邦车队 · XMUM RACING', w / 2, h / 2 - 4, w - 40); });
     for (const [z, ry, y] of [[D2 - .2, Math.PI, WH - .5], [-D2 + .17, 0, 2.6]]){ const m = new THREE.Mesh(new THREE.PlaneGeometry(10, 1.25), new THREE.MeshStandardMaterial({map:ban, roughness:.6, emissive:'#ffffff', emissiveMap:ban, emissiveIntensity:.2})); m.position.set(0, y, z); m.rotation.y = ry; G.add(m); }
     box(2 * W2, .6, .5, 0, WH - .3, D2, '#1f2a33');
+    { const t = canvasTex(512, 128, (cx, w, h) => { cx.fillStyle = '#c8322a'; cx.fillRect(0, 0, w, h); cx.fillStyle = '#ffffff'; cx.font = '900 60px sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText('赛车改装店 · 只改赛车', w / 2, h / 2, w - 30); });
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(4, 1), new THREE.MeshStandardMaterial({map:t, roughness:.6, emissive:'#ffffff', emissiveMap:t, emissiveIntensity:.2})); m.position.set(-W2 + .17, 2.6, 4.4); m.rotation.y = Math.PI / 2; G.add(m); }
     /* telemetry screens: the circuit, a speed trace, the wind-tunnel numbers */
     const scr = canvasTex(768, 256, (cx, w, h) => {
       cx.fillStyle = '#0d1420'; cx.fillRect(0, 0, w, h);
@@ -97,7 +107,7 @@
       b.position.set(8.6, 0, -5.9); b.rotation.y = Math.PI * .9; G.add(b); boss = b; }
     /* colliders (switched off while you are outside) */
     const C2 = (x, z, hx, hz) => { const [wx, wz] = L(x, z), c = addBox(wx, wz, hx, hz, 0); c.dead = true; cols.push(c); };
-    C2(0, -D2, W2, .3); C2(-W2, 0, .3, D2); C2(W2, 0, .3, D2); C2(0, -1.4, 1.2, 2.6); C2(-W2 + .8, -1.1, .6, 6); C2(W2 - .7, 3, .6, 2.6); C2(8.6, -7.4, 1.9, .7); C2(-3.2, -7.6, 1.5, .45);
+    C2(0, -D2, W2, .3); C2(-W2, 0, .3, D2); C2(W2, 0, .3, D2); C2(0, -1.4, 1.2, 2.6); C2(-W2 + .8, -1.1, .6, 6); C2(W2 - .7, 3, .6, 2.6); C2(8.6, -7.4, 1.9, .7); C2(-3.2, -7.6, 1.5, .45); C2(-10.1, 4.4, .45, 1.35);
     C2(-W2 - 1, D2 + 3, .4, 4); C2(W2 + 1, D2 + 3, .4, 4); C2(0, D2 + 6.6, W2 + 1, .4);   /* keep you on the apron */
     for (const k in spots){ const S = spots[k], [x, z] = L(S.x, S.z), m = gxMarker(k === 'exit' ? '#4fd18b' : k === 'pit' ? '#ffd23a' : '#ff8a3d', .26); m.position.set(x, .05, z);
       m.children.forEach(c => { if (c !== m.userData.ring) c.visible = false; }); marks[k] = m; const lb = addLabel(S.label, x, 2.5, z, true); lb.dead = true; lbls.push(lb); }
@@ -163,25 +173,26 @@
     for (const r of RUN){ const [x, z] = [r[1], r[2]]; if (typeof hitsBuilding === 'function' && hitsBuilding(x, z, 1.2)) for (let k = 1; k < 12 && hitsBuilding(r[1], r[2], 1.2); k++){ r[1] = x + Math.cos(k * 2.3) * k * 1.5; r[2] = z + Math.sin(k * 2.3) * k * 1.5; } } }
   /* the target lap for test-driver jobs, per car: a bot that brakes for the advisory speeds, standing start (lambo 88.8 s, 911 90.9, Myvi 101.7 …);
      gold = that + 2 %, silver + 10 %, bronze + 22 % */
-  const TEST_BASE = {lambo:89, p911:91, mase:91, moto:91, rr:94, gwag:94, sedan:97, myvi:102, patrol:110, cart:130, bus:140};
+  const TEST_BASE = {f1car:81, lambo:89, p911:91, mase:91, moto:91, rr:94, gwag:94, sedan:97, myvi:102, patrol:110, cart:130, bus:140};
   const testTargets = c => { const b = TEST_BASE[c.kind] || 100; return [b * 1.02, b * 1.1, b * 1.22].map(v => Math.round(v)); };
   function cardOpen(){
     PD.card = true; gx.paused = true; engineUpdate(0, 0, false);
     const j = PD.job, c = myCar, tg = c ? testTargets(c) : null;
     card.innerHTML = `<button class="x" type="button" id="pdX" aria-label="关闭">×</button>
       <div class="eyebrow">维修区车库 · 雪邦车队</div><h2 id="pdCardT">车队经理 Ken</h2>
-      <p>「欢迎！我们车队缺人手。帮我干点活，我拿车队的碳纤维布、赛车胎胶料和风洞数据给你，回 XMUM 车行的改装车间能做 F1 赛道件。」</p>
+      <p>「欢迎！我们车队缺人手。帮我干点活，我拿车队的碳纤维布、赛车胎胶料和风洞数据给你，在车库左边的赛车改装店给方程式赛车装 F1 赛道件。」</p>
       <div class="pd-acts">
-        <button class="pd-act" type="button" data-a="pit"><b>换胎挑战</b><em>${SAVE.pitBest != null ? '最好 ' + SAVE.pitBest.toFixed(2) + ' 秒' : '还没试过'}</em><small>赛车前按 F 也行。四个轮子按亮的顺序各点三下，再放车。掉赛车胎胶料、碳纤维布${SAVE.pitGold ? '' : '；第一次金牌送 F1 空力套件配方'}</small></button>
-        <button class="pd-act" type="button" data-a="test"${j && j.type === 'test' ? ' disabled' : ''}><b>测试车手</b><em>${j && j.type === 'test' ? '进行中' : tg ? `${fmt2(tg[0])} / ${fmt2(tg[1])} / ${fmt2(tg[2])}` : '要有自己的车'}</em><small>开${c ? '你的 ' + c.T.name : '自己的车'}出去跑一圈干净的计时圈，按目标圈速给风洞数据（金 / 银 / 铜）。出界的圈不算${SAVE.testGold ? '' : '；第一次金牌送 F1 引擎模式配方'}</small></button>
+        <button class="pd-act" type="button" data-a="pit"><b>换胎挑战</b><em>${SAVE.pitBest != null ? '最好 ' + SAVE.pitBest.toFixed(2) + ' 秒' : '还没试过'}</em><small>赛车前按 F 也行。四个轮子按亮的顺序各点三下，再放车。掉赛车胎胶料、碳纤维布（每天 3 次有材料）${SAVE.pitGold ? '' : '；第一次金牌送 F1 空力套件配方'}</small></button>
+        <button class="pd-act" type="button" data-a="test"${j && j.type === 'test' ? ' disabled' : ''}><b>测试车手</b><em>${j && j.type === 'test' ? '进行中' : tg ? `${fmt2(tg[0])} / ${fmt2(tg[1])} / ${fmt2(tg[2])}` : '要有自己的车'}</em><small>开${c ? '你的 ' + c.T.name : '自己的车'}出去跑一圈干净的计时圈，按目标圈速给风洞数据（金 / 银 / 铜，每个目标每天领一次）。出界的圈不算${SAVE.testGold ? '' : '；第一次金牌送 F1 引擎模式配方'}</small></button>
+        ${SAVE.rc ? `<button class="pd-act" type="button" data-a="testrc"${j && j.type === 'test' ? ' disabled' : ''}><b>测试车手 · 方程式赛车</b><em>${(t => `${fmt2(t[0])} / ${fmt2(t[1])} / ${fmt2(t[2])}`)(testTargets({kind:'f1car'}))}</em><small>开你的赛车跑同样的计时圈，目标更快；和普通车的目标分开算</small></button>` : ''}
         <button class="pd-act" type="button" data-a="run"${j && j.type === 'run' ? ' disabled' : ''}><b>车队跑腿</b><em>${j && j.type === 'run' ? '进行中' : '限时'}</em><small>去赛道边拿一样东西，再送回车库门口。开车走路都行，剩的时间越多越好。掉碳纤维布</small></button>
       </div>
       ${j ? `<p class="pd-mats">现在的活：${j.type === 'test' ? `测试车手（${j.car}，目标 ${fmt2(j.tg[0])}）` : `跑腿：${j.phase ? '把' + j.item + '送回车库' : '去' + j.name + '拿' + j.item}`} · <a href="#" id="pdDrop">不干了</a></p>` : ''}
-      <p class="pd-mats">这三种材料别的玩法不掉。改装车间里「赛道」页的零件只在雪邦赛道上生效。</p>`;
+      <p class="pd-mats">这三种材料别的玩法不掉，掉得慢：每样活每天最多 3 次有材料，同一天越刷越少。F1 件在车库左边的「赛车改装店」装，只给方程式赛车。</p>`;
     card.hidden = false;
     card.querySelector('#pdX').addEventListener('click', () => cardClose());
     const dr = card.querySelector('#pdDrop'); if (dr) dr.addEventListener('click', e => { e.preventDefault(); PD.job = null; cardClose(); toast('不干了', 'Ken 说下次再来', 1600); });
-    card.querySelectorAll('[data-a]').forEach(b => b.addEventListener('click', () => { ac(); const a = b.dataset.a; cardClose(); if (a === 'pit') pitOpen(); else if (a === 'test') testStart(); else runStart(); }));
+    card.querySelectorAll('[data-a]').forEach(b => b.addEventListener('click', () => { ac(); const a = b.dataset.a; cardClose(); if (a === 'pit') pitOpen(); else if (a === 'test') testStart(); else if (a === 'testrc') testStart(true); else runStart(); }));
     card.querySelector('[data-a="pit"]').focus({preventScroll:true});
   }
   function cardClose(){ if (!PD.card) return; PD.card = false; card.hidden = true; gx.paused = false; canvas.focus({preventScroll:true}); }
@@ -232,12 +243,11 @@
   function pitEnd(){
     const P2 = PD.pit; P2.done = true; const t = Math.round((P2.t + P2.pen) * 100) / 100, gr = t <= PIT_MEDAL[0] ? 0 : t <= PIT_MEDAL[1] ? 1 : t <= PIT_MEDAL[2] ? 2 : 3;
     const rec = SAVE.pitBest == null || t < SAVE.pitBest; if (rec) SAVE.pitBest = t;
-    let loot = [];
-    if (window.XParts){ loot = XParts.reward('f1pit', gr, '维修区换胎' + (GX_MEDAL[gr] || ''));
-      if (gr === 0 && !SAVE.pitGold){ SAVE.pitGold = true; loot = loot.concat(XParts.roll('bp_f1aero', 1, 1, '换胎挑战第一次金牌')); } }
-    save(); const pay = [60, 40, 20, 0][gr]; if (pay) earn(pay);
+    const G2 = give('f1pit', gr, '维修区换胎' + (GX_MEDAL[gr] || '')); let loot = G2.loot;
+    if (gr === 0 && !SAVE.pitGold && window.XParts){ SAVE.pitGold = true; loot = loot.concat(XParts.roll('bp_f1aero', 1, 1, '换胎挑战第一次金牌')); }
+    save(); const pay = [20, 12, 6, 0][gr]; if (pay) earn(pay);
     tEl.textContent = t.toFixed(2); pitEl.querySelector('#pdPitT').textContent = gr < 3 ? '换胎' + GX_MEDAL[gr] + '！' : '太慢了';
-    mEl.innerHTML = `${rec ? '新纪录！' : '最好 ' + SAVE.pitBest.toFixed(2) + ' 秒'}${P2.pen ? ` · 点错罚了 ${P2.pen.toFixed(1)} 秒` : ''}${pay ? ` · 奖金 RM ${pay}` : ''}` + (window.XParts ? XParts.chips(loot) : '');
+    mEl.innerHTML = `${rec ? '新纪录！' : '最好 ' + SAVE.pitBest.toFixed(2) + ' 秒'}${P2.pen ? ` · 点错罚了 ${P2.pen.toFixed(1)} 秒` : ''}${pay ? ` · 奖金 RM ${pay}` : ''}${G2.note ? '<br>' + G2.note : ''}` + (window.XParts ? XParts.chips(loot) : '');
     goEl.disabled = false; goEl.innerHTML = '再来一次'; goEl.onclick = () => { goEl.onclick = null; goEl.innerHTML = '放车 <kbd>空格</kbd>'; pitClose(true); pitOpen(); };
     if (gr < 3) sfx.sparkle ? sfx.sparkle() : sfx.ding(); else sfx.fail && sfx.fail();
   }
@@ -254,28 +264,105 @@
     if (PD.card && e.code === 'Escape'){ cardClose(); e.preventDefault(); e.stopImmediatePropagation(); }
   }, true);
 
+  /* ---------- rewards: slow, capped per day, less each time the same day ----------
+     Uses the drop tables (TN_DROPS.f1pit / f1test / f1run / f1lap, js/92-f1-tuning.js) and their day / cd limits (XParts.ready).
+     The n-th rewarded run of the day multiplies every chance (also the sure ones) by DIM[n]; a run where nothing rolled still counts. */
+  const DIM = [1, .6, .35];
+  const today = () => typeof dayKey === 'function' ? dayKey() : new Date().toDateString();
+  function give(game, grade, why, quiet){
+    const D = typeof TN_DROPS !== 'undefined' && TN_DROPS[game]; if (!window.XParts || !D || grade > 2 || !D.g[grade] || !D.g[grade].length) return {loot:[], note:''};
+    const lim = () => tnLim(game);
+    if (!XParts.ready(game)){
+      const capped = D.day && lim().n >= D.day;
+      return {loot:[], note:capped ? `今天「${D.name}」的材料领完了（每天 ${D.day} 次），照样能玩、刷纪录，明天再来` : `「${D.name}」冷却中，过一会儿再给材料`};
+    }
+    const k = DIM[Math.min(lim().n, DIM.length - 1)], g0 = D.g;
+    D.g = g0.map(row => row.map(([id, n, p]) => [id, n, (p == null ? 1 : p) * k]));
+    let loot = []; try { loot = XParts.reward(game, grade, why); } finally { D.g = g0; }
+    if (!loot.length){ const l = lim(); l.n++; l.t = Date.now(); tuneWrite(); }
+    const left = Math.max(0, (D.day || 99) - lim().n);
+    if (quiet) return {loot, note:''};
+    return {loot, note:(loot.length ? '' : '这次没出材料 · ') + (left ? `今天还能领 ${left} 次` : `今天「${D.name}」的材料领完了`)};
+  }
+
+  /* ---------- the race car (方程式赛车): bought and tuned at the 赛车改装店, only driven inside the parks ---------- */
+  const RK = 'f1car', RC_PRICE = 3500;
+  let rc = null, rcSaved = null, rcShop = false, rcWarn = 0;
+  const inParks = (x, z) => !!(P.inPark && P.inPark(x, z));
+  const pitSpot = () => { const i = wi(DI + 3), [x, z] = F.PT[i], [nx, nz] = F.NOR[i], o = s * (F.HW + 9); return [x + nx * o, z + nz * o, Math.atan2(F.TAN[i][0], F.TAN[i][1])]; };
+  function rcSpawn(){
+    if (!SAVE.rc || !CAR_T[RK]) return null;
+    const [x, z, h] = pitSpot();
+    if (!rc){ rc = makeCar(RK, '#c8322a', x, z, h); rc.raceCar = true; }
+    else if (driving !== rc){ Object.assign(rc, {x, z, h, vx:0, vz:0, y:0, vy:0, air:false, airT:0, lastVy:0, steer:0, pitch:0, hp:100, wrecked:false}); rc.root.position.set(x, 0, z); rc.root.rotation.set(0, h, 0); rc.root.visible = true; if (!cars.includes(rc)) cars.push(rc); }
+    rc.T = typeof tunedT === 'function' ? tunedT(RK) : Object.assign({}, CAR_T[RK]);
+    if (typeof tnApply === 'function' && typeof tnCar === 'function') tnApply(rc, tnCar(RK).fit);
+    return rc;
+  }
+  /* inside the parks only: at the edge the car is stopped and bounced back */
+  { const base = updateCar;
+    updateCar = function(c, dt, inp){
+      if (c.kind !== RK) return base(c, dt, inp);
+      const ox = c.x, oz = c.z, was = inParks(ox, oz), r = base(c, dt, inp);
+      if (!inParks(c.x, c.z)){
+        if (was){ c.x = ox; c.z = oz; c.vx *= -.25; c.vz *= -.25; c.root.position.x = ox; c.root.position.z = oz; }
+        else if (c === rc){ const [x, z, h] = pitSpot(); Object.assign(c, {x, z, h, vx:0, vz:0}); c.root.position.set(x, c.y, z); c.root.rotation.y = h; }
+        if (c === driving && performance.now() - rcWarn > 2500){ rcWarn = performance.now(); gx.callout('赛车不能上公路', '只能在雪邦赛道和两个汽车游乐园里开', '#d0473b'); tone('square', 300, 200, .2, .07); }
+      }
+      return r;
+    };
+  }
+  const f1Fitted = () => { if (typeof tnCar !== 'function' || !SAVE.rc) return 0; const f = tnCar(RK).fit; return TN_SLOTS.filter(q => q.tab === 'f1' && f[q.id] !== TN.stock[q.id]).length; };
+  const mats = () => typeof tune === 'undefined' ? {cfc:0, rcomp:0, wtd:0} : {cfc:tune.inv.cfc || 0, rcomp:tune.inv.rcomp || 0, wtd:tune.inv.wtd || 0};
+  function shopOpen(){
+    PD.card = true; gx.paused = true; engineUpdate(0, 0, false);
+    const own = SAVE.rc, m = mats();
+    card.innerHTML = `<button class="x" type="button" id="pdX" aria-label="关闭">×</button>
+      <div class="eyebrow">维修区车库 · 只改赛车</div><h2 id="pdCardT">赛车改装店</h2>
+      <p>方程式赛车在这里买，F1 前后翼、光头胎、碳陶刹车这些赛道件也只在这里装。赛车只能在雪邦赛道和两个汽车游乐园里开，开不上公路，叫车也叫不来。普通车回 XMUM 车行改，照样能上赛道跑。</p>
+      <div class="pd-acts">${own ? `
+        <button class="pd-act" type="button" data-s="drive"><b>开赛车出去</b><em>停在车库门口</em><small>方程式赛车摆到维修区车道上，直接坐进去</small></button>
+        <button class="pd-act" type="button" data-s="tune"><b>改装赛车</b><em>赛道件 ${f1Fitted()}/5</em><small>前翼、前后翼套件、光头胎、碳陶刹车、轻量化、排位赛模式。施工要等，和车行一样</small></button>` : `
+        <button class="pd-act" type="button" data-s="buy"${money < RC_PRICE ? ' disabled' : ''}><b>买方程式赛车</b><em>${fmtRM(RC_PRICE)}</em><small>${money < RC_PRICE ? `还差 ${fmtRM(RC_PRICE - money)}` : '开轮赛车，赛道上比任何跑车都抓地；只能在园区里开'}</small></button>`}
+      </div>
+      <p class="pd-mats">材料：碳纤维布 ${m.cfc} · 赛车胎胶料 ${m.rcomp} · 风洞数据 ${m.wtd}（找车队经理 Ken 接活拿，每样活每天最多 3 次）</p>`;
+    card.hidden = false;
+    card.querySelector('#pdX').addEventListener('click', () => cardClose());
+    card.querySelectorAll('[data-s]').forEach(b => b.addEventListener('click', () => { ac(); const a = b.dataset.s; cardClose();
+      if (a === 'buy'){ if (money < RC_PRICE) return; money -= RC_PRICE; moneyChanged(); SAVE.rc = true; save(); sfx.sparkle ? sfx.sparkle() : sfx.ding(); gx.callout('方程式赛车到手', '「开赛车出去」坐进去，或者先改装', '#c8322a'); shopOpen(); }
+      else if (a === 'drive'){ leave(true); const c = rcSpawn(); if (!c) return; nw.x = c.x; nw.z = c.z; enterCar(c); camYaw = c.h + Math.PI; toast('方程式赛车', '只能在雪邦赛道和两个汽车游乐园里开', 2600); }
+      else if (a === 'tune'){ const c = rcSpawn(); if (!c || typeof XTune === 'undefined') return; rcSaved = myCar; myCar = c; rcShop = true; XTune.open(); if (!tn.on){ myCar = rcSaved; rcShop = false; } } }));
+  }
+  /* the workshop UI is shared: while it is open for the race car, myCar points at it; put the road car back when it closes */
+  setInterval(() => { if (rcShop && !(typeof tn !== 'undefined' && tn.on)){ rcShop = false; myCar = rcSaved; rcSaved = null; if (typeof saveGame === 'function') saveGame(); if (rc) tnApply(rc, tnCar(RK).fit); } }, 250);
+  if (typeof tnRender === 'function'){ const base = tnRender; tnRender = function(){ base.apply(this, arguments); if (rcShop){ const t = $('#tuneT'); if (t) t.textContent = '赛车改装店 · 方程式赛车'; } }; }
+
   /* ---------- 2. test-driver laps ---------- */
-  function testStart(){
-    const c = myCar; if (!c){ toast('要有自己的车', '去 XMUM 车行买一辆，测试车手要开自己的车', 2400); return; }
+  function testStart(race){
+    const c = race ? rcSpawn() : myCar; if (!c){ toast('要有自己的车', '去 XMUM 车行买一辆，或者在赛车改装店买方程式赛车', 2400); return; }
     PD.job = {type:'test', kind:c.kind, car:c.T.name, tg:testTargets(c), t0:performance.now(), tries:0};
     toast('测试车手', `开 ${c.T.name} 出去，跑一圈干净的计时圈：金 ${fmt2(PD.job.tg[0])} · 银 ${fmt2(PD.job.tg[1])} · 铜 ${fmt2(PD.job.tg[2])}（10 分钟内）`, 4200);
   }
   function testLap(t){
     const j = PD.job; if (!j || j.type !== 'test') return false;
-    const c = driving; if (!c || c.kind !== j.kind || c !== myCar){ gx.callout('测试车手', `要开你的 ${j.car}`, '#ffb13b'); return false; }
+    const c = driving; if (!c || c.kind !== j.kind || (c !== myCar && c !== rc)){ gx.callout('测试车手', `要开你的 ${j.car}`, '#ffb13b'); return false; }
     const gr = t <= j.tg[0] ? 0 : t <= j.tg[1] ? 1 : t <= j.tg[2] ? 2 : 3; j.tries++;
     if (gr === 3){ gx.callout('没达标', `${fmt2(t)} · 铜牌要 ${fmt2(j.tg[2])}，再跑一圈`, '#d0473b'); return true; }
     PD.job = null;
-    let loot = [];
-    if (window.XParts){ loot = XParts.reward('f1test', gr, '测试车手' + GX_MEDAL[gr]);
-      if (gr === 0 && !SAVE.testGold){ SAVE.testGold = true; save(); loot = loot.concat(XParts.roll('bp_f1eng', 1, 1, '测试车手第一次金牌')); } }
-    const pay = [120, 80, 50][gr]; earn(pay);
-    gx.callout('测试车手' + GX_MEDAL[gr], `${fmt2(t)} · RM ${pay}` + (loot.length ? ' · ' + XParts.text(loot) : ''), '#2e9d5b');
+    /* each target (gold / silver / bronze) pays once per car per day: the best one this lap reaches that is still open today */
+    const day = today(); if (SAVE.paid.d !== day) SAVE.paid = {d:day, k:{}};
+    let g2 = -1; for (let q = gr; q <= 2; q++) if (!SAVE.paid.k[j.kind + ':' + q]){ g2 = q; break; }
+    if (g2 < 0){ save(); gx.callout('测试车手' + GX_MEDAL[gr], `${fmt2(t)} · 这辆车今天的三个目标都领过了，明天再来`, '#ffb13b'); return true; }
+    SAVE.paid.k[j.kind + ':' + g2] = 1;
+    const G2 = give('f1test', g2, '测试车手' + GX_MEDAL[g2] + '目标'); let loot = G2.loot;
+    if (g2 === 0 && !SAVE.testGold && window.XParts){ SAVE.testGold = true; loot = loot.concat(XParts.roll('bp_f1eng', 1, 1, '测试车手第一次金牌')); }
+    save(); const pay = [40, 25, 15][g2]; earn(pay);
+    gx.callout('测试车手 · ' + GX_MEDAL[g2] + '目标', `${fmt2(t)} · RM ${pay}` + (loot.length ? ' · ' + XParts.text(loot) : '') + (G2.note ? ' · ' + G2.note : ''), '#2e9d5b');
     return true;
   }
   /* every clean timed lap: the drop table f1lap; a job in progress grades it */
   { const prev = F.onLap; F.onLap = (t, rec) => { if (prev) prev(t, rec); const tested = testLap(t);
-      if (!tested && window.XParts && !locked()){ const loot = XParts.reward('f1lap', rec ? 0 : 1, rec ? '雪邦赛道新纪录' : '雪邦赛道干净的一圈'); void loot; } }; }
+      if (!tested && !locked()) give('f1lap', rec ? 0 : 1, rec ? '雪邦赛道新纪录' : '雪邦赛道干净的一圈', true); }; }
 
   /* ---------- 3. errands ---------- */
   function runStart(){
@@ -289,8 +376,8 @@
     const px = driving ? driving.x : nw.x, pz = driving ? driving.z : nw.z;
     if (!j.phase && Math.hypot(px - j.x, pz - j.z) < 7){ j.phase = 1; gx.callout('拿到了', j.item + ' · 送回车库门口', '#ffb13b'); sfx.ding(); }
     else if (j.phase && Math.hypot(px - DOOR.x, pz - DOOR.z) < 8){
-      PD.job = null; const k = j.left / j.lim, gr = k >= .45 ? 0 : k >= .2 ? 1 : 2, loot = window.XParts ? XParts.reward('f1run', gr, '车队跑腿' + GX_MEDAL[gr]) : [], pay = [70, 45, 25][gr];
-      earn(pay); gx.callout('跑腿' + GX_MEDAL[gr], `剩 ${Math.ceil(j.left)} 秒 · RM ${pay}` + (loot.length ? ' · ' + XParts.text(loot) : ''), '#2e9d5b'); sfx.ding();
+      PD.job = null; const k = j.left / j.lim, gr = k >= .45 ? 0 : k >= .2 ? 1 : 2, G2 = give('f1run', gr, '车队跑腿' + GX_MEDAL[gr]), loot = G2.loot, pay = [25, 15, 8][gr];
+      earn(pay); gx.callout('跑腿' + GX_MEDAL[gr], `剩 ${Math.ceil(j.left)} 秒 · RM ${pay}` + (loot.length ? ' · ' + XParts.text(loot) : '') + (G2.note ? ' · ' + G2.note : ''), '#2e9d5b'); sfx.ding();
     }
     if (PD.job === j && j.left <= 0){ PD.job = null; gx.callout('超时了', '跑腿没赶上，回车库再接一单', '#d0473b'); }
   }
@@ -301,7 +388,7 @@
   const atDoor = () => !driving && !PD.in && nw.state !== 'fly' && Math.hypot(nw.x - DOOR.x, nw.z - DOOR.z) < 3.2;
   function tryF(){
     if (mode !== 'naiwa' || gx.paused) return false;
-    if (PD.in){ if (driving) return false; const k = nearSpot(); if (!k) return false; if (k === 'exit') leave(); else if (k === 'boss') cardOpen(); else pitOpen(); return true; }
+    if (PD.in){ if (driving) return false; const k = nearSpot(); if (!k) return false; if (k === 'exit') leave(); else if (k === 'boss') cardOpen(); else if (k === 'shop') shopOpen(); else pitOpen(); return true; }
     if (!atDoor()) return false;
     if (locked()){ toast('维修区车库', '比赛主线第 5 章开放：先找 Ben 师傅报到', 2600); return true; }
     if (mission.on){ toast('维修区车库', '先把手上的外卖送完', 2000); return true; }
@@ -320,7 +407,7 @@
         if (doorMark.visible) doorMark.userData.ring.scale.y = 1 + Math.sin(tAcc * 3) * .15;
         if (PD.in){
           const k = driving ? null : nearSpot(); setF(k ? spots[k].label : '');
-          msg = k === 'pit' ? (TOUCH ? '点「换胎挑战」' : '按 F 换胎挑战') : k === 'boss' ? (TOUCH ? '点「车队经理」接活' : '按 F 找车队经理接活') : k === 'exit' ? (TOUCH ? '点「出去」回维修区' : '按 F 出去') : '车库里：经理 Ken 在遥测台边（右后），赛车前可以练换胎';
+          msg = k === 'shop' ? (TOUCH ? '点「赛车改装店」：买赛车、装 F1 件' : '按 F 进赛车改装店：买赛车、装 F1 件') : k === 'pit' ? (TOUCH ? '点「换胎挑战」' : '按 F 换胎挑战') : k === 'boss' ? (TOUCH ? '点「车队经理」接活' : '按 F 找车队经理接活') : k === 'exit' ? (TOUCH ? '点「出去」回维修区' : '按 F 出去') : '车库里：经理 Ken 在遥测台边（右后），赛车前可以练换胎';
           if (boss){ boss.position.y = Math.abs(Math.sin(tAcc * 2)) * .03; boss.rotation.y = Math.PI * .9 + Math.sin(tAcc * .7) * .25; }
           for (const m of Object.values(marks)) m.userData.ring.scale.y = 1 + Math.sin(tAcc * 3) * .15;
         } else {
@@ -344,5 +431,14 @@
       togglePause(){ if (PD.pit){ pitClose(); return; } if (PD.card){ cardClose(); return; } base.togglePause(); }
     });
   }
-  window.XPaddock = {state:PD, save:SAVE, door:DOOR, enter, leave, cardOpen, pitOpen, pitTap, testStart, runStart, testLap, RUN, testTargets, origin:[OX, OZ]};
+  window.XPaddock = {state:PD, save:SAVE, door:DOOR, enter, leave, cardOpen, shopOpen, pitOpen, pitTap, testStart, runStart, testLap, give, RUN, testTargets, origin:[OX, OZ], rcSpawn, get rc(){ return rc; }};
+  /* for other features (the story's 特训 steps): read-only facts, no rewards here */
+  window.XF1Tune = {
+    door:{x:DOOR.x, z:DOOR.z},                         /* the paddock garage door on the pit lane (world) */
+    shop:{x:DOOR.x, z:DOOR.z, inside:L(spots.shop.x, spots.shop.z)},   /* the 赛车改装店 is inside that garage */
+    enterPaddock:enter, inPaddock:() => PD.in,
+    hasRaceCar:() => !!SAVE.rc, raceCar:() => rc, isRaceCar:c => !!c && c.kind === RK,
+    f1Parts:f1Fitted, anyF1Part:() => f1Fitted() > 0,  /* F1 parts fitted on the race car (0–5) */
+    mats, inParks, RK
+  };
 })();
