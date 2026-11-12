@@ -10,19 +10,16 @@
  * 位置：仓库主人在大地图上圈的东北角空地（原来只有草和山树）。商场正门朝南，在 x 840–1020、z −380…−310；落客区和停车场在它南边，
  *   一条两车道的大道（x 930）从 Jalan Sunsuria 北边那条路（z 270）一直往北开到落客区，两边种椰子树、立路灯。
  *   地面等山上的树种好以后才压平（js/12-terrain.js 的 TG.flattenLate，和夜市、ERL 站一样），所以别处的树一棵不动；这块地和大道上的树清掉。
- * 玩法：SUKI-YA 门口的红圈按 F（手机点「吃火锅」）→ 付自助餐的钱 → 进店坐下 → 60 秒涮火锅：
- *   点下面的食材放进锅里（肉要等店员切，隔几秒才能再点一盘），转圈变绿就能夹起来吃，放太久会煮老、煮烂；
- *   吃到的东西按「单点要多少钱」算，看能不能吃回本；吃撑（饱腹满了）也结束。偶尔有限时的和牛。
- *   吃完奶娃肚子鼓起来、开心地笑（2 分钟，纯外观；游戏里没有现成的增益系统）。店里走到门口的绿圈按 F 出门。
- * 店里是搭在地图外（x −60, z −3950）的一间没有屋顶的屋子（排屋室内用 x 0…35、z −4100，ERL 的布城预留 −3100、市中心 −3600；
- *   再往外 4.3 km 是包住整个世界的远景圆筒，不能放），window.XINDOOR = 'sukiya'。
+ * 玩法：SUKI-YA 门口的红圈按 F（手机点「吃火锅」）→ 选锅底、付自助餐的钱 → 直接开吃。游戏本身是 js/minigames/sukiya.js
+ *   （B1 游戏厅的小游戏平台 XMini，用 XMini.startAt 从门口进，吃完回到门口）：和阿明、卷卷围着鸳鸯锅抢着吃，金圈时夹最香。
+ *   吃完奶娃肚子鼓起来、出门时开心地笑（2 分钟，纯外观；游戏里没有现成的增益系统）。
+ *   主线第 8 章「请阿豆去 IOI 吃 SUKI-YA」：付钱进店就算（XQuest.flag('q_suki8')）。
  * 性能：商场外壳 + 塔楼是一个合并网格（一张画布贴图集），玻璃一个，地面和标线各一个，圆柱子之类一个；路灯、椰子树是外面通用的可撞倒实例组。
- *   店里的东西只在店里时显示。
  * 这个文件排在 js/89-klia.js 后面（用 XTrain.kit 的合并几何小工具），只加一个全局 window.XIOI（测试用）。 */
 'use strict';
 (() => {
   if (typeof TG === 'undefined' || !TG.flattenLate || !window.XTrain || !XTrain.kit || typeof opOpen !== 'function' || typeof gx === 'undefined') return;
-  const {KB, kQuad, kBox, kSign, kFlat, kUp, kMesh, kAtlas, kBoard, kMat, kGlass, kRoom, FONT} = XTrain.kit;
+  const {KB, kQuad, kBox, kSign, kFlat, kUp, kMesh, kAtlas, kBoard, kMat, kGlass, FONT} = XTrain.kit;
   const PI = Math.PI;
 
   /* ================= layout (world metres; north is −z) ================= */
@@ -69,14 +66,14 @@
     if (Math.abs(y - o.y) > .005){ o.y = o.ty = y; setKnock(set, i, !!o.down, 0, 1); }
   });
 
-  /* ================= the atlas: façade materials, signs, the shop fronts, the restaurant inside ================= */
+  /* ================= the atlas: façade materials, signs, the shop fronts ================= */
   const A = kAtlas(1024, 512);
   const R = {
     tower:A.R(32, 0, 128, 192), atrium:A.R(160, 0, 128, 128), box:A.R(288, 0, 128, 128), mosaic:A.R(416, 0, 128, 128), clad:A.R(544, 0, 128, 128),
     shopA:A.R(672, 0, 176, 96), shopB:A.R(848, 0, 176, 96), entr:A.R(160, 128, 192, 64), drop:A.R(352, 128, 192, 64),
     sign:A.R(32, 192, 512, 64), suki:A.R(544, 128, 256, 64), gsc:A.R(800, 128, 224, 64), ice:A.R(544, 192, 240, 48), d21:A.R(784, 192, 240, 48),
-    vg:A.R(544, 240, 240, 48), skyl:A.R(784, 240, 128, 48), sukiF:A.R(32, 288, 256, 128), wood:A.R(288, 288, 128, 128), menu:A.R(416, 288, 256, 128),
-    floor:A.R(672, 288, 128, 128), noren:A.R(800, 288, 128, 128), sukiIn:A.R(32, 416, 384, 64), shopC:A.R(672, 96, 176, 32)
+    vg:A.R(544, 240, 240, 48), skyl:A.R(784, 240, 128, 48), sukiF:A.R(32, 288, 256, 128),
+    shopC:A.R(672, 96, 176, 32)
   };
   const IOI_RED = '#e2231a';
   function paint(){
@@ -153,14 +150,6 @@
       ctx.fillStyle = em ? '#3a0c08' : '#b3221b'; ctx.fillRect(x + 100, y + 10, 56, 44); ctx.fillStyle = em ? '#000' : '#3b2418'; for (let i = 1; i < 3; i++) ctx.fillRect(x + 100 + i * 18.6 - 1, y + 30, 2, 24);
       ctx.fillStyle = em ? '#5a4a40' : '#ffffff'; ctx.font = `800 13px ${FONT}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('すき', x + 128, y + 22);
     }
-    /* inside: dark wood slats, the price board, wooden floor, the noren over the door, the buffet bar's sign */
-    { const x = 288, y = 288; rect(c, '#4a2f1f', x, y, 128, 128); for (let i = 0; i < 16; i++) rect(c, i % 2 ? '#5a3a26' : '#64422c', x + i * 8 + 1, y, 6, 128); rect(c, '#2e1d13', x, y + 92, 128, 4); }
-    kBoard(A, R.menu, '#1a1414', [{t:'SUKI-YA 吃到饱', s:26, c:'#ff5a46', y:.2, w:900}, {t:'平日午市 RM 39.80 · 晚市 RM 48.80', s:17, c:'#f4ead8', y:.47, w:700},
-      {t:'牛 · 羊 · 鸡 叫店员上 · 菜和丸子自助', s:14, c:'#d8c9b0', y:.68, w:500}, {t:'限时 90 分钟 · 两种汤底', s:14, c:'#d8c9b0', y:.86, w:500}], true);
-    { const x = 672, y = 288; rect(c, '#b07a4c', x, y, 128, 128); for (let i = 0; i < 8; i++){ rect(c, i % 2 ? '#a06c40' : '#bb8656', x, y + i * 16, 128, 15); rect(c, '#8a5a32', x + ((i * 37) % 100) + 10, y + i * 16, 2, 15); } }
-    { const x = 800, y = 288; rect(c, '#3b2418', x, y, 128, 128); rect(c, '#b3221b', x + 14, y + 8, 100, 70); rect(c, '#3b2418', x + 46, y + 30, 3, 48); rect(c, '#3b2418', x + 79, y + 30, 3, 48);
-      c.fillStyle = '#ffffff'; c.font = `800 18px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('SUKI-YA', x + 64, y + 20); rect(c, '#20262c', x + 22, y + 78, 84, 50); }
-    kBoard(A, R.sukiIn, '#2b2b2e', [{t:'自助台 · 菜 · 丸子 · 酱料　　Self-service bar', s:24, c:'#ffd27a', y:.52, w:700}], true);
     A.done();
   }
   paint(); document.fonts && document.fonts.ready.then(paint);
@@ -326,369 +315,68 @@
     }
   }
 
-  /* ================= SUKI-YA inside: a roofless room off the map (x −60, z −3950) ================= */
-  /* inside the horizon ring (js/18-gfx.js draws a 4.3 km cylinder round the world), clear of the house interiors (x −4.5…34.5, z −4100) */
-  const IX = -60, IZ = -3950, RW = 9, RD = 7.5, WH = 3.2;
-  const W = (x, z) => [IX + x, IZ + z];
-  const IN = new THREE.Group(); IN.visible = false; scene.add(IN);
-  const TABLES = [[-5.6, -2.7], [0, -2.7], [5.6, -2.7], [-5.6, 2.5], [0, 2.5], [5.6, 2.5]];   /* booth tables (local), the player's is [0, -2.7]; each booth takes ±0.95 x ±1.25 m */
-  const SEAT = {x:IX, z:IZ - 2.7 + .95, h:PI};                                                /* the south bench of the middle table, facing the pot */
-  const EXIT = {x:IX, z:IZ + RD - 1.3};
-  const POT = {x:IX, z:IZ - 2.7, y:.74 + .13};
-  const ib = KB(), ig = KB(), iround = [];
-  {
-    const x0 = IX - RW, x1 = IX + RW, z0 = IZ - RD, z1 = IZ + RD;
-    /* floor and walls (inside faces), a skirting band */
-    for (let x = x0; x < x1 - .01; x += 3) for (let z = z0; z < z1 - .01; z += 3) kFlat(ib, x, z, Math.min(x1, x + 3), Math.min(z1, z + 3), 0, '#b8a28c', R.floor);
-    tile(ib, 'z', z0, x0, x1, 0, WH, 1, R.wood, 3, WH); tile(ib, 'z', z1, x0, x1, 0, WH, -1, R.wood, 3, WH);
-    tile(ib, 'x', x0, z0, z1, 0, WH, 1, R.wood, 3, WH); tile(ib, 'x', x1, z0, z1, 0, WH, -1, R.wood, 3, WH);
-    /* wall tops (seen from above) */
-    kBox(ib, x0 - .3, 0, z0 - .3, x1 + .3, WH + .02, z0, '#2e1d13', 'ny'); kBox(ib, x0 - .3, 0, z1, x1 + .3, WH + .02, z1 + .3, '#2e1d13', 'ny');
-    kBox(ib, x0 - .3, 0, z0, x0, WH + .02, z1, '#2e1d13', 'ny'); kBox(ib, x1, 0, z0, x1 + .3, WH + .02, z1, '#2e1d13', 'ny');
-    /* the door with its noren (south wall), the price board and the shop name (north wall) */
-    kSign(ib, 'z', z1 - .03, IX - 1.2, IX + 1.2, 0, 2.6, -1, R.noren, '#ffffff');
-    kSign(ib, 'z', z0 + .03, IX + 3, IX + 7, 1.7, 3.0, 1, R.menu, '#ffffff');
-    kSign(ib, 'z', z0 + .03, IX - 7, IX - 3, 1.7, 3.0, 1, R.menu, '#ffffff');
-    /* the self-service bar along the north wall: steel counter, trays of vegetables, balls and sauces, a sneeze guard */
-    const BZ0 = z0 + .5, BZ1 = z0 + 1.6;
-    kBox(ib, IX - 2.6, 0, BZ0, IX + 2.6, .9, BZ1, '#8d9196'); kFlat(ib, IX - 2.6, BZ0, IX + 2.6, BZ1, .905, '#c8ccd0');
-    kSign(ib, 'z', BZ1 + .01, IX - 2.4, IX + 2.4, .15, .75, 1, R.sukiIn, '#ffffff');
-    const TRAY = ['#a8d86a', '#7fbf4a', '#f2ead0', '#f4f1e6', '#f2d0d8', '#e8a040', '#c0392b', '#6b3a1e', '#f2c230', '#ffffff'];
-    for (let i = 0; i < 10; i++){ const x = IX - 2.35 + i * .5; kBox(ib, x, .905, BZ0 + .2, x + .42, .95, BZ1 - .2, '#5f6368', 'ny'); kBox(ib, x + .03, .95, BZ0 + .24, x + .39, .99, BZ1 - .24, TRAY[i], 'ny'); }
-    kBox(ig, IX - 2.6, 1.3, BZ1 - .05, IX + 2.6, 1.32, BZ1, '#ffffff', ''); kBox(ig, IX - 2.6, 1.0, BZ1 - .02, IX + 2.6, 1.32, BZ1, '#ffffff', '');
-    /* drinks fridge and the soft-serve machine in the corners */
-    kBox(ib, x1 - 1.6, 0, z0, x1 - .2, 2.1, z0 + .8, '#d9dde0'); kSign(ib, 'z', z0 + .81, x1 - 1.5, x1 - .3, .2, 2.0, 1, R.box, '#ffffff');
-    kBox(ib, x0 + .3, 0, z0 + .2, x0 + 1.5, 1.0, z0 + 1.0, '#c8ccd0'); kBox(ib, x0 + .55, 1.0, z0 + .35, x0 + 1.25, 1.6, z0 + .85, '#e9e7e2');
-    /* booths: a table with an induction hot pot, two benches with high backs */
-    for (const [tx, tz] of TABLES){
-      const x = IX + tx, z = IZ + tz;
-      kBox(ib, x - .9, .7, z - .45, x + .9, .76, z + .45, '#5a3a26'); kBox(ib, x - .08, 0, z - .08, x + .08, .7, z + .08, '#2e1d13', 'ny');
-      for (const s of [-1, 1]){
-        kBox(ib, x - .95, 0, z + s * .7, x + .95, .45, z + s * 1.15, '#7a1f1a'); kBox(ib, x - .95, .45, z + s * 1.05, x + .95, 1.25, z + s * 1.2, '#7a1f1a');
-        kBox(ib, x - .95, 1.25, z + s * 1.0, x + .95, 1.32, z + s * 1.25, '#3b2418');
-      }
-      iround.push(geoTint(new THREE.CylinderGeometry(.34, .3, .12, 18).translate(x, .82, z), '#2b2b2e'));
-      iround.push(geoTint(new THREE.CylinderGeometry(.3, .3, .02, 18, 1, false, 0, PI).translate(x, .875, z), '#8a5a2b'));    /* sukiyaki half */
-      iround.push(geoTint(new THREE.CylinderGeometry(.3, .3, .02, 18, 1, false, PI, PI).translate(x, .875, z), '#d9cdb0'));   /* kombu half */
-      iround.push(geoTint(new THREE.BoxGeometry(.6, .012, .025).translate(x, .884, z), '#2b2b2e'));
-      for (const s of [-1, 1]) iround.push(geoTint(new THREE.CylinderGeometry(.08, .07, .05, 10).translate(x + .55, .785, z + s * .28), '#f4f1ea'));   /* raw-egg dipping bowls */
-    }
-    /* a few diners in the other booths (the campus student models, seated: head and body only, legs under the table) */
-    if (typeof npcBodyGeo !== 'undefined' && typeof npcHeadGeo !== 'undefined'){
-      const SH = ['#c0392b', '#2d5d8a', '#ecf0f1', '#2d8a6e', '#8e44ad', '#e0b020', '#34495e'], SK = ['#f1c9a0', '#d9a77a', '#b07a52', '#f5d7b5'];
-      let n = 0;
-      TABLES.forEach(([tx, tz], ti) => { if (ti === 1) return; for (const s of [-1, 1]){ if ((ti + (s > 0)) % 3 === 2) continue;
-        const m = new THREE.Matrix4().makeRotationY(s > 0 ? PI : 0).setPosition(IX + tx, -.42, IZ + tz + s * .95);
-        iround.push(geoTint(npcBodyGeo.clone().applyMatrix4(m), SH[n % SH.length]), geoTint(npcHeadGeo.clone().applyMatrix4(m), SK[n % SK.length])); n++; } });
-    }
-  }
-  const inMat = kMat(A, {roughness:.85, emissive:'#2a2420', emissiveMap:null, emissiveIntensity:1}, false);   /* the shop's own lights: never pitch dark at night */
-  const inMesh = kMesh(ib, inMat, IN, false), inGlass = kMesh(ig, kGlass(), IN, false); inGlass.renderOrder = 1;
-  { const m = new THREE.Mesh(geoMerge(iround), M('#ffffff', {vertexColors:true, roughness:.55})); m.receiveShadow = true; IN.add(m); }
-  /* what is cooking in our pot: six slices / pieces, one instanced mesh */
-  const POT_SLOT = [0, 1, 2, 3, 4, 5].map(i => { const a = PI * (i < 3 ? .25 + i * .25 : 1.25 + (i - 3) * .25); return [POT.x + Math.cos(a) * .19, POT.z + Math.sin(a) * .19]; });
-  const potIM = new THREE.InstancedMesh(new THREE.CylinderGeometry(.075, .075, .03, 10), new THREE.MeshStandardMaterial({roughness:.6}), 6);
-  potIM.frustumCulled = false; IN.add(potIM);
-  const _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _v = new THREE.Vector3(), _s = new THREE.Vector3(), _c = new THREE.Color();
-  for (let k = 0; k < 6; k++){ _m4.makeScale(0, 0, 0); potIM.setMatrixAt(k, _m4); potIM.setColorAt(k, _c.set('#ffffff')); }   /* the colour buffer exists before the first draw */
-  /* colliders inside (switched on only while you are in) */
-  const inCols = [];
-  { const c = (x0, z0, x1, z1) => { const o = addBox(IX + (x0 + x1) / 2, IZ + (z0 + z1) / 2, (x1 - x0) / 2, (z1 - z0) / 2, 0); o.dead = true; inCols.push(o); };
-    c(-RW - 1, -RD - 1, RW + 1, -RD); c(-RW - 1, RD, RW + 1, RD + 1); c(-RW - 1, -RD, -RW, RD); c(RW, -RD, RW + 1, RD);
-    c(-2.6, -RD, 2.6, -RD + 1.6); c(RW - 1.6, -RD, RW, -RD + .8); c(-RW, -RD, -RW + 1.5, -RD + 1.0);
-    for (const [tx, tz] of TABLES) c(tx - .95, tz - 1.25, tx + .95, tz + 1.25); }
-  const exitMark = gxMarker('#4fd18b', .28); exitMark.position.set(EXIT.x, .05, EXIT.z); exitMark.visible = false;
-  exitMark.children.forEach(c => { if (c !== exitMark.userData.ring) c.visible = false; });
-  const exitLbl = addLabel('出门', EXIT.x, 2.4, EXIT.z, true); exitLbl.dead = true;
-
-  /* ================= the buffet: menu, state, the hot-pot game ================= */
+  /* ================= SUKI-YA: the door ring, paying, and the hot-pot game (js/minigames/sukiya.js runs on the B1 arcade platform) ================= */
   const PRICE = () => opNight() ? 48.8 : 39.8;
-  const FOOD = [
-    {id:'beef', n:'肥牛', meat:1, cook:2.5, ok:3, fill:6, rm:6.5, col:'#d4606f', done:'#9a6a5a'},
-    {id:'lamb', n:'羊肉片', meat:1, cook:3, ok:3, fill:6, rm:6, col:'#d97a78', done:'#9a7468'},
-    {id:'chick', n:'鸡肉片', meat:1, cook:5, ok:4, fill:6, rm:3.5, col:'#f2c9b0', done:'#e8dcc8'},
-    {id:'cab', n:'白菜', cook:2, ok:6, fill:3, rm:.8, col:'#b8e07a', done:'#8fbf5a'},
-    {id:'enoki', n:'金针菇', cook:2, ok:6, fill:2, rm:1, col:'#f4ecd2', done:'#e0d4b0'},
-    {id:'tofu', n:'豆腐', cook:3, ok:8, fill:3, rm:1, col:'#f7f3e6', done:'#efe4c8'},
-    {id:'fish', n:'鱼饼', cook:3, ok:6, fill:3, rm:1.8, col:'#f5d3dc', done:'#ecc0c8'},
-    {id:'udon', n:'乌冬', cook:4, ok:8, fill:14, rm:2.5, col:'#f4e8c8', done:'#e6d4a6'}
-  ];
-  /* meat pays (about RM 1 per point of fullness), the self-service bar fills you up cheaply: the classic buffet choice */
-  const WAGYU = {id:'wagyu', n:'和牛', meat:1, cook:2, ok:2.5, fill:4, rm:14, col:'#e88a96', done:'#a87068', gold:1};
-  const DUR = 60, MEAT_CD = 4, OVER = 4, CHEW = .45;
-  /* 腻: every plate of meat adds one, anything else takes two off; from the fourth plate of meat in a row each one is worth less */
-  const greaseK = n => Math.max(.4, 1 - .15 * Math.max(0, n - 3));
-  const MEDALS = [[90, '吃货之王', '#e3b95a'], [65, '赚到了', '#b8c2cc'], [0, '吃回本', '#c98a55']];
-  if (typeof achAdd === 'function') achAdd([['ioi1', '周末去 IOI', '在 IOI City Mall 吃一次 SUKI-YA 火锅放题', 20], ['sukiback', '吃回本', 'SUKI-YA 放题吃回自助餐的钱', 40],
-    ['sukiking', '吃货之王', 'SUKI-YA 一顿吃回 RM 90 以上', 80]]);
-  if (typeof GX_MORE !== 'undefined') GX_MORE.push({id:'o_suki', name:'SUKI-YA 一顿吃回', fmt:v => 'RM ' + (+v).toFixed(2)});
-  const SK = {in:false, near:false, exitNear:false, g:null, msg:'', lbl:'', full:0, fullK:0, keep:null, paid:0, eaten:false};
+  if (typeof achAdd === 'function') achAdd([['ioi1', '周末去 IOI', '在 IOI City Mall 吃一次 SUKI-YA 火锅放题', 20], ['sukiback', '吃回本', 'SUKI-YA 火锅放题吃回 RM 39.80（铜牌）', 40],
+    ['sukiking', '吃货之王', 'SUKI-YA 火锅放题吃回 RM 130 以上（金牌）', 80]]);
+  const SK = {near:false, msg:'', full:0, fullK:0, bx:false, laugh:false};
   const RING = opSpot('#e2342f', .7, SUKI.x, SUKI.z, 'SUKI-YA 火锅放题 · 按 F', 4.2);
-  { const st = document.createElement('style'); st.textContent = `
-#opPanel.sk-low{top:auto;bottom:10px;transform:translateX(-50%);max-height:min(74%,600px)}
-@media (min-width: 900px){ #opPanel.sk-low{left:16px;bottom:16px;transform:none;width:430px;max-height:calc(100% - 120px)} }
-.sk-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13px;font-variant-numeric:tabular-nums}
-.sk-top b{font-family:var(--display);font-size:16px}
-.sk-row{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
-.sk-row .tea-bar{flex:1;margin:4px 0}
-.sk-row .tea-bar.full i{background:#e0a020}
-.sk-row .tea-bar.grease i{background:#c9a227}
-.sk-pot{position:relative;width:176px;height:176px;margin:18px auto 2px;border-radius:50%;box-sizing:border-box;border:9px solid #2b2b2e;
-  background:linear-gradient(90deg,#8a5a2b 0 49%,#2b2b2e 49% 51%,#d9cdb0 51%)}
-.sk-pot::before,.sk-pot::after{position:absolute;top:-27px;font-size:11px;font-weight:700;color:var(--muted)}
-.sk-pot::before{content:'寿喜烧';left:22px}.sk-pot::after{content:'昆布汤';right:22px}
-.sk-slot{position:absolute;width:50px;height:50px;margin:-25px 0 0 -25px;border-radius:50%;border:2px dashed rgba(255,255,255,.55);background:rgba(0,0,0,.08);
-  color:#2b2f36;font:700 12.5px/1.1 inherit;display:flex;align-items:center;justify-content:center;text-align:center;cursor:pointer;touch-action:manipulation;padding:0;
-  text-shadow:0 0 3px #fff,0 0 3px #fff}
-.sk-slot.on{border:0}
-.sk-slot.ready{box-shadow:0 0 0 3px #4fd18b;animation:skPulse .5s infinite alternate}
-.sk-slot.over{box-shadow:0 0 0 3px #e0a020}
-@keyframes skPulse{to{transform:scale(1.08)}}
-.sk-msg{min-height:18px;font-size:13px;text-align:center;color:var(--muted)}
-.sk-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:4px}
-.sk-grid button{position:relative;overflow:hidden;min-height:46px;border-radius:var(--r-md);border:1px solid var(--line);background:var(--card-bg);color:var(--ink);
-  font:inherit;font-size:14px;font-weight:700;cursor:pointer;touch-action:manipulation;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:3px}
-.sk-grid button small{font-size:10.5px;font-weight:400;color:var(--muted)}
-.sk-grid button i{position:absolute;left:0;bottom:0;height:4px;background:var(--tile)}
-.sk-grid button[disabled]{opacity:.45;cursor:default}
-.sk-grid button.gold{background:#f2c230;color:#2b2f36;border-color:#b8860b;grid-column:span 4}
-.sk-grid button.gold[hidden]{display:none}
-.sk-eat{width:100%;margin-top:6px;min-height:44px;border-radius:var(--r-md);border:1px solid var(--line);background:var(--card-bg);color:var(--ink);font:inherit;font-weight:700;cursor:pointer;touch-action:manipulation}
-.sk-big{font-family:var(--display);font-size:30px;text-align:center;margin:6px 0 2px}
-@media (prefers-reduced-motion: reduce){ .sk-slot.ready{animation:none} }`; document.head.appendChild(st); }
-
-  /* ---- going in and out ---- */
-  function skEnter(){
-    if (mode !== 'naiwa') setMode('naiwa');
-    if (driving) leaveCar();
-    SK.in = true; SK.keep = {dist:camDist, pitch:camPitch}; SK.eaten = false;
-    window.XINDOOR = 'sukiya'; window.XINDOOR_AT = Object.assign({}, DOOR_OUT);
-    for (const c of inCols) c.dead = false;
-    IN.visible = true; exitMark.visible = true; exitLbl.dead = false; RING.lbl.dead = true; RING.mark.visible = false;
-    skSit();
-  }
-  function skSit(){
-    Object.assign(nw, {x:SEAT.x, z:SEAT.z, y:.46, h:SEAT.h, air:false, vy:0, spd:0, state:'sit', bike:false});
-    camYaw = SEAT.h + PI + .75; camDist = 4.6; camPitch = 1.0; SK.seated = true;   /* over the right shoulder, so the pot shows */
-  }
-  function skStand(){
-    SK.seated = false;
-    Object.assign(nw, {x:IX, z:IZ - .1, y:0, h:0, air:false, vy:0, spd:0, state:'idle'});   /* the aisle between the two rows of booths */
-    camDist = 9; camPitch = 1.0;
-  }
-  function skLeave(quiet){
-    if (!SK.in) return;
-    if (SK.g) skEnd(true, true);
-    if (opUI.on) opClose(true);
-    opPanel.classList.remove('sk-low');
-    SK.in = false; SK.seated = false; IN.visible = false; exitMark.visible = false; exitLbl.dead = true; window.XINDOOR = null; window.XINDOOR_AT = null;
-    for (const c of inCols) c.dead = true;
-    if (SK.keep){ camDist = SK.keep.dist; camPitch = SK.keep.pitch; SK.keep = null; }
-    Object.assign(nw, {x:DOOR_OUT.x, z:DOOR_OUT.z, h:DOOR_OUT.h, air:false, vy:0, spd:0}); nw.y = groundAt(nw.x, nw.z); camYaw = DOOR_OUT.h;
-    RING.rearm = true;
-    if (quiet) { if (nw.state !== 'idle') nw.state = 'idle'; return; }
-    if (SK.eaten){ nw.state = 'laugh'; nw.t = 0; if (sfx.laugh) sfx.laugh(); } else { nw.state = 'idle'; sfx.ding(); }
-  }
-  /* ---- the door: pay and go in ---- */
+  const hasGame = () => !!(window.XMini && XMini.startAt && XMini.list && XMini.list.some(g => g.id === 'sukiya'));
+  const fmtBest = id => { const v = window.XMini && XMini.best ? XMini.best(id) : null; return v != null ? ` · 纪录吃回 RM ${(v / 100).toFixed(2)}` : ''; };
   function skOffer(){
     const p = PRICE(), night = opNight();
     opOpen('🍲 SUKI-YA · 寿喜烧涮涮锅放题',
-      `<p class="op-note">IOI City Mall 里同学们最常来的一家：一锅两种汤底，肉叫店员上，菜和丸子自助。${night ? '现在是晚市。' : '现在是午市。'}吃到的东西按单点的价钱算，看你能不能吃回本。</p>` +
-      `<button type="button" class="op-card" data-i="0"><kbd>1</kbd><b>进去吃 · ${fmtRM(p)}</b><span>${night ? '晚市' : '平日午市'}一位 · 店里 60 秒涮到饱${prog.best.o_suki != null ? ` · 纪录吃回 ${fmtRM(prog.best.o_suki)}` : ''}</span></button>` +
-      `<button type="button" class="op-card" data-i="1"><kbd>2</kbd><b>算了</b><span>下次再来（不是 KLIA 那家卖牛丼的すき家）</span></button>`,
-      code => { if (code === 'Digit1' || code === 'Numpad1' || code === 'KeyF') skPay(); else if (code === 'Digit2' || code === 'Numpad2') opClose(); });
-    for (const el of document.querySelectorAll('#opBody .op-card')) el.addEventListener('click', () => (+el.dataset.i ? opClose() : skPay()));
+      `<p class="op-note">IOI City Mall 里同学们最常来的一家。${night ? '现在是晚市' : '现在是平日午市'}，一位 ${fmtRM(p)}。和阿明、卷卷围着一口鸳鸯锅抢着吃：金圈时夹最香，慢了就被他们夹走；吃回 RM 39.80 就算回本。</p>` +
+      `<button type="button" class="op-card" data-m="classic"><kbd>1</kbd><b>寿喜烧 + 昆布汤 · ${fmtRM(p)}</b><span>经典鸳鸯锅${fmtBest('sukiya')}</span></button>` +
+      `<button type="button" class="op-card" data-m="spicy"><kbd>2</kbd><b>寿喜烧 + 麻辣 · ${fmtRM(p)}</b><span>麻辣那边熟得快、算 1.4 倍，但会辣哭，记得喝水${fmtBest('sukiya_spicy')}</span></button>` +
+      `<p class="op-note" style="margin-top:8px">不是 KLIA 那家卖牛丼的すき家。</p>`,
+      code => { if (code === 'Digit1' || code === 'Numpad1' || code === 'KeyF') skPay('classic'); else if (code === 'Digit2' || code === 'Numpad2') skPay('spicy'); });
+    for (const el of document.querySelectorAll('#opBody .op-card')) el.addEventListener('click', () => skPay(el.dataset.m));
   }
-  function skPay(){
+  function skPay(mode){
     const p = PRICE();
-    if (money < p){ opClose(true); toast('钱不够', `放题一位 ${fmtRM(p)}，先去送几单外卖吧`, 2400); RING.rearm = true; return; }
-    opClose(true); money -= p; moneyChanged(); SK.paid = p;
-    sfx.ding(); skEnter(); unlock('ioi1');
-    gxCallout('いらっしゃいませ！', `SUKI-YA · ${fmtRM(p)} · 两种汤底：寿喜烧 + 昆布`, '#e2342f');
-    setTimeout(() => { if (SK.in && !SK.g && !opUI.on) skGame(); }, 900);
+    if (!hasGame()){ opClose(true); toast('今天客满', 'SUKI-YA 暂时进不去（小游戏没加载）', 2400); RING.rearm = true; return false; }
+    if (money < p){ opClose(true); toast('钱不够', `放题一位 ${fmtRM(p)}，先去送几单外卖吧`, 2400); RING.rearm = true; return false; }
+    opClose(true); money -= p; moneyChanged(); unlock('ioi1'); RING.rearm = true;
+    /* the story's chapter 8 step 「请阿豆去 IOI 吃 SUKI-YA」 (js/89-quest-data.js) is done once you pay and sit down */
+    try { if (window.XQuest && XQuest.step && (XQuest.step() || {}).id === 'c8_suki' && XQuest.flag) XQuest.flag('q_suki8'); } catch(e){}
+    if (driving) leaveCar();
+    return XMini.startAt(mode === 'spicy' ? 'sukiya_spicy' : 'sukiya', Object.assign({}, DOOR_OUT));
   }
-  /* ---- the game ---- */
-  const $id = id => document.getElementById(id);
-  function skGame(){
-    if (SK.g) return;
-    skSit();
-    const g = SK.g = {left:DUR, fill:0, rm:0, plates:0, burnt:0, over:0, slots:[null, null, null, null, null, null], grease:0, meatCd:0, chew:0, wagyu:0, wagyuAt:14 + Math.random() * 6, msg:'', msgT:0, last:performance.now(), why:''};
-    opOpen('🍲 SUKI-YA · 涮到饱',
-      `<div class="sk-top"><span id="skT">${DUR} 秒</span><b id="skV"></b><span id="skP">0 盘</span></div><div class="tea-bar"><i id="skTB"></i></div>
-       <div class="sk-row">饱<div class="tea-bar full"><i id="skFB" style="width:0"></i></div></div>
-       <div class="sk-row">腻<div class="tea-bar grease"><i id="skGB" style="width:0"></i></div><span id="skGM" style="min-width:42px;text-align:right">不腻</span></div>
-       <div class="sk-pot" id="skPot">${POT_UI.map(([l, t], i) => `<button type="button" class="sk-slot" data-s="${i}" style="left:${l}%;top:${t}%"></button>`).join('')}</div>
-       <div class="sk-msg" id="skMsg">点下面的食材下锅，转圈变绿就夹起来吃</div>
-       <div class="sk-grid" id="skG">${FOOD.map((f, i) => `<button type="button" data-f="${i}">${f.n}<small>${f.meat ? '肉 · ' : ''}${f.cook} 秒熟</small><i></i><kbd hidden>${i + 1}</kbd></button>`).join('')}
-         <button type="button" class="gold" data-f="8" hidden>✨ 限时和牛！店员刚端来 <small>按 9</small></button></div>
-       <button type="button" class="sk-eat" id="skE">夹起来吃 ${TOUCH ? '' : '<kbd>空格</kbd>'}</button>
-       <p class="op-note" style="margin-top:6px">按单点价算：肉最值钱（肥牛 RM 6.5、和牛 RM 14），菜、丸子、乌冬便宜又占肚子；连吃三盘肉会腻，夹口菜解腻。肉每 ${MEAT_CD} 秒上一盘，熟了快吃，煮老只算四成。${TOUCH ? '' : '键盘 1–8 下锅、空格吃。'}</p>`,
-      code => { const m = /^(Digit|Numpad)([1-9])$/.exec(code); if (m) skAdd(+m[2] - 1); else if (code === 'Space' || code === 'Enter' || code === 'KeyF') skEatBest(); },
-      () => skEnd(true), skTick);
-    opPanel.classList.add('sk-low');
-    $id('skG').addEventListener('pointerdown', e => { const el = e.target.closest('[data-f]'); if (el){ e.preventDefault(); skAdd(+el.dataset.f); } });
-    $id('skPot').addEventListener('pointerdown', e => { const el = e.target.closest('[data-s]'); if (el){ e.preventDefault(); skEat(+el.dataset.s); } });
-    $id('skE').addEventListener('pointerdown', e => { e.preventDefault(); skEatBest(); });
-    skDraw();
-  }
-  const POT_UI = [[30, 24], [20, 50], [30, 76], [70, 24], [80, 50], [70, 76]];   /* slot spots in the drawn pot (%), the left three are the sukiyaki half */
-  const stOf = s => s.t < s.f.cook ? 'raw' : s.t < s.f.cook + s.f.ok ? 'ready' : 'over';
-  function skSay(t){ const g = SK.g; if (!g) return; g.msg = t; g.msgT = 2.2; }
-  function skAdd(i){
-    const g = SK.g; if (!g) return; ac();
-    const f = i === 8 ? (g.wagyu > 0 ? WAGYU : null) : FOOD[i]; if (!f) return;
-    if (f.meat && !f.gold && g.meatCd > 0){ skSay('肉还在切，等一下'); tone('square', 220, 180, .08, .05); return; }
-    const k = g.slots.indexOf(null); if (k < 0){ skSay('锅里满了，先吃掉一些'); tone('square', 220, 180, .08, .05); return; }
-    g.slots[k] = {f, t:0};
-    if (f.gold) g.wagyu = 0; else if (f.meat) g.meatCd = MEAT_CD;
-    tone('triangle', 420 + k * 40, 380 + k * 40, .08, .07); noise(.12, .05, 1800, 'highpass');
-    skDraw();
-  }
-  function skEat(k){
-    const g = SK.g; if (!g) return; ac();
-    const s = g.slots[k]; if (!s) return;
-    const st = stOf(s);
-    if (st === 'raw'){ skSay(s.f.meat ? `${s.f.n}还是生的！` : `${s.f.n}还没熟`); tone('square', 200, 150, .1, .06); return; }
-    if (g.chew > 0) return;
-    const gm = s.f.meat ? greaseK(g.grease) : 1, v = (st === 'over' ? s.f.rm * .4 : s.f.rm) * gm;
-    g.slots[k] = null; g.rm += v; g.fill += s.f.fill; g.plates++; g.chew = CHEW; if (st === 'over') g.over++;
-    g.grease = s.f.meat ? g.grease + 1 : Math.max(0, g.grease - 2);
-    skSay(st === 'over' ? `${s.f.n}煮老了… +${fmtRM(v)}` : gm < 1 ? `${s.f.n}有点腻了 +${fmtRM(v)}（吃口菜解腻）` : s.f.gold ? `和牛入口即化！+${fmtRM(v)}` :
-      `${s.f.n} +${fmtRM(v)}${s.f.id === 'udon' ? ' · 好占肚子' : !s.f.meat && g.grease === 0 ? ' · 解腻' : ''}`);
-    tone('triangle', st === 'over' ? 520 : 760, st === 'over' ? 440 : 990, .1, .09);
-    if (g.fill >= 100){ g.fill = 100; g.why = 'full'; skEnd(false); return; }
-    skDraw();
-  }
-  function skEatBest(){
-    const g = SK.g; if (!g) return;
-    let best = -1, bt = -1;
-    g.slots.forEach((s, k) => { if (!s) return; const st = stOf(s); if (st === 'raw') return; const t = (st === 'over' ? 100 : 0) + s.t - s.f.cook; if (t > bt){ bt = t; best = k; } });
-    if (best >= 0) skEat(best); else skSay('锅里还没有熟的');
-  }
-  function skDraw(){
-    const g = SK.g; if (!g) return;
-    $id('skT').textContent = Math.max(0, Math.ceil(g.left)) + ' 秒'; $id('skTB').style.width = Math.max(0, g.left / DUR * 100) + '%';
-    const back = g.rm >= SK.paid;
-    $id('skV').textContent = `吃回 ${fmtRM(g.rm)} / ${fmtRM(SK.paid)}`; $id('skV').style.color = back ? 'var(--ok)' : '';
-    $id('skP').textContent = g.plates + ' 盘'; $id('skFB').style.width = g.fill + '%';
-    { const gk = greaseK(g.grease); $id('skGB').style.width = Math.min(100, g.grease / 6 * 100) + '%'; $id('skGM').textContent = gk < 1 ? '肉 ×' + gk.toFixed(2) : g.grease >= 3 ? '再吃就腻' : '不腻'; }
-    const slots = document.querySelectorAll('#skPot .sk-slot');
-    g.slots.forEach((s, k) => {
-      const el = slots[k]; if (!el) return;
-      if (!s){ el.className = 'sk-slot'; el.textContent = ''; el.style.background = ''; return; }
-      const st = stOf(s), f = s.f;
-      const p = st === 'raw' ? s.t / f.cook : st === 'ready' ? 1 - (s.t - f.cook) / f.ok : 1 - (s.t - f.cook - f.ok) / OVER;
-      const ring = st === 'raw' ? '#e8423a' : st === 'ready' ? '#4fd18b' : '#e0a020';
-      el.className = 'sk-slot on ' + st; el.textContent = f.n;
-      el.style.background = `radial-gradient(circle, ${st === 'raw' ? f.col : f.done} 0 60%, transparent 62%), conic-gradient(${ring} ${Math.max(0, Math.min(1, p)) * 100}%, rgba(0,0,0,.35) 0)`;
-    });
-    const btns = document.querySelectorAll('#skG [data-f]');
-    btns.forEach(el => { const i = +el.dataset.f;
-      if (i === 8){ el.hidden = !(g.wagyu > 0); return; }
-      const f = FOOD[i], cd = f.meat ? g.meatCd : 0; el.disabled = cd > 0; el.querySelector('i').style.width = cd > 0 ? (1 - cd / MEAT_CD) * 100 + '%' : '0'; });
-    $id('skMsg').textContent = g.msgT > 0 ? g.msg : g.slots.some(s => s && stOf(s) === 'ready') ? '熟了！快夹起来吃' : g.slots.every(s => !s) ? '锅里空着，下点东西' : '煮着呢…';
-  }
-  function skTick(now){
-    const g = SK.g; if (!g) return;
-    const dt = Math.min(.1, (now - g.last) / 1000); g.last = now;
-    g.left -= dt; g.meatCd = Math.max(0, g.meatCd - dt); g.chew = Math.max(0, g.chew - dt); g.msgT -= dt;
-    g.wagyuAt -= dt; if (g.wagyuAt <= 0){ g.wagyuAt = 16 + Math.random() * 8; g.wagyu = 6; skSay('✨ 店员端来一盘限时和牛！'); tone('triangle', 880, 1320, .2, .1); }
-    if (g.wagyu > 0) g.wagyu = Math.max(0, g.wagyu - dt);
-    g.slots.forEach((s, k) => { if (!s) return; s.t += dt; if (s.t > s.f.cook + s.f.ok + OVER){ g.slots[k] = null; g.burnt++; skSay(`${s.f.n}煮烂了，捞掉`); tone('sawtooth', 240, 140, .2, .05); } });
-    /* the 3D pot behind the panel */
-    for (let k = 0; k < 6; k++){
-      const s = g.slots[k], [x, z] = POT_SLOT[k];
-      _s.setScalar(s ? (s.f.meat ? 1.1 : .85) : 0); _q.setFromAxisAngle(UP, now / 900 + k);
-      _v.set(x, POT.y + .015 + Math.sin(now / 160 + k * 1.7) * .006, z); _m4.compose(_v, _q, _s); potIM.setMatrixAt(k, _m4);
-      if (s) potIM.setColorAt(k, _c.set(stOf(s) === 'raw' ? s.f.col : s.f.done));
-    }
-    potIM.instanceMatrix.needsUpdate = true; if (potIM.instanceColor) potIM.instanceColor.needsUpdate = true;
-    /* Naiwa eating: right hand from the pot to the mouth while chewing */
-    if (NW && NW.arms){ const k = g.chew > 0 ? Math.sin((1 - g.chew / CHEW) * PI) : 0, [, aR] = NW.arms, [, eR] = NW.elbows || []; aR.rotation.x = -.75 - k * 1.1; if (eR) eR.rotation.x = -.75 - k * 1.1; NW.mouth.scale.y = .02 + k * .07; }
-    if (g.left <= 0){ g.left = 0; g.why = 'time'; skEnd(false); return; }
-    skDraw();
-  }
-  function skEnd(quit, silent){
-    const g = SK.g; if (!g) return;
-    SK.g = null; opPanel.classList.remove('sk-low'); if (opUI.on) opClose(true);
-    potIM.count = 6; for (let k = 0; k < 6; k++){ _m4.makeScale(0, 0, 0); potIM.setMatrixAt(k, _m4); } potIM.instanceMatrix.needsUpdate = true;
-    SK.eaten = g.plates > 0;
-    if (g.plates > 0){ SK.full = 120; SK.fullK = Math.max(.35, g.fill / 100); }
-    if (silent){ skStand(); return; }
-    const v = Math.round(g.rm * 100) / 100, back = v >= SK.paid, prev = prog.best.o_suki, rec = g.plates > 0 && (prev == null || v > prev);
-    if (rec){ prog.best.o_suki = v; saveGame(); }
-    const md = back ? MEDALS.find(m => v >= m[0] && (m[0] > 0 || back)) : null;
-    if (back) unlock('sukiback'); if (v >= MEDALS[0][0]) unlock('sukiking');
-    const why = quit ? '不吃了' : g.why === 'full' ? '吃撑了！' : '时间到';
-    opOpen(md ? `🍲 ${md[1]}！` : '🍲 ' + why,
-      `<div class="sk-big" style="color:${back ? 'var(--ok)' : 'var(--ink)'}">吃回 ${fmtRM(v)}</div>
-       <p class="op-note" style="text-align:center">${why} · 付了 ${fmtRM(SK.paid)} · ${back ? `赚了 ${fmtRM(v - SK.paid)}` : `还差 ${fmtRM(SK.paid - v)} 回本`}<br>
-       吃了 ${g.plates} 盘${g.over ? `（${g.over} 盘煮老了）` : ''}${g.burnt ? ` · 煮烂 ${g.burnt} 盘` : ''} · 饱腹 ${Math.round(g.fill)}%${rec && prev != null ? ' · 新纪录！' : prev != null ? ` · 纪录 ${fmtRM(prev)}` : ''}</p>
-       <button type="button" class="op-card" id="skUp"><b>起身</b><span>吃饱了，在店里走走，门口绿圈出门</span></button>`,
-      code => { if (code === 'KeyF' || code === 'Space' || code === 'Enter') opClose(); }, () => skStand());
-    $id('skUp').addEventListener('click', () => opClose());
-    if (md){ gxCallout(md[1], `吃回 ${fmtRM(v)}`, md[2]); opFanfare(); } else gxChime(0);
-    if (g.plates > 0) for (let k = 0; k < 6; k++) spawnPart('heart', nw.x + (Math.random() - .5), 2 + Math.random(), nw.z + (Math.random() - .5), .7, {vy:2, life:1.1, op:1, color:'#ff7a6a'});
-  }
+  /* called by the game when it ends: a full belly for two minutes (looks only), a laugh on the way out of the door */
+  function fed(k){ SK.full = 120; SK.fullK = Math.max(.35, Math.min(1, k || 0)); SK.laugh = true; }
 
-  /* ================= per frame: the door ring, the exit, the full belly ================= */
+  /* ================= per frame: the door ring, the full belly ================= */
   function update(dt, px, pz){
     SK.msg = '';
     if (SK.full > 0){ SK.full -= dt; if (SK.full <= 0){ SK.full = 0; gxCallout('消化完了', '下次再去 IOI 吃', '#9fd8ff'); } }
-    const was = SK.near || SK.exitNear; SK.near = SK.exitNear = false;
-    if (SK.in){
-      if (!SK.g && !opUI.on && Math.hypot(nw.x - EXIT.x, nw.z - EXIT.z) < 1.4){ SK.exitNear = true; SK.msg = TOUCH ? '点「出门」回到商场门口' : '按 F 出门 · 回到 IOI City Mall 门口'; opSetF('出门'); }
-      else if (!SK.g && !opUI.on) SK.msg = SK.eaten ? '吃饱了 · 走到门口绿圈出门' : '门口绿圈出门';
-      exitMark.userData.ring.scale.y = 1 + Math.sin(performance.now() / 330) * .15;
-    } else {
-      const other = mission.on || !!gxA.act || gxTaxi.on || (typeof EX !== 'undefined' && EX.on) || (typeof ROOM !== 'undefined' && ROOM.in) || !!window.XINDOOR || gx.busy();
-      if (opRing(RING, !other && Math.abs(px - SUKI.x) < 360 && Math.abs(pz - SUKI.z) < 360, px, pz)){
-        if (driving) SK.msg = '下车走进红圈，吃 SUKI-YA 火锅放题';
-        else if (nw.state !== 'fly' && !nw.air){ SK.near = true; SK.msg = TOUCH ? `点「吃火锅」· 放题 ${fmtRM(PRICE())}` : `按 F 吃 SUKI-YA 火锅放题 · ${fmtRM(PRICE())}`; opSetF('吃火锅'); }
-      }
+    if (SK.laugh && !window.XINDOOR && mode === 'naiwa' && !driving){ SK.laugh = false; nw.state = 'laugh'; nw.t = 0; if (sfx.laugh) sfx.laugh(); }
+    const was = SK.near; SK.near = false;
+    const other = mission.on || !!gxA.act || gxTaxi.on || (typeof EX !== 'undefined' && EX.on) || (typeof ROOM !== 'undefined' && ROOM.in) || !!window.XINDOOR || gx.busy();
+    if (opRing(RING, !other && Math.abs(px - SUKI.x) < 360 && Math.abs(pz - SUKI.z) < 360, px, pz)){
+      if (driving) SK.msg = '下车走进红圈，吃 SUKI-YA 火锅放题';
+      else if (nw.state !== 'fly' && !nw.air){ SK.near = true; SK.msg = TOUCH ? `点「吃火锅」· 放题 ${fmtRM(PRICE())}` : `按 F 吃 SUKI-YA 火锅放题 · ${fmtRM(PRICE())}`; opSetF('吃火锅'); }
     }
-    if (was && !SK.near && !SK.exitNear && (opFBtn === '吃火锅' || opFBtn === '出门')) opSetF('');
+    if (was && !SK.near && opFBtn === '吃火锅') opSetF('');
   }
   if (typeof roomTryF === 'function'){ const base = roomTryF; roomTryF = function(){
-    if (SK.exitNear && !opUI.on){ skLeave(); return true; }
     if (SK.near && !driving && nw.state !== 'fly' && !opUI.on){ skOffer(); return true; }
     return base(); }; }
-  /* seated at the pot: stay on the bench (the panel opens a moment later), no jumping */
-  if (typeof updateFoot === 'function'){ const base = updateFoot; updateFoot = function(dt){
-    if (!SK.seated) return base(dt);
-    Object.assign(nw, {x:SEAT.x, z:SEAT.z, y:.46, h:SEAT.h, state:'sit', bike:false, spd:0, vy:0, air:false}); }; }
-  if (typeof footAction === 'function'){ const base = footAction; footAction = function(k){ if (SK.seated) return; base(k); }; }
-  /* a full belly for two minutes after eating (looks only), laughing on the way out */
   if (typeof animNaiwa === 'function'){ const base = animNaiwa; animNaiwa = function(dt, T){ base(dt, T);
-    const k = SK.full > 0 ? Math.min(1, SK.full / 15) * SK.fullK : 0;
+    const k = SK.full > 0 && !window.XINDOOR ? Math.min(1, SK.full / 15) * SK.fullK : 0;
     if (NW && NW.belly){ if (k > 0){ NW.belly.scale.z *= 1 + .5 * k; NW.belly.scale.x = 1 + .14 * k; SK.bx = true; } else if (SK.bx){ NW.belly.scale.x = 1; SK.bx = false; } }
-  }; }
-  /* the minimap while inside: the room's plan */
-  if (typeof drawMini === 'function'){ const base = drawMini; drawMini = function(cx, cz, yaw, o){
-    if (!SK.in || mode !== 'naiwa' || (o && o.g)) return base(cx, cz, yaw, o);
-    const G = mini.getContext('2d'), Sw = G.canvas.width, Sh = G.canvas.height, k = Math.min(Sw, Sh) / 22, X = x => Sw / 2 + (x - IX) * k, Z = z => Sh / 2 + (z - IZ) * k;
-    G.fillStyle = '#262a31'; G.fillRect(0, 0, Sw, Sh); G.fillStyle = '#b07a4c'; G.fillRect(X(IX - RW), Z(IZ - RD), RW * 2 * k, RD * 2 * k);
-    G.fillStyle = '#8d9196'; G.fillRect(X(IX - 2.6), Z(IZ - RD + .5), 5.2 * k, 1.1 * k);
-    for (const [tx, tz] of TABLES){ G.fillStyle = '#7a1f1a'; G.fillRect(X(IX + tx - .95), Z(IZ + tz - 1.2), 1.9 * k, 2.4 * k); G.fillStyle = '#5a3a26'; G.fillRect(X(IX + tx - .9), Z(IZ + tz - .45), 1.8 * k, .9 * k); }
-    G.fillStyle = '#4fd18b'; G.beginPath(); G.arc(X(EXIT.x), Z(EXIT.z), .9 * k, 0, 7); G.fill();
-    G.save(); G.translate(X(nw.x), Z(nw.z)); G.rotate(-yaw); G.fillStyle = '#1f2a33'; G.strokeStyle = '#ffffff'; G.lineWidth = 2.5;
-    G.beginPath(); G.moveTo(0, -12); G.lineTo(8, 9); G.lineTo(0, 4); G.lineTo(-8, 9); G.closePath(); G.stroke(); G.fill(); G.restore();
   }; }
   {
     const base = Object.assign({}, gx);
     Object.assign(gx, {
       update(dt, px, pz){ base.update(dt, px, pz); update(dt, px, pz); },
-      busy(){ return base.busy() || SK.in; },
-      extBusy(){ return (base.extBusy ? base.extBusy() : false) || SK.in; },
       prompt(){ return SK.msg || base.prompt(); },
-      target(){ return SK.in ? {x:EXIT.x, z:EXIT.z, label:'SUKI-YA 出门'} : base.target(); },
-      mini(dot){ base.mini(dot); if (!SK.in && !gx.busy() && !mission.on) dot(SUKI.x, SUKI.z, '#c2185b', 6); },
+      mini(dot){ base.mini(dot); if (!gx.busy() && !mission.on) dot(SUKI.x, SUKI.z, '#c2185b', 6); },
       frame(dt, T){ if (base.frame) base.frame(dt, T); mallMat.emissiveIntensity = Math.max(cur.win, wx.rain * .5); },
-      onBust(){ skLeave(true); base.onBust(); },
-      leave(){ skLeave(true); opHide(RING); RING.rearm = false; SK.near = SK.exitNear = false; base.leave(); }
+      leave(){ opHide(RING); RING.rearm = false; SK.near = false; base.leave(); }
     });
   }
-  window.XIOI = {CX, MB, LOT, ROAD, SUKI, PAD, MALL, SK, FOOD, RING, enter:skEnter, leave:skLeave, offer:skOffer, pay:skPay, game:skGame, add:skAdd, eat:skEat, eatBest:skEatBest, end:skEnd,
-    /* tests: stand at the ring / jump inside */
+  window.XIOI = {CX, MB, LOT, ROAD, SUKI, PAD, MALL, SK, RING, DOOR:DOOR_OUT, price:PRICE, offer:skOffer, pay:skPay, fed,
+    /* tests: stand just south of the ring */
     goDoor(){ if (mode !== 'naiwa') setMode('naiwa'); if (driving) leaveCar(); nw.x = SUKI.x; nw.z = SUKI.z + 3; nw.y = groundAt(nw.x, nw.z); nw.h = PI; camYaw = 0; }};
 })();
