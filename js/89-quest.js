@@ -410,6 +410,8 @@
         return '';
       },
       target(){
+        /* wanted and never shaken them off before: the compass goes straight to the paint shop at Bell (js/13-outskirts.js XSPRAY) */
+        const hs = heatSpray(); if (hs) return hs;
         const t = base.target(); if (t) return t;
         if (g(() => mission.on, false) || S.quiet === 'all') return null;
         return target();
@@ -446,6 +448,12 @@
     const who = st.meet || st.report ? c.npc : st.talkTo; if (!who) return false;
     const o = NPC[who], a = o ? [o.x, o.z] : npcAt(who); if (!a) return false;
     const [px, pz] = here(); return Math.hypot(px - a[0], pz - a[1]) < 15;
+  }
+  /* the first chase: until you have once driven into the paint shop, any wanted stars send the compass there, with one tip */
+  function heatSpray(){
+    if (!(g(() => heat, 0) > 0) || g(() => prog.ach.repaint, true) || !window.XSPRAY) return null;
+    if (!S.flags.heat1){ flag('heat1'); g(() => toast('被保安盯上了！', '开进 Bell Avenue 的喷漆车间换个颜色，就能甩掉他们。指南针带你去', 4600)); }
+    return {x:XSPRAY.door.x, z:XSPRAY.door.z, label:'甩掉保安 · 开进 Bell 喷漆车间'};
   }
   /* where the compass points: the step's place, or the npc to see */
   function target(){
