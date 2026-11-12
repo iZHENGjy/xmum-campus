@@ -150,7 +150,9 @@
 #f1Adv.off{opacity:.55;font-size:12px;padding:4px 10px}
 #f1Adv .f1-vib{font-size:11px;padding:2px 7px;border-radius:999px;border:1px solid var(--line);background:none;color:inherit;font-weight:600}
 #f1Adv .f1-muted{color:var(--muted);font-weight:600;font-size:12px}
-@media (pointer:coarse){#f1Adv{top:calc(var(--safe-t, 0px) + 96px)}}
+body.f1-reset #act-q{display:none}   /* 撩头 is disabled while driving: 回赛道 takes its place, so the button grid keeps its height */
+@media (pointer:coarse) and (orientation:portrait){#f1Adv{top:auto;bottom:calc(var(--safe-b, 0px) + 264px)}}
+@media (pointer:coarse) and (orientation:landscape){#f1Adv{top:calc(var(--safe-t, 0px) + 54px)}}
 `;
   document.head.appendChild(css);
   const advEl = document.createElement('div'); advEl.id = 'f1Adv'; advEl.className = 'panel'; advEl.hidden = true; advEl.setAttribute('role', 'button'); advEl.title = '点一下开 / 关建议车速';
@@ -187,7 +189,7 @@
   const fmtK = v => Math.max(20, Math.round(v * 3.6 / 5) * 5);
   function f1Frame(dt){
     const c = driving, W = c && !c.air ? c._f1 : null, inCirc = !!(c && W && W.d < W.hw + 60 && mode === 'naiwa');
-    rBtn.hidden = !(inCirc && !racing());
+    rBtn.hidden = !(inCirc && !racing()); document.body.classList.toggle('f1-reset', !rBtn.hidden);
     if (!inCirc){ advEl.hidden = true; ST.lastI = null; return; }
     const v = Math.hypot(c.vx, c.vz), S = F.S, half = c.T.W / 2;
     /* track limits: all four wheels past the kerb (or the white line where there is no kerb) */
@@ -231,7 +233,7 @@
     const b = gx.update;
     gx.update = function(dt, px, pz){ b.call(this, dt, px, pz); f1Frame(dt); };
     const bl = gx.leave;
-    gx.leave = function(){ advEl.hidden = true; rBtn.hidden = true; return bl.apply(this, arguments); };
+    gx.leave = function(){ advEl.hidden = true; rBtn.hidden = true; document.body.classList.remove('f1-reset'); return bl.apply(this, arguments); };
   }
 
   /* ---------- speed feel: wider view and a look into the corner (added on top of js/90-main.js, taken off again next frame) ---------- */
