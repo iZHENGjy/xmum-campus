@@ -6,7 +6,7 @@
  *   起点线在南边主直道上，从起点线出发计时：三个计时段、每圈成绩，最快一圈存 prog.best.kartLap（本机），联机时上 B1 游戏厅的
  *   小游戏榜 /mini/race_kart。主直道北边是小看台，南边是维修区（几间车库、控制塔），雪邦车队的车库也暂时还在这里。
  * 对外：window.XF1（赛道数据，名字没变，现在指卡丁车赛道）、window.XKart = {pos, start, stand, pit, lapKey, board, len, turns, inside(x, z)}。
- * 纪录：kartLap（秒）。为了主线第 5 章「二园跑一圈」还能完成，第一次跑完一圈时如果还没有 sepLap，也写一份 sepLap（等主线改成看 kartLap 再去掉）。 */
+ * 纪录：kartLap（秒）。主线第 5 章「二园跑一圈」看 kartLap；老存档里旧雪邦赛道的 sepLap 那边照样算，这里不再写 sepLap。 */
 'use strict';
 (() => {
   const P = window.XPark; if (!P || !P.kit) return;
@@ -374,7 +374,7 @@
             if (F1.lap && F1.lap.prog > N * .95 && F1.lap.bad){ P.call(`一圈 ${fmt2(F1.lap.t)} · 不计成绩`, F1.lap.bad); screens(fmt2(F1.lap.t), '超出赛道界限 · 不计成绩'); }
             else if (F1.lap && F1.lap.prog > N * .95){
               const t = F1.lap.t, best = prog.best.kartLap, rec = best == null || t < best; F1.lastLap = t;
-              if (rec){ prog.best.kartLap = Math.round(t * 100) / 100; if (prog.best.sepLap == null) prog.best.sepLap = prog.best.kartLap; saveGame(); kartSubmit(t); }   /* sepLap: only so the chapter-5 step 「二园跑一圈」 still completes */
+              if (rec){ prog.best.kartLap = Math.round(t * 100) / 100; saveGame(); kartSubmit(t); }   /* chapter 5 reads kartLap (XKart.lapKey); an old sepLap in a save still counts there */
               addStunt('卡丁车赛道一圈', 400); CR.cheer = rec ? 3 : 1.5;
               P.call(`一圈 ${fmt2(t)}`, rec ? (best == null ? '第一圈！纪录已保存' : `新纪录！快了 ${(best - t).toFixed(2)} 秒`) : `纪录 ${fmt2(best)} · 慢了 ${(t - best).toFixed(2)} 秒`);
               screens(fmt2(t), rec ? '新纪录！' : '最快一圈 ' + fmt2(best));

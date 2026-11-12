@@ -7,6 +7,10 @@
  *   收藏：把这首的编号（种子）记在这款车上，下次坐进同款车接着循环放。
  *   竞速（js/92-racing.js 的 RC.st 不是 idle）和有通缉星（js/80-gta.js 的 heat ≥ 1）时自动切到赛道 EDM，结束 3 秒后切回原来的台；
  *   面板里可以关掉。比赛 / 被追时自己手动换了台，就不再自动切回。
+ *   天气版（曲风）：每个台都能放 6 种心情的歌：雨天（钢琴、玻璃上的雨声）、雷雨（暗色合成器、远处的闷雷）、烟霾（朦胧的氛围铺底、低低的风）、
+ *     阴天（柔和）、夜色（chill）、黄昏（暖色大调）。心情写在种子里（moodOf），所以外放、收藏、自动接下一首都带着它，联机不用加字段。
+ *   智能选歌（默认开）：按天气、钟点、车速、在不在校园自动选台和曲风，规则见下面「智能选歌」一节；一首放完才换（两台交叉淡入淡出），
+ *     只有比赛 / 被追切 EDM 是马上换。手动点了台或曲风就关掉智能选歌，面板里再勾上才回来。面板和小条显示理由，比如「下雨了 · 雨天 Lo-fi」。
  *   外放：自己听免费；打开外放每分钟 RM 0.5（开的时候先扣一分钟，钱不够自动关）。只在车上、电台在响的时候计时。
  *   别人听到：40 米以内，越远越小声、越闷，左右声道跟方向走；同时只听最近的 2 辆（手机和流畅档 1 辆）。
  *
@@ -21,8 +25,9 @@
  *   提示音（tone / noise）响的时候电台让一让（压低约 5 dB，0.4 秒回来）；室内、小游戏、暂停、页面隐藏时淡出并停止合成。
  * 性能：只在有声音时排音符（25 ms 一次，提前 0.15 秒）；画质「流畅」或手机非高清档时不开混响、和弦少一个音、齐奏声部减半；
  *   别人的外放永远用简化版（没有混响和延迟），最多 2 路。
- * 存档：localStorage 'xmum-radio-v1' = {on, st, vol, auto, fav:{车型:{s, k}}}。
- * 调试：window.XRadio（state、setStation、next、songOf、decks）。 */
+ *   车速越快电台略大声一点（最多 +1.7 dB，像真车的随速音量），盖得过高速时的引擎声。过场动画有自己的配乐时（js/89-cine-audio.js）电台淡出。
+ * 存档：localStorage 'xmum-radio-v1' = {on, st, vol, auto, smart, md:手选的曲风, fav:{车型:{s, k}}}。旧存档没有 smart / md：智能选歌开、原味。
+ * 调试：window.XRadio（state、smart、pick、pickMood、setSmart、next、songOf、moodOf、decks）。 */
 'use strict';
 (() => {
   /* ---------- stations and songs (from the listening demo the owner approved) ---------- */
@@ -38,6 +43,32 @@
      dens:[.6, .5, .15], maxLen:3, w1:['氮气', '山梁', '极速', '全油门', '弯心', '红线', '发车'], w2:['冲刺', '点火', '超车', '连击', '漂移', '终点', '狂飙']}
   ];
   const EDM = 2, STEPS = 32 * 16;
+  const TAG = [' 霓虹', ' Lo-fi', ' EDM'];      /* 「雨天」+ TAG = 雨天 Lo-fi */
+  /* ---------- moods (天气版): every station can play a song in one of these moods ----------
+     A mood changes the song itself (chords, tempo, melody density, title words) and how it is played (drums quieter, darker tone,
+     more reverb, a pad underneath, a texture bed: rain on the glass, wind in the haze, a low rumble in a storm).
+     The mood lives inside the seed (see moodOf), so a broadcast, a favourite and the next-song chain all carry it with no new field. */
+  const MOODS = [null,
+    {id:'rain', name:'雨天', why:'下雨了', minor:false, bpm:.88, tone:.8, dr:.6, rev:1.5, pad:3, tex:'rain', dens:[.4, .25, .05], maxLen:6,
+     progs:[[[5, 'M7'], [4, 'm7'], [2, 'm7'], [0, 'M7']], [[0, 'M7'], [9, 'm7'], [2, 'm7'], [7, '7']], [[9, 'm7'], [2, 'm7'], [5, 'M7'], [4, 'm7']], [[2, 'm7'], [7, '7'], [4, 'm7'], [9, 'm7']]],
+     w1:['窗上的', '雨夜', '伞下', '湿漉漉的', '屋檐', '雨刷', '积水'], w2:['雨滴', '车窗', '慢行', '路灯', '水花', '回家', '涟漪']},
+    {id:'storm', name:'雷雨', why:'雷阵雨', minor:true, bpm:.9, tone:.55, dr:.9, rev:1.3, pad:1, tex:'storm', keys:[43, 44, 45, 46, 47], dens:[.55, .35, .1],
+     progs:[[[0, 'm'], [8, 'M'], [5, 'm'], [7, 'M']], [[0, 'm'], [1, 'M'], [8, 'M'], [7, 'M']], [[0, 'm'], [10, 'M'], [8, 'M'], [10, 'M']], [[0, 'm7'], [5, 'm7'], [3, 'M7'], [8, 'M7']]],
+     w1:['雷声', '暗涌', '闪电', '乌云', '暴雨', '低气压', '夜航'], w2:['边缘', '脉冲', '回响', '地平线', '警报', '长夜', '暗流']},
+    {id:'haze', name:'烟霾', why:'起烟霾了', minor:false, bpm:.78, tone:.55, dr:.3, rev:1.9, pad:2, tex:'air', dens:[.3, .12, .02], maxLen:8,
+     progs:[[[0, 'M7'], [2, 'M'], [0, 'M7'], [2, 'M']], [[2, 'm7'], [0, 'M7'], [2, 'm7'], [0, 'M7']], [[0, 'M7'], [4, 'm7'], [5, 'M7'], [7, '7']], [[9, 'm7'], [5, 'M7'], [0, 'M7'], [7, '7']]],
+     w1:['朦胧', '灰黄', '远方的', '橙色', '雾里', '慢镜头', '模糊'], w2:['太阳', '轮廓', '呼吸', '航标', '天际', '低语', '光晕']},
+    {id:'overcast', name:'阴天', why:'阴天', minor:false, bpm:.94, tone:.8, dr:.75, rev:1.2, pad:0, tex:'', dens:[.45, .28, .06],
+     progs:[[[9, 'm7'], [5, 'M7'], [0, 'M7'], [7, '7']], [[0, 'M7'], [4, 'm7'], [9, 'm7'], [5, 'M7']], [[2, 'm7'], [5, 'M7'], [9, 'm7'], [7, '7']], [[5, 'M7'], [0, 'M7'], [9, 'm7'], [2, 'm7']]],
+     w1:['阴天', '灰色', '午后', '云层', '安静的', '没带伞', '发呆'], w2:['电台', '公路', '心事', '窗外', '慢歌', '长街', '等雨']},
+    {id:'night', name:'夜色', why:'夜里', minor:true, bpm:.94, tone:.85, dr:.8, rev:1.3, pad:0, tex:'', dens:[.45, .28, .06],
+     progs:[[[0, 'm7'], [5, 'm7'], [10, '7'], [3, 'M7']], [[0, 'm7'], [8, 'M7'], [5, 'm7'], [7, '7']], [[0, 'm7'], [3, 'M7'], [8, 'M7'], [7, 'm7']], [[0, 'm7'], [10, 'M7'], [8, 'M7'], [10, '7']]],
+     w1:['深夜', '月光', '路灯下', '宿舍楼', '凌晨', '星空', '夜风'], w2:['慢车', '归途', '耳机', '晚安', '空街', '湖面', '微光']},
+    {id:'golden', name:'黄昏', why:'黄昏', minor:false, bpm:1, tone:1.15, dr:.95, rev:1.1, pad:0, tex:'',
+     progs:[[[0, 'M7'], [5, 'M7'], [9, 'm7'], [7, '7']], [[5, 'M7'], [7, '7'], [0, 'M7'], [9, 'm7']], [[0, 'M'], [7, 'M'], [9, 'm'], [5, 'M']], [[0, 'M7'], [2, 'm7'], [5, 'M7'], [7, '7']]],
+     w1:['夕阳', '金色', '傍晚', '晚霞', '橙子', '落日', '暖风'], w2:['海岸', '回家', '操场', '慢跑', '余晖', '车窗', '长堤']}
+  ];
+  const mixName = (s, m) => m ? MOODS[m].name + TAG[s] : STATIONS[s].name;
   const QL = {m:[0, 3, 7], M:[0, 4, 7], m7:[0, 3, 7, 10], M7:[0, 4, 7, 11], '7':[0, 4, 7, 10]};
   const NOTE = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
   const SEC_NAME = {intro:'前奏', a:'主歌', b:'副歌', brk:'间奏', drop:'高潮'};
@@ -45,8 +76,22 @@
   const rng = seed => () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
   const section = b => b < 4 ? 'intro' : b < 12 ? 'a' : b < 20 ? 'b' : b < 24 ? 'brk' : 'drop';
   const SEED_MAX = 999999999;
-  const newSeed = () => 1 + Math.floor(Math.random() * SEED_MAX);
-  const nextSeed = k => { let h = Math.imul((k | 0) ^ 0x5bd1e995, 0x27d4eb2d); h ^= h >>> 15; h = Math.imul(h, 0x165667b1); h ^= h >>> 13; return 1 + ((h >>> 0) % SEED_MAX); };
+  /* the mood is in the seed: k = q × 100003 + m (m = 1–6, q = 0–9999 → 10 000 songs per mood and station).
+     Every other seed is a plain song, exactly as before. Old random seeds land on a mood residue 6 times in 100 003 (0.006 %);
+     new plain seeds skip those. So /radio/{uid} = {s, k, t, l}, the rules (database.rules.json) and old favourites stay as they were. */
+  const MP = 100003, MQ = 10000;
+  const moodOf = k => { const r = k % MP; return r >= 1 && r <= 6 ? r : 0; };
+  const hash = k => { let h = Math.imul((k | 0) ^ 0x5bd1e995, 0x27d4eb2d); h ^= h >>> 15; h = Math.imul(h, 0x165667b1); h ^= h >>> 13; return h >>> 0; };
+  const newSeed = m => {
+    if (m) return Math.floor(Math.random() * MQ) * MP + m;
+    let k; do k = 1 + Math.floor(Math.random() * SEED_MAX); while (moodOf(k)); return k;
+  };
+  /* the next song keeps the station and the mood (listeners chain the same way on their own) */
+  const nextSeed = k => {
+    const m = moodOf(k);
+    if (m){ let q = hash(k) % MQ; if (q * MP + m === k) q = (q + 1) % MQ; return q * MP + m; }
+    let n = 1 + hash(k) % SEED_MAX, i = 0; while (moodOf(n) && i++ < 8) n = 1 + hash(n) % SEED_MAX; return n;
+  };
   const validSong = (s, k) => (s === 0 || s === 1 || s === 2) && Number.isInteger(k) && k >= 1 && k <= SEED_MAX;
 
   function motif(R, st){
@@ -62,10 +107,13 @@
   const songCache = new Map();
   function songOf(s, k){
     const id = s + ':' + k; let S = songCache.get(id); if (S) return S;
-    const st = STATIONS[s], R = rng(k * 7919 + s * 104729);
-    const key = st.keys[R() * st.keys.length | 0], bpm = st.bpm[0] + Math.round(R() * (st.bpm[1] - st.bpm[0]));
-    S = {s, k, key, bpm, prog:st.progs[R() * st.progs.length | 0], mA:motif(R, st), mB:motif(R, st),
-      title:st.w1[R() * st.w1.length | 0] + st.w2[R() * st.w2.length | 0], sd:60 / bpm / 4};
+    /* a plain song (m = 0) draws the same random numbers in the same order as before, so it sounds exactly as it did */
+    const m = moodOf(k), mo = MOODS[m], st = STATIONS[s], R = rng(k * 7919 + s * 104729);
+    const P = mo ? {keys:mo.keys || st.keys, progs:mo.progs, dens:mo.dens || st.dens, maxLen:mo.maxLen || st.maxLen, w1:mo.w1, w2:mo.w2} : st;
+    const key = P.keys[R() * P.keys.length | 0];
+    let bpm = st.bpm[0] + Math.round(R() * (st.bpm[1] - st.bpm[0])); if (mo) bpm = Math.round(bpm * mo.bpm);
+    S = {s, k, m, mo, key, bpm, prog:P.progs[R() * P.progs.length | 0], mA:motif(R, P), mB:motif(R, P),
+      title:P.w1[R() * P.w1.length | 0] + P.w2[R() * P.w2.length | 0], sd:60 / bpm / 4};
     S.dur = STEPS * S.sd;
     if (songCache.size > 40) songCache.clear();
     songCache.set(id, S); return S;
@@ -73,7 +121,7 @@
 
   /* ---------- settings ---------- */
   const RD_KEY = 'xmum-radio-v1';
-  const R = {on:true, st:0, vol:.8, auto:true, fav:{},
+  const R = {on:true, st:0, vol:.8, auto:true, fav:{}, smart:true, md:0,
     seed:0, t0:0, loop:false, playing:false, prev:null, autoOn:false, autoOffT:0, manual:false,
     air:false, airLeft:0, carKind:'', hear:[]};
   try {
@@ -83,10 +131,12 @@
       if (d.st === 0 || d.st === 1 || d.st === 2) R.st = d.st;
       if (typeof d.vol === 'number' && d.vol >= 0 && d.vol <= 1) R.vol = d.vol;
       if (typeof d.auto === 'boolean') R.auto = d.auto;
+      if (typeof d.smart === 'boolean') R.smart = d.smart;         /* older saves have no smart / md: smart mode on, plain songs */
+      if (Number.isInteger(d.md) && d.md >= 0 && d.md < MOODS.length) R.md = d.md;
       if (d.fav && typeof d.fav === 'object') for (const c in d.fav){ const f = d.fav[c]; if (f && validSong(f.s, f.k) && /^[a-z0-9]{1,12}$/.test(c)) R.fav[c] = {s:f.s, k:f.k}; }
     }
   } catch(e){}
-  const save = () => { try { localStorage.setItem(RD_KEY, JSON.stringify({on:R.on, st:R.st, vol:R.vol, auto:R.auto, fav:R.fav})); } catch(e){} };
+  const save = () => { try { localStorage.setItem(RD_KEY, JSON.stringify({on:R.on, st:R.st, vol:R.vol, auto:R.auto, smart:R.smart, md:R.md, fav:R.fav})); } catch(e){} };
   const g = (f, d) => { try { return f(); } catch(e){ return d; } };
 
   /* ---------- audio graph ----------
@@ -116,12 +166,16 @@
     if (revIn) return revIn;
     const rv = A.createConvolver(), len = Math.floor(A.sampleRate * 2.2), ib = A.createBuffer(2, len, A.sampleRate);
     for (let c = 0; c < 2; c++){ const d = ib.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
-    rv.buffer = ib; revIn = A.createGain(); const out = A.createGain(); out.gain.value = .55; revIn.connect(rv); rv.connect(out); out.connect(local.tone);
+    rv.buffer = ib; revIn = A.createGain(); revOut = A.createGain(); revOut.gain.value = .55; revIn.connect(rv); rv.connect(revOut);
+    revTo = null; revFollow(local);
     return revIn;
   }
+  /* there are two local decks (for crossfades); the one reverb returns into whichever is playing now */
+  let revOut = null, revTo = null;
+  function revFollow(D){ if (!revOut || !D || revTo === D) return; try { revOut.disconnect(); } catch(e){} revOut.connect(D.tone); revTo = D; }
 
   function makeDeck(remote){
-    const D = {remote, song:null, s:0, k:0, t0:0, loop:false, stepN:0, nextT:0, live:false, marks:[], hiss:null, dead:false, id:''};
+    const D = {remote, song:null, s:0, k:0, t0:0, loop:false, stepN:0, nextT:0, live:false, marks:[], beds:[], rvM:1, dead:false, id:'', fadeEnd:0};
     D.music = A.createGain(); D.drums = A.createGain();
     D.tone = A.createBiquadFilter(); D.tone.type = 'lowpass'; D.tone.frequency.value = 15000; D.tone.Q.value = .5;
     D.comp = A.createDynamicsCompressor(); D.comp.threshold.value = -16; D.comp.ratio.value = 4; D.comp.attack.value = .005; D.comp.release.value = .2;
@@ -142,7 +196,7 @@
     return D;
   }
   function killDeck(D){
-    if (D.dead) return; D.dead = true; D.live = false; stopHiss(D);
+    if (D.dead) return; D.dead = true; D.live = false; stopBed(D);
     const t = A.currentTime; D.out.gain.cancelScheduledValues(t); D.out.gain.setTargetAtTime(0, t, .15);
     setTimeout(() => { try { D.out.disconnect(); if (D.pan) D.pan.disconnect(); } catch(e){} }, 1500);
   }
@@ -150,7 +204,7 @@
   /* ---------- instruments ---------- */
   function route(D, node, bus, rev, d){
     node.connect(bus);
-    if (rev && !D.remote && !lite()){ const s = A.createGain(); s.gain.value = rev; node.connect(s); s.connect(reverb()); }
+    if (rev && !D.remote && !lite()){ const s = A.createGain(); s.gain.value = rev * D.rvM; node.connect(s); s.connect(reverb()); }
     if (d && D.dlyIn){ const s = A.createGain(); s.gain.value = d; node.connect(s); s.connect(D.dlyIn); }
   }
   function synth(D, {t, f, dur, wave = 'sawtooth', det = [0], v = .1, a = .01, sus = 1, r = .2, cut = 4000, cutEnd = 0, q = .7, bus = D.music, rev = 0, d = 0, vib = 0}){
@@ -199,12 +253,37 @@
   }
   function duck(D, t, sd){ D.music.gain.setValueAtTime(.28, t); D.music.gain.linearRampToValueAtTime(1, t + sd * 3.2); }
   function staticBurst(D){ const t = A.currentTime; nz(D, t, 'bandpass', 1800, .6, .14, .45); nz(D, t + .05, 'highpass', 4000, .5, .06, .3); }
-  function startHiss(D){
-    stopHiss(D); if (D.remote || STATIONS[D.s].id !== 'lofi') return;
-    const s = A.createBufferSource(); s.buffer = nbuf; s.loop = true; const f = A.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 3000; f.Q.value = .4;
-    const gn = A.createGain(); gn.gain.value = .012; s.connect(f); f.connect(gn); gn.connect(D.comp); s.start(); D.hiss = s;
+  /* texture beds under the music (local deck only, they are noise): the Lo-fi station's vinyl hiss, and the mood's texture:
+     rain on the windscreen, a low wind in the haze, a slow rumble in a storm. One looping noise source each, so cheap on phones too. */
+  function bed(D, type, f, q, v, lfoHz, lfoAmt){
+    const s = A.createBufferSource(); s.buffer = nbuf; s.loop = true; const fl = A.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+    const gn = A.createGain(); gn.gain.value = v; s.connect(fl); fl.connect(gn); gn.connect(D.comp); s.start(0, Math.random() * 1.5); D.beds.push(s);
+    if (lfoHz){ const o = A.createOscillator(), og = A.createGain(); o.frequency.value = lfoHz; og.gain.value = lfoAmt; o.connect(og); og.connect(lfoAmt < 1 ? gn.gain : fl.frequency); o.start(); D.beds.push(o); }
   }
-  function stopHiss(D){ if (D.hiss){ try { D.hiss.stop(); } catch(e){} D.hiss = null; } }
+  function startBed(D){
+    stopBed(D); if (D.remote) return;
+    if (STATIONS[D.s].id === 'lofi') bed(D, 'bandpass', 3000, .4, .012);
+    const tex = D.song && D.song.mo ? D.song.mo.tex : '';
+    if (tex === 'rain') bed(D, 'bandpass', 5200, .35, .022, .23, .006);           /* fine rain on the glass, breathing a little */
+    else if (tex === 'air') bed(D, 'lowpass', 520, .7, .03, .07, 260);            /* a slow, low wind */
+    else if (tex === 'storm') bed(D, 'lowpass', 150, .9, .06, .045, .035);        /* distant rumble, swelling */
+  }
+  function stopBed(D){ for (const s of D.beds){ try { s.stop(); } catch(e){} } D.beds.length = 0; }
+  /* rain on the glass: a tiny high plink now and then (local deck only) */
+  function drop(D, t){
+    const o = A.createOscillator(), gn = A.createGain(), f = 2300 + Math.random() * 3200, v = .008 + Math.random() * .02;
+    o.type = 'sine'; o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * .82, t + .05);
+    gn.gain.setValueAtTime(v, t); gn.gain.exponentialRampToValueAtTime(.0005, t + .07);
+    o.connect(gn); route(D, gn, D.music, .5, 0); o.start(t); o.stop(t + .09);
+  }
+  /* the mood's pad under any station: storm = low dark saw, haze = airy triangle, rain = soft sine; one chord every two bars */
+  function moodPad(D, t, sd, ch){
+    const p = D.song.mo.pad, cheap = D.remote || lite();
+    const o = p === 1 ? {oct:0, wave:'sawtooth', det:cheap ? [0] : [-9, 9], v:.035, cut:620}
+      : p === 2 ? {oct:12, wave:'triangle', det:cheap ? [0] : [-12, 12], v:.045, cut:1500}
+      : {oct:12, wave:'sine', det:[0], v:.04, cut:1800};
+    for (const m of chordVoice(D, ch, o.oct)) synth(D, {t, f:mf(m), dur:32 * sd - .1, wave:o.wave, det:o.det, v:o.v, a:1.4, sus:.8, r:1.6, cut:o.cut, rev:.6});
+  }
 
   function chordVoice(D, ch, oct, add9){
     let base = D.song.key + ch[0] + oct; if (ch[0] >= 6) base -= 12;
@@ -276,10 +355,12 @@
     if (el < 0){ D.stepN = 0; D.nextT = now - el; }
     else { D.stepN = Math.ceil(el / S.sd - 1e-6); D.nextT = now + D.stepN * S.sd - el; }
     if (D.stepN >= STEPS){ D.stepN = 0; }
-    D.tone.frequency.setTargetAtTime(STATIONS[s].tone * (D.remote ? .6 : 1), now, .1);
+    const mo = S.mo;
+    D.tone.frequency.setTargetAtTime(Math.min(19000, STATIONS[s].tone * (mo ? mo.tone : 1)) * (D.remote ? .6 : 1), now, .1);
     D.music.gain.cancelScheduledValues(now); D.music.gain.setValueAtTime(1, now);
+    D.drums.gain.setValueAtTime(mo ? mo.dr : 1, now); D.rvM = mo ? mo.rev : 1;
     if (D.dly) D.dly.delayTime.setValueAtTime(Math.min(1.9, S.sd * 3), now);
-    startHiss(D);
+    startBed(D);
   }
   function deckTick(D, horizon){
     const now = A.currentTime;
@@ -287,12 +368,19 @@
     while (D.nextT < horizon){
       const S = D.song, sd = S.sd, bar = D.stepN >> 4, s = D.stepN & 15, sec = section(bar % 32), ch = S.prog[bar % 4];
       if (s === 0) D.marks.push({t:D.nextT, bar, sec});
-      if (D.nextT >= now - .02) PLAY[STATIONS[D.s].id](D, D.nextT, s, sd, bar, sec, ch);
+      if (D.nextT >= now - .02){
+        PLAY[STATIONS[D.s].id](D, D.nextT, s, sd, bar, sec, ch);
+        const mo = S.mo;
+        if (mo){
+          if (mo.pad && s === 0 && !(bar & 1)) moodPad(D, D.nextT, sd, ch);
+          if (mo.tex === 'rain' && !D.remote && Math.random() < (lite() ? .05 : .13)) drop(D, D.nextT + Math.random() * sd);
+        }
+      }
       D.stepN++; D.nextT += sd;
       if (D.stepN >= STEPS){
         D.stepN = 0; D.t0 += S.dur * 1000;
         if (!D.loop){ D.k = nextSeed(D.k); D.song = songOf(D.s, D.k); if (D.dly) D.dly.delayTime.setValueAtTime(Math.min(1.9, D.song.sd * 3), D.nextT); }
-        if (D.onSong) D.onSong();
+        if (D.onSong) D.onSong(D);
       }
     }
     while (D.marks.length > 1 && D.marks[1].t <= now) D.marks.shift();
@@ -300,13 +388,14 @@
   function deckFade(D, on, tc){ const t = A.currentTime; D.out.gain.cancelScheduledValues(t); D.out.gain.setTargetAtTime(on ? 1 : 0, t, tc || .12); }
 
   /* ---------- the local radio ---------- */
-  let local = null, sched = 0;
+  let local = null, spare = null, sched = 0;     /* spare = the other local deck, fading out after a crossfade */
   const localNow = () => local && local.live;
   function startScheduler(){ if (!sched) sched = setInterval(tickAll, 25); }
   function tickAll(){
     if (!A) return;
     const h = A.currentTime + .15; let any = false;
     if (local && local.live){ deckTick(local, h); any = true; }
+    if (spare && spare.live){ if (A.currentTime > spare.fadeEnd){ spare.live = false; stopBed(spare); } else { deckTick(spare, h); any = true; } }
     for (const D of remoteDecks.values()) if (D.live){ deckTick(D, h); any = true; }
     if (!any){ clearInterval(sched); sched = 0; }
   }
@@ -315,7 +404,12 @@
     if (!local){ local = makeDeck(false); local.onSong = onLocalSong; }
     return local;
   }
-  function onLocalSong(){ R.seed = local.k; R.t0 = local.t0; hud(); publish(); }
+  function onLocalSong(D){
+    if (D !== local) return;
+    R.seed = local.k; R.t0 = local.t0;
+    if (smartAtBoundary()) return;        /* smart mode changes the music here, at the end of a song */
+    hud(); publish();
+  }
   /* (re)start what the radio should be playing now: R.st / R.seed / R.t0 / R.loop */
   function playLocal(fresh){
     const D = ensureLocal(); if (!D) return;
@@ -324,17 +418,37 @@
     if (fresh) staticBurst(D);
     startScheduler(); hud(); publish();
   }
-  function stopLocal(){ if (local && local.live){ local.live = false; deckFade(local, false, .3); stopHiss(local); } publish(); }
-  /* a new song on station s (or a given seed), starting right now */
-  function tune(s, seed, loop){
-    R.st = s; R.seed = seed || newSeed(); R.t0 = Date.now() + 120; R.loop = !!loop;
+  function stopLocal(){
+    if (local && local.live){ local.live = false; deckFade(local, false, .3); stopBed(local); }
+    if (spare && spare.live){ spare.live = false; deckFade(spare, false, .2); stopBed(spare); }
+    publish();
+  }
+  /* a new song on station s (or a given seed; m = mood, default: the mood playing now), starting right now with a burst of static */
+  function tune(s, seed, loop, m){
+    R.st = s; R.seed = seed || newSeed(m === undefined ? moodOf(R.seed) : m); R.t0 = Date.now() + 120; R.loop = !!loop;
     save(); if (localNow()) playLocal(true); else hud();
+  }
+  /* crossfade to a new song (s, k) on the other local deck: the new one fades in over ~2 s while the old one keeps playing and fades out.
+     t0 = when the new song starts (wall ms); at a song boundary that is the moment the old song ended */
+  function crossTo(s, k, t0){
+    R.st = s; R.seed = k; R.t0 = t0; R.loop = false;
+    if (!localNow()){ hud(); return; }
+    const old = local;
+    if (!spare){ spare = makeDeck(false); spare.onSong = onLocalSong; }
+    if (spare.live){ spare.live = false; stopBed(spare); deckFade(spare, false, .05); }
+    local = spare; spare = old;
+    deckSet(local, s, k, t0, false); R.seed = local.k; R.t0 = local.t0;
+    local.live = true; local.out.gain.cancelScheduledValues(A.currentTime); local.out.gain.setValueAtTime(0, A.currentTime); deckFade(local, true, .55);
+    old.fadeEnd = A.currentTime + 3.2; deckFade(old, false, .7);
+    revFollow(local);
+    startScheduler(); hud(); publish();
   }
 
   /* ---------- what is going on in the game ---------- */
   const inCar = () => typeof mode !== 'undefined' && mode === 'naiwa' && typeof driving !== 'undefined' && !!driving;
   const blockedNow = () => g(() => indoorNow(), false) || g(() => XMini.inside || !!XMini.active, false) || g(() => gx.paused, false) || document.hidden
-    || g(() => document.body.classList.contains('wd-open') || document.body.classList.contains('titled'), false);
+    || g(() => document.body.classList.contains('wd-open') || document.body.classList.contains('titled'), false)
+    || (!!window.XCineAudio && document.body.classList.contains('cine'));   /* a cutscene with its own music (js/89-cine-audio.js, when it is there): fade out, no two songs at once */
   const racing = () => g(() => RC.st !== 'idle', false);
   const wanted = () => g(() => heat >= 1, false);
   const listenerPos = () => g(() => mode === 'naiwa' ? (driving || nw) : mode === 'walk' ? player : null, null);
@@ -473,7 +587,7 @@
         }
         D.src = P.s + ':' + P.k + ':' + P.t + ':' + P.l;
       }
-      R.hear = [...remoteDecks.keys()].map(id => { const P = peers.get(id); return P ? {name:P.name || '附近的车', s:P.s, title:songOf(P.s, remoteDecks.get(id).k).title} : null; }).filter(Boolean);
+      R.hear = [...remoteDecks.keys()].map(id => { const P = peers.get(id); const S = P && songOf(P.s, remoteDecks.get(id).k); return P ? {name:P.name || '附近的车', s:P.s, m:S.m, title:S.title} : null; }).filter(Boolean);
     }
     /* distance: quieter and duller with distance, nothing past 40 m; pan follows the direction from the camera */
     if (!remoteDecks.size || !me) return;
@@ -494,8 +608,8 @@
     if (want){
       R.autoOffT = 0;
       if (!R.autoOn){
-        R.autoOn = true; R.manual = false;
-        if (R.st !== EDM){ R.prev = {st:R.st, seed:R.seed, loop:R.loop}; tune(EDM); g(() => toast('📻 赛道 EDM', racing() ? '比赛开始，电台切到赛道 EDM' : '保安追上来了，电台切到赛道 EDM', 1400)); }
+        R.autoOn = true; R.manual = false; SM.showT = 0;
+        if (R.st !== EDM || moodOf(R.seed)){ R.prev = {st:R.st, seed:R.seed, loop:R.loop}; tune(EDM, 0, false, 0); g(() => toast('📻 赛道 EDM', racing() ? '比赛开始，电台切到赛道 EDM' : '保安追上来了，电台切到赛道 EDM', 1400)); }
         else R.prev = null;
       }
     } else if (R.autoOn){
@@ -503,9 +617,91 @@
       if (R.autoOffT > 3){
         R.autoOn = false;
         const p = R.prev; R.prev = null;
-        if (p && !R.manual && R.on) tune(p.st, p.loop ? p.seed : 0, p.loop);
+        if (p && !R.manual && R.on){
+          if (R.smart && !p.loop){ smartTick(true); smartSwitch(SM.want, Date.now() + 150); }    /* back to whatever fits now, crossfaded */
+          else tune(p.st, p.loop ? p.seed : 0, p.loop, moodOf(p.seed));
+        }
       }
     }
+  }
+
+  /* ---------- 智能选歌: pick the station and the mood from the weather, the time, the speed and where you are ----------
+     The rules (in order):
+       racing / chased (auto EDM above)          → 赛道 EDM at once, with static: the only urgent change
+       storm                                     → 雷雨 霓虹 (dark synth)
+       shower / haze / overcast                  → 雨天 / 烟霾 / 阴天 Lo-fi; flat out → the same mood on 霓虹
+       clear: golden hour 17:00–19:35, 6:20–7:20 → 黄昏, night 19:35–6:20 → 夜色, else plain
+              on campus → Lo-fi, off campus or flat out → 霓虹; plain daytime flat out off campus → 赛道 EDM
+     No flip-flop: speed is smoothed over ~3 s with two thresholds (fast above 86 km/h, back below 61 km/h), the campus edge has
+     a 25 m margin, a new pick has to hold for 8 s, and the change itself waits for the end of the song (crossfaded), at least 40 s
+     after the last one. While a song loops, or the player chose a station or mood by hand (smart mode turns off), nothing changes. */
+  const SM = {spd:0, fast:false, campus:true, cand:-1, candT:0, want:-1, cause:0, wantCause:0, lastSw:-1e9, tickT:0, showT:0, key:-1, line:''};
+  const W_IDX = {shower:1, storm:2, haze:3, overcast:4};
+  const W_WHY = ['', '下雨了', '雷阵雨', '起烟霾了', '阴天'], T_WHY = ['白天', '黄昏', '夜里'];
+  const cur = () => R.st * 8 + moodOf(R.seed);
+  function smartPick(){
+    const w = (window.XWeather && W_IDX[XWeather.type]) || 0, h = window.XClock ? XClock.hour() : 12;
+    const t = (h >= 17 && h < 19.6) || (h >= 6.33 && h < 7.33) ? 1 : (h >= 19.6 || h < 6.33) ? 2 : 0;
+    const fast = SM.fast, campus = SM.campus;
+    let s, m;
+    if (w === 2){ s = 0; m = 2; }
+    else if (w){ m = w === 1 ? 1 : w === 3 ? 3 : 4; s = fast ? 0 : 1; }
+    else { m = t === 1 ? 6 : t === 2 ? 5 : 0; s = fast ? (m === 0 && !campus ? EDM : 0) : campus ? 1 : 0; }
+    SM.cause = w | t << 3 | (campus ? 32 : 0) | (fast ? 64 : 0);
+    return s * 8 + m;
+  }
+  /* 10 times a second in the car: just smooth the speed (no closures here: this runs all the time) */
+  function smartRead(dt){
+    const v = driving ? Math.hypot(driving.vx, driving.vz) || 0 : 0;
+    SM.spd += (v - SM.spd) * Math.min(1, dt / 3);
+    if (SM.fast ? SM.spd < 17 : SM.spd > 24) SM.fast = !SM.fast;
+  }
+  /* once a second (or now, when forced): where are we, what fits, has it held long enough */
+  function smartTick(force){
+    const p = driving;
+    if (p && typeof CAMPUS_R !== 'undefined'){ const e = SM.campus ? 25 : -25; SM.campus = p.x > CAMPUS_R.x0 - e && p.x < CAMPUS_R.x1 + e && p.z > CAMPUS_R.z0 - e && p.z < CAMPUS_R.z1 + e; }
+    const c = smartPick();
+    if (c !== SM.cand){ SM.cand = c; SM.candT = 0; } else SM.candT++;
+    if (force || SM.want < 0 || SM.candT >= 8 || (c === SM.want)){ SM.want = c; SM.wantCause = SM.cause; }
+    smartLine();
+  }
+  /* at the end of a song (called from onLocalSong): change now if the pick differs */
+  function smartAtBoundary(){
+    if (!R.smart || R.loop || R.autoOn || !R.on || SM.want < 0 || SM.want === cur()) return false;
+    if (performance.now() / 1000 - SM.lastSw < 40) return false;
+    smartSwitch(SM.want, local.t0); return true;
+  }
+  function smartSwitch(c, t0){
+    if (c < 0) return;
+    SM.lastSw = performance.now() / 1000;
+    crossTo(c >> 3, newSeed(c & 7), t0);
+    SM.showT = 4.5; smartLine(); hud(); flash();
+  }
+  /* the line the panel shows (and the strip for a few seconds after a change), e.g. 「下雨了 · 雨天 Lo-fi」; rebuilt only when something changed */
+  function smartLine(){
+    const st = !R.smart ? 1 : R.autoOn ? 2 : R.loop ? 3 : 0;
+    const key = ((st * 64 + SM.want) * 128 + SM.wantCause) * 64 + cur() + (st === 2 && racing() ? 1 << 24 : 0);
+    if (key === SM.key) return SM.line;
+    SM.key = key;
+    if (st === 1) SM.line = '智能选歌关着 · 手动选台';
+    else if (st === 2) SM.line = (racing() ? '比赛中' : '被保安追') + ' · 赛道 EDM';
+    else if (st === 3) SM.line = '单曲循环中 · 智能选歌先不换';
+    else if (SM.want < 0) SM.line = '智能选歌';
+    else {
+      const k = SM.wantCause, w = k & 7, t = k >> 3 & 3, fast = !!(k & 64), name = mixName(SM.want >> 3, SM.want & 7);
+      const why = w ? W_WHY[w] + (fast ? ' · 开得正快' : '') : T_WHY[t] + (fast ? ' · 开得正快' : k & 32 ? ' · 在校园里' : ' · 出了校门');
+      SM.line = why + ' · ' + name + (SM.want === cur() ? '' : '（这首放完换）');
+    }
+    if (!panel.hidden) $r('rdWhy').textContent = SM.line;
+    return SM.line;
+  }
+  function setSmart(on){
+    R.smart = !!on; save();
+    if (on && inCar()){
+      smartTick(true);
+      if (R.on && !R.autoOn){ R.loop = false; if (local) local.loop = false; if (SM.want !== cur()){ if (localNow()) smartSwitch(SM.want, Date.now() + 150); else { R.st = SM.want >> 3; R.seed = newSeed(SM.want & 7); R.t0 = Date.now() + 300; } } }
+    }
+    smartLine(); hud();
   }
 
   /* ---------- per frame (10 times a second is plenty) ---------- */
@@ -516,16 +712,26 @@
     if (car && !wasCar) enterCarRadio();
     if (!car && wasCar) leaveCarRadio();
     wasCar = car;
+    if (car){ smartRead(dt); SM.tickT -= dt; if (SM.tickT <= 0){ SM.tickT = 1; smartTick(false); } } else SM.spd = 0;
     const want = car && R.on && !blockedNow() && soundOn && !!(typeof AC !== 'undefined' && AC);
-    if (want && !localNow()){ if (graph()){ R.playing = true; playLocal(false); } }
+    if (want && !localNow()){
+      if (graph()){
+        /* coming back (out of a building, a mini game, a cutscene…): smart mode starts straight on what fits now */
+        if (R.smart && !R.loop && !R.autoOn && SM.want >= 0 && SM.want !== cur()){ R.st = SM.want >> 3; R.seed = newSeed(SM.want & 7); R.t0 = Date.now() + 300; R.loop = false; }
+        R.playing = true; playLocal(false);
+      }
+    }
     else if (!want && localNow()){ R.playing = car && R.on; stopLocal(); }
     if (car) autoTick(dt);
     airTick(dt); bcTick(dt);
     const canHear = !blockedNow() && soundOn && (mode === 'naiwa' || mode === 'walk');
-    if (A) remoteTick(dt, canHear);
+    if (A || (canHear && peers.size && typeof AC !== 'undefined' && AC)) remoteTick(dt, canHear);   /* on foot without having driven yet: the graph is built when someone's broadcast is in range */
     if (A && master){
       const audible = soundOn && !document.hidden;
-      master.gain.setTargetAtTime(audible ? LEVEL * R.vol : 0, A.currentTime, audible ? .08 : .03);
+      /* a touch louder at speed, like a real car's speed-dependent volume: +0 at 30 km/h, up to +22 % (+1.7 dB) from 110 km/h,
+         where the engine is about 6 dB louder than idling */
+      const sp = Math.max(0, Math.min(1, (SM.spd - 8) / 22));
+      master.gain.setTargetAtTime(audible ? LEVEL * R.vol * (1 + .22 * sp) : 0, A.currentTime, audible ? .3 : .03);
       if (soundOn !== wasSound){ wasSound = soundOn; }
     }
     hudTick(car);
@@ -536,9 +742,13 @@
   function enterCarRadio(){
     R.carKind = g(() => String(driving.kind || ''), '');
     const f = R.fav[R.carKind];
+    SM.spd = g(() => Math.hypot(driving.vx, driving.vz), 0) || 0; SM.fast = SM.spd > 24; SM.campus = true; SM.cand = SM.want = -1; SM.lastSw = -1e9; SM.tickT = 1;
+    smartTick(true);
     if (f){ R.st = f.s; R.seed = f.k; R.t0 = Date.now() + 400; R.loop = true; }
-    else { R.seed = newSeed(); R.t0 = Date.now() + 400; R.loop = false; }
+    else if (R.smart){ R.st = SM.want >> 3; R.seed = newSeed(SM.want & 7); R.t0 = Date.now() + 400; R.loop = false; SM.showT = 4.5; }
+    else { R.seed = newSeed(R.md); R.t0 = Date.now() + 400; R.loop = false; }
     R.autoOn = false; R.prev = null; R.playing = R.on;
+    smartLine();
     hud();
     if (R.on && f) g(() => toast('📻 ' + STATIONS[f.s].name, `接着放收藏的「${songOf(f.s, f.k).title}」`, 1600));
   }
@@ -558,7 +768,7 @@
     if (!R.on){ R.on = true; R.playing = true; tune(0); save(); flash(); return; }
     if (R.st === STATIONS.length - 1){ setPower(false); flash(); return; }
     if (R.autoOn) R.manual = true;
-    tune(R.st + 1); flash();
+    R.smart = false; tune(R.st + 1); flash(); smartLine();
   }
   function setPower(on){
     R.on = on; save();
@@ -566,8 +776,16 @@
     else { R.playing = true; if (!R.seed) tune(R.st); }
     hud();
   }
-  function pick(s){ g(() => ac()); if (R.autoOn) R.manual = true; if (!R.on){ R.on = true; R.playing = true; } tune(s); save(); }
-  function next(){ g(() => ac()); if (!R.on) return pick(R.st); if (R.autoOn) R.manual = true; tune(R.st, 0, false); }
+  /* choosing a station or a mood by hand turns smart mode off (the toggle in the panel turns it back on) */
+  function pick(s){ g(() => ac()); if (R.autoOn) R.manual = true; if (!R.on){ R.on = true; R.playing = true; } R.smart = false; R.md = moodOf(R.seed); tune(s, 0, false, R.md); smartLine(); hud(); }
+  function pickMood(m){ g(() => ac()); if (R.autoOn) R.manual = true; if (!R.on){ R.on = true; R.playing = true; } R.smart = false; R.md = m; tune(R.st, 0, false, m); smartLine(); hud(); }
+  /* 下一首 keeps smart mode on; if smart mode wants something else by now, the next song is that */
+  function next(){
+    g(() => ac()); if (!R.on) return pick(R.st); if (R.autoOn) R.manual = true;
+    if (R.smart && !R.autoOn && SM.want >= 0){ SM.lastSw = performance.now() / 1000; tune(SM.want >> 3, 0, false, SM.want & 7); }
+    else tune(R.st, 0, false);
+    smartLine(); hud();
+  }
   function setLoop(on){
     R.loop = on;
     if (local && local.live){ local.loop = on; R.seed = local.k; R.t0 = local.t0; }
@@ -592,13 +810,18 @@
       <span class="rd-fq"><small>FM</small><b id="rdFq">88.6</b></span>
       <span class="rd-txt"><b id="rdSt">霓虹夜驾</b><span id="rdTr">—</span></span>
       <canvas id="rdViz" width="48" height="24" aria-hidden="true"></canvas>
-      <span class="rd-tags"><i id="rdLoopTag" hidden title="单曲循环">🔁</i><i id="rdAirTag" hidden title="外放中">📢</i></span>
+      <span class="rd-tags"><i id="rdSmTag" hidden title="智能选歌">✨</i><i id="rdLoopTag" hidden title="单曲循环">🔁</i><i id="rdAirTag" hidden title="外放中">📢</i></span>
     </button>
     <div class="rd-hear" id="rdHear" hidden></div>`;
   const panel = document.createElement('div'); panel.id = 'rdPanel'; panel.className = 'rd-panel'; panel.hidden = true;
   panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', '车载电台');
   panel.innerHTML = `<div class="rd-ph"><b>车载电台</b><button type="button" class="rd-x" id="rdX" aria-label="收起">×</button></div>
     <div class="rd-presets" role="group" aria-label="选台">${STATIONS.map((s, i) => `<button type="button" class="rd-pre" data-i="${i}" style="--pc:${s.acc}" aria-pressed="false"><small>${s.freq}</small><b>${s.name}</b></button>`).join('')}</div>
+    <div class="rd-smart">
+      <label class="rd-chk"><input type="checkbox" id="rdSmart"><span><b>✨ 智能选歌</b> 按天气、时间、车速、地点自动选，一首放完再换</span></label>
+      <div class="rd-why" id="rdWhy" aria-live="polite"></div>
+    </div>
+    <div class="rd-moods" role="group" aria-label="曲风（天气版）">${MOODS.map((m, i) => `<button type="button" class="rd-md" data-m="${i}" aria-pressed="false">${m ? m.name : '原味'}</button>`).join('')}</div>
     <div class="rd-now"><span id="rdNow">—</span><span id="rdSec"></span></div>
     <div class="rd-row">
       <button type="button" class="rd-btn" id="rdNext">下一首 ⏭</button>
@@ -620,13 +843,16 @@
   actBtn.addEventListener('pointerdown', e => { e.preventDefault(); cycle(); });
   actBtn.addEventListener('contextmenu', e => e.preventDefault());
 
-  function panelOpen(on){
+  /* the panel is used while driving: opened with a tap or a click it leaves the keyboard on the game (WASD / arrows / space keep
+     driving the car) and only a keyboard user (Enter / Space on the strip) is moved into it */
+  const backToGame = () => g(() => { const a = document.activeElement; if (a && (panel.contains(a) || hudEl.contains(a))) canvas.focus({preventScroll:true}); });
+  function panelOpen(on, kb){
     if (on && !inCar()) return;
     panel.hidden = !on; $r('rdStrip').setAttribute('aria-expanded', String(on));
-    if (on){ hud(); topY = -1; hudTick(true); const b = panel.querySelector('.rd-pre[aria-pressed="true"]') || $r('rdX'); b.focus({preventScroll:true}); }
-    else if (document.activeElement && panel.contains(document.activeElement)) g(() => canvas.focus({preventScroll:true}));
+    if (on){ hud(); topY = -1; hudTick(true); if (kb){ const b = panel.querySelector('.rd-pre[aria-pressed="true"]') || $r('rdX'); b.focus({preventScroll:true}); } else backToGame(); }
+    else backToGame();
   }
-  $r('rdStrip').addEventListener('click', () => { g(() => ac()); panelOpen(panel.hidden); });
+  $r('rdStrip').addEventListener('click', e => { g(() => ac()); panelOpen(panel.hidden, e.detail === 0); });
   $r('rdX').addEventListener('click', () => panelOpen(false));
   panel.querySelectorAll('.rd-pre').forEach(b => b.addEventListener('click', () => pick(+b.dataset.i)));
   $r('rdNext').addEventListener('click', next);
@@ -636,26 +862,36 @@
   $r('rdPow').addEventListener('click', () => setPower(!R.on));
   $r('rdVol').addEventListener('input', e => { R.vol = Math.max(0, Math.min(1, e.target.value / 100)); $r('rdVolOut').textContent = Math.round(R.vol * 100) + '%'; save(); });
   $r('rdAuto').addEventListener('change', e => { R.auto = e.target.checked; save(); });
-  /* keep game keys (WASD, space…) from reaching the car while a panel control has focus, but let Escape through */
-  panel.addEventListener('keydown', e => { if (e.code !== 'Escape' && e.code !== 'Tab') e.stopPropagation(); });
-  document.addEventListener('pointerdown', e => { if (!panel.hidden && !panel.contains(e.target) && !hudEl.contains(e.target) && e.target !== actBtn && !actBtn.contains(e.target)) panelOpen(false); }, true);
+  $r('rdSmart').addEventListener('change', e => { g(() => ac()); setSmart(e.target.checked); });
+  panel.querySelectorAll('.rd-md').forEach(b => b.addEventListener('click', () => pickMood(+b.dataset.m)));
+  /* a tap or click on a panel control hands the keyboard straight back to the car (a slider or checkbox would otherwise keep
+     the arrows / space); a keyboard user keeps focus. Only the volume slider and checkboxes hold their own keys */
+  panel.addEventListener('pointerup', () => setTimeout(backToGame, 0));
+  panel.addEventListener('keydown', e => { if (e.target.tagName === 'INPUT' && e.code !== 'Escape' && e.code !== 'Tab') e.stopPropagation(); });
+  /* driving with the panel open: the stick, the action buttons and the 3D view (camera drag) don't close it; × , the strip,
+     Esc, getting out of the car or any other button / panel does */
+  const DRIVE_UI = '#joy,#acts,#c';
+  document.addEventListener('pointerdown', e => { if (!panel.hidden && !panel.contains(e.target) && !hudEl.contains(e.target) && e.target !== actBtn && !actBtn.contains(e.target) && !(e.target.closest && e.target.closest(DRIVE_UI))) panelOpen(false); }, true);
 
   let flashT = 0;
   function flash(){ flashT = 1.6; hudEl.classList.add('rd-flash'); }
   const fmtT = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
   function hud(){
-    const st = STATIONS[R.st], S = R.seed ? songOf(R.st, R.seed) : null;
+    const st = STATIONS[R.st], S = R.seed ? songOf(R.st, R.seed) : null, md = S ? S.m : 0;
     hudEl.style.setProperty('--rd', R.on ? st.acc : '#8a93a3'); panel.style.setProperty('--rd', st.acc);
     $r('rdFq').textContent = R.on ? st.freq : 'OFF';
-    $r('rdSt').textContent = R.on ? st.name : '电台关了';
-    $r('rdTr').textContent = R.on ? (S ? '♪ ' + S.title + ' #' + String(S.k % 1000).padStart(3, '0') : '—') : '点这里打开';
-    $r('rdLoopTag').hidden = !(R.on && R.loop); $r('rdAirTag').hidden = !(R.on && R.air);
+    $r('rdSt').textContent = R.on ? mixName(R.st, md) : '电台关了';
+    $r('rdTr').textContent = !R.on ? '点这里打开' : SM.showT > 0 && R.smart && !R.autoOn ? '✨ ' + smartLine() : S ? '♪ ' + S.title + ' #' + String(S.k % 1000).padStart(3, '0') : '—';
+    $r('rdLoopTag').hidden = !(R.on && R.loop); $r('rdAirTag').hidden = !(R.on && R.air); $r('rdSmTag').hidden = !(R.on && R.smart);
     hudEl.classList.toggle('rd-off', !R.on); hudEl.classList.toggle('rd-onair', R.on && R.air);
     actBtn.querySelector('b').textContent = R.on ? st.short : '电台';
     actBtn.classList.toggle('rd-act-on', R.on); actBtn.style.setProperty('--rd', st.acc);
     if (panel.hidden) return;
     panel.querySelectorAll('.rd-pre').forEach(b => b.setAttribute('aria-pressed', String(R.on && +b.dataset.i === R.st)));
-    $r('rdNow').textContent = S && R.on ? `♪ ${S.title} #${String(S.k % 1000).padStart(3, '0')} · ${NOTE[S.key % 12]}${st.minor ? ' 小调' : ' 大调'} · ${S.bpm} BPM` : '电台关着';
+    panel.querySelectorAll('.rd-md').forEach(b => b.setAttribute('aria-pressed', String(R.on && +b.dataset.m === md)));
+    $r('rdSmart').checked = R.smart; $r('rdWhy').textContent = smartLine();
+    const minor = S && S.mo ? S.mo.minor : st.minor;
+    $r('rdNow').textContent = S && R.on ? `♪ ${S.title} #${String(S.k % 1000).padStart(3, '0')} · ${NOTE[S.key % 12]}${minor ? ' 小调' : ' 大调'} · ${S.bpm} BPM` : '电台关着';
     $r('rdLoop').setAttribute('aria-pressed', String(R.loop)); $r('rdLoop').textContent = '🔁 单曲循环：' + (R.loop ? '开' : '关');
     const f = R.fav[R.carKind], isFav = !!(f && f.s === R.st && f.k === R.seed);
     $r('rdFav').setAttribute('aria-pressed', String(isFav)); $r('rdFav').textContent = isFav ? '★ 已收藏到这辆车' : '☆ 收藏到这辆车';
@@ -674,8 +910,9 @@
     actBtn.hidden = !car; document.body.classList.toggle('rd-car', car);
     if (!car && !panel.hidden) panelOpen(false);
     if (flashT > 0){ flashT -= .1; if (flashT <= 0) hudEl.classList.remove('rd-flash'); }
+    if (SM.showT > 0){ SM.showT -= .1; if (SM.showT <= 0) hud(); }
     /* who you are hearing (in the car or on foot) */
-    const h = R.hear.length ? '🔊 ' + R.hear.map(x => `${x.name} 的外放 · ${STATIONS[x.s].short}「${x.title}」`).join('　') : '';
+    const h = R.hear.length ? '🔊 ' + R.hear.map(x => `${x.name} 的外放 · ${x.m ? mixName(x.s, x.m) : STATIONS[x.s].short}「${x.title}」`).join('　') : '';
     if (h !== hearShown){ hearShown = h; const el = $r('rdHear'); el.textContent = h; el.hidden = !h; }
     hudEl.classList.toggle('rd-hearonly', !show && !!h);
     const vis = show || !!h; if (hudEl.hidden === vis) hudEl.hidden = !vis;
@@ -711,8 +948,8 @@
   hud();
 
   window.XRadio = {
-    stations:STATIONS, songOf, nextSeed, state:R, peers, get decks(){ return {local, remote:remoteDecks}; },
-    cycle, pick, next, setLoop, toggleFav, setPower, air:airSet, open:panelOpen,
+    stations:STATIONS, moods:MOODS, songOf, nextSeed, newSeed, moodOf, mixName, state:R, smart:SM, peers, get decks(){ return {local, spare, remote:remoteDecks}; },
+    cycle, pick, pickMood, next, setLoop, toggleFav, setPower, setSmart, air:airSet, open:panelOpen,
     level:{get master(){ return LEVEL; }, get remote(){ return REMOTE_LEVEL; }}
   };
 })();

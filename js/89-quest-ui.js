@@ -39,7 +39,7 @@
   function talkFrame(){
     if (box.hidden || T.shown >= T.full.length) return;
     const n = Math.min(T.full.length, Math.floor((performance.now() - T.t0) / 1000 * (REDUCED ? 999 : 38)));
-    if (n !== T.shown){ T.shown = n; box.querySelector('.q-line').textContent = T.full.slice(0, n); }
+    if (n !== T.shown){ const from = T.shown; T.shown = n; box.querySelector('.q-line').textContent = T.full.slice(0, n); g(() => XVoice.type(T.lines[T.i].who, T.full, from, n)); }   /* 说话声 (js/89-cine-audio.js) */
   }
   function talkNext(){
     if (box.hidden) return;
@@ -295,6 +295,7 @@
     h += '</div>';
     h += `<label class="q-quiet q-show"><input type="checkbox" ${st.hideQ ? '' : 'checked'}> 显示主线（任务条、指南针、地上的光圈）。想自己逛就关掉</label>`;
     h += `<label class="q-quiet"><input type="checkbox" ${st.quiet ? 'checked' : ''}> 不显示操作提示（任务条和指南针照常显示）</label>`;
+    if (window.XVoice) h += `<label class="q-quiet q-voice"><input type="checkbox" ${XVoice.on ? 'checked' : ''}> 说话时「叽叽咕咕」的声音</label>`;
     return h;
   }
   function diaryMount(sec){
@@ -306,7 +307,8 @@
     { const y = q('.q-y1'); if (y) y.addEventListener('click', () => { XGuide.close(); setTimeout(() => g(() => XYear.card()), 80); }); }
     const r = q('.q-replay'); if (r) r.addEventListener('click', () => { const ch = +r.dataset.ch || 0; XGuide.close(); setTimeout(() => ch ? XQ.replay(ch) : XQ.playIntro(true), 80); });
     sec.querySelectorAll('.q-more').forEach(b => b.addEventListener('click', () => XGuide.open ? (() => { const id = b.dataset.g, i = XGuide.pages.indexOf(id); if (i >= 0) XGuide.go(i); })() : 0));
-    const cb = q('.q-quiet:not(.q-show) input'); if (cb) cb.addEventListener('change', () => { S().quiet = cb.checked; XQ.save(); barSync(); hintSync(true); });
+    { const v = q('.q-voice input'); if (v) v.addEventListener('change', () => g(() => XVoice.set(v.checked))); }
+    const cb = q('.q-quiet:not(.q-show):not(.q-voice) input'); if (cb) cb.addEventListener('change', () => { S().quiet = cb.checked; XQ.save(); barSync(); hintSync(true); });
     const sh = q('.q-show input'); if (sh) sh.addEventListener('change', () => { S().hideQ = !sh.checked; XQ.save(); barSync(); hintSync(true); });
   }
   /* the sticky notes: side jobs, grouped by who gave them */
@@ -359,14 +361,20 @@
      glows and gets a small 「点这里」 label beside it. Runs while panels are open too (they pause the game), so it walks the
      player from the HUD button into the panel and on to the button inside. ================= */
   const point = el('div', 'q-point'); point.hidden = true; point.setAttribute('aria-hidden', 'true'); document.body.appendChild(point);
-  let pressEl = null;
+  let pressEl = null, pressKey = '';
   const shown = e => { if (!e || e.hidden || e.disabled) return false; const r = e.getBoundingClientRect(); if (r.width < 4 || r.height < 4) return false;
     for (let p = e; p && p !== document.body; p = p.parentElement){ if (p.hidden) return false; const cs = getComputedStyle(p); if (cs.display === 'none' || cs.visibility === 'hidden') return false; } return true; };
   function pressSync(){
     const st = XQ.step(), list = st && st.press && !XQ.stepDone(st.id) && S().ph === 'steps' && mode === 'naiwa' && box.hidden && !g(() => XCine.busy, false) ? st.press : null;
     let tgt = null, label = '';
     if (list) for (const [sel, lab, only] of list){ if (only === 'touch' && !TOUCH) continue; const e = document.querySelector(sel); if (shown(e)){ tgt = e; label = lab; break; } }
-    if (pressEl !== tgt){ if (pressEl) pressEl.classList.remove('q-flash'); pressEl = tgt; if (tgt){ tgt.classList.add('q-flash'); if (tgt.closest('.panel')) g(() => tgt.scrollIntoView({block:'nearest', inline:'nearest'})); } }
+    if (pressEl !== tgt){
+      if (pressEl) pressEl.classList.remove('q-flash'); pressEl = tgt;
+      /* the workshop list is rebuilt on every refresh: the same part comes back as a new element. Only scroll when it is a different thing */
+      const key = tgt ? (tgt.dataset.k || tgt.dataset.tab || tgt.id || label) : '';
+      if (tgt){ tgt.classList.add('q-flash'); if (key !== pressKey && tgt.closest('.panel')) g(() => tgt.scrollIntoView({block:'nearest', inline:'nearest'})); }
+      pressKey = key;
+    }
     if (!tgt){ point.hidden = true; return; }
     if (point.textContent !== label) point.textContent = label;
     point.hidden = false;
@@ -378,11 +386,19 @@
   setInterval(() => g(pressSync), 250);
   /* the tuning list: mark the parts that can be ordered right now (materials, blueprint and money all there), and the tabs holding one,
      so the guide can point at something that will actually start (js/93-tuning-ui.js decides the same things for its order button) */
+  /* one part to point at (q-pick), kept until it is bought, started or no longer affordable: the guide used to re-pick the first
+     affordable part on every refresh and after every click, so it hopped from part to part (仓库主人：「挑选零件一直说另一个钱够，跳来跳去」) */
+  let pickKey = '';
   function tuneMark(){
     if (typeof tn === 'undefined' || !tn.on || typeof myCar === 'undefined' || !myCar) return;
     const kind = myCar.kind, fit = g(() => tnCar(kind).fit, {});
     const can = it => g(() => tnItemOk(kind, it) && tnBpOk(it) && !tnShort(it.need).length && money >= it.rm && !tnOwns(kind, it.key) && fit[it.slot] !== it.id && !tnJobOf(kind, it.key), false);
-    document.querySelectorAll('#tune .tn-it[data-k]').forEach(b => { const it = TN.byKey[b.dataset.k]; b.classList.toggle('q-can', !!it && can(it)); });
+    const items = [...document.querySelectorAll('#tune .tn-it[data-k]')];
+    items.forEach(b => { const it = TN.byKey[b.dataset.k]; b.classList.toggle('q-can', !!it && can(it)); });
+    { const sel = items.find(b => b.classList.contains('sel') && b.classList.contains('q-can'));
+      if (sel) pickKey = sel.dataset.k;   /* you chose one that works: that is the one */
+      else if (!pickKey || !g(() => can(TN.byKey[pickKey]), false)){ const first = items.find(b => b.classList.contains('q-can')); pickKey = first ? first.dataset.k : ''; }
+      items.forEach(b => b.classList.toggle('q-pick', b.dataset.k === pickKey)); }
     const tabs = new Set(); g(() => TN_SLOTS.forEach(s => { if (TN.bySlot[s.id].some(it => can(Object.assign({slot:s.id}, it)))) tabs.add(s.tab); }));
     document.querySelectorAll('#tuneTabs [data-tab]').forEach(b => b.classList.toggle('q-cantab', tabs.has(b.dataset.tab) && b.getAttribute('aria-selected') !== 'true'));
   }

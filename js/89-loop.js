@@ -318,7 +318,9 @@
   }
   setInterval(() => g(tick), 500);
 
-  window.XLoop = {goal:() => cur, daily:() => JSON.parse(JSON.stringify(D)), open:dlOpen, ladder:() => g(ladder, []), compute:() => g(computeGoal, null)};
+  window.XLoop = {goal:() => cur, daily:() => JSON.parse(JSON.stringify(D)), open:dlOpen,
+    /* today's three with their text (the compass picker, js/89-guide-pick.js) */
+    today:() => D.goals.map(q => { const p = q.id === 'hot' ? HOT : BY[q.id]; return {id:q.id, text:g(() => goalText(q), q.id), n:q.n, need:q.need, paid:q.paid, deliv:!!(p && p.poll === 'deliv') || q.id === 'hot'}; }), ladder:() => g(ladder, []), compute:() => g(computeGoal, null)};
   if (DEV) window.XLoop.dev = {
     reset(){ D.day = 0; D.max = 0; D.goals = []; D.all = false; D.streak = 0; D.lastFull = 0; save(); roll(); return D; },
     finish(){ for (const q of D.goals){ q.n = q.need; done(q); } return D; },
