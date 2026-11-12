@@ -10,3 +10,8 @@ tmp-candidates/
 xmum-db-*
 *.json.gpg
 xmum-backup-*.asc
+
+# test/rules: local outputs
+test/rules/results.md
+test/rules/old.json
+test/rules/package-lock.json

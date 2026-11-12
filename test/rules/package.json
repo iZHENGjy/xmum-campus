@@ -1,0 +1,11 @@
+{
+  "name": "xmum-rules-test",
+  "private": true,
+  "type": "module",
+  "description": "database.rules.json 的模拟器测试，见 rules.test.mjs 开头",
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^3.0.4",
+    "firebase": "^10.12.2",
+    "firebase-tools": "^13.29.0"
+  }
+}
