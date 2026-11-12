@@ -113,5 +113,58 @@
   function sync(){ btn.classList.toggle('set', mode !== 'auto'); btn.title = '指南针指什么（现在：' + (NAMES[mode] || '支线') + '）'; }
   sync();
 
-  window.XGuidePick = {pick, get mode(){ return mode; }, set, open};
+  /* ---------- 「指南针可以换」的提示：新老玩家接下来的头两次接任务时各弹一次（主人：「新老用户在下次接取任务的前两次都提示」） ----------
+     接任务 = 出现了新的主线步骤、接了一条支线、接了一单外卖、多了一张跑腿单。每秒比一次，刚进游戏的第一次只记下来不弹。
+     次数记在 localStorage xmum-guide-tip（满 2 次就不再弹）；点过 🎯 换过指引的人也不再弹。 */
+  const TIP_KEY = 'xmum-guide-tip', TIP_MAX = 2;
+  let tipN = +g(() => localStorage.getItem(TIP_KEY), 0) || 0, tipEl = null, tipT = 0, last = null;
+  const tipSt = document.createElement('style'); tipSt.textContent = `
+#gPickTip{position:fixed;z-index:31;max-width:min(300px,calc(100vw - 24px));box-sizing:border-box;padding:9px 12px 10px;border-radius:12px;background:#1f2a36;color:#fff;
+  font-size:13px;line-height:1.5;box-shadow:0 8px 24px rgba(0,0,0,.3);display:flex;gap:10px;align-items:flex-start}
+#gPickTip[hidden]{display:none}
+#gPickTip::before{content:'';position:absolute;left:var(--ax,24px);top:-6px;width:12px;height:12px;background:#1f2a36;transform:rotate(45deg)}
+#gPickTip b{color:#ffd24a}
+#gPickTip button{all:unset;flex:none;cursor:pointer;padding:2px 10px;border-radius:999px;background:rgba(255,255,255,.16);font-weight:700;font-size:12.5px;margin-top:1px}
+#gPickTip button:focus-visible{outline:2px solid #ffd24a}`;
+  document.head.appendChild(tipSt);
+  function tipHide(){ if (tipEl) tipEl.hidden = true; clearTimeout(tipT); }
+  function tipShow(){
+    if (tipN >= TIP_MAX || !comp || comp.hidden || !btn.offsetParent) return false;
+    if (!tipEl){
+      tipEl = document.createElement('div'); tipEl.id = 'gPickTip'; tipEl.setAttribute('role', 'status');
+      tipEl.innerHTML = '<span>🎯 点指南针左边的 <b>🎯</b> 可以换它指什么：主线、某条支线、外卖、每日目标，或者关掉。</span><button type="button">知道了</button>';
+      tipEl.querySelector('button').addEventListener('click', () => { tipHide(); g(() => canvas.focus({preventScroll:true})); });
+      document.body.appendChild(tipEl);
+    }
+    tipEl.hidden = false;
+    const r = btn.getBoundingClientRect(), w = tipEl.offsetWidth, x = Math.max(12, Math.min(innerWidth - w - 12, r.left - 12));
+    tipEl.style.left = x + 'px'; tipEl.style.top = (r.bottom + 10) + 'px'; tipEl.style.setProperty('--ax', Math.max(10, r.left + r.width / 2 - x - 6) + 'px');
+    tipN++; g(() => localStorage.setItem(TIP_KEY, String(tipN)));
+    clearTimeout(tipT); tipT = setTimeout(tipHide, 8000);
+    return true;
+  }
+  btn.addEventListener('click', () => { tipHide(); if (tipN < TIP_MAX){ tipN = TIP_MAX; g(() => localStorage.setItem(TIP_KEY, String(tipN))); } });   /* found it: no more tips */
+  /* what tasks are on right now; a new one in the list = a task was just taken */
+  const tasks = () => {
+    const out = new Set(), st = g(() => XQuest.step(), null);
+    if (st && st.id) out.add('step:' + st.id);
+    for (const [id, v] of Object.entries(g(() => XQuest.state.sides, {}) || {})) if (v === 'open') out.add('side:' + id);
+    if (g(() => mission.on, false)) out.add('deliv');
+    for (const id of g(() => XErrand.active(), []) || []) out.add('errand:' + id);
+    return out;
+  };
+  setInterval(() => {
+    if (tipN >= TIP_MAX) return;
+    if (!comp || comp.hidden) return;   /* the compass only shows while playing 奶娃 (`mode` in here is the picker's own) */
+    const now = tasks();
+    if (last){
+      let fresh = false; for (const k of now) if (!last.has(k)){ fresh = true; break; }
+      const calm = !g(() => XQuest.talking, false) && !g(() => XCine.busy, false) && !g(() => gx.paused, false);
+      if (fresh && calm) setTimeout(tipShow, 1200);
+      else if (fresh) { last = null; return; }   /* in a talk or a film: try again once it is over */
+    }
+    last = now;
+  }, 1000);
+
+  window.XGuidePick = {pick, get mode(){ return mode; }, set, open, tip:tipShow};
 })();
