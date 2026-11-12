@@ -151,17 +151,40 @@ function updateCompass(px, pz){
   cdist.textContent = `${label} · ${Math.round(Math.hypot(vx, vz))} 米`;
 }
 
-/* ---------- checkpoints ---------- */
+/* ---------- checkpoints ----------
+ * Saved per day (Malaysia time) in localStorage 'xmum-checkin-v1' = {day, done:[names], fin, best, full}: today's check-ins
+ * survive a refresh (and sync with the cloud save like every xmum-* key); a new day starts a fresh round, which also keeps
+ * the daily first-check-in part drop meaningful. best = fastest full round done in one sitting (seconds), full = rounds completed. */
+const CP_KEY = 'xmum-checkin-v1';
+const cpDay = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+let cpBest = null, cpFull = 0, cpRestored = false;
+function cpShow(){ $('#cnt').textContent = collected + ' / ' + CPS.length; $('#barfill').style.width = (collected / CPS.length * 100) + '%'; }
+function cpSave(){
+  try { localStorage.setItem(CP_KEY, JSON.stringify({day:cpDay(), done:CPS.filter(c => c.done).map(c => c.name), fin:finished, best:cpBest, full:cpFull})); } catch(e){}
+}
+(function cpLoad(){
+  let s = null; try { s = JSON.parse(localStorage.getItem(CP_KEY) || 'null'); } catch(e){}
+  if (!s || typeof s !== 'object') return;
+  cpBest = typeof s.best === 'number' ? s.best : null; cpFull = +s.full || 0;
+  if (s.day !== cpDay() || !Array.isArray(s.done)) return;
+  for (const cp of CPS) if (s.done.includes(cp.name) && !cp.done){ cp.done = true; collected++; cp.chip.classList.add('on'); }
+  finished = !!s.fin || collected === CPS.length; cpRestored = collected > 0;
+  cpShow();
+})();
 function checkCPs(px, pz){
   for (const cp of CPS){
     if (!cp.done && Math.hypot(px - cp.x, pz - cp.z) < 3.6){
-      cp.done = true; collected++; cp.chip.classList.add('on');
-      $('#cnt').textContent = collected + ' / ' + CPS.length; $('#barfill').style.width = (collected / CPS.length * 100) + '%';
+      cp.done = true; collected++; cp.chip.classList.add('on'); cpShow();
       const loot = window.XParts ? XParts.reward('checkin', 0, '今天第一次打卡') : [], lt = loot.length ? ' · 改装：' + XParts.text(loot) : '';   /* 改装零件：每天第一次，js/93-tuning-ui.js */
       if (collected === CPS.length && !finished){
-        finished = true; const t = Math.round((performance.now() - walkStart) / 1000);
-        toast('全部打卡完成', `用时 ${Math.floor(t / 60)} 分 ${t % 60} 秒${lt}`, 5000);
+        finished = true; cpFull++;
+        if (cpRestored) toast('今天全部打卡完成', `${CPS.length} 个打卡点都去过了，明天重新开始${lt}`, 5000);   /* spread over several visits: no fair time */
+        else {
+          const t = Math.round((performance.now() - walkStart) / 1000), rec = cpBest == null || t < cpBest; if (rec) cpBest = t;
+          toast('全部打卡完成', `用时 ${Math.floor(t / 60)} 分 ${t % 60} 秒${rec ? ' · 新纪录' : ''}${lt}`, 5000);
+        }
       } else toast('打卡成功 · ' + cp.name, `${collected} / ${CPS.length}${lt}`);
+      cpSave();
     }
   }
 }
