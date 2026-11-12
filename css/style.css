@@ -1572,10 +1572,13 @@ body.titled:has(#embedTip:not([hidden])) #title .t-wrap{padding-top:56px}
 #qtalk .q-line{margin:0;font:600 16px/1.6 var(--body);color:var(--ink);min-height:3.2em}
 #qtalk .q-skip{all:unset;cursor:pointer;flex:none;align-self:flex-start;padding:8px 14px;border-radius:999px;background:var(--chip);color:var(--muted);font:600 13px/1.2 var(--body)}
 #qtalk .q-skip:focus-visible{outline:2px solid var(--tile)}
-#qtalk .q-next{position:absolute;right:16px;bottom:8px;color:var(--tile);font-size:14px;animation:qBlink 1s infinite}
+#qtalk .q-next{position:absolute;right:16px;bottom:8px;color:var(--tile);font-size:13px;font-weight:700;animation:qNudge 1.4s infinite;display:flex;align-items:center;gap:5px;white-space:nowrap}
+#qtalk .q-next kbd{display:inline-block;min-width:22px;padding:1px 6px;border-radius:6px;border:1px solid currentColor;border-bottom-width:3px;font:inherit;font-size:13px;line-height:1.4;text-align:center;background:#fff}
 body.q-talking #prompt,body.q-talking #qhint{visibility:hidden}
 @keyframes qUp{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
 @keyframes qBlink{50%{opacity:.25}}
+@keyframes qNudge{50%{opacity:.55}}
+#qtalk .q-tx{padding-bottom:14px}
 .q-bar{all:unset;display:block;box-sizing:border-box;width:100%;cursor:pointer;font-size:12px;line-height:1.5;color:var(--ink);border-top:1px dashed var(--line);padding-top:6px;margin-top:2px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
 .q-bar::before{content:'★ ';color:#e0a400}

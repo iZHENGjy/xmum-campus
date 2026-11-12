@@ -30,7 +30,9 @@
     box.querySelector('.q-who').textContent = p.name;
     T.full = l.text || ''; T.shown = 0; T.t0 = performance.now();
     box.querySelector('.q-line').textContent = '';
-    box.querySelector('.q-next').textContent = T.i < T.lines.length - 1 ? '▸' : '✓';
+    /* say which key goes on: F on a computer, a tap on a phone; the last line says it closes */
+    const last = T.i >= T.lines.length - 1;
+    box.querySelector('.q-next').innerHTML = TOUCH ? (last ? '点一下关闭 ✓' : '点一下继续 ▸') : (last ? '<kbd>F</kbd> 好的' : '<kbd>F</kbd> 继续');
     if (T.opt && T.opt.onLine) T.opt.onLine(l.who);
     g(() => tone('triangle', 520 + (T.i % 3) * 60, 560, .05, .04));
   }
