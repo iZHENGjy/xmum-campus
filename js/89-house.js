@@ -213,10 +213,13 @@ hzBuildSigns();
 window.addEventListener('xmum-name', () => { if (hzOwnedList().length) hzPaintSigns(); });
 /* floating labels over the boards, only when you are near (phones would drown in them otherwise) */
 const hzLbls = HZ_HOUSES.map(h => { const l = addLabel('', h.ux + 3, 4.2, TWM.z0 + 1.2, true); l.dead = true; return l; });
-function hzLblText(h){ return hz.own[h.id] ? `${hzMyName()} 的家 · No. ${h.no}` : `出售 · No. ${h.no} · RM ${h.price.toLocaleString()}`; }
+function hzLblText(h){ return hz.own[h.id] ? `${hzMyName()} 的家 · No. ${h.no}` : `出售 · No. ${h.no} · RM ${h._pt || (h._pt = h.price.toLocaleString())}`; }
 
 /* ---------- inside: one shell for both floors, built the first time you walk in ---------- */
 const hzG = new THREE.Group(); hzG.visible = false; scene.add(hzG);
+/* one group per floor: only the floor you are on (or the one the 装修 camera is looking at) is drawn, so the other storey,
+   which sits HZ_UP metres away in the same empty space, never shows up next to the room you are in */
+const hzFG = [new THREE.Group(), new THREE.Group()]; hzG.add(hzFG[0], hzFG[1]);
 const HX = (x, fl) => HZ_OX + x + (fl ? HZ_UP : 0), HZZ = z => HZ_OZ + z;
 const hzSolidMat = M('#ffffff', {vertexColors:true, roughness:.85, emissive:'#fff1d8', emissiveIntensity:0});
 /* at night the lights are on inside: emissive times the vertex colour, so things glow in their own colour instead of washing out */
@@ -252,17 +255,17 @@ const hzCols = [];
   for (const w of HZ_WALLS_PLAN){ const c = addBox(HX((w.x0 + w.x1) / 2, w.fl), HZZ((w.z0 + w.z1) / 2), (w.x1 - w.x0) / 2, (w.z1 - w.z0) / 2, 0); c.dead = true; hzCols.push(c); }
   for (const [x0, z0, x1, z1, fl] of HZ_BLOCKS){ const c = addBox(HX((x0 + x1) / 2, fl), HZZ((z0 + z1) / 2), (x1 - x0) / 2, (z1 - z0) / 2, 0); c.dead = true; hzCols.push(c); }
 })();
-let hzShell = null, hzFloor = null, hzShellWall = '';
+let hzShell = null, hzFloor = null, hzShellWall = '';   /* hzShell / hzFloor: [downstairs mesh, upstairs mesh] */
 const hzBox = (P, w, h, d, x, y, z, col, ry) => P.push(geoTint(geoAt(new THREE.BoxGeometry(w, h, d), x, y + h / 2, z, 0, ry || 0, 0), col));
 function hzBuildShell(wallId){
-  const P = [], wc = hzWallOf(wallId).col, dark = new THREE.Color(wc).multiplyScalar(.82).getStyle();
+  const P = [[], []], wc = hzWallOf(wallId).col, dark = new THREE.Color(wc).multiplyScalar(.82).getStyle();
   for (const w of HZ_WALLS_PLAN){
-    const cx = HX((w.x0 + w.x1) / 2, w.fl), cz = HZZ((w.z0 + w.z1) / 2), lx = w.x1 - w.x0, lz = w.z1 - w.z0, yard = w.h < HZ_WALL;
-    hzBox(P, lx, w.h, lz, cx, 0, cz, yard ? '#c9c2b4' : wc);
-    hzBox(P, lx + .02, .05, lz + .02, cx, w.h, cz, '#4a4f55');
-    if (!yard) hzBox(P, lx + .04, .14, lz + .04, cx, 0, cz, dark);    /* skirting */
+    const cx = HX((w.x0 + w.x1) / 2, w.fl), cz = HZZ((w.z0 + w.z1) / 2), lx = w.x1 - w.x0, lz = w.z1 - w.z0, yard = w.h < HZ_WALL, Q = P[w.fl];
+    hzBox(Q, lx, w.h, lz, cx, 0, cz, yard ? '#c9c2b4' : wc);
+    hzBox(Q, lx + .02, .05, lz + .02, cx, w.h, cz, '#4a4f55');
+    if (!yard) hzBox(Q, lx + .04, .14, lz + .04, cx, 0, cz, dark);    /* skirting */
   }
-  const B = (fl, x0, y0, z0, x1, y1, z1, col) => hzBox(P, x1 - x0, y1 - y0, z1 - z0, HX((x0 + x1) / 2, fl), y0, HZZ((z0 + z1) / 2), col);
+  const B = (fl, x0, y0, z0, x1, y1, z1, col) => hzBox(P[fl], x1 - x0, y1 - y0, z1 - z0, HX((x0 + x1) / 2, fl), y0, HZZ((z0 + z1) / 2), col);
   /* front door, windows (both floors), the yard door */
   B(0, 1.6, 0, .1, 3.6, 2.5, .2, '#6b4a33'); B(0, 3.25, 1.1, .2, 3.4, 1.3, .3, '#d9b45a');
   for (const fl of [0, 1]){
@@ -286,8 +289,8 @@ function hzBuildShell(wallId){
   B(0, -HZ_W, 0, HZ_D, HZ_W, .02, HZ_YARD, '#a9a59c'); B(0, -HZ_W + .2, .021, HZ_YARD - .5, HZ_W - .2, .03, HZ_YARD - .3, '#7d7a73');
   B(0, -4.2, 0, 16.9, -3.1, 1.15, 17.9, '#eef0f1'); B(0, -3.95, .7, 17.9, -3.35, 1.05, 17.92, '#9fb6c3');
   B(1, 3.9, 0, 1.05, 4.4, 2.3, 5.15, '#d6cfc2'); B(1, 3.88, 1.1, 3.05, 3.9, 1.3, 3.15, '#8a7a62');
-  const geo = geoMerge(P);
-  if (hzShell){ hzShell.geometry.dispose(); hzShell.geometry = geo; } else { hzShell = new THREE.Mesh(geo, hzShellMat); hzShell.receiveShadow = true; hzShell.castShadow = true; hzG.add(hzShell); }
+  if (!hzShell) hzShell = [0, 1].map(fl => { const m = new THREE.Mesh(new THREE.BufferGeometry(), hzShellMat); m.receiveShadow = m.castShadow = true; hzFG[fl].add(m); return m; });
+  hzShell.forEach((m, fl) => { m.geometry.dispose(); m.geometry = geoMerge(P[fl]); });
   hzShellWall = wallId;
 }
 /* floors: one canvas texture per kind, made when first used */
@@ -309,15 +312,11 @@ function hzFloorTexOf(id){
   return hzFloorTex[id] = t;
 }
 function hzSetFloor(id){
-  if (!hzFloor){
-    const P = [];
-    for (const fl of [0, 1]){
-      const g = new THREE.PlaneGeometry(HZ_W * 2, HZ_D); g.rotateX(-Math.PI / 2); g.translate(HX(0, fl), 0, HZZ(HZ_D / 2));
-      const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * HZ_W * 2 / 2.4, uv.getY(i) * HZ_D / 2.4);
-      P.push(g);
-    }
-    hzFloor = new THREE.Mesh(geoMergeUV(P), hzFloorMat); hzFloor.receiveShadow = true; hzG.add(hzFloor);
-  }
+  if (!hzFloor) hzFloor = [0, 1].map(fl => {
+    const g = new THREE.PlaneGeometry(HZ_W * 2, HZ_D); g.rotateX(-Math.PI / 2); g.translate(HX(0, fl), 0, HZZ(HZ_D / 2));
+    const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * HZ_W * 2 / 2.4, uv.getY(i) * HZ_D / 2.4);
+    const m = new THREE.Mesh(g, hzFloorMat); m.receiveShadow = true; hzFG[fl].add(m); return m;
+  });
   hzFloorMat.map = hzFloorTexOf(id); hzFloorMat.needsUpdate = true;
 }
 
@@ -615,15 +614,15 @@ const HZ_SEATS = {
 };
 /* the spots of the furniture now in the house, in world coordinates (filled by hzBuildFurniture) */
 const hzSpots = [];
-let hzFur = null, hzGlow = null;
+let hzFur = [null, null], hzGlow = [null, null];   /* per floor */
 const hzFurCols = []; let hzFurColN = 0;
 function hzFurCol(cx, cz, hx, hz_, rot){
   let c = hzFurCols[hzFurColN]; if (!c){ c = addBox(cx, cz, hx, hz_, rot); hzFurCols.push(c); }
   Object.assign(c, {cx, cz, hx, hz:hz_, c:Math.cos(rot), s:Math.sin(rot), dead:false}); hzFurColN++;
 }
-/* build all the furniture of a house into two meshes. place = {slot: item id} (what is in each spot, saved or previewed) */
+/* build all the furniture of a house into two meshes per floor (plain, glowing). place = {slot: item id} (what is in each spot, saved or previewed) */
 function hzBuildFurniture(place){
-  const S = [], G = []; hzFurColN = 0;
+  const S = [[], []], G = [[], []]; hzFurColN = 0;
   if (typeof HZ !== 'undefined' && HZ.pose) hzPoseEnd(true);   /* the piece under you may be about to change */
   hzSpots.length = 0;
   for (const sl of HZ_SLOTS){
@@ -631,24 +630,24 @@ function hzBuildFurniture(place){
     const k = hzKit(); fn(k);
     const ax = HX(sl.x, sl.fl), az = HZZ(sl.z), c = Math.cos(sl.r), sn = Math.sin(sl.r);
     for (const [kind, x, y, z, f, arms] of HZ_SEATS[id] || []) hzSpots.push({kind, fl:sl.fl, x:ax + x * c + z * sn, y, z:az - x * sn + z * c, h:sl.r + f, arms:arms || 'r', id});
-    for (const g of k.S) S.push(geoAt(g, ax, 0, az, 0, sl.r, 0)); for (const g of k.G) G.push(geoAt(g, ax, 0, az, 0, sl.r, 0));
+    for (const g of k.S) S[sl.fl].push(geoAt(g, ax, 0, az, 0, sl.r, 0)); for (const g of k.G) G[sl.fl].push(geoAt(g, ax, 0, az, 0, sl.r, 0));
     /* a collider a bit smaller than the piece: you can walk right up to it but not through it */
     const sw = Math.abs(Math.sin(sl.r)) > .5, hx = Math.max(.1, (sw ? sl.d : sl.w) / 2 - .5), hz_ = Math.max(.1, (sw ? sl.w : sl.d) / 2 - .5);
     if (sl.id !== 'deco') hzFurCol(ax, az, hx, hz_, 0);
   }
   for (let i = hzFurColN; i < hzFurCols.length; i++) hzFurCols[i].dead = true;
-  const mk = (list, mat, old) => {
+  const mk = (list, mat, old, fl) => {
     if (old){ old.geometry.dispose(); }
-    if (!list.length){ if (old) hzG.remove(old); return null; }
+    if (!list.length){ if (old) hzFG[fl].remove(old); return null; }
     const geo = geoMerge(list);
-    if (old){ old.geometry = geo; hzG.add(old); return old; }
-    const m = new THREE.Mesh(geo, mat); m.castShadow = mat === hzSolidMat; m.receiveShadow = true; hzG.add(m); return m;
+    if (old){ old.geometry = geo; hzFG[fl].add(old); return old; }
+    const m = new THREE.Mesh(geo, mat); m.castShadow = mat === hzSolidMat; m.receiveShadow = true; hzFG[fl].add(m); return m;
   };
-  hzFur = mk(S, hzSolidMat, hzFur); hzGlow = mk(G, hzGlowMat, hzGlow);
+  for (const fl of [0, 1]){ hzFur[fl] = mk(S[fl], hzSolidMat, hzFur[fl], fl); hzGlow[fl] = mk(G[fl], hzGlowMat, hzGlow[fl], fl); }
 }
 function hzFreeFurniture(){
-  for (const m of [hzFur, hzGlow]) if (m){ m.geometry.dispose(); hzG.remove(m); }
-  hzFur = hzGlow = null; for (const c of hzFurCols) c.dead = true;
+  for (const fl of [0, 1]) for (const m of [hzFur[fl], hzGlow[fl]]) if (m){ m.geometry.dispose(); hzFG[fl].remove(m); }
+  hzFur = [null, null]; hzGlow = [null, null]; for (const c of hzFurCols) c.dead = true;
 }
 /* wall paint and floor of what is shown right now (a preview may differ from the save) */
 function hzDress(look){
@@ -664,9 +663,16 @@ const hzInLbls = [addLabel('出门', HX(HZ_EXIT.x, 0), 2.6, HZZ(HZ_EXIT.z), true
 for (const l of hzInLbls) l.dead = true;
 /* indoors the tall light beam of a marker would cut across the whole room: keep only the ring */
 for (const m of [hzExitMark, ...hzStairMarks]) m.children.forEach(c => { if (c !== m.userData.ring) c.visible = false; });
+/* draw only one floor: its rooms, furniture, rings and labels (the other floor is hidden, not freed: going up and down the stairs is instant) */
+function hzShowFloor(fl){
+  hzFG[0].visible = fl === 0; hzFG[1].visible = fl === 1;
+  hzExitMark.visible = fl === 0; hzInLbls[0].dead = fl !== 0;
+  HZ_STAIRS.forEach((s, i) => { hzStairMarks[i].visible = s.fl === fl; hzInLbls[i + 1].dead = s.fl !== fl; });
+  HZ.shown = fl;
+}
 
 /* ---------- state, going in, coming out ---------- */
-const HZ = {in:null, tour:false, pose:null, fl:0, keep:null, near:null, act:null, parkT:0, told:{}};
+const HZ = {in:null, tour:false, pose:null, fl:0, shown:-1, keep:null, near:null, act:null, parkT:0, told:{}};
 const hzBusyWhy = () => mission.on ? '先把手上的外卖送完' : gx.busy() ? '先把手上的挑战做完' : '';
 function hzEnter(h, tour){
   if (HZ.in || !h) return;
@@ -676,7 +682,7 @@ function hzEnter(h, tour){
   window.XINDOOR = 'house'; window.XINDOOR_AT = h.door;
   hzDress(hzLookOf(h.id));
   for (const c of hzCols) c.dead = false;
-  hzG.visible = true; hzExitMark.visible = true; for (const m of hzStairMarks) m.visible = true; for (const l of hzInLbls) l.dead = false;
+  hzG.visible = true; hzShowFloor(0);
   Object.assign(nw, {x:HX(HZ_EXIT.x, 0), z:HZZ(HZ_EXIT.z + 2.1), y:0, h:0, air:false, state:'idle', vx:0, vz:0}); camYaw = Math.PI; camDist = 12; camPitch = 1.0;
   document.body.classList.add('hz-in'); sfx.ding();
   gxCallout(HZ.tour ? '看房' : '到家了', `${h.name}`, '#38c6d9');
@@ -689,7 +695,7 @@ function hzLeave(quiet){
   if (typeof hzUiClose === 'function') hzUiClose(true);
   HZ.in = null; HZ.tour = false; hzG.visible = false; window.XINDOOR = null; window.XINDOOR_AT = null;
   for (const c of hzCols) c.dead = true; hzFreeFurniture();
-  hzExitMark.visible = false; for (const m of hzStairMarks) m.visible = false; for (const l of hzInLbls) l.dead = true;
+  hzExitMark.visible = false; for (const m of hzStairMarks) m.visible = false; for (const l of hzInLbls) l.dead = true; HZ.shown = -1;
   if (HZ.keep){ camDist = HZ.keep.dist; camPitch = HZ.keep.pitch; }
   const d = h.door; nw.x = d.x; nw.z = d.z - 1; nw.h = d.h; camYaw = d.h + Math.PI;
   nw.y = groundAt(nw.x, nw.z); nw.air = false; if (nw.state !== 'idle') nw.state = 'idle';
@@ -697,7 +703,7 @@ function hzLeave(quiet){
   if (!quiet) sfx.ding();
 }
 function hzStairs(s){
-  HZ.fl = s.to; const t = HZ_STAIRS.find(q => q.fl === s.to);
+  HZ.fl = s.to; hzShowFloor(s.to); const t = HZ_STAIRS.find(q => q.fl === s.to);
   nw.x = HX(t.x + 1.3, t.fl); nw.z = HZZ(t.z + (t.fl ? .2 : -.4)); nw.h = t.fl ? 0 : Math.PI; nw.state = 'idle';
   tone('triangle', s.to ? 520 : 660, s.to ? 660 : 520, .12, .07);
   gxCallout(s.to ? '二楼' : '一楼', s.to ? '主卧 · 次卧 · 小房间' : '客厅 · 饭厅 · 厨房 · 后院', '#9fd8ff');
@@ -807,6 +813,7 @@ function hzUpdate(dt, px, pz){
   if (HZ.in){
     if (driving){ hzSetF(''); return; }
     HZ.fl = nw.x - HZ_OX > HZ_UP / 2 ? 1 : 0;
+    if (HZ.shown !== HZ.fl && !(typeof hzUi !== 'undefined' && hzUi.on)) hzShowFloor(HZ.fl);
     const a = hzActNow(); HZ.act = a; hzSetF(a.label);
     hzPrompt = HZ.pose ? HZ_POSE_TIP[HZ.pose.kind] + (TOUCH ? ' · 推摇杆或点「起来」' : ' · 走动或按 F 起来')
       : a.pose ? (TOUCH ? `点「${a.label}」` : `按 F ${a.label}`)

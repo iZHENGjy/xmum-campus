@@ -532,6 +532,13 @@
     if (window.XCine && XCine.play){ placeAtGate(); XCine.play('intro', {onDone:done}); }
   }
   on('ready', () => setTimeout(introAgain, 60));
+  /* a brand-new player who came in through the title's 小游戏 or 衣橱 button: the opening waits until they are back outside
+     (it used to play over the B1 arcade, and then 小满 talked to them in a dark room). poll() tries again every half second. */
+  function introNew(){
+    if (S.born !== 'new' || S.intro || mode !== 'naiwa' || talking) return;
+    if (g(() => indoorNow(), false) || g(() => XWard.on, false) || g(() => XCine.busy, false)) return;
+    playIntro(false);
+  }
   /* the opening is about to play: the veteran's welcome card waits for it (js/89-quest-ui.js) */
   const introPending = () => !S.intro2 && mode === 'naiwa' && performance.now() - enterT < 20000;
   if (typeof setMode === 'function'){
@@ -540,7 +547,7 @@
       const was = mode; base(m);
       if (m === 'naiwa' && was !== 'naiwa'){
         enterT = performance.now();
-        if (S.born === 'new' && !S.intro) setTimeout(() => playIntro(false), 60);
+        if (S.born === 'new' && !S.intro) setTimeout(introNew, 60);
         else if (!S.intro2) setTimeout(introAgain, 60);
         else if (S.born === 'new' && S.ch === 1 && S.ph === 'meet') setTimeout(() => { if (!talking) emit('state'); }, 200);
         emit('enter');
@@ -583,6 +590,7 @@
     pollN++;
     const today = dayKey(); if (S.days[S.days.length - 1] !== today && !S.days.includes(today)){ S.days.push(today); if (S.days.length > 400) S.days.shift(); save(); }
     if (mode === 'naiwa'){
+      if (S.born === 'new' && !S.intro) introNew();
       if (S.ph === 'steps') checkSteps(false);
       if (!S.flags.q_car1 && g(() => driving, null) && unlocked('drive')){ flag('q_car1'); emit('state'); }   /* first time behind the wheel */
       checkSides(false);
