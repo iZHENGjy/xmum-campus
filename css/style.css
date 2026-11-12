@@ -1729,3 +1729,20 @@ body.sx-known .sx-tip{display:none}
 body:not(.sx-known) .sx-wrap.sx-r .sx-br{animation:sxNudge 1.3s ease-in-out infinite}
 @keyframes sxNudge{50%{transform:translateX(3px)}}
 @media (prefers-reduced-motion: reduce){ body:not(.sx-known) .sx-wrap.sx-r .sx-br{animation:none} }
+
+/* 矮窗口（电脑窗口拉得很矮、手机竖屏但浏览器地址栏和键盘占掉一截）：改装车间整块面板一起滚，
+   关闭按钮和底下的「下单施工 / 提车」钉在面板里，永远点得到。原来零件栏、施工位、属性、分栏加起来比面板还高，底栏被挤出屏幕。 */
+@media (max-height:640px), (max-width:760px) and (max-height:820px){
+  #tune{overflow-y:auto;overscroll-behavior:contain;padding:10px 12px 8px;scroll-padding:36px 0 120px}   /* 指引把零件滚出来时，别停在钉住的底栏后面 */
+  #tune>*{flex:none}
+  #tune .tn-list{overflow:visible;margin:0;padding:0 0 4px}
+  #tune>.x{position:sticky;top:-2px;align-self:flex-end;margin:-4px -6px -30px 0;z-index:2;background:linear-gradient(var(--panel-solid),var(--panel-solid)),var(--panel-solid)}
+  #tune .wd-foot{position:sticky;bottom:-8px;z-index:1;margin:6px -12px -8px;padding:7px 12px 8px;background:linear-gradient(var(--panel-solid),var(--panel-solid)),var(--panel-solid)}
+  .tn-where{max-height:2.95em}
+  /* 底栏文字和按钮并排，别把按钮挤到第二行，多占一截高度 */
+  #tune .wd-foot{flex-wrap:nowrap}
+  #tune .wd-sel{flex:1 1 auto;min-width:0}
+  #tune .wd-btns{flex:none}
+}
+/* 窄又矮：面板本来只占下面 70% 高，太挤；拉高到只在顶上留出任务条那一截 */
+@media (max-width:560px) and (max-height:640px), (max-width:760px) and (min-height:521px) and (max-height:640px){ #tune{height:calc(100% - 64px - var(--safe-t) - var(--safe-b))} }
