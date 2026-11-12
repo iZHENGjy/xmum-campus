@@ -46,6 +46,7 @@ C('N10', 'normal', '旧协议 /presence 整条写', null, A => A('alice').ref('p
 C('N11', 'normal', '交总榜成绩', null, A => A('alice').ref('boards/stunt/alice').set({name:'Alice', value:1234, ts:Date.now()}));
 C('N12', 'normal', '交小游戏成绩', null, A => A('alice').ref('mini/canteen_rush/alice').set({name:'Alice', value:88, ts:Date.now()}));
 C('N13', 'normal', '交赛车影子（campus）', null, A => A('alice').ref('ghosts/campus/alice').set({name:'Alice', time:60000, car:'myvi', color:'#ff0000', d:'abcdefgh12', ts:Date.now()}));
+C('N13k', 'normal', '交卡丁车赛影子（kart，js/92-kart-race.js）', null, A => A('alice').ref('ghosts/kart/alice').set({name:'Alice', time:52000, car:'kart', color:'#ffd23a', d:'abcdefgh12', ts:Date.now()}));
 C('N14', 'normal', '贴便利贴', null, A => A('alice').ref('wall/alice').set({name:'Alice', text:'你好', color:'pink', ts:TS}));
 C('N15', 'normal', '删掉自己的便利贴', async db => db.ref('wall/alice').set({name:'Alice', text:'你好', color:'pink', ts:Date.now()}), A => A('alice').ref('wall/alice').remove());
 C('N16', 'normal', '给在线的人发互动消息', null, A => A('alice').ref('social/bob').push({from:'alice', type:'inv', data:'{"k":"ride"}', ts:TS}));
