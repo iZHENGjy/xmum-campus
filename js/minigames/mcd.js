@@ -48,13 +48,13 @@ XMini.register((() => {
   const YUM = ['Sedap! 😋', 'Terbaik! 👍', 'Thank you boss!', '好快！😋', 'Mantap! 🔥'], MEH = ['Aiyo，不对啦 😠', 'Salah lah! 😤', '我要的不是这个 😠'];
   const GONE = ['Lambat gila! 😤', '等太久了，走了 😠', 'Tak jadi lah 😤'];
   const MODES = [
-    {id:'classic', name:'经典', T:90, maxq:2, strikes:0, medals:[3000, 1500, 500], pay:80, sky:'#2b1d16',
+    {id:'classic', name:'经典', T:90, maxq:2, strikes:0, medals:[3000, 1500, 500], rw:s => Math.min(40, 3 + s / 100), sky:'#2b1d16',
       desc:'90 秒普通班，做得越多越好',
       intro:'90 秒。看小票，从下往上点食材叠汉堡（最后一层面包盖上就包好了），再配薯条大小、饮料（加冰还是走冰）、儿童餐的玩具，点「打包交餐」。全对有连击和小费，越快越多。'},
-    {id:'rush', name:'午高峰', T:150, maxq:4, strikes:3, medals:[3800, 2000, 700], pay:100, sky:'#2b1d16',
+    {id:'rush', name:'午高峰', T:150, maxq:4, strikes:3, medals:[3800, 2000, 700], rw:s => Math.min(60, 3 + s / 70), sky:'#2b1d16',
       desc:'客人越来越多，三个差评就下班',
       intro:'午高峰 12:00 到 14:00（150 秒）：客人越来越多、越来越急，最多四个人一起等，点小票换着做。客人等太久走掉、汉堡做错都算差评，三个差评店长就让你下班。'},
-    {id:'drive', name:'得来速', N:12, maxq:1, strikes:3, medals:[1400, 1000, 500], pay:40, sky:'#8fbfe4',
+    {id:'drive', name:'得来速', N:12, maxq:1, strikes:3, medals:[1400, 1000, 500], rw:s => Math.min(25, 3 + s / 60), sky:'#8fbfe4',
       desc:'窗口外的车一辆一辆来，每辆都在计时',
       intro:'得来速窗口：车一辆一辆开到窗口，每辆都在计时，后面那辆的单子会先亮出来，可以提前做。一共 12 辆车，超时开走或者汉堡做错算差评，三个差评就下班。越快小费越多。'}
   ];
@@ -696,9 +696,9 @@ body.mcd-touch .mcd-b kbd{display:none}
     sky:'#2b1d16', shadow:6,
     achievements:[['mg_mcd_combo', '流水线之神', '麦当当配餐连续 10 单全对', 50], ['mg_mcd_drive', '得来速零差评', '得来速 12 辆车全部按时送对', 60],
       ['mg_mcd_local', '本地口味', '麦当当配餐一局做对 3 个本地限定汉堡', 20]],
-    /* RM 工资：底薪加按分数的提成（m.pay 分换 RM 1），奖牌另有奖金；平台截在一局 RM 60 */
-    modes:MODES.map(m => ({id:m.id, name:m.name, desc:m.desc, intro:m.intro, medals:m.medals, sky:m.sky, def:m,
-      reward:(s, md) => Math.round(Math.min(60, 4 + s / m.pay + (md < 3 ? [12, 6, 3][md] : 0)))})),
+    /* RM 工资（m.rw）：和食堂端盘子一样，底薪加按分数的提成、每局封顶，没有奖牌奖金。按一局的长短定封顶，
+       每分钟最多大约 RM 25–28，不超过端盘子和 KIP 大乱斗：经典 90 秒最多 40，午高峰 150 秒最多 60，得来速最快一分钟跑完所以最多 25 */
+    modes:MODES.map(m => ({id:m.id, name:m.name, desc:m.desc, intro:m.intro, medals:m.medals, sky:m.sky, def:m, reward:s => Math.round(m.rw(s))})),
     start(ctx){
       css();
       const M_ = (ctx.modeDef && ctx.modeDef.def) || MODES[0];
