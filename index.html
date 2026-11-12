@@ -17,6 +17,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&display=swap">
 <link rel="stylesheet" href="css/style.css?v=24">
 <link rel="stylesheet" href="css/arcade.css?v=24">
+<link rel="stylesheet" href="css/touch.css?v=24">
 </head>
 <body class="titled" data-mode="orbit">
 <canvas id="c" class="grab" tabindex="0" aria-label="三维校园场景"></canvas>
@@ -245,6 +246,7 @@
         <dt>右下按钮</dt><dd>上车、跳 / 漂移、大笑、撩头（教学楼潜入、宿舍里是蹲下 / 起身）；「水枪」点一下朝面前喷，按住拖动可以瞄准</dd>
         <dt>拖动屏幕</dt><dd>转视角；俯瞰时双指缩放</dd>
         <dt>点小地图</dt><dd>打开大地图</dd>
+        <dt>左手模式</dt><dd>标题页或「暂停」里的「操作」：摇杆和按钮左右对调，还能调按钮大小、透明度和转视角快慢</dd>
         <dt>横屏</dt><dd>手机横过来玩视野更大。标题页的「全屏」可以藏起浏览器地址栏（iPhone 要先「添加到主屏幕」再从主屏幕打开）</dd>
       </dl>
     </section>
@@ -363,6 +365,7 @@
 <script src="js/stats.js?v=24"></script>
 <script src="js/feedback.js?v=24"></script>
 <script src="js/hud-brand.js?v=24"></script>
+<script src="js/ui-touch.js?v=24"></script>
 <!-- 预览版测试模式（无限金币和道具）：只有部署预览版时注入的 guard 设了 XMUM_PREVIEW、并且在 /preview/ 下才加载，正式版不会下载这个文件 -->
 <script>if (window.XMUM_PREVIEW === true && /\/preview\//.test(location.pathname)) document.write('<script src="js/preview-cheats.js?v=24"><\/script>');</script>
 </body>

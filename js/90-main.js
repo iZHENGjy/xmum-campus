@@ -59,7 +59,7 @@ function doR(){ if (mode !== 'naiwa' || gx.paused) return; if (driving) sfx.horn
 const holdBtn = (el, on, off) => {
   el.addEventListener('pointerdown', e => { e.preventDefault(); ac(); el.classList.add('on'); on(); });
   const up = () => { el.classList.remove('on'); off && off(); };
-  el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('pointerleave', up);
+  el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('pointerleave', up); el.addEventListener('lostpointercapture', up);
 };
 holdBtn(actF, doF); holdBtn(actR, doR); holdBtn(actQ, () => footAction('pose'));
 holdBtn(actSp, () => { keys.Space = true; if (!driving) footAction('jump'); }, () => { keys.Space = false; });
@@ -114,8 +114,9 @@ canvas.addEventListener('pointerdown', e => {
 });
 window.addEventListener('pointermove', e => {
   if (!down || e.pointerId !== down.id) return;
-  const dx = e.clientX - down.lx, dy = e.clientY - down.ly; down.lx = e.clientX; down.ly = e.clientY;
+  let dx = e.clientX - down.lx, dy = e.clientY - down.ly; down.lx = e.clientX; down.ly = e.clientY;
   down.moved += Math.abs(dx) + Math.abs(dy);
+  if (e.pointerType === 'touch' && window.XTC){ dx *= XTC.cam; dy *= XTC.cam; }   /* 转视角快慢 in the phone settings (js/ui-touch.js); the mouse is untouched */
   if (mode === 'walk'){ player.yaw -= dx * .0045; player.pitch = Math.max(-1.2, Math.min(1.2, player.pitch - dy * .0045)); }
   if (mode === 'hole'){ camYaw -= dx * .005; }
   if (mode === 'naiwa'){ camYaw -= dx * .005; camPitch = Math.max(indoorNow() ? (window.XINDOOR_PITCH != null ? window.XINDOOR_PITCH : .75) : -.1, Math.min(1.2, camPitch + dy * .004)); camYawHold = 1.6; }
@@ -136,16 +137,27 @@ function pick(cx, cy){
   if (hit && hit.object.userData.info) showCard(hit.object.userData.info);
   else if (mode === 'orbit'){ card.hidden = true; cardInfo = null; }
 }
-const knob = $('#knob'), joy = {x:0, y:0}; let joyId = null;
+/* the stick. Where the thumb lands becomes the centre: the ring slides under it, so touching the rim doesn't start a run straight away,
+   and the landing zone is a bit bigger than the ring (css/touch.css). A small deadzone keeps a resting thumb from drifting the car.
+   The centre is measured once per touch, so a drag never reads the layout. XTC.s = button size from the phone settings (js/ui-touch.js). */
+const knob = $('#knob'), joy = {x:0, y:0}, JOY_DEAD = .12; let joyId = null, joyO = null;
 function moveJoy(e){
-  const r = joyEl.getBoundingClientRect(); let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
-  const R = r.width / 2 - 20, l = Math.hypot(dx, dy); if (l > R){ dx *= R / l; dy *= R / l; }
-  joy.x = dx / R; joy.y = dy / R; knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+  const o = joyO; let dx = e.clientX - o.x, dy = e.clientY - o.y;
+  const l = Math.hypot(dx, dy); if (l > o.R){ dx *= o.R / l; dy *= o.R / l; }
+  const m = Math.min(l, o.R) / o.R, k = m < JOY_DEAD ? 0 : (m - JOY_DEAD) / (1 - JOY_DEAD) / (m || 1);
+  joy.x = dx / o.R * k; joy.y = dy / o.R * k; knob.style.transform = `translate(calc(-50% + ${dx / o.s}px), calc(-50% + ${dy / o.s}px))`;
 }
-joyEl.addEventListener('pointerdown', e => { joyId = e.pointerId; joyEl.setPointerCapture(e.pointerId); moveJoy(e); ac(); e.preventDefault(); e.stopPropagation(); });
+joyEl.addEventListener('pointerdown', e => {
+  if (joyId != null) return;
+  const r = joyEl.getBoundingClientRect(), s = window.XTC ? XTC.s : 1, half = r.width / 2, cx = r.left + half, cy = r.top + half;
+  const x = Math.max(half, Math.min(innerWidth - half, e.clientX)), y = Math.max(half, Math.min(innerHeight - half, e.clientY));
+  joyO = {x, y, R:half - 20 * s, s}; joyEl.style.transform = `translate(${x - cx}px, ${y - cy}px)` + (s !== 1 ? ` scale(${s})` : '');
+  joyId = e.pointerId; joyEl.setPointerCapture(e.pointerId); moveJoy(e); ac(); e.preventDefault(); e.stopPropagation();
+});
 joyEl.addEventListener('pointermove', e => { if (e.pointerId === joyId) moveJoy(e); });
-const endJoy = e => { if (e.pointerId === joyId){ joyId = null; joy.x = joy.y = 0; knob.style.transform = 'translate(-50%,-50%)'; } };
-joyEl.addEventListener('pointerup', endJoy); joyEl.addEventListener('pointercancel', endJoy);
+/* lostpointercapture: the stick was hidden mid-drag (a panel opened, the mode changed), so 奶娃 doesn't keep walking on her own */
+const endJoy = e => { if (e.pointerId === joyId){ joyId = null; joy.x = joy.y = 0; knob.style.transform = 'translate(-50%,-50%)'; joyEl.style.transform = ''; } };
+joyEl.addEventListener('pointerup', endJoy); joyEl.addEventListener('pointercancel', endJoy); joyEl.addEventListener('lostpointercapture', endJoy);
 
 /* ---------- first-person walking ---------- */
 let bobT = 0;
