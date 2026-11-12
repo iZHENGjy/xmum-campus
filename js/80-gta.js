@@ -216,7 +216,7 @@ function updateStunt(dt, sp){
   stunt.idle += dt;
   if (stunt.pts > 0 && stunt.idle > 2.2) bankStunt();
   const show = stunt.pts > 0;
-  comboEl.hidden = !show || mode !== 'naiwa';
+  { const h = !show || mode !== 'naiwa'; if (comboEl.hidden !== h) comboEl.hidden = h; }
   if (show){ const h = `${stunt.label} ×${stunt.mult.toFixed(1)}<small>${Math.round(stunt.pts).toLocaleString()} 分</small>`; if (comboEl.innerHTML !== h) comboEl.innerHTML = h; }
 }
 

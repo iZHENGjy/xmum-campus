@@ -98,7 +98,8 @@ function updateMission(dt, px, pz){
     else {
       const off = typeof OFFER !== 'undefined' && !OFFER.on;
       /* the story wants a delivery but orders are switched off: say how to switch them back on, in red */
-      missionEl.textContent = off ? (qDeliv() ? (TOUCH ? '接单关着 · 点指南针旁的「不接单」打开，才能接主线的外卖' : '接单关着 · 按 J 打开，才能接主线的外卖') : '现在不接单 · 路过光圈不弹卡片') : '到橙色光圈挑一单外卖';
+      const t = off ? (qDeliv() ? (TOUCH ? '接单关着 · 点指南针旁的「不接单」打开，才能接主线的外卖' : '接单关着 · 按 J 打开，才能接主线的外卖') : '现在不接单 · 路过光圈不弹卡片') : '到橙色光圈挑一单外卖';
+      if (missionEl.textContent !== t) missionEl.textContent = t;
       missionEl.classList.toggle('urgent', off && qDeliv());
     }
     /* near a ring the card with its orders comes up (a little before the ring, so there is time to read it while rolling in); without js/89-offers.js the order starts at once, as before */
@@ -148,7 +149,7 @@ function updateCompass(px, pz){
   camera.getWorldDirection(_fw);
   const vx = tx - px, vz = tz - pz, a = Math.atan2(vx, vz) - Math.atan2(_fw.x, _fw.z);
   compassSvg.style.transform = `rotate(${-a}rad)`; compassSvg.style.visibility = '';
-  cdist.textContent = `${label} · ${Math.round(Math.hypot(vx, vz))} 米`;
+  { const t = `${label} · ${Math.round(Math.hypot(vx, vz))} 米`; if (cdist.textContent !== t) cdist.textContent = t; }
 }
 
 /* ---------- checkpoints ----------
