@@ -529,10 +529,37 @@ if (dcOn > .5){
 }`);
   };
 }
+/* metal and chrome paints need something to reflect: with no environment a metalness .85 surface renders almost black
+   (鎏金 looked dark brown). One small sky-to-ground gradient, prefiltered once (PMREM), shared by those paints only;
+   its strength follows the sky light so metallic cars don't glow at night. */
+let wdEnvTex = null;
+const wdEnvMats = new Set(), WD_ENV_K = {metal:.75, chrome:1.15};
+function wdEnv(){
+  if (wdEnvTex !== null) return wdEnvTex;
+  try {
+    const cv = document.createElement('canvas'); cv.width = 256; cv.height = 128;
+    const g = cv.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 128);
+    gr.addColorStop(0, '#9cc8ee'); gr.addColorStop(.42, '#e6eef4'); gr.addColorStop(.5, '#fff6e2'); gr.addColorStop(.56, '#9a9c8e'); gr.addColorStop(1, '#4e5a44');
+    g.fillStyle = gr; g.fillRect(0, 0, 256, 128);
+    g.fillStyle = 'rgba(255,255,255,.9)'; g.beginPath(); g.ellipse(70, 30, 16, 9, 0, 0, Math.PI * 2); g.fill();   /* a sun-ish highlight */
+    const tex = new THREE.CanvasTexture(cv); tex.mapping = THREE.EquirectangularReflectionMapping;
+    if (THREE.sRGBEncoding) tex.encoding = THREE.sRGBEncoding;
+    const pm = new THREE.PMREMGenerator(renderer); wdEnvTex = pm.fromEquirectangular(tex).texture; pm.dispose(); tex.dispose();
+    setInterval(() => {
+      if (!wdEnvMats.size || typeof hemi === 'undefined') return;
+      const sky = Math.max(.12, Math.min(1, (hemi.intensity + (typeof sun !== 'undefined' ? sun.intensity : 1)) / 1.76));   /* 1.76 = daytime hemi + sun: about .4 at night */
+      for (const m of wdEnvMats) m.envMapIntensity = (m.userData.envK || 1) * sky;
+    }, 500);
+  } catch(e){ wdEnvTex = false; }
+  return wdEnvTex;
+}
 /* paint a car: a paint id (stock = its own colour from the showroom) and a decal id. Sets color0 so the online ghost and repairs keep it. */
 function carPaint(c, paintId, decalId, stockColor){
   const p = WD_PAINT[paintId] || WD_PAINT.stock, f = WD_FIN[p.fin], col = p.color || stockColor || c.color0;
   c.paint.color.set(col); c.paint.roughness = f.r; c.paint.metalness = f.m; c.color0 = col;
+  const ek = WD_ENV_K[p.fin], env = ek ? wdEnv() : null;
+  if (env){ c.paint.envMap = env; c.paint.userData.envK = ek; c.paint.envMapIntensity = ek; wdEnvMats.add(c.paint); c.paint.needsUpdate = true; }
+  else if (c.paint.envMap){ c.paint.envMap = null; wdEnvMats.delete(c.paint); c.paint.needsUpdate = true; }
   const d = WD_DECAL[decalId] || WD_DECAL.none;
   if (d.id !== 'none' && !c.paint.userData.dc){
     const U = {dcSide:{value:null}, dcTop:{value:null}, dcDim:{value:new THREE.Vector3(c.T.L, c.T.H, c.T.W)}, dcOn:{value:0}, dcRead:{value:0}};
