@@ -197,7 +197,7 @@ function updateNaiwaMode(dt, T){
   if (!driving){ NW.root.position.set(nw.x, nw.y, nw.z); NW.root.rotation.y = nw.h; }
   const px = driving ? driving.x : nw.x, pz = driving ? driving.z : nw.z;
   const sp = driving ? Math.hypot(driving.vx, driving.vz) : 0;
-  $('#speed').textContent = Math.round(sp * 3.6) + ' km/h';
+  { const t = Math.round(sp * 3.6) + ' km/h', el = $('#speed'); if (el.textContent !== t) el.textContent = t; }   /* only when it changes: a DOM write every frame costs phones a style pass */
   updateStunt(dt, sp);
   { const t = driving ? Math.round(driving.hp) + '%' : '—', el = $('#hp'); if (el.textContent !== t){ el.textContent = t; el.style.color = driving && driving.hp < 30 ? 'var(--tile)' : ''; } }
   showCar.root.rotation.y += dt * .4;
@@ -238,7 +238,7 @@ function updateNaiwaMode(dt, T){
   else if (driving && driving.wrecked) msg = TOUCH ? '这辆车报废了，点「下车」换一辆' : '这辆车报废了，按 F 下车换一辆';
   gx.update(dt, px, pz); msg = gx.prompt() || msg;
   if (promptEl.textContent !== msg) promptEl.textContent = msg;
-  promptEl.hidden = !msg;
+  if (promptEl.hidden !== !msg) promptEl.hidden = !msg;
   updateMission(dt, px, pz); updateCompass(px, pz);
   checkCPs(px, pz);
 }

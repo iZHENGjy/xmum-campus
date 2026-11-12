@@ -59,7 +59,7 @@ function ndFlames(c, col, k, demo){
 const ndThrottle = () => (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0) - joy.y;
 function ndUpdate(dt){
   const c = driving, it = ndItem(c), sk = ndSkill(c), live = c && c === myCar && !gx.paused && !(typeof tn !== 'undefined' && tn.on);
-  ndBtn.hidden = !(c && c === myCar && it);
+  { const h = !(c && c === myCar && it); if (ndBtn.hidden !== h) ndBtn.hidden = h; }
   ND.launchCd -= dt; ND.tell -= dt;
   let want = 0;
   if (live){
@@ -93,7 +93,9 @@ function ndUpdate(dt){
   } else { ND.nosOn = false; ndHiss(false); ND.launchT = 0; ND.driftBoost = 0; ND.driftT = 0; }
   /* ease out instead of snapping back to the normal top speed */
   ND.mult = want > ND.mult ? want : Math.max(want, ND.mult - dt * .5);
-  ndBtn.style.setProperty('--e', ND.e.toFixed(3)); ndBtn.classList.toggle('full', ND.e >= 1); ndBtn.classList.toggle('on', ND.nosOn);
+  if (ndBtn.hidden) return;   /* nothing to draw on a hidden button */
+  const e = ND.e.toFixed(3); if (ND.eTxt !== e){ ND.eTxt = e; ndBtn.style.setProperty('--e', e); }
+  ndBtn.classList.toggle('full', ND.e >= 1); ndBtn.classList.toggle('on', ND.nosOn);
 }
 
 /* ---------- 竞速：AI racers get bottles too when you have one; a run with nitro or skills does not go on the board ---------- */
