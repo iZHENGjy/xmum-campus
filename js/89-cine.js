@@ -1021,7 +1021,7 @@ body.cine > *:not(canvas):not(.cine-ui):not(script):not(style):not(dialog):not(#
           need('f1', f1Cars); f1Step(C.set.f1, 0, false);
           camTo(f1At(SF + 10, 24, 11), f1At(SF - 10, 0, 1));
         },
-        cues:[[.6, () => cap('汽车游乐园二园 · 雪邦赛道\n周末耐力赛', 3800)], [4.6, () => { g(() => { tone('sine', 660, 660, .25, .08); tone('sine', 660, 660, .25, .08, .6); tone('sine', 990, 990, .5, .1, 1.2); }); }],
+        cues:[[.6, () => cap(window.XKart ? '汽车游乐园二园 · 卡丁车场\n周末跑车赛' : '汽车游乐园二园 · 雪邦赛道\n周末耐力赛', 3800)], [4.6, () => { g(() => { tone('sine', 660, 660, .25, .08); tone('sine', 660, 660, .25, .08, .6); tone('sine', 990, 990, .5, .1, 1.2); }); }],
           [6, () => sub('发车！', '解说员', 1800)]],
         step(t, dt){ f1Step(C.set.f1, dt, t > 6); const k = ease(t / 8); camTo(f1At(SF + 10 - 4 * k, 24 - 6 * k, 11 - 4 * k), f1At(SF - 10 + 8 * k, 0, 1), t < .05 ? 1 : camK(dt, 2)); } },
       { /* ② 贴着赛道边，一辆辆擦着镜头冲过去 */ dur:7, cut:true, enter(){ fov(62); },
@@ -1034,7 +1034,7 @@ body.cine > *:not(canvas):not(.cine-ui):not(script):not(style):not(dialog):not(#
           C.f1p = f1At(GS + 6, 17, 2.2); C.f1q = V((C.A.me.x + C.A.ben.x) / 2, C.A.me.y + 1.9, (C.A.me.z + C.A.ben.z) / 2);
           camTo(C.f1p, C.f1q);
         },
-        cues:[[.6, whoosh], [1.6, () => { C.A.ben.talk = 3.4; sub('看到没有？两百多公里，过弯离墙就一个巴掌。', 'Ben 师傅', 3800); }], [5.4, () => { C.A.me.look = 0; C.A.me.up = .3; think('……好帅。', 2600); }], [8.2, whoosh]],
+        cues:[[.6, whoosh], [1.6, () => { C.A.ben.talk = 3.4; sub(window.XKart ? '看到没有？一百多公里过弯，离墙就一个巴掌。' : '看到没有？两百多公里，过弯离墙就一个巴掌。', 'Ben 师傅', 3800); }], [5.4, () => { C.A.me.look = 0; C.A.me.up = .3; think('……好帅。', 2600); }], [8.2, whoosh]],
         step(t, dt){ f1Step(C.set.f1, dt, true); const k = ease(t / 11); camTo(C.f1p.clone().lerp(f1At(GS + 1, 15, 2.6), k), C.f1q, t < .05 ? 1 : camK(dt, 2)); } },
       { /* ④ 冲线 */ dur:6, cut:true, enter(){
           fov(46); hideActors(); need('f1', f1Cars).cars.forEach((o, j) => { o.s = (SF - 30 - j * 7) * F.LEN / F.N; o.v = o.top; });
