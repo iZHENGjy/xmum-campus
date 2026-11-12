@@ -4,7 +4,7 @@
     python scripts/stats_charts.py --out out                 # read the live database
     python scripts/stats_charts.py --input sample.json --out out --today 2026-11-30
 
-Reads /stats.json (public, see database.rules.json) and writes
+Reads /stats/p and /stats/d (public, see database.rules.json) and writes
 summary.svg, daily.svg, playtime.svg, modes.svg and README.md (the same numbers as a table)
 into --out. Standard library only, so the GitHub Action needs no installs.
 """
@@ -105,7 +105,8 @@ def load(args):
         with urllib.request.urlopen(f'{base}/{path}.json', timeout=60) as r:
             return json.loads(r.read().decode('utf-8'))
 
-    raw = get('stats') or {}
+    # only the parts this script draws: /stats/h (per-hour, for stats.html) grows every day and is not needed here
+    raw = {'p': get('stats/p') or {}, 'd': get('stats/d') or {}}
     raw['boards'] = {}
     for b in BOARDS:          # public since the stats-baseline rules; a refusal just means "no baseline"
         try:
