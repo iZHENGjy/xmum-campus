@@ -56,7 +56,7 @@
       ['KIP', d('c4_kip')],
       ['A3 图书馆', d('c3_study')],
       ['B1 游戏厅', d('c3_arcade')],
-      ['雪邦赛道', d('c5_seplap') || Q.best('sepLap')],
+      ['卡丁车场', d('c5_seplap') || Q.best('kartLap') || Q.best('sepLap')],
       ['自己的家', Q.house() > 0]
     ].filter(p => p[1]).map(p => p[0]);
     return {
