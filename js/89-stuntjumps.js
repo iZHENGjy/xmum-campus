@@ -44,9 +44,15 @@
     {id:'kiphill',x:-692, z:796,  h:0,      k:'h', name:'商场后山',   hint:'KIP 北边的山包'},
     {id:'park',   x:-1054, z:-60, h:Math.PI, k:'r', name:'游乐园暗门', hint:'汽车游乐园西边那片空地'}
   ];
+  /* 「圈套」跳台（仓库主人的玩笑）：长得和特技跳台一样，冲上去落进芙蓉湖。不算在 20 个里、不进清单和成就、不给钱；落水只弹「中了我的圈套了吧 😏」。
+     一样走下面的安全检查（只是允许落进湖），所以不会撞死人。 */
+  const TRAPS = [
+    {id:'trap_lake', x:83, z:11, h:1.868, k:'r', trap:true, name:'湖边圈套'}
+  ];
+  const ALL = JUMPS.concat(TRAPS);
   const SIZE = {r:{L:9, W:5, H:2.8}, h:{L:6, W:5, H:1.4}};
   const ST_OFF = 0, ST_RISE = 1, ST_UP = 2, ST_SINK = 3;
-  for (const J of JUMPS) Object.assign(J, SIZE[J.k], {bx:Math.sin(J.h), bz:Math.cos(J.h), s:1, st:ST_OFF, p:0, pass:0, mesh:{}});
+  for (const J of ALL) Object.assign(J, SIZE[J.k], {bx:Math.sin(J.h), bz:Math.cos(J.h), s:1, st:ST_OFF, p:0, pass:0, mesh:{}});
 
   /* ---------- save ---------- */
   let found = {};
@@ -57,9 +63,9 @@
   /* ---------- facing: s = 1 the original way, -1 turned round. fx/fz/yb/yl always describe the current facing ---------- */
   const base0 = groundAt;
   const local = (J, x, z) => { const dx = x - J.x, dz = z - J.z; return {u:dx * J.fx + dz * J.fz, v:dx * J.fz - dz * J.fx}; };
-  for (const J of JUMPS){ J.gp = base0(J.x + J.bx * J.L / 2, J.z + J.bz * J.L / 2); J.gm = base0(J.x - J.bx * J.L / 2, J.z - J.bz * J.L / 2); }
+  for (const J of ALL){ J.gp = base0(J.x + J.bx * J.L / 2, J.z + J.bz * J.L / 2); J.gm = base0(J.x - J.bx * J.L / 2, J.z - J.bz * J.L / 2); }
   function orient(J, s){ J.s = s; J.fx = J.bx * s; J.fz = J.bz * s; J.yl = s > 0 ? J.gp : J.gm; J.yb = s > 0 ? J.gm : J.gp; }
-  JUMPS.forEach(J => orient(J, 1));
+  ALL.forEach(J => orient(J, 1));
   /* ---------- safety: what lies ahead of each ramp, each way ----------
    * In the air a car still collides with buildings, walls, the hedge and the map edge (js/40-vehicles.js carBlocked is flat, it ignores
    * height), and above 80 km/h that throws the driver out. So for each facing we scan a straight corridor (car width + a margin) from the
@@ -101,7 +107,7 @@
   function safeAt(J, w, v){
     const f = flight(J, w, v), run = Math.max(35, v * .9), end = f.d + run + 2.5;   /* + half a car */
     if (end > w.block) return false;
-    for (let i = Math.max(0, Math.floor(f.d - 2)); i <= Math.min(SCAN, Math.ceil(f.d + run)); i++) if (w.wet[i]) return false;
+    if (!J.trap) for (let i = Math.max(0, Math.floor(f.d - 2)); i <= Math.min(SCAN, Math.ceil(f.d + run)); i++) if (w.wet[i]) return false;   /* a 圈套 is meant to land in the lake */
     return true;
   }
   function rateWay(J, s){
@@ -129,20 +135,20 @@
     if (typeof OUT_SETS !== 'undefined') for (const set of OUT_SETS) set.spots.forEach((o, i) => { if (!o.hidden && hit(o)){ o.down = true; o.hidden = true; o.s = 0; o.x = o.z = 1e6; setKnock(set, i, false, 0, 0); n++; } });
     w.cleared = n;
   }
-  for (const J of JUMPS){ J.way = {}; J.dirs = []; }   /* nothing spawns until its facing has been checked */
+  for (const J of ALL){ J.way = {}; J.dirs = []; }   /* nothing spawns until its facing has been checked */
   let prepI = 0;
   function prepOne(){   /* one facing per frame */
-    while (prepI < JUMPS.length * 2){
-      const J = JUMPS[prepI >> 1], s = prepI & 1 ? -1 : 1; prepI++;
-      if (J.k === 'h' && s < 0) continue;
+    while (prepI < ALL.length * 2){
+      const J = ALL[prepI >> 1], s = prepI & 1 ? -1 : 1; prepI++;
+      if ((J.k === 'h' || J.trap) && s < 0) continue;
       g(() => judgeWay(J, s)); return;
     }
   }
 
   /* ---------- ground: only a ramp that is fully up has a surface (hidden or moving, it is not there for cars, NPCs or anyone) ---------- */
   groundAt = function(x, z){
-    for (let i = 0; i < JUMPS.length; i++){
-      const J = JUMPS[i];
+    for (let i = 0; i < ALL.length; i++){
+      const J = ALL[i];
       if (J.st !== ST_UP) continue;
       const dx = x - J.x, dz = z - J.z;
       if (dx > 7 || dx < -7 || dz > 7 || dz < -7) continue;
@@ -158,7 +164,7 @@
     if (typeof knockSets !== 'undefined') for (const set of knockSets) set.spots.forEach((o, i) => { if (!o.hidden && hit(o)){ o.down = true; o.hidden = true; o.s = 0; setKnock(set, i, false, 0, 0); } });
     if (typeof OUT_SETS !== 'undefined') for (const set of OUT_SETS) set.spots.forEach((o, i) => { if (!o.hidden && hit(o)){ o.down = true; o.hidden = true; o.s = 0; o.x = o.z = 1e6; setKnock(set, i, false, 0, 0); } });
   }
-  try { for (const J of JUMPS){ for (const s of J.k === 'r' ? [1, -1] : [1]){ orient(J, s); clearSpot(J); } orient(J, 1); } } catch(e){}
+  try { for (const J of ALL){ for (const s of J.k === 'r' && !J.trap ? [1, -1] : [1]){ orient(J, s); clearSpot(J); } orient(J, 1); } } catch(e){}
 
   /* ---------- the models: weathered planks on two rails (road), or a packed-dirt lip (hill); built the first time each facing is needed ---------- */
   const group = new THREE.Group(); group.name = 'stunt-jumps'; group.userData.xp = true;   /* js/98-perf.js: keep out of static batching, these come and go */
@@ -193,7 +199,21 @@
   const meshOf = J => J.mesh[J.s] || (J.mesh[J.s] = build(J));
 
   /* ---------- the run state (declared here: manage() looks at the jump in flight) ---------- */
-  const R = {car:null, wasAir:false, run:null, cam:null, slowTold:0, lastT:0};
+  const R = {car:null, wasAir:false, run:null, cam:null, slowTold:0, lastT:0, tt:0, trap:null};
+  /* 「中了我的圈套了吧 😏」: crash, get thrown out or land in a lake from take-off until 2 s after touching down → a teasing toast instead of the
+     plain 「没落稳」 (the owner's joke). No penalty beyond the crash itself; once per jump. */
+  const TRAP_T = 2, TEASE = {
+    crash:['跳台是我放的，墙也是我放的', '下次看清楚落地点再冲', '这一跳我记在小本本上了', '奶娃：我就知道会这样'],
+    lake:['芙蓉湖水温 26°C，欢迎下次再来', '车顺便洗了，不用谢', '这个跳台的终点本来就是湖']};
+  function trapTell(kind){
+    const T = R.trap; if (!T || T.told) return;
+    T.told = true;
+    const l = TEASE[kind] || TEASE.crash;
+    const sub = l[Math.floor(Math.random() * l.length)];
+    g(() => gx.callout('中了我的圈套了吧 😏', sub, '#ff5a8a'));   /* the big pop (the stunt score's toast lands on top of the toast ~2 s later) */
+    toast('中了我的圈套了吧 😏', sub, 3000);
+  }
+  const trapOpen = c => !!(R.trap && !R.trap.told && c === R.trap.car && R.tt <= R.trap.end);
   function blockedNow(){
     return mode !== 'naiwa' || (typeof indoorNow === 'function' && indoorNow()) || (window.XCine && XCine.busy) || (typeof spray !== 'undefined' && spray.run);
   }
@@ -219,7 +239,7 @@
     for (const k in J.mesh) J.mesh[k].visible = false;
     orient(J, s); meshOf(J); J.p = 0; J.st = ST_RISE; J.pass = 0; place(J); puff(J, me);
   }
-  function hideAll(){ for (const J of JUMPS){ J.st = ST_OFF; J.p = 0; J.pass = 0; for (const k in J.mesh) J.mesh[k].visible = false; } }
+  function hideAll(){ for (const J of ALL){ J.st = ST_OFF; J.p = 0; J.pass = 0; for (const k in J.mesh) J.mesh[k].visible = false; } }
 
   /* the facing you'd get coming at it now, or 0: driving, moving, 25–110 m away, heading at it and lined up with one of its ways */
   function want(J, c){
@@ -242,7 +262,7 @@
     const c = driving, me = c || (typeof nw !== 'undefined' ? nw : null);
     if (!me) return;
     let hush = null, q;
-    for (const J of JUMPS){
+    for (const J of ALL){
       const d = Math.hypot(J.x - me.x, J.z - me.z);
       if (J.st === ST_OFF){
         if (!c || d > SPAWN_R || d < SPAWN_MIN) continue;
@@ -276,7 +296,7 @@
   /* ---------- the run: take-off on a ramp → slow motion + side camera → landing decides ---------- */
   const _look = new THREE.Vector3();
   function rampAt(c){
-    for (const J of JUMPS){
+    for (const J of ALL){
       if (J.st !== ST_UP) continue;
       const a = local(J, c.x, c.z);
       if (a.u > J.L / 2 - 5 && a.u < J.L / 2 + 5 && Math.abs(a.v) < J.W / 2 + 1.5) return J;
@@ -314,6 +334,7 @@
       return;
     }
     R.run = {J, x0:c.x, z0:c.z, hp0:c.hp, t:0};
+    R.trap = {car:c, J, end:Infinity, told:false};
     if (!REDUCED){
       try { gxSlow = Math.max(gxSlow, 1.2); } catch(e){}   /* js/85-activities.js: gx.scale() turns this into time × 0.35 */
       const at = camSpot(c, J, sp); if (at) R.cam = {at, t:0};
@@ -325,7 +346,9 @@
     if (!ok) R.cam = null;
     if (!run) return;
     const J = run.J, dist = Math.hypot(c.x - run.x0, c.z - run.z0), air = c.airT || 0;
-    if (!ok || driving !== c || c.wrecked || c.wet){ toast('特技跳台 · 没落稳', ok ? '落地要稳，车还得能开' : '奶娃飞出去了，再来一次', 2000); return; }
+    if (R.trap && R.trap.car === c) R.trap.end = R.tt + (J.trap ? 4 : TRAP_T);   /* the lake trap: a slow car lands on the bank and rolls in a bit later */
+    if (J.trap){ if (!ok || driving !== c || c.wrecked || c.wet) trapTell(c.wet ? 'lake' : 'crash'); return; }   /* no reward; the lake (or 「躲过了」) is told from tick */
+    if (!ok || driving !== c || c.wrecked || c.wet){ trapTell(c.wet ? 'lake' : 'crash'); if (R.trap && R.trap.told) return; toast('特技跳台 · 没落稳', ok ? '落地要稳，车还得能开' : '奶娃飞出去了，再来一次', 2000); return; }
     if (air < MIN_AIR || dist < MIN_DIST){ toast('特技跳台 · 差一点', `飞了 ${Math.round(dist)} 米 · 再快点冲`, 1800); return; }
     const first = !found[J.id];
     if (first){ found[J.id] = Date.now(); save(); }
@@ -340,7 +363,9 @@
   }
   /* runs inside updateNaiwaMode (dt is already slowed), after the car physics and after the game camera was placed */
   function tick(dt){
-    dt = Math.min(dt, .1);
+    dt = Math.min(dt, .1); R.tt += dt;
+    if (R.trap && !R.trap.told && R.tt <= R.trap.end && R.trap.car.wet) trapTell('lake');   /* rolled into the lake right after landing */
+    if (R.trap && !R.trap.told && R.trap.J.trap && R.tt > R.trap.end){ R.trap.told = true; toast('居然躲过了我的圈套 🤨', '这个跳台本来是送你进湖的', 2400); }
     try { manage(dt); } catch(e){ hideAll(); }
     const c = driving;
     if (c !== R.car){ if (R.run && R.car) land(R.car, false); R.car = c; R.wasAir = !!(c && c.air); R.run = null; R.cam = null; }
@@ -373,6 +398,14 @@
   }
   /* car-to-car pushes (js/40-vehicles.js carCollisions) are flat too: a car flying 10 m over traffic or a parked car got shoved sideways out of its
      checked lane. During a stunt-jump flight, high above the ground, the flying car sits that out. */
+  if (typeof judgeCrash === 'function'){
+    const jc0 = judgeCrash;
+    judgeCrash = function(c, impact){
+      const r = jc0.apply(this, arguments);
+      if (impact * 3.6 >= 18 && trapOpen(c)) trapTell('crash');   /* js/80-gta.js ignores anything under 18 km/h too */
+      return r;
+    };
+  }
   if (typeof carCollisions === 'function'){
     const cc0 = carCollisions;
     carCollisions = function(){
@@ -409,7 +442,7 @@
     const n = count();
     return `<p class="gd-lead">全图藏着 <b>${JUMPS.length} 个特技跳台</b>：木板跳台和山顶的土坡，小地图上不标。跳台平时收在地里，<b>开车经过时才会从地里升起来</b>，坡口朝着你开来的方向（有些跳台另一头落地会撞东西，只朝一个方向；山顶的土坡只能往下坡冲）。<b>快速</b>（54 km/h 以上）正对着冲上去，起跳会进慢动作；<b>稳稳落地</b>才算数。</p>
       <div class="sj-bar" role="img" aria-label="已找到 ${n} / ${JUMPS.length}"><i style="width:${Math.round(n / JUMPS.length * 100)}%"></i></div>
-      <p class="gd-note">已找到 ${n} / ${JUMPS.length} · 第一次飞成 RM ${FIRST_RM} · 找齐 ${JUMPS.length} 个解锁「特技之王」 · 下面的提示是跳台所在的那段路，顺着路开过去就会出现</p>
+      <p class="gd-note">已找到 ${n} / ${JUMPS.length} · 第一次飞成 RM ${FIRST_RM} · 找齐 ${JUMPS.length} 个解锁「特技之王」 · 下面的提示是跳台所在的那段路，顺着路开过去就会出现 · 另外还藏着一个不算数的「圈套」跳台 😏</p>
       <ul class="sj-list">${JUMPS.map((J, i) => found[J.id]
         ? `<li class="on"><i>✓</i><div><b>${esc(J.name)}</b><span>${esc(J.hint)}</span></div></li>`
         : `<li><i>${i + 1}</i><div><b>？？？</b><span>${esc(J.hint)}</span></div></li>`).join('')}</ul>`;
@@ -432,7 +465,7 @@
    * Run it after moving buildings, walls, roads or the hedge near a ramp: a row that turns bad names what is in the way and where. */
   function audit(){
     const rows = [], kmh = v => Math.round(v * 3.6);
-    for (const J of JUMPS) for (const s of J.k === 'r' ? [1, -1] : [1]){
+    for (const J of ALL) for (const s of J.k === 'r' && !J.trap ? [1, -1] : [1]){
       const w = J.way[s] || judgeWay(J, s), f38 = flight(J, w, 38), fTop = w.vs ? flight(J, w, w.vs) : null;
       rows.push({id:J.id, name:J.name, way:s > 0 ? 'forward' : 'reverse', ok:w.ok, safeKmh:kmh(w.vs),
         clearM:w.block >= SCAN ? '>' + SCAN : w.block, blockedBy:w.runup || w.what || '-',
@@ -444,7 +477,7 @@
   }
 
   window.XJumps = {list:JUMPS, total:JUMPS.length, found:() => Object.assign({}, found), count,
-    up:() => JUMPS.filter(J => J.st !== ST_OFF).map(J => J.id + (J.s < 0 ? '↩' : '') + ':' + ['off', 'rise', 'up', 'sink'][J.st]),
+    traps:TRAPS, up:() => ALL.filter(J => J.st !== ST_OFF).map(J => J.id + (J.s < 0 ? '↩' : '') + ':' + ['off', 'rise', 'up', 'sink'][J.st]),
     state:R, audit,
     /* dev: rate a spot before putting a ramp there → {forward, reverse} safe km/h (0 = blocked) and what blocks it */
     check(x, z, h, k){
