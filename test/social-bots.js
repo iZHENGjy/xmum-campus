@@ -44,6 +44,7 @@
     });
   }
   function onMsg(b, type, d){
+    for (const f of window.XBotHooks || []) try { f(b, type, d); } catch(e){ console.error('[BOTS] hook', e); }   // test/friend-bots.js
     if (type === 'hi') setTimeout(() => fx(b, 'e', 0), 700);
     if (type === 'inv' && d.k === 'ride'){
       setTimeout(() => {

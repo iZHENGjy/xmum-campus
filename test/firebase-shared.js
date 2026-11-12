@@ -14,7 +14,9 @@
   window.XMUM_FIREBASE = {apiKey:'mock', projectId:'mock', databaseURL:'https://mock.invalid'};
   const TS = {'.sv':'timestamp'}, OVER = 34, ACK = 44;
   const OLD = Q.has('oldrules');
-  const root = {}, listeners = [], disc = new Map();      // disc: path -> 'remove'
+  const root = {}, listeners = [], disc = new Map();      // disc: path -> 1（删掉）或 {u:{…}}（update，js/96-friends.js 断线时写最后上线时间）
+  /* onDisconnect 要做的写入：删掉的路径写 null，update 的逐个孩子写（时间戳这时才算） */
+  const discWrites = m => { const w = []; for (const [p, v] of m){ if (v && v.u) for (const k in v.u) w.push([p + '/' + k, v.u[k] == null ? null : resolve(v.u[k])]); else w.push([p, null]); } return w; };
   const bc = 'BroadcastChannel' in window ? new BroadcastChannel('xmum-social-mock') : null;
   const split = p => String(p || '').split('/').filter(Boolean);
   const get = p => split(p).reduce((o, k) => (o && typeof o === 'object' ? o[k] : undefined), root);
@@ -28,6 +30,8 @@
   const related = (a, b) => { const x = split(a), y = split(b), n = Math.min(x.length, y.length); for (let i = 0; i < n; i++) if (x[i] !== y[i]) return false; return true; };
   const denied = () => Promise.reject(Object.assign(new Error('PERMISSION_DENIED'), {code:'PERMISSION_DENIED'}));
   const newRule = p => /^(pres|on)(\/|$)/.test(p);
+  /* 唯一模拟的读规则：/fst/{uid}（js/96-friends.js）只有 uid 的好友列表里有我时才能读（开始监听时检查一次） */
+  const fstDeny = p => { const m = /^fst\/([^/]+)$/.exec(p); return !!m && m[1] !== 'mock-' + P && !get('friends/' + m[1] + '/mock-' + P); };
   function snap(path, v, order){
     const ks = split(path);
     return {key:ks[ks.length - 1] || null, ref:ref(path), val:() => clone(v), exists:() => v != null,
@@ -47,7 +51,7 @@
   function goOffline(){
     if (!online) return;
     online = false; frozen = new Map(listeners.map(L => [L, clone(get(L.path))]));
-    const w = [...disc.keys()].map(p => [p, null]); disc.clear();
+    const w = discWrites(disc); disc.clear();
     for (const [p, v] of w) setRaw(p, v);
     if (bc && w.length) bc.postMessage({op:'w', writes:w, wire:null});
     for (const cb of infoL) try { cb(snap('.info/connected', false)); } catch(e){ console.error('[MOCK]', e); }
@@ -140,11 +144,13 @@
       push(v){ const key = Date.now().toString(36) + Math.random().toString(36).slice(2, 8); const c = ref(path + '/' + key); const pr = v === undefined ? Promise.resolve() : c.set(v); return Object.assign(pr, {key, ref:c}); },
       onDisconnect:() => ({
         remove:() => { if (OLD && newRule(path)) return denied(); disc.set(path, 1); return Promise.resolve(); },
+        update:o => { const was = disc.get(path); disc.set(path, {u:Object.assign({}, was && was.u, o)}); return Promise.resolve(); },
         cancel:() => { disc.delete(path); return Promise.resolve(); }
       }),
       once(){ const i = info(path), v = i !== undefined ? i : get(path); if (i === undefined) rx(bytes(msg('d', path, v == null ? null : v))); return Promise.resolve(snap(path, v)); },
       on(ev, cb, cancel){
         if (OLD && newRule(path)){ setTimeout(() => { if (cancel) cancel(Object.assign(new Error('PERMISSION_DENIED'), {code:'PERMISSION_DENIED'})); }, 0); return cb; }
+        if (fstDeny(path)){ setTimeout(() => { if (cancel) cancel(Object.assign(new Error('PERMISSION_DENIED'), {code:'PERMISSION_DENIED'})); }, 0); return cb; }
         const i = info(path);
         if (i === undefined && !listeners.some(L => L.path === path)) rx(bytes(msg('d', path, clone(get(path)))));   // 开始监听：服务器先推一次整份
         if (ev === 'value'){ if (i === undefined) listeners.push({path, ev, cb}); else if (path === '.info/connected') infoL.push(cb); setTimeout(() => cb(snap(path, i !== undefined ? i : get(path))), 0); return cb; }
@@ -176,6 +182,6 @@
   /* botDisc：同一个标签页里的假玩家「下线时删掉」的路径。和本页的 disc 分开：本页 goOffline 不会把假玩家也删掉，关页面时才删 */
   const botDisc = new Map();
   window.__mock = {get, put, update, root, uid:user.uid, ref, listeners, disc, botDisc, get online(){ return online; }, goOffline, goOnline};
-  const bye = () => { const w = [...disc.keys(), ...botDisc.keys()].map(p => [p, null]); disc.clear(); botDisc.clear(); if (w.length){ apply(w, false); if (bc) bc.postMessage({op:'w', writes:w, wire:null}); } };
+  const bye = () => { const w = discWrites(disc).concat(discWrites(botDisc)); disc.clear(); botDisc.clear(); if (w.length){ apply(w, false); if (bc) bc.postMessage({op:'w', writes:w, wire:null}); } };
   window.addEventListener('pagehide', bye); window.addEventListener('beforeunload', bye);
 })();

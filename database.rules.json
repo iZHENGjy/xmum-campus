@@ -144,6 +144,60 @@
         }
       }
     },
+    "friends": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        "$fid": {
+          ".write": "auth != null && auth.uid === $uid && $fid !== $uid && $fid.matches(/^[A-Za-z0-9_-]{1,128}$/) && (!newData.exists() || root.child('friends').child($fid).child($uid).exists() || (root.child('freq').child($uid).child($fid).exists() && root.child('freq').child($uid).child($fid).child('t').val() > now - 600000))",
+          ".validate": "newData.hasChildren(['n', 't'])",
+          "n": {
+            ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16"
+          },
+          "t": {
+            ".validate": "newData.isNumber() && (newData.val() === now || newData.val() === data.val())"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "freq": {
+      "$to": {
+        "$from": {
+          ".write": "auth != null && ((auth.uid === $from && $from !== $to && $to.matches(/^[A-Za-z0-9_-]{1,128}$/) && (!newData.exists() || !data.exists() || data.child('t').val() < now - 30000)) || (auth.uid === $to && !newData.exists()))",
+          ".validate": "newData.hasChildren(['t'])",
+          "t": {
+            ".validate": "newData.isNumber() && newData.val() === now"
+          },
+          "$other": {
+            ".validate": false
+          }
+        }
+      }
+    },
+    "fst": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || root.child('friends').child($uid).child(auth.uid).exists())",
+        ".write": "auth != null && auth.uid === $uid",
+        ".validate": "newData.hasChildren(['n', 't'])",
+        "n": {
+          ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16"
+        },
+        "t": {
+          ".validate": "newData.isNumber() && newData.val() <= now && newData.val() > now - 60000"
+        },
+        "p": {
+          ".validate": "newData.isString() && newData.val().matches(/^-?[0-9]{1,5},-?[0-9]{1,5}$/)"
+        },
+        "k": {
+          ".validate": "newData.isString() && newData.val().matches(/^[a-z0-9]{1,12}$/)"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
+    },
     "looks": {
       ".read": "auth != null",
       "$uid": {
