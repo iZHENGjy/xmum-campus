@@ -21,7 +21,8 @@ const XWeather = window.XWeather = (() => {
     overcast:{icon:'☁️', name:'阴天',  dur:[90, 150]}
   };
   const S = {type:'clear', left:150 + rr() * 90, dur:0, manual:false, hazeCd:0, tgt:{storm:0, haze:0, cloud:0}, strike:6, bolt:0, flashT:-1, flashK:0, thunders:[]};
-  const outside = () => tgt === P3.day || tgt === P3.dusk || tgt === P3.night;
+  /* outdoors: the clock's sky is on (not the train, arcade or a film) and we are not in a room (house, dorm, Sukiya, classroom: indoorNow() in js/40-vehicles.js) */
+  const outside = () => (tgt === P3.day || tgt === P3.dusk || tgt === P3.night) && !(typeof indoorNow === 'function' && indoorNow());
   const say = (a, b) => { if (typeof toast === 'function' && outside() && !(typeof titleOpen !== 'undefined' && titleOpen)) toast(a, b, 2400); };
   function pressRain(on){ if (typeof rainBtn !== 'undefined' && rainBtn) rainBtn.setAttribute('aria-pressed', String(!!on)); }
   function start(type, dur, quiet){
@@ -161,7 +162,7 @@ const XWeather = window.XWeather = (() => {
   function shelter(dt){
     if ((shelterT -= dt) > 0 || typeof npcs === 'undefined') return;
     shelterT = 1;
-    const want = outside() ? Math.max(0, api.heavy() - .35) / .65 * .6 : 0;   /* up to 60 % of the walkers in a thunderstorm, ~10 % in a shower */
+    const want = tgt === P3.day || tgt === P3.dusk || tgt === P3.night ? Math.max(0, api.heavy() - .35) / .65 * .6 : 0;   /* up to 60 % of the walkers in a thunderstorm, ~10 % in a shower */
     _pm.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse); _fr.setFromProjectionMatrix(_pm);
     const cam = camera.position;
     for (let i = 0; i < npcs.length; i++){
@@ -178,7 +179,7 @@ const XWeather = window.XWeather = (() => {
     types:TYPES,
     set(type, dur){ if (!TYPES[type]) return S.type; if (showers.manual) setRain(false); S.manual = false; if (type === 'clear') end(); else start(type, dur); return S.type; },
     heavy:() => wx.rain * (.5 + .5 * wx.storm),
-    director, sky, state:S,
+    director, sky, state:S, outside,
     tick(dt){ if (!(dt > 0)) return; for (const k of ['storm', 'haze', 'cloud']){ const g = S.tgt[k], r = k === 'haze' ? 10 : 7; wx[k] += Math.sign(g - wx[k]) * Math.min(Math.abs(g - wx[k]), dt / r); } lightning(dt); shelter(dt); }
   };
   return api;

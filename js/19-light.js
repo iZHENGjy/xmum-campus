@@ -106,7 +106,7 @@ const XLight = (() => {
   };
 
   function tick(dt){
-    const t1 = XQ.tier > 0, out = tgt === P3.day || tgt === P3.dusk || tgt === P3.night;
+    const t1 = XQ.tier > 0, out = XWeather.outside();
     /* clouds drift east with the cloud meshes (js/90-main.js moves them 5 m/s) */
     const v = cloudU.k.value, sunK = Math.min(1, Math.max(0, (sun.intensity - .25) / .8));
     v.x = (v.x - dt * 5 / 900) % 1; v.y = (v.y - dt * 1.2 / 900) % 1;

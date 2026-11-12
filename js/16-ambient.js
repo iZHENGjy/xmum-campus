@@ -174,7 +174,7 @@ function updateWeather(dt, T){
   rainSound(); updatePlanes(dt, T);
 
   /* streaks */
-  rainLines.visible = wx.rain > .01;
+  rainLines.visible = wx.rain > .01 && !(typeof indoorNow === 'function' && indoorNow());   /* no rain falling inside the house, dorm or classroom */
   if (rainLines.visible){
     rainMat.opacity = .42 * wx.rain * (1 + .45 * wx.storm);   /* a thunderstorm (js/17-weather.js) pours: denser, faster, slanting in the wind */
     camera.getWorldDirection(_rc); _rc.y = 0; _rc.normalize().multiplyScalar(RAIN_R * .55);
