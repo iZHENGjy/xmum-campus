@@ -357,7 +357,7 @@
     mini(dot){
       _base.mini(dot);
       const N = F.nav; if (!N || !F.on) return;
-      const P = friendPos(N.uid); if (P) dot(P.x, P.z, COL, 8);
+      const P = friendPos(N.uid); if (P) dot(P.x, P.z, COL, 8, {i:'⭐', t:'找 ' + N.name, s:'好友', c:'main', p:0});
     }
   });
 

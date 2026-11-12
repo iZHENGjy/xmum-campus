@@ -654,7 +654,7 @@ XQ.onChange(() => { if (wlSize()) wlDraw(); });
       if (WL.open){ const [lx, lz] = wlLocal(nw.x, nw.z); if (driving || Math.abs(lx) > WL_W / 2 + 6 || lz < -2 || lz > 14) wlClose(); }
     },
     prompt(){ return base.prompt() || WL.prompt; },
-    mini(dot){ base.mini(dot); dot(WL_X, WL_Z, '#c39566', 3); },
+    mini(dot){ base.mini(dot); dot(WL_X, WL_Z, '#c39566', 3, {i:'📌', t:'留言墙', c:'campus', p:3}); },
     leave(){ wlClose(); WL.prompt = ''; if (WL.fLbl){ WL.fLbl = false; updateActs(); } base.leave(); },
     frame(dt, T){ if (base.frame) base.frame(dt, T); wlFrame(); }
   });

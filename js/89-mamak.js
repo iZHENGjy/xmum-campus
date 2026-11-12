@@ -400,7 +400,7 @@ function mmkUpdate(dt){
   Object.assign(gx, {
     update(dt, px, pz){ base.update(dt, px, pz); mmkUpdate(dt); },
     prompt(){ return MMK.msg || base.prompt(); },
-    mini(dot){ base.mini(dot); if (!mission.on && !gxA.act && !gxTaxi.on) dot(137, 335, '#f2c230', 6); },
+    mini(dot){ base.mini(dot); if (!mission.on && !gxA.act && !gxTaxi.on) dot(137, 335, '#f2c230', 6, {k:'mamak', i:'🫖', t:'Al-Hajeera 嘛嘛档', s:'24 小时 · 坐下点餐 · 外卖取餐', c:'shop', p:2}); },
     onBust(){ mmkStand(); base.onBust(); },
     leave(){ mmkStand(); MMK.near = null; if (MMK.lbl){ MMK.lbl = false; opSetF(''); } base.leave(); }
   });

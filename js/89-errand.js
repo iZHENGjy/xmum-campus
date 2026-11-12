@@ -138,8 +138,8 @@
       mini(dot){
         if (base.mini) base.mini(dot);
         for (const id of ACT){
-          if (allIn(id)){ const a = atOf(E[id].to.at); if (a) dot(a[0], a[1], '#4fd18b', 7); continue; }
-          for (const it of E[id].items){ if (has(id, it)) continue; for (const sid of it.shops){ const a = atOf(SH[sid] && SH[sid].at); if (a) dot(a[0], a[1], '#ffd23a', 6); } }
+          if (allIn(id)){ const a = atOf(E[id].to.at); if (a) dot(a[0], a[1], '#4fd18b', 7, {i:'📦', t:'送到 ' + (E[id].to.name || ''), s:'跑腿 · ' + (E[id].title || ''), c:'main', p:0}); continue; }
+          for (const it of E[id].items){ if (has(id, it)) continue; for (const sid of it.shops){ const a = atOf(SH[sid] && SH[sid].at); if (a) dot(a[0], a[1], '#ffd23a', 6, {i:it.icon || '🛍️', t:(SH[sid].name || '') + ' · 买' + it.name, s:'跑腿 · ' + (E[id].title || ''), c:'main', p:1}); } }
         }
       }
     }); }

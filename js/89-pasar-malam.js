@@ -624,7 +624,7 @@
     Object.assign(gx, {
       update(dt, px, pz){ base.update(dt, px, pz); update(px, pz); },
       prompt(){ return PMS.msg || base.prompt(); },
-      mini(dot){ base.mini(dot); if (DU.S && PMS.k > .9 && !gx.busy() && !mission.on) dot(DU.S.x, DU.S.z, '#8fd14f', 6); },
+      mini(dot){ base.mini(dot); if (DU.S && PMS.k > .9 && !gx.busy() && !mission.on) dot(DU.S.x, DU.S.z, '#8fd14f', 6, {i:'👑', t:'猫山王挑战', s:'Kota Warisan 夜市 · 挑榴莲', c:'play', p:3}); },
       leave(){ if (DU.S){ opHide(DU.S); DU.S.rearm = false; } DU.near = false; DU.g = null; base.leave(); }
     });
   }

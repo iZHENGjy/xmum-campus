@@ -129,9 +129,11 @@ function updateMission(dt, px, pz){
   }
 }
 const compass = $('#compass'), cdist = $('#cdist'), compassSvg = compass.querySelector('svg');
+let compassTgt = null;   /* where the arrow points now ({x, z, label}, null = nowhere): the big map rings it (js/ui-map-pins.js) */
 const _fw = new THREE.Vector3();
 function updateCompass(px, pz){
   const pk = window.XGuidePick ? XGuidePick.pick(px, pz) : null;   /* what the player chose for the arrow (🎯, js/89-guide-pick.js); null = the rules below */
+  compassTgt = null;
   if (pk && pk.x == null){ compassSvg.style.visibility = 'hidden'; cdist.textContent = pk.text || ''; return; }
   const tgtP = mission.on ? mission.to : null, act = pk || gx.target();
   let tx, tz, label;
@@ -149,6 +151,7 @@ function updateCompass(px, pz){
     if (!best){ compassSvg.style.visibility = 'hidden'; return; }   /* no pickup to point at (or a bad position for a frame): nothing to show */
     tx = best.x; tz = best.z; label = (qd ? '主线 · 去 ' + best.name + ' 接单' : '取餐 ' + best.name);
   }
+  compassTgt = {x:tx, z:tz, label};
   camera.getWorldDirection(_fw);
   const vx = tx - px, vz = tz - pz, a = Math.atan2(vx, vz) - Math.atan2(_fw.x, _fw.z);
   compassSvg.style.transform = `rotate(${-a}rad)`; compassSvg.style.visibility = '';

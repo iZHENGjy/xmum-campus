@@ -1044,7 +1044,7 @@ body.tr-on .topbar{visibility:hidden}
       extBusy(){ return base.extBusy() || CS.on || !!XT.inside; },
       prompt(){ return promptMsg || base.prompt(); },
       target(){ const d = XT.inside; if (!d) return base.target(); const t = g(() => d.target && d.target(), null); if (t) return t; const o = d.station && d.station.ring; return o ? {x:o[0], z:o[1], label:'ERL 回程'} : null; },
-      mini(dot){ base.mini(dot); if (!XT.inside) dot(DOOR.x, DOOR.z, '#a774ff', 6); },
+      mini(dot){ base.mini(dot); if (!XT.inside) dot(DOOR.x, DOOR.z, '#a774ff', 6, {k:'erl', i:'🚆', t:'ERL 火车站', s:'站厅门口上车 · 一站到 KLIA 机场', c:'go', p:1}); },
       frame(dt, T){ if (base.frame) base.frame(dt, T); trFrame(dt); indoorHold(); stMat.emissiveIntensity = g(() => Math.max(cur.win, wx.rain * .6), 0); },
       leave(){ panelClose(); bailHome(); homeMark.visible = false; homeLbl.dead = true; base.leave(); }
     }); }
