@@ -6,6 +6,11 @@ xmum-campus.html
 
 tmp-candidates/
 
+# database backups and backup keys: never commit (see docs/backup.md)
+xmum-db-*
+*.json.gpg
+xmum-backup-*.asc
+
 # test/rules: local outputs
 test/rules/results.md
 test/rules/old.json

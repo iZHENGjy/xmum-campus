@@ -1,0 +1,48 @@
+# Every 12 hours: download the whole live Realtime Database, check it, encrypt it to the owner's
+# public key and keep it as a workflow artifact for 14 days (about 28 backups). See docs/backup.md.
+#
+# Privacy (this repo is public and anyone signed in to GitHub can download its artifacts):
+#   - the plaintext only exists in the Python process's memory: never written to disk, logged or uploaded;
+#   - only the gpg-encrypted file is uploaded; only the owner has the private key (kept offline);
+#   - logs show sizes, top-level node names and counts, nothing below that.
+# A failed run (bad key, empty or broken dump, core nodes missing) fails the job, and GitHub emails
+# the owner; no artifact is kept for it, so earlier good backups are never pushed out by a bad one.
+name: 数据库备份
+
+on:
+  schedule:
+    - cron: '41 3,15 * * *'   # 03:41 and 15:41 UTC = 11:41 and 23:41 Malaysia time; GitHub may start it late
+  workflow_dispatch:          # "Run workflow" button for a backup right now
+
+permissions:
+  contents: read              # checkout only; uploading an artifact needs no token permission
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    if: github.repository == 'iZHENGjy/xmum-campus'   # forks have no key; don't let them fail every 12 h
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download, check and encrypt
+        id: dump
+        env:
+          FIREBASE_BACKUP_SA: ${{ secrets.FIREBASE_BACKUP_SA }}   # service account key, read-only role
+          BACKUP_PUBLIC_KEY: ${{ vars.BACKUP_PUBLIC_KEY }}        # owner's OpenPGP public key (not secret)
+          BACKUP_REQUIRED_KEYS: boards,names,users
+        run: python3 scripts/db_backup.py --out "$RUNNER_TEMP/backup"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: ${{ steps.dump.outputs.name }}
+          path: ${{ runner.temp }}/backup/*.json.gpg
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0   # already compressed and encrypted
