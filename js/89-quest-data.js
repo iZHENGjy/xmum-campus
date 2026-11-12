@@ -735,6 +735,7 @@ window.XQD = (() => {
     lydorm:{name:'LY 宿舍楼下', at:lyDoor, verb:'搬上车'}
   };
   /* ---------- 采购单（js/89-errand.js）：买齐 → 送到 to → 报销（refund）→ onDone
+     to = {name, at, npc（可选：收件的人，走到他身边也能交）}
      item = {id, name, icon, rm, shops:[店 id], cold:秒（买了以后多久内要送到，过了就坏，要重买）, spoil:'坏了的说法'}
      gift = {店 id:[[谁, 台词]]} 在这家店买这一单的东西时，店里的人说的话（送东西） */
   const houseDoor = () => { const h = houseFirst(); return h ? [h.door.x, h.door.z] : [117.2, 415.1]; };
@@ -759,11 +760,11 @@ window.XQD = (() => {
       gift:{lydorm:[['juanjuan', '我们来帮你搬！……搬完了能在新家吃顿饭吗？'], ['aming', '圆桌带走 lah，以后火锅局在你家开。']]}},
     rice:{title:'罗丝阿姨的米', from:'rose', to:{name:'Taman Warisan Megah 8 号门口', at:[117.2, 412]},
       items:[{id:'rice', name:'一袋 10 公斤的米', icon:'🍚', rm:0, shops:['kipmart']}]},
-    durian:{title:'给老周的猫山王', from:'durian', refund:'老周把钱给你了，还说「下次挑熟一点的」', to:{name:'D6 外卖点（老周）', at:[344, -143]},
+    durian:{title:'给老周的猫山王', from:'durian', refund:'老周把钱给你了，还说「下次挑熟一点的」', to:{name:'D6 外卖点（老周）', at:[344, -143], npc:'laozhou'},
       items:[{id:'du', name:'一颗猫山王', icon:'🍈', rm:40, shops:['pasar'], cold:420, spoil:'在车里熏太久了，老周说不要'}]},
-    supper:{title:'给卷卷的夜宵', from:'kumar', refund:'卷卷把钱转给你了', to:{name:'A3 大台阶（卷卷）', at:[110, 123]},
+    supper:{title:'给卷卷的夜宵', from:'kumar', refund:'卷卷把钱转给你了', to:{name:'A3 大台阶（卷卷）', at:[110, 123], npc:'juanjuan'},
       items:[{id:'teh', name:'拉茶', icon:'🧋', rm:3, shops:['mamak'], cold:360, spoil:'凉了'}, {id:'roti', name:'Roti Canai', icon:'🫓', rm:2, shops:['mamak'], cold:360, spoil:'凉了'}]},
-    ice:{title:'给 Ben 师傅的冰水', from:'adi', refund:'Ben 师傅把钱给你了', to:{name:'汽车游乐园一园入口（Ben）', at:[-903, 249]},
+    ice:{title:'给 Ben 师傅的冰水', from:'adi', refund:'Ben 师傅把钱给你了', to:{name:'汽车游乐园一园入口（Ben）', at:[-903, 249], npc:'ben'},
       items:[{id:'ice', name:'一箱冰水', icon:'🧊', rm:12, shops:['petrol'], cold:300, spoil:'冰都化了'}]}
   };
   const erAt = id => G(() => XErrand.nextAt(id), null);
