@@ -10,13 +10,13 @@
  *      金牌 4.5 秒、银牌 6 秒、铜牌 8 秒以内；第一次金牌一定给 F1 空力套件配方。
  *   2. 测试车手：经理给一个目标圈速（按你开的车算），出去在雪邦赛道上跑一圈干净的计时圈（出界的圈不算），达标按档给风洞数据。
  *      第一次金牌一定给 F1 引擎模式配方。10 分钟内有效，没达标可以接着跑。
- *   3. 车队跑腿：去赛道边某个地方（1 号弯救援车、控制塔、9 号弯轮胎墙……）拿一样东西，再送回车库门口，限时，剩的时间越多越好。
+ *   3. 车队跑腿：去赛道边某个地方（1 号弯救援车、控制塔、东直道尽头、12 号弯轮胎墙……）拿一样东西，再送回车库门口，限时，剩的时间越多越好。
  *   另外：雪邦赛道上每跑完一圈干净的计时圈也有一点几率掉赛车胎胶料（TN_DROPS.f1lap，有冷却和每日上限）。
  * 平衡（仓库主人：「不能一下出一堆」）：每样活每天最多 3 次给材料（计时圈 2 次），同一天第 2、3 次的几率乘 0.6、0.35；
  *   测试车手的金 / 银 / 铜三个目标，每辆车每个目标每天只领一次；领完了照样能玩、刷纪录，结算时写明「今天领完了」。
  *   材料只在一局结束时发一次：中途退出、重开、回赛道都不会再发。
  * 赛车改装店（车库左边的柜台）：只改赛车。方程式赛车 RM 3,500 在这里买，F1 赛道件在这里装（改装界面借用改装车间的）；
- *   赛车停在维修区车道上，「开赛车出去」把它摆到车库门口。赛车只能在汽车游乐园一园、二园（雪邦赛道和特技区）里开：
+ *   赛车停在维修区车道上，「开赛车出去」把它摆到车库门口。赛车只能在雪邦赛道（二园整块）和汽车游乐园一园里开：
  *   开到园区边上会被挡回来并提示「赛车不能上公路」；它不在车行里，叫车叫不来。
  * 存档 localStorage 'xmum-paddock-v1' = {pitBest, pitGold, testGold, n, rc, paid}。
  * 对外：window.XPaddock（测试用），window.XF1Tune（给主线等其他功能接：店的位置、有没有赛车、装没装 F1 件、材料数）。 */
@@ -167,13 +167,13 @@
   document.body.appendChild(card);
   const RUN = [];   /* errand spots, built from the circuit: [name, x, z, item] */
   { const out = (n, d) => { const i = F.turnIdx.find(t => t[0] === n)[1], c = F.CURV[i], sd = c > 0 ? -1 : 1, [x, z] = F.PT[i], [nx, nz] = F.NOR[i], o = sd * (F.HWI[i] + d); return [x + nx * o, z + nz * o]; };
-    RUN.push(['1 号弯救援车', ...out(1, 26), '一套雨胎'], ['4 号弯工作人员', ...out(4, -14), '前翼备件'], ['9 号弯轮胎墙', ...out(9, 25), '轮胎温度计'], ['15 号弯看台', ...out(15, 20), '车手的头盔'],
-      ['14 号弯边的服务车', ...out(14, 22), '对讲机电池'], ['控制塔', ...(() => { const [x, z] = F.PT[wi(F.SF + 20)], [nx, nz] = F.NOR[wi(F.SF + 20)], o = s * (F.HW + 26); return [x + nx * o, z + nz * o]; })(), '遥测电脑'],
+    RUN.push(['1 号弯救援车', ...out(1, 26), '一套雨胎'], ['4 号弯工作人员', ...out(4, -14), '前翼备件'], ['12 号弯轮胎墙', ...out(12, 25), '轮胎温度计'], ['18 号弯看台', ...out(18, 20), '车手的头盔'], ['7 号弯（东直道尽头）', ...out(7, 24), '一桶赛车汽油'], ['9 号弯东南角', ...out(9, 22), '一卷胶带'],
+      ['17 号弯边的服务车', ...out(17, 22), '对讲机电池'], ['控制塔', ...(() => { const [x, z] = F.PT[wi(F.SF + 20)], [nx, nz] = F.NOR[wi(F.SF + 20)], o = s * (F.HW + 26); return [x + nx * o, z + nz * o]; })(), '遥测电脑'],
       ['主看台', ...(() => { const [x, z] = F.PT[wi(F.SF + 60)], [nx, nz] = F.NOR[wi(F.SF + 60)], o = -s * (F.HW + 2); return [x + nx * o, z + nz * o]; })(), '冰镇饮料（给车手）']);
     for (const r of RUN){ const [x, z] = [r[1], r[2]]; if (typeof hitsBuilding === 'function' && hitsBuilding(x, z, 1.2)) for (let k = 1; k < 12 && hitsBuilding(r[1], r[2], 1.2); k++){ r[1] = x + Math.cos(k * 2.3) * k * 1.5; r[2] = z + Math.sin(k * 2.3) * k * 1.5; } } }
-  /* the target lap for test-driver jobs, per car: a bot that brakes for the advisory speeds, standing start (lambo 88.8 s, 911 90.9, Myvi 101.7 …);
+  /* the target lap for test-driver jobs, per car: a bot that brakes for the advisory speeds, standing start, on the 4.3 km layout (lambo 123.6 s, 911 125.6, Myvi 141.9, 方程式赛车 109.8);
      gold = that + 2 %, silver + 10 %, bronze + 22 % */
-  const TEST_BASE = {f1car:81, lambo:89, p911:91, mase:91, moto:91, rr:94, gwag:94, sedan:97, myvi:102, patrol:110, cart:130, bus:140};
+  const TEST_BASE = {f1car:110, lambo:124, p911:126, mase:126, moto:126, rr:130, gwag:130, sedan:134, myvi:142, patrol:152, cart:180, bus:193};
   const testTargets = c => { const b = TEST_BASE[c.kind] || 100; return [b * 1.02, b * 1.1, b * 1.22].map(v => Math.round(v)); };
   function cardOpen(){
     PD.card = true; gx.paused = true; engineUpdate(0, 0, false);
@@ -307,7 +307,7 @@
       if (!inParks(c.x, c.z)){
         if (was){ c.x = ox; c.z = oz; c.vx *= -.25; c.vz *= -.25; c.root.position.x = ox; c.root.position.z = oz; }
         else if (c === rc){ const [x, z, h] = pitSpot(); Object.assign(c, {x, z, h, vx:0, vz:0}); c.root.position.set(x, c.y, z); c.root.rotation.y = h; }
-        if (c === driving && performance.now() - rcWarn > 2500){ rcWarn = performance.now(); gx.callout('赛车不能上公路', '只能在雪邦赛道和两个汽车游乐园里开', '#d0473b'); tone('square', 300, 200, .2, .07); }
+        if (c === driving && performance.now() - rcWarn > 2500){ rcWarn = performance.now(); gx.callout('赛车不能上公路', '只能在雪邦赛道和汽车游乐园（一园）里开', '#d0473b'); tone('square', 300, 200, .2, .07); }
       }
       return r;
     };
@@ -319,7 +319,7 @@
     const own = SAVE.rc, m = mats();
     card.innerHTML = `<button class="x" type="button" id="pdX" aria-label="关闭">×</button>
       <div class="eyebrow">维修区车库 · 只改赛车</div><h2 id="pdCardT">赛车改装店</h2>
-      <p>方程式赛车在这里买，F1 前后翼、光头胎、碳陶刹车这些赛道件也只在这里装。赛车只能在雪邦赛道和两个汽车游乐园里开，开不上公路，叫车也叫不来。普通车回 XMUM 车行改，照样能上赛道跑。</p>
+      <p>方程式赛车在这里买，F1 前后翼、光头胎、碳陶刹车这些赛道件也只在这里装。赛车只能在雪邦赛道和汽车游乐园（一园）里开，开不上公路，叫车也叫不来。普通车回 XMUM 车行改，照样能上赛道跑。</p>
       <div class="pd-acts">${own ? `
         <button class="pd-act" type="button" data-s="drive"><b>开赛车出去</b><em>停在车库门口</em><small>方程式赛车摆到维修区车道上，直接坐进去</small></button>
         <button class="pd-act" type="button" data-s="tune"><b>改装赛车</b><em>赛道件 ${f1Fitted()}/5</em><small>前翼、前后翼套件、光头胎、碳陶刹车、轻量化、排位赛模式。施工要等，和车行一样</small></button>` : `
@@ -330,7 +330,7 @@
     card.querySelector('#pdX').addEventListener('click', () => cardClose());
     card.querySelectorAll('[data-s]').forEach(b => b.addEventListener('click', () => { ac(); const a = b.dataset.s; cardClose();
       if (a === 'buy'){ if (money < RC_PRICE) return; money -= RC_PRICE; moneyChanged(); SAVE.rc = true; save(); sfx.sparkle ? sfx.sparkle() : sfx.ding(); gx.callout('方程式赛车到手', '「开赛车出去」坐进去，或者先改装', '#c8322a'); shopOpen(); }
-      else if (a === 'drive'){ leave(true); const c = rcSpawn(); if (!c) return; nw.x = c.x; nw.z = c.z; enterCar(c); camYaw = c.h + Math.PI; toast('方程式赛车', '只能在雪邦赛道和两个汽车游乐园里开', 2600); }
+      else if (a === 'drive'){ leave(true); const c = rcSpawn(); if (!c) return; nw.x = c.x; nw.z = c.z; enterCar(c); camYaw = c.h + Math.PI; toast('方程式赛车', '只能在雪邦赛道和汽车游乐园（一园）里开', 2600); }
       else if (a === 'tune'){ const c = rcSpawn(); if (!c || typeof XTune === 'undefined') return; rcSaved = myCar; myCar = c; rcShop = true; XTune.open(); if (!tn.on){ myCar = rcSaved; rcShop = false; } } }));
   }
   /* the workshop UI is shared: while it is open for the race car, myCar points at it; put the road car back when it closes */
