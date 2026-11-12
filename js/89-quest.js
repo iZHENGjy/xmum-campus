@@ -5,7 +5,7 @@
  * 存档 localStorage 'xmum-quest-v1'（xmum-* 键，Google 登录的人跟着 js/net.js 云同步）：
  *   {v:1, born:'new'|'vet', ch, ph:'meet'|'steps'|'report'|'done', done:{步骤 id:时间}, paid:{奖励 id:1}, flags:{}, sides:{id:'open'|'done'},
  *    diary:[{s:句子 id, d:开学第几天, c:章, v:{填空}}], msgs:[{m:消息 id, d, c, t:时间}], days:[日期], hints:{}, nudged:{}, stepT:{}, fired:{},
- *    intro:看过开场, welcome:{rm, chs, items}（老玩家欢迎卡还没看）, quiet:收起任务条, home:{day, n}, title}
+ *    intro:看过开场（新玩家第 1 章的那次）, intro2:这一版看过开场（仓库主人：每个人下次进游戏都看一次飞机动画）, welcome:{rm, chs, items}（老玩家欢迎卡还没看）, quiet:收起任务条, home:{day, n}, title}
  *   日记和消息只存 id 和填空，打开日记时再拼成文字，存档很小。
  * 什么时候写存档：云同步做完以后（XNet.synced；离线马上就好）。之前只在内存里，这样 Google 登录的新设备被云端旧存档覆盖、刷新时不会留下一份错的主线存档。
  * 新玩家 / 老玩家：没有主线存档时，看 xmum-gta-v1 里有没有进度（钱、外卖、车、成就）、衣橱和房子花过钱没有。在页面一加载就定下来（预览版的作弊会马上把钱补满，所以不能晚）。
@@ -32,7 +32,7 @@
 
   /* ---------- state ---------- */
   const blank = () => ({v:1, born:null, ch:1, ph:'meet', done:{}, paid:{}, flags:{}, sides:{}, diary:[], msgs:[], days:[], hints:{}, nudged:{}, stepT:{}, fired:{},
-    intro:false, welcome:null, quiet:false, home:{day:'', n:0}, title:''});
+    intro:false, intro2:false, welcome:null, quiet:false, home:{day:'', n:0}, title:''});
   let S = blank(), hadSave = false;
   function read(){
     try {
@@ -49,13 +49,26 @@
   function save(){ dirty = true; if (!ready) return; dirty = false; try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e){} }
 
   /* ---------- new or returning ---------- */
+  /* Who is a returning player? Only a save with real progress. On live, 250 of 401 players left within 5 minutes; a few deliveries or
+     RM 25 must not make them a veteran (no opening, chapter 1 ticked, a welcome card). Such a "light" save is a new player: the opening
+     plays and chapter 1 starts from the beginning. Nothing is taken away (money, items, achievements stay); steps they already satisfy
+     tick as they get there, and every reward pays once by id. Real progress, any one of:
+       - a car they bought (owned is only cars from the shop or the story; stolen cars are not in it)
+       - 3 or more deliveries
+       - cash + wardrobe spend + house spend ≥ RM 300, or any house spend at all
+       - 3 or more achievements (2 come in the first minutes from crashing and getting caught: busted, eject, lake…)
+     There is no local play-time counter (the minutes in js/stats.js only go to the server), so time is not a signal.
+     Only for a save without quest state (!S.born); someone who already has xmum-quest-v1 is never reclassified. */
   function hasProgress(){
-    try {
-      const d = JSON.parse(localStorage.getItem('xmum-gta-v1') || 'null');
-      if (d && ((+d.money || 0) > 0 || (d.life && (+d.life.deliv || 0) > 0) || (d.owned || []).length || Object.keys(d.ach || {}).length || (+d.stunt || 0) > 0)) return true;
-    } catch(e){}
-    try { if ((+(JSON.parse(localStorage.getItem('xmum-wardrobe-v1') || 'null') || {}).spent || 0) > 0) return true; } catch(e){}
-    try { if ((+(JSON.parse(localStorage.getItem('xmum-house-v1') || 'null') || {}).spent || 0) > 0) return true; } catch(e){}
+    const num = v => +v || 0;
+    const spent = k => { try { return num((JSON.parse(localStorage.getItem(k) || 'null') || {}).spent); } catch(e){ return 0; } };
+    let d = null; try { d = JSON.parse(localStorage.getItem('xmum-gta-v1') || 'null'); } catch(e){}
+    d = d && typeof d === 'object' ? d : {};
+    const house = spent('xmum-house-v1');
+    if ((d.owned || []).length || house > 0) return true;
+    if (num(d.life && d.life.deliv) >= 3) return true;
+    if (num(d.money) + spent('xmum-wardrobe-v1') + house >= 300) return true;
+    if (Object.keys(d.ach || {}).length >= 3) return true;
     return false;
   }
   if (!S.born) S.born = hasProgress() ? 'vet' : 'new';
@@ -497,16 +510,37 @@
     setTimeout(() => { const c = chOf(1); if (c && S.ch === 1 && S.ph === 'meet' && !talking) talk('xiaoman'); }, 700);
   }
   function playIntro(force){
-    if (!force){ S.intro = true; save(); }
+    if (!force){ S.intro = true; S.intro2 = true; save(); }
     if (window.XCine && XCine.play){ placeAtGate(); if (XCine.play('intro', {onDone:force ? null : afterIntro})) return; }
     if (!force) afterIntro();
   }
+  /* 仓库主人：「每个人下次第一次进游戏都安排那个飞机动画」. Returning players (and testers who already have a quest state) see the
+     opening once more, the first time they come into 奶娃 mode after this release: after the cloud sync (so two devices don't each
+     decide on their own, and a veteran's welcome card waits for it), only right after coming in (never in the middle of play), never
+     inside a room, a film or a talk. intro2 is saved with the quest state, so it plays once per save. */
+  let enterT = -1e9;
+  function introAgain(){
+    if (S.intro2 || !ready || mode !== 'naiwa' || talking || g(() => XCine.busy, false) || g(() => indoorNow(), false)) return;
+    if (performance.now() - enterT > 20000) return;   /* came in a while ago (a slow cloud sync): not in the middle of play */
+    if (S.born === 'new' && !S.intro){ playIntro(false); return; }
+    S.intro2 = true; save();
+    const done = () => {
+      placeAtGate(); diaryAdd('intro', null, {c:0});
+      if (S.ch === 1 && S.ph === 'meet' && !talking) setTimeout(() => { if (!talking) talk(chOf(1).npc); }, 700);
+    };
+    if (window.XCine && XCine.play){ placeAtGate(); XCine.play('intro', {onDone:done}); }
+  }
+  on('ready', () => setTimeout(introAgain, 60));
+  /* the opening is about to play: the veteran's welcome card waits for it (js/89-quest-ui.js) */
+  const introPending = () => !S.intro2 && mode === 'naiwa' && performance.now() - enterT < 20000;
   if (typeof setMode === 'function'){
     const base = setMode;
     setMode = function(m){
       const was = mode; base(m);
       if (m === 'naiwa' && was !== 'naiwa'){
+        enterT = performance.now();
         if (S.born === 'new' && !S.intro) setTimeout(() => playIntro(false), 60);
+        else if (!S.intro2) setTimeout(introAgain, 60);
         else if (S.born === 'new' && S.ch === 1 && S.ph === 'meet') setTimeout(() => { if (!talking) emit('state'); }, 200);
         emit('enter');
       }
@@ -607,6 +641,8 @@
   const synced = window.XNet ? (XNet.synced || XNet.ready) : Promise.resolve();
   Promise.race([Promise.resolve(synced).catch(() => {}), new Promise(r => setTimeout(r, 15000))]).then(() => {
     ready = true;
+    /* the cloud save may have come down meanwhile (a new device signing in): decide again from what is here now */
+    if (!hadSave) S.born = hasProgress() ? 'vet' : 'new';
     if (!hadSave && S.born === 'vet') migrate();
     save(); emit('ready'); emit('state');
   });
@@ -630,7 +666,7 @@
     },
     skip(n){
       n = Math.max(1, Math.min(CH.length + 1, n | 0));
-      S.born = S.born || 'new'; S.intro = true;
+      S.born = S.born || 'new'; S.intro = true; S.intro2 = true;
       for (const c of CH) if (c.n < n){ for (const s of c.steps) S.done[s.id] = S.done[s.id] || now(); S.done[c.id + '_report'] = now(); S.paid[c.id] = S.paid[c.id] || 1; }
       S.ch = n; S.ph = chOf(n) ? 'meet' : 'done'; save(); emit('state'); return '跳到第 ' + n + ' 章开头';
     },
@@ -640,7 +676,7 @@
   };
 
   window.XQuest = {
-    get ready(){ return ready; }, get state(){ return S; }, get ch(){ return S.ch; }, get ph(){ return S.ph; }, get born(){ return S.born; },
+    get ready(){ return ready; }, introPending, get state(){ return S; }, get ch(){ return S.ch; }, get ph(){ return S.ph; }, get born(){ return S.born; },
     get talking(){ return !!talking; },
     data:D, chapters:CH, chapter, step:curStep, steps:() => stepsOf(chapter()).filter(s => !s.opt), waitWhy, stepDone:id => !!S.done[id], Q, qDone,
     unlocked, carLocked, ch1Deliv, ringsOff, calm, lockToast, visiting,
