@@ -232,7 +232,7 @@ window.XQD = (() => {
     intro:[
       ['laozhou', '你就是小满说的那个新生？有车了？'],
       ['laozhou', '有车了那就别给我磨蹭。先跑个早八冲刺练练手，再给我把单子跑够。'],
-      ['laozhou', '开着车被保安追，就冲进 Bell 那间喷漆车间，门一关，谁也认不出你。'],
+      ['laozhou', '开着车被保安追，先拐几个弯把他甩出视线，再冲进 Bell 那间喷漆车间，门一关，谁也认不出你。被他看着开进去可不行。'],
       ['laozhou', '车想跑快点，去车行里的改装车间改一改。去吧，单子不等人。']
     ],
     outro:[
@@ -265,9 +265,9 @@ window.XQD = (() => {
         nudge:'水枪工坊在车行面板最下面，最便宜的回水泵 RM 80。'},
       {id:'c2_repaint', text:'被通缉时开车冲进喷漆车间', rm:50, at:G(() => [XSPRAY.door.x, XSPRAY.door.z], [115, 316]), r:0,
         done:Q => Q.ach('repaint'),
-        hint:{pc:'先开车撞一下校园里巡逻的保安车，让他追你（钱包里出现星星），再开进南门外 Bell 的喷漆车间', touch:'先开车撞一下校园里巡逻的保安车，让他追你（钱包里出现星星），再开进南门外 Bell 的喷漆车间'},
+        hint:{pc:'先开车撞一下校园里巡逻的保安车，让他追你（钱包里出现星星），再甩开他的视线（拐弯、穿过树林），开进南门外 Bell 的喷漆车间', touch:'先开车撞一下校园里巡逻的保安车，让他追你（钱包里出现星星），再甩开他的视线（拐弯、穿过树林），开进南门外 Bell 的喷漆车间'},
         tip:'卷帘门一落，自动换漆，警戒清零，每颗星收 RM 50。', guide:'cops',
-        nudge:'先在校园里撞两下保安车让它追你，再开去南门外 Bell 那间喷漆车间。'},
+        nudge:'先在校园里撞两下保安车让它追你，甩开他的视线，再开去南门外 Bell 那间喷漆车间。'},
       {id:'c2_car', text:'买一辆 RM 500 以上的车', rm:0, parts:{rim:3, lacq:3}, at:SHOWROOM_AT(), r:0,
         done:Q => Q.ownedAny(['p911', 'mase', 'moto', 'lambo', 'gwag', 'rr']),
         hint:{pc:'攒够 RM 500，按 <kbd>G</kbd> 打开车行买一辆保时洁 911 或更好的', touch:'攒够 RM 500，点右上角「车行」买一辆保时洁 911 或更好的', flash:'#garageBtn'},
@@ -860,6 +860,18 @@ window.XQD = (() => {
         done:Q => Q.near(127, 330, 9) && Q.withMe('adou'),
         tip:'他第一次喝拉茶，看他会不会也被甜得一激灵。'}
     ]});
+  /* 麦当当打工一班（js/minigames/mcd.js，PR #116）：游戏在才加这一步，没合并时第 8 章照旧四步。
+     打一局就算：记下这一步第一次检查时的局数，之后多一局就打勾（刷新页面会重新记，最多要多打一局） */
+  if (window.XMcd && typeof MDX !== 'undefined'){
+    const mcdN = () => G(() => XMcd.modes.reduce((n, m) => n + (mgSave.plays['mcd_' + m] | 0), 0), 0);
+    let mcd0 = null;
+    D.chapters.find(c => c.id === 'c8').steps.push(
+      {id:'c8_mcd', calmNear:true, text:'带阿豆去麦当当打工一班', rm:60, at:[-498.6 + MDX, 778 + MDZ], r:5,
+        done:() => { const n = mcdN(); if (mcd0 == null) mcd0 = n; return n > mcd0; },
+        hint:{pc:'麦当当在 KIP 那边，正门外有黄圈；阿豆跟着你，到了按 F 进后厨配餐', touch:'麦当当在 KIP 那边，正门外有黄圈；阿豆跟着你，到了点「打工」进后厨配餐'},
+        tip:'阿豆说他高中在快餐店打过工，看谁叠汉堡快。', nudge:'开车去 KIP 那边的麦当当，正门外黄圈按 F，随便打一局就行。'});
+    D.diary.c8_mcd = '带阿豆去麦当当后厨打了一班工。他叠汉堡比我还快，我假装没看见。';
+  }
   D.diary.c8_start = '小满学姐把今年最后一个新生交给我，他叫阿豆。';
   D.diary.c8_a3 = '阿豆站在 A3 台阶上说「好宽」，跟我第一天说的一模一样。';
   D.diary.c8_d6 = '带阿豆认了 D6 的外卖点，老周瞪了他一眼，他吓得躲到我身后。';
