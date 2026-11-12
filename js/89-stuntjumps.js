@@ -2,7 +2,7 @@
  *
  * 全图藏了 20 个不起眼的木板跳台 / 土坡：校园环路、后山、校门外的公路、山包、汽车游乐园。小地图上不画。
  *   - 车速够（54 km/h 以上）、车头朝着跳台方向冲上去 → 起跳那一刻慢动作（时间 ×0.35，约 1.2 秒）+ 侧面电影镜头；
- *   - 落地时还在车上、车没报废、飞够 0.8 秒且 15 米 → 算成功。第一次成功：「特技跳台 7/20」，RM 40 + 特技分；以后每次只给特技分；
+ *   - 落地时还在车上、车没报废、飞够 0.8 秒且 15 米 → 算成功。第一次成功：「特技跳台 7/20」，RM 30（每个跳台只给一次）；以后再飞只有普通的飞跃特技分；
  *   - 找全 20 个解锁成就「特技之王」。游戏指南（P）里有一页清单：找到的写名字，没找到的给模糊提示。
  * 慢动作只缩放本机这一帧的 dt（js/90-main.js 里 gx.scale），联机位置照常按真实时间发；不碰 XNet。
  * 跳台不进 RAMPS（那是黄色跳台和「飞跃挑战」用的），这里自己包一层 groundAt：跳台高度叠在地形上，山坡上的也贴着坡。
@@ -11,7 +11,7 @@
 'use strict';
 (() => {
   if (typeof groundAt !== 'function' || typeof gx === 'undefined') return;
-  const KEY = 'xmum-jumps-v1', MIN_V = 15, MIN_AIR = .8, MIN_DIST = 15, FIRST_RM = 40;
+  const KEY = 'xmum-jumps-v1', MIN_V = 15, MIN_AIR = .8, MIN_DIST = 15, FIRST_RM = 30;   /* 只在第一次飞成某个跳台时给（每个跳台一辈子一次）；以后再飞只有普通的飞跃特技分 */
   /* id 只加不改（存档记的是 id）。k: 'r' 公路边的木板跳台，'h' 山顶上的矮土坡（坡后面本来就是下坡） */
   const JUMPS = [
     {id:'ly',     x:-100, z:-256, h:1.564,  k:'r', name:'宿舍后墙',   hint:'LY 宿舍北边，贴着围墙的那段环校路'},
@@ -155,11 +155,10 @@
     const first = !found[J.id];
     if (first){ found[J.id] = Date.now(); save(); }
     const n = count();
-    addStunt('特技跳台', first ? 500 : 150);
     gx.callout(`特技跳台 ${n}/${JUMPS.length}`, J.name, '#ffb020');
     if (first){
       earn(FIRST_RM); sfx.sparkle();
-      toast(`特技跳台 ${n}/${JUMPS.length}`, `${J.name} · 飞了 ${Math.round(dist)} 米 · 首次 +RM ${FIRST_RM} · 特技分 +500 × 连击`, 3200);
+      toast(`特技跳台 ${n}/${JUMPS.length}`, `${J.name} · 飞了 ${Math.round(dist)} 米 · 首次 +RM ${FIRST_RM}`, 3200);
       unlock('sj1'); if (n >= JUMPS.length) unlock('sjall');
       if (window.XGuide && XGuide.refresh) XGuide.refresh();
     } else toast(`特技跳台 · ${J.name}`, `飞了 ${Math.round(dist)} 米 · 已收集 ${n}/${JUMPS.length}`, 1800);
@@ -186,7 +185,7 @@
   { const l0 = gx.leave; gx.leave = function(){ R.run = null; R.cam = null; R.car = null; return l0.apply(this, arguments); }; }
 
   /* ---------- achievements ---------- */
-  if (typeof achAdd === 'function') achAdd([['sj1', '第一跳', '找到第一个隐藏特技跳台', 20], ['sjall', '特技之王', `找齐全部 ${JUMPS.length} 个隐藏特技跳台`, 300]]);
+  if (typeof achAdd === 'function') achAdd([['sj1', '第一跳', '找到第一个隐藏特技跳台', 20], ['sjall', '特技之王', `找齐全部 ${JUMPS.length} 个隐藏特技跳台`, 200]]);
 
   /* ---------- the list: a page in the game guide (P) and a line in the pause panel ---------- */
   const esc = s => String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;'}[ch]));
@@ -230,5 +229,7 @@
   }
 
   window.XJumps = {list:JUMPS, total:JUMPS.length, found:() => Object.assign({}, found), count,
-    reset(){ found = {}; save(); }, state:R};
+    state:R};
+  /* 清空进度只给本地测试和预览版（正式版不暴露，免得在控制台里反复刷首次奖励） */
+  if (window.XMUM_FIREBASE === null || /\/preview\//.test(location.pathname) || /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) window.XJumps.reset = () => { found = {}; save(); };
 })();

@@ -3,6 +3,8 @@
  * What is recorded, per anonymous Firebase uid (the same id the leaderboards already use):
  *   /stats/p/{uid} = {f: first day, l: last day, s: total seconds, m: {mode: seconds}, d: 'm'|'t'|'d'}
  *   /stats/d/{day}/{uid} = seconds played that day            (day = YYYY-MM-DD, Malaysia time)
+ *   /stats/h/{day}/{hh}/{uid} = seconds played in that clock hour (hh = 00–23, Malaysia time), for the
+ *                               "what time of day do people play" chart on stats.html
  * Nothing else: no nickname, no e-mail, no position, no scores.
  *
  * Only time with the page visible and someone actually touching it counts: after IDLE_S
@@ -18,6 +20,7 @@
   const MODES = ['naiwa', 'hole', 'walk', 'orbit', 'menu'];
 
   const day = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);   // UTC+8
+  const hourKey = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 13);   // 'YYYY-MM-DDTHH', UTC+8
   const device = (() => {
     const ua = navigator.userAgent, touch = navigator.maxTouchPoints > 0;
     if (/iPhone|iPod/.test(ua) || /Android.*Mobile/.test(ua)) return 'm';
@@ -30,7 +33,8 @@
   };
 
   /* ---------- counting (runs offline too; flushed once XNet is online) ---------- */
-  const pend = {s:0, m:{}};                 // seconds not yet written
+  const pend = {s:0, m:{}, h:{}};           // seconds not yet written (h: per 'YYYY-MM-DDTHH')
+  let hOff = false;                         // the database refused /stats/h (rules not published yet): stop trying this visit
   let lastInput = performance.now(), lastTick = performance.now(), sinceFlush = 0, flushedOnce = false, busy = false;
   const poke = () => { lastInput = performance.now(); };
   /* A held key or finger is input too: a phone player can hold the joystick still at full
@@ -50,6 +54,7 @@
     if (document.visibilityState !== 'visible' || !active(now)) return;
     const m = mode();
     pend.s += dt; pend.m[m] = (pend.m[m] || 0) + dt; sinceFlush += dt;
+    if (!hOff){ const k = hourKey(); pend.h[k] = (pend.h[k] || 0) + dt; }
     if (sinceFlush >= (flushedOnce ? FLUSH_S : FIRST_FLUSH_S)) flush();
   }
 
@@ -74,6 +79,15 @@
       pend.s = Math.max(0, pend.s - add);
       for (const k in addM) pend.m[k] = Math.max(0, (pend.m[k] || 0) - addM[k]);
       sinceFlush = 0; flushedOnce = true;
+      /* the hour chart: separate and best-effort, so it can never hold up the numbers above */
+      if (!hOff) for (const k of Object.keys(pend.h)){
+        const v = Math.min(MAX_DELTA, Math.floor(pend.h[k] * scale));
+        if (v < 1){ if (k !== hourKey()) delete pend.h[k]; continue; }
+        try {
+          await db.ref('stats/h/' + k.slice(0, 10) + '/' + k.slice(11, 13) + '/' + uid).transaction(cur => Math.min(3600, (+cur || 0) + v), undefined, false);
+          pend.h[k] = Math.max(0, pend.h[k] - v); if (pend.h[k] < 1 && k !== hourKey()) delete pend.h[k];
+        } catch(e){ hOff = true; pend.h = {}; break; }
+      }
     } catch(e){
       sinceFlush = FLUSH_S / 2;           // try again in about half a minute
     } finally { busy = false; }
