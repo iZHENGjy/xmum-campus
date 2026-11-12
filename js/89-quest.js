@@ -120,7 +120,10 @@
     if (!r || S.paid[id]) return '';
     S.paid[id] = now(); const out = [];
     if (r.rm > 0){ g(() => earn(r.rm)); out.push('RM ' + r.rm.toLocaleString()); }
-    if (r.car && giveCar(r.car, quiet)) out.push(g(() => SHOP.find(s => s.kind === r.car).name, r.car));
+    if (r.car){
+      if (giveCar(r.car, quiet)) out.push(g(() => SHOP.find(s => s.kind === r.car).name, r.car));
+      else { const p = g(() => SHOP.find(s => s.kind === r.car).price, 0); if (p > 0){ g(() => earn(p)); out.push('RM ' + p + '（这辆车你已经有了，折成钱）'); } }   /* bought it already (old builds let you in chapter 1) */
+    }
     if (r.parts) for (const id2 in r.parts){ const n = g(() => XParts.grant(id2, r.parts[id2], '主线奖励'), 0); if (n) out.push(g(() => (XParts.list.concat(XParts.bps).find(p => p.id === id2) || {}).name, id2) + ' ×' + r.parts[id2]); }
     if (r.items) for (const it of r.items){ if (g(() => { wardSave.own.add(it); wardWrite(); return true; }, false)) out.push(g(() => WD.byId[it].name, it)); }
     if (r.decal && g(() => { if (wardSave.pOwn.has('d_' + r.decal)) return false; wardSave.pOwn.add('d_' + r.decal); wardWrite(); return true; }, false)) out.push(g(() => WD.byId['d_' + r.decal].name, r.decal));
