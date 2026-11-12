@@ -231,7 +231,8 @@ function dtOpen(){
   const pick = i => {
     const c = cards[i]; if (!c) return;
     DT.job = Object.assign(c, {t:c.limit, intact:1, perfect:false, air:0, stolen:false, recovered:false}); DT.st = 'win'; opClose(true); sfx.ding();
-    toast('点好了：' + c.m.name, '往前开，拐过弯就是取餐窗口', 2600);
+    gxCallout('去取餐窗口 →', '点好了：' + c.m.name + ' · 往前开，拐过弯就是绿色的取餐圈', '#4fd18b', 3300);
+    toast('点好了：' + c.m.name, '往前开，拐过弯就是取餐窗口（绿圈），停稳取餐', 4600);
   };
   /* the order card of js/89-offers.js: three orders to pick from without stopping the game (the paused menu below is the fallback) */
   if (typeof offerJob === 'function') return {icon:'🍔', title:night ? '麦当当得来速 · 夜宵加急' : '麦当当得来速', desc:night ? '夜宵时段：报酬 ×1.5，时间更紧' : '点一份，绕到取餐窗口拿餐，限时送回学校',
@@ -253,8 +254,11 @@ function dtUpdate(dt, px, pz, sp, free){
   DT.spillCd -= dt;
   if (!DT.st){
     opHide(DT.B);
-    if (opRing(DT.A, free && Math.abs(px - DT.x) < 420 && Math.abs(pz - DT.z) < 420, px, pz)){
-      if (!driving) opMsg = '得来速只接待开车的：开车进来点餐';
+    const inA = opRing(DT.A, free && Math.abs(px - DT.x) < 420 && Math.abs(pz - DT.z) < 420, px, pz);
+    if (!inA) DT.footTold = false;   /* walked out: tell again next time */
+    if (inA){
+      if (!driving){ opMsg = '得来速只接待开车的：开车进来点餐';
+        if (!DT.footTold){ DT.footTold = true; gxCallout('得来速要开车', '上车，开进黄圈才能点单', '#ffc72c', 3300); } }
       else if (typeof offerJob === 'function'){ if (sp > 9) opMsg = '慢下来看菜单'; else offerJob('dt', dtOpen); }
       else if (sp > 2.5) opMsg = '慢下来，停在点餐牌旁边';
       else dtOpen();

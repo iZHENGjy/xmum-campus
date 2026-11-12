@@ -36,12 +36,13 @@ let gxAirCar = null, gxJumpFrom = null, gxSlow = 0, gxTS = 1, gxPromptMsg = '';
 
 /* ---------- big stamped callouts ---------- */
 const gxCallEl = $('#gxcall'); let gxCallTimer = 0;
-function gxCallout(text, sub, color){
+function gxCallout(text, sub, color, ms){   /* ms: how long it stays up (default 1.3 s) */
   if (!gxCallEl) return;
   gxCallEl.innerHTML = ''; gxCallEl.append(text); if (sub){ const s = document.createElement('small'); s.textContent = sub; gxCallEl.append(s); }
   gxCallEl.style.setProperty('--gx-c', color || '#ff8a3d');
+  const T = ms > 0 ? ms : 1300; gxCallEl.style.animationDuration = T + 'ms';
   gxCallEl.hidden = false; gxCallEl.classList.remove('pop'); void gxCallEl.offsetWidth; gxCallEl.classList.add('pop');
-  clearTimeout(gxCallTimer); gxCallTimer = setTimeout(() => { gxCallEl.hidden = true; }, 1300);
+  clearTimeout(gxCallTimer); gxCallTimer = setTimeout(() => { gxCallEl.hidden = true; }, T);
 }
 const gxBeep = (f, d, v) => tone('square', f, f, d || .12, v || .09);
 const gxChime = n => { for (let i = 0; i < 3; i++) tone('triangle', 660 * Math.pow(1.26, i + n * .5), 660 * Math.pow(1.26, i + n * .5), .14, .12, i * .06); };
