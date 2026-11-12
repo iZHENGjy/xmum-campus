@@ -339,7 +339,8 @@ function gfxShadowTick(){
   if (!renderer.shadowMap.enabled) return;
   const tp = sun.target.position; let need = true;
   if (mode === 'orbit'){
-    const moved = gfxSh.d.distanceToSquared(cur.d) > 1e-7 || tp.x !== gfxSh.tx || tp.z !== gfxSh.tz || shadowHalf !== gfxSh.half;
+    const moved = gfxSh.d.distanceToSquared(cur.d) > 4e-6 ||   /* ~0.1°: the clock's slow sun drift (js/17-clock.js) redraws about twice a second, a time jump every frame */
+      tp.x !== gfxSh.tx || tp.z !== gfxSh.tz || shadowHalf !== gfxSh.half;
     const every = camera.position.distanceTo(controls.target) > 420 ? 20 : 3;
     need = moved || ++gfxSh.n >= every;
   }
