@@ -297,6 +297,9 @@ function miniNames(g, X, Z, Sw, Sh, u){
   g.font = `600 ${fs}px ${getComputedStyle(document.body).fontFamily}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineJoin = 'round';
   for (const L of labels){
     if (L.dead || (L.minor && !miniNames.minor)) continue;
+    /* not other players' name tags (js/net.js marks them data-net) or speech bubbles / hints (js/96-social.js): the big map would give away
+       where people are. Only friends show there, as their own markers (js/96-friends.js) */
+    if (L.el.dataset.net || /\bsoc-/.test(L.el.className)) continue;
     const x = X(L.pos.x), y = Z(L.pos.z); if (x < 0 || y < 0 || x > Sw || y > Sh) continue;
     const t = L.el.textContent; if (!t) continue;
     const w = g.measureText(t).width;
