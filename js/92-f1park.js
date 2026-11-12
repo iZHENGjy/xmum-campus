@@ -353,18 +353,20 @@
     if (typeof RC !== 'undefined' && RC.st !== 'idle' && RC.T && RC.T.kart && RC.mode !== 'ghost'){ F1.lap = null; F1.idx = -1; return; }
     const c = driving, inP = c && c.x > PAD.x0 - 20 && c.x < PAD.x1 + 20 && c.z > PAD.z0 - 20 && c.z < PAD.z1 + 20;
     if (!c){ F1.lap = null; F1.idx = -1; if (typeof nw !== 'undefined' && nw.x > PAD.x0 && nw.x < PAD.x1 && nw.z > PAD.z0 && nw.z < PAD.z1) F1.msg = '汽车游乐园二园 · 卡丁车赛道：开车来跑，或者到维修区租一辆卡丁车 · 雪邦赛车城坐 ERL 到 KLIA 转机'; return; }
-    if (!inP){ F1.lap = null; F1.idx = -1; return; }
+    if (!inP){ F1.lap = null; F1.idx = -1; F1.back = 0; return; }
     /* where on the circuit (search near the last place; a full search when lost) */
     let bi = -1, bd = 1e9;
     const look = F1.idx < 0 ? [0, N] : [F1.idx - 25, F1.idx + 40];
     for (let i = look[0]; i < look[1]; i++){ const p = at(i), d = (p[0] - c.x) ** 2 + (p[1] - c.z) ** 2; if (d < bd){ bd = d; bi = ((i % N) + N) % N; } }
     bd = Math.sqrt(bd);
-    if (bd > 45){ if (F1.lap && bd > 70){ F1.lap = null; P.call('离开赛道太远', '这一圈不算了'); } F1.idx = bd > 60 ? -1 : bi; }
-    else if (F1.idx >= 0 && Math.min(((bi - F1.idx) % N + N) % N, ((F1.idx - bi) % N + N) % N) > 60){ F1.lap = null; F1.idx = bi; }   /* jumped across the infield or got moved: start over */
+    if (bd > 45){ if (F1.lap && bd > 70){ F1.lap = null; P.call('离开赛道太远', '这一圈不算了'); } F1.idx = bd > 60 ? -1 : bi; F1.back = 0; }
+    else if (F1.idx >= 0 && Math.min(((bi - F1.idx) % N + N) % N, ((F1.idx - bi) % N + N) % N) > 60){ F1.lap = null; F1.idx = bi; F1.back = 0; }   /* jumped across the infield or got moved: start over */
     else {
       const prev = F1.idx;
       if (prev >= 0){
         const a0 = along(prev), a1 = along(bi), fwd = ((bi - prev) % N + N) % N;
+        /* driving the wrong way round: points behind you add up (forward resets it); a warning below once it is ~30 m */
+        if (fwd > N - 60) F1.back = (F1.back || 0) + (N - fwd); else if (fwd > 0) F1.back = 0;
         /* distance actually driven round the lap (backwards counts against it), so backing over the line is no lap */
         if (F1.lap) F1.lap.prog += fwd < 60 ? fwd : fwd > N - 60 ? fwd - N : 0;
         if (fwd > 0 && fwd < 60){
@@ -390,6 +392,10 @@
     }
     if (F1.lap){ F1.lap.t += dt; if (F1.lap.t > 600) F1.lap = null; else F1.msg = `卡丁车赛道 ${fmt2(F1.lap.t)} · 第 ${F1.lap.sec} 段` + (prog.best.kartLap != null ? ` · 纪录 ${fmt2(prog.best.kartLap)}` : ''); }
     else if (bd < 40 && Math.hypot(c.vx, c.vz) < 22) F1.msg = '卡丁车赛道：开过主直道上的起点线开始计时' + (prog.best.kartLap != null ? ` · 纪录 ${fmt2(prog.best.kartLap)}` : '');
+    if (F1.back > 10 && F1.idx >= 0 && Math.hypot(c.vx, c.vz) > 3){
+      F1.msg = '逆行了！掉头，顺着赛道方向开';
+      const now = performance.now(); if (!F1.backT || now - F1.backT > 6000){ F1.backT = now; P.call('逆行了', '掉头，顺着赛道方向开，这样才算一圈'); }
+    }
   }
   {
     const base = Object.assign({}, gx);
