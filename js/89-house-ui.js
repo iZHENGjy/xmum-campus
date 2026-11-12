@@ -18,7 +18,7 @@ hzEl.innerHTML = `<button class="x" id="housex" aria-label="关闭">×</button>
   <div class="wd-done" id="houseDone" role="status" aria-live="polite" hidden></div>
   <div class="wd-foot"><div class="wd-sel"><b id="houseName"></b><span id="houseDesc"></span></div><div class="wd-btns"><button class="btn" id="houseAlt" hidden></button><button class="btn buy" id="houseGo"></button></div></div>`;
 document.body.appendChild(hzEl);
-const hzUi = {on:false, mode:'deco', h:null, tab:'nd', sel:null, look:null, yaw:0, drag:null, wasPaused:false, view:'', keep:null, last:0, cam:null};
+const hzUi = {on:false, mode:'deco', h:null, tab:'nd', sel:null, look:null, swing:0, dir:1, drag:null, wasPaused:false, view:'', keep:null, last:0, cam:null};
 const hzQ = s => hzEl.querySelector(s);
 const hzFmt = v => 'RM ' + Math.round(v).toLocaleString();
 const hzStyle = id => HZ_STYLES.find(s => s.id === id);
@@ -35,9 +35,8 @@ function hzUiOpen(mode, h){
     hzUi.look = hzLookOf(h.id);
     const o = hz.own[h.id], placed = o && HZ_SLOTS.map(s => o.s[s.id]).filter(Boolean);
     hzUi.tab = placed && placed.length ? HZ_IT[placed[placed.length - 1]].st : hzUi.tab || 'nd';
-    hzUi.yaw = -.6;
-  } else hzUi.yaw = HZ.in ? -.6 : Math.PI + .3;
-  hzUi.dir = 1;
+  }
+  hzUi.swing = 0; hzUi.dir = 1;
   gx.paused = true; keys.Space = false; engineUpdate(0, 0, false);
   /* inside, 奶娃 steps out of the picture while you decorate (it would stand in front of the sofa) */
   if (mode === 'deco' && HZ.in && !driving) NW.root.visible = false;
@@ -56,6 +55,7 @@ function hzUiClose(quiet){
     if (tried) hzDress(saved);
   }
   hzUi.on = false; hzEl.hidden = true; document.body.classList.remove('hz-open');
+  if (HZ.in) hzShowFloor(HZ.fl);   /* the camera may have been looking at the other floor */
   if (mode === 'naiwa') NW.root.visible = true;
   if (!(typeof ward !== 'undefined' && ward.on) && !(typeof tn !== 'undefined' && tn.on)) document.body.classList.remove('wd-open');
   gx.paused = hzUi.wasPaused; camera.clearViewOffset(); hzUi.view = '';
@@ -179,7 +179,7 @@ hzQ('#houseList').addEventListener('click', e => {
   const L = hzUi.look;
   if (k.startsWith('w:')) L.w = k.slice(2); else if (k.startsWith('f:')) L.f = k.slice(2);
   else { const it = HZ_IT[k]; L.s[it.slot] = it.id; }
-  hzDress(L); hzUi.yaw = hzUi.yaw - .25; tone('sine', 660, 760, .06, .05);
+  hzDress(L); hzUi.swing = 0; hzUi.dir = 1; tone('sine', 660, 760, .06, .05);
   hzRender();
 });
 hzQ('#houseSet').addEventListener('click', e => {
@@ -235,23 +235,28 @@ hzQ('#houseGo').addEventListener('click', () => {
   hzWrite(); moneyChanged(); hzDress(hzUi.look); hzCheckAch(h.id); hzRender();
 });
 
-/* ---------- the camera while the panel is open: circles the selected spot (or the house front) in the part of the screen the panel leaves free ---------- */
+/* ---------- the camera while the panel is open, in the part of the screen the panel leaves free ----------
+   It looks at the piece being picked from the side it faces (that side is always the room, never the wall behind it), high enough
+   to see over the wall across the room, and only sways a little either way; the floor that piece is on is the one drawn.
+   Nothing picked (or 墙面 · 地板): the whole floor from almost straight above. Outside (看房): the front of the house from the street.
+   base: which way the camera sits from the target; sw: how far it sways (and can be dragged) either side of that. */
 function hzCamTarget(){
   const h = hzUi.h;
-  if (hzUi.mode === 'view' && !HZ.in) return {x:h.ux + 3, y:2.4, z:h.zf, d:12.5, up:4.6};
+  if (hzUi.mode === 'view' && !HZ.in) return {x:h.ux + 3, y:2.4, z:h.zf, d:12.5, up:4.6, base:Math.PI, sw:.55, outside:true};
   const s = hzUi.mode === 'deco' && hzSelInfo();
-  if (s && s.kind === 'item') return {x:HX(s.sl.x, s.sl.fl), y:.8, z:HZZ(s.sl.z), d:7, up:6.5};
-  const fl = HZ.fl; return {x:HX(0, fl), y:.5, z:HZZ(fl ? 7 : 8), d:12, up:12};
+  if (s && s.kind === 'item') return {x:HX(s.sl.x, s.sl.fl), y:.8, z:HZZ(s.sl.z), d:4.2, up:6.2, base:s.sl.r, sw:.6, fl:s.sl.fl};
+  const fl = HZ.fl; return {x:HX(0, fl), y:.5, z:HZZ(fl ? 8.2 : 10), d:3.5, up:fl ? 16 : 20, base:Math.PI, sw:.3, fl};
 }
 function hzFrame(now){
   if (!hzUi.on) return;
   requestAnimationFrame(hzFrame);
   const dt = Math.min(.05, (now - (hzUi.last || now)) / 1000); hzUi.last = now;
-  /* outside, the camera only swings left and right in front of the house (the row behind and the houses next door are in the way); inside it goes all the way round */
-  const outside = hzUi.mode === 'view' && !HZ.in;
-  if (!hzUi.drag && !REDUCED) hzUi.yaw += dt * .16 * (hzUi.dir || 1);
-  if (outside){ if (hzUi.yaw > Math.PI + .55){ hzUi.yaw = Math.PI + .55; hzUi.dir = -1; } else if (hzUi.yaw < Math.PI - .55){ hzUi.yaw = Math.PI - .55; hzUi.dir = 1; } }
-  const t = hzCamTarget(), W = window.innerWidth, H = window.innerHeight, r = hzEl.getBoundingClientRect();
+  const t = hzCamTarget(), outside = !!t.outside, W = window.innerWidth, H = window.innerHeight, r = hzEl.getBoundingClientRect();
+  /* a piece on the other floor: draw that floor instead, and cut straight to it rather than flying 30 m sideways through nothing */
+  if (t.fl != null && HZ.in && HZ.shown !== t.fl){ hzShowFloor(t.fl); hzUi.cam = null; }
+  if (!hzUi.drag && !REDUCED) hzUi.swing += dt * .12 * hzUi.dir;
+  if (hzUi.swing > t.sw){ hzUi.swing = t.sw; hzUi.dir = -1; } else if (hzUi.swing < -t.sw){ hzUi.swing = -t.sw; hzUi.dir = 1; }
+  const yaw = t.base + hzUi.swing;
   const wide = r.left > W * .3, ox = wide ? Math.round(r.width / 2 + 8) : 0, oy = wide ? 0 : Math.round(Math.min(H * .62, H - r.top) / 2);
   const key = W + 'x' + H + ':' + ox + ',' + oy;
   if (key !== hzUi.view){ hzUi.view = key; camera.setViewOffset(W, H, ox, oy, W, H); }
@@ -259,15 +264,15 @@ function hzFrame(now){
   if (camera.fov !== 50 || camera.near !== .5){ camera.fov = 50; camera.near = .5; camera.updateProjectionMatrix(); }
   /* the camera eases towards its spot, so picking another piece flies over to it */
   const kd = outside ? Math.min(k, 1.1) : k;   /* outside there is a row of houses behind the camera: go up, not back */
-  const want = new THREE.Vector3(t.x + Math.sin(hzUi.yaw) * t.d * kd, t.y + t.up * (outside ? Math.min(k, 1.15) : k), t.z + Math.cos(hzUi.yaw) * t.d * kd);
+  const want = new THREE.Vector3(t.x + Math.sin(yaw) * t.d * kd, t.y + t.up * (outside ? Math.min(k, 1.15) : k), t.z + Math.cos(yaw) * t.d * kd);
   if (!hzUi.cam) hzUi.cam = {p:want.clone(), l:new THREE.Vector3(t.x, t.y, t.z)};
   const a = 1 - Math.exp(-dt * 5); hzUi.cam.p.lerp(want, a); hzUi.cam.l.lerp(new THREE.Vector3(t.x, t.y, t.z), a);
   camera.position.copy(hzUi.cam.p); camera.lookAt(hzUi.cam.l);
   fitShadow(Math.round(t.x / 20) * 20, Math.round(t.z / 20) * 20, 60);
 }
-/* drag on the 3D view to turn round */
+/* drag on the 3D view to look from a little further left or right (within the sway range) */
 canvas.addEventListener('pointerdown', e => { if (hzUi.on) hzUi.drag = {id:e.pointerId, x:e.clientX}; });
-window.addEventListener('pointermove', e => { if (hzUi.drag && e.pointerId === hzUi.drag.id){ hzUi.yaw -= (e.clientX - hzUi.drag.x) * .008; hzUi.drag.x = e.clientX; } });
+window.addEventListener('pointermove', e => { if (hzUi.drag && e.pointerId === hzUi.drag.id){ hzUi.swing -= (e.clientX - hzUi.drag.x) * .006; hzUi.drag.x = e.clientX; } });
 const hzUp = e => { if (hzUi.drag && e.pointerId === hzUi.drag.id) hzUi.drag = null; };
 window.addEventListener('pointerup', hzUp); window.addEventListener('pointercancel', hzUp);
 /* while open the game keys do nothing; Esc closes */

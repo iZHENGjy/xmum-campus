@@ -216,7 +216,7 @@ function updateStunt(dt, sp){
   stunt.idle += dt;
   if (stunt.pts > 0 && stunt.idle > 2.2) bankStunt();
   const show = stunt.pts > 0;
-  comboEl.hidden = !show || mode !== 'naiwa';
+  { const h = !show || mode !== 'naiwa'; if (comboEl.hidden !== h) comboEl.hidden = h; }
   if (show){ const h = `${stunt.label} ×${stunt.mult.toFixed(1)}<small>${Math.round(stunt.pts).toLocaleString()} 分</small>`; if (comboEl.innerHTML !== h) comboEl.innerHTML = h; }
 }
 
@@ -293,6 +293,9 @@ function summon(kind){
   dustBurst(x, .5, z, 8, 3); sfx.ding(); saveGame();
   toast(`${item.name} 到了`, '停在你旁边，走过去按 F 上车', 2400);
 }
+/* the car's picture in the list: a colour swatch here; js/ui-shop-icons.js swaps in a small render of the real model */
+let carIcon = it => `<div class="sw" style="background:${it.color}"></div>`;
+let upIcon = u => '';   /* 改装店 / 水枪工坊: a line icon above the level pips (js/ui-shop-icons.js) */
 const statBar = v => `<div class="sb"><i style="width:${Math.round(Math.min(1, v) * 100)}%"></i></div>`;
 function renderShop(){
   $('#shopMoney').textContent = 'RM ' + money.toFixed(2);
@@ -301,7 +304,7 @@ function renderShop(){
     const btn = own ? `<button class="btn" data-sum="${it.kind}">${cur ? '叫来修好' : '开出来'}</button>`
       : money >= it.price ? `<button class="btn buy" data-buy="${it.kind}">买下 RM ${it.price.toLocaleString()}</button>`
       : `<button class="btn" disabled>RM ${it.price.toLocaleString()} · 还差 ${Math.ceil(it.price - money).toLocaleString()}</button>`;
-    return `<div class="car"><div class="sw" style="background:${it.color}"></div><div class="ci"><b>${it.name}</b><span>${it.desc}</span>
+    return `<div class="car">${carIcon(it)}<div class="ci"><b>${it.name}</b><span>${it.desc}</span>
       <div class="st"><label>极速 ${Math.round(T.maxV * 3.6)}</label>${statBar(T.maxV / 80)}<label>加速</label>${statBar(T.acc / 30)}<label>操控</label>${statBar(T.grip * T.steer / 5.2)}<label>抗撞</label>${statBar(1 / (T.armor || 1) / 1.7)}</div></div>${btn}</div>`;
   }).join('') + '<div class="gx-uh"><b>改装店</b><span>只对你自己的车生效，买过就一直有效</span></div>' + UPG.map(u => {
     const lv = prog.up[u.k], max = lv >= u.cost.length, price = max ? 0 : u.cost[lv];
@@ -309,14 +312,14 @@ function renderShop(){
     const btn = max ? '<button class="btn" disabled>已满级</button>'
       : money >= price ? `<button class="btn buy" data-up="${u.k}">升到 ${lv + 1} 级 · RM ${price}</button>`
       : `<button class="btn" disabled>RM ${price} · 还差 ${Math.ceil(price - money)}</button>`;
-    return `<div class="car gx-up"><div class="gx-pips" role="img" aria-label="${lv} / ${u.cost.length} 级">${pips}</div><div class="ci"><b>${u.name}</b><span>${u.desc}</span></div>${btn}</div>`;
+    return `<div class="car gx-up"><div class="gx-ui">${upIcon(u)}<div class="gx-pips" role="img" aria-label="${lv} / ${u.cost.length} 级">${pips}</div></div><div class="ci"><b>${u.name}</b><span>${u.desc}</span></div>${btn}</div>`;
   }).join('') + `<div class="gx-uh"><b>水枪工坊</b><span>步行时按 E 开枪 · 对手强度：${PVE_NAME[pveLevel()]}（水枪越强、成就越多，保安和猴子越难缠）</span></div>` + WUPG.map(u => {
     const lv = prog.up[u.k], max = lv >= u.cost.length, price = max ? 0 : u.cost[lv];
     const pips = u.cost.map((_, i) => `<i class="${i < lv ? 'on' : ''}"></i>`).join('');
     const btn = max ? '<button class="btn" disabled>已满级</button>'
       : money >= price ? `<button class="btn buy" data-up="${u.k}">升到 ${lv + 1} 级 · RM ${price}</button>`
       : `<button class="btn" disabled>RM ${price} · 还差 ${Math.ceil(price - money)}</button>`;
-    return `<div class="car gx-up gx-wup"><div class="gx-pips" role="img" aria-label="${lv} / ${u.cost.length} 级">${pips}</div><div class="ci"><b>${u.name}</b><span>${u.desc}</span></div>${btn}</div>`;
+    return `<div class="car gx-up gx-wup"><div class="gx-ui">${upIcon(u)}<div class="gx-pips" role="img" aria-label="${lv} / ${u.cost.length} 级">${pips}</div></div><div class="ci"><b>${u.name}</b><span>${u.desc}</span></div>${btn}</div>`;
   }).join('');
 }
 $('#shopList').addEventListener('click', e => {

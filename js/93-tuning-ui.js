@@ -274,7 +274,36 @@ const TN_ICON = {
   skill:'<path d="M9 3h6v3H9z"/><rect x="7.5" y="6" width="9" height="14" rx="3"/><path d="M12 10v6M9.5 13h5"/>',
   trail:'<path d="M3 15c4 0 5-6 9-6s4 4 9 4"/><path d="M3 19c4 0 6-4 10-4s5 2 8 2"/><circle cx="19.5" cy="7" r="1.5"/>'
 };
-const tnSvg = tab => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">${TN_ICON[tab]}</svg>`;
+/* one icon per part slot (the tab icon is the fallback): a page of engines no longer shows the same gauge on every card */
+const TN_SLOT_ICON = {
+  eng:'<path d="M5 9h3V7h7v2h2l2 2h2.5v6H19l-2 2H8.5L7 17H5z"/><path d="M2.5 11v4M5 13H2.5M10 7V4.5h3V7"/><path d="M10 12.5l2-2 1.5 1.5 2-2"/>',
+  tyre:'<circle cx="12" cy="12" r="8.8"/><circle cx="12" cy="12" r="4.6"/><path d="M12 3.2v2.4M12 18.4v2.4M3.2 12h2.4M18.4 12h2.4M5.8 5.8l1.7 1.7M16.5 16.5l1.7 1.7M5.8 18.2l1.7-1.7M16.5 7.5l1.7-1.7"/>',
+  susp:'<path d="M12 2.5v3M12 18.5v3M8 5.5h8M8 18.5h8"/><path d="M8 7.5l8 1.5-8 1.5 8 1.5-8 1.5 8 1.5-8 1.5"/>',
+  nos:'<path d="M9.5 3h5v3h-5z"/><rect x="7.5" y="6" width="9" height="14.5" rx="3"/><path d="M13 9.5l-2.5 4h3l-2.5 4"/>',
+  skill:'<circle cx="12" cy="12" r="8.8"/><circle cx="12" cy="12" r="2.2"/><path d="M3.6 10.6c2.6-1 5.6-1.3 8.4-1.3s5.8.3 8.4 1.3M12 14.2v6.6"/>',
+  size:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="7.2"/><circle cx="12" cy="12" r="1.8"/><path d="M12 4.8v5.4M12 13.8v5.4M4.8 12h5.4M13.8 12h5.4"/>',
+  otyre:'<circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.6"/><path d="M10 2.6h4l.6 2.6 2.4-1.2 2.8 2.8-1.2 2.4 2.6.6v4l-2.6.6 1.2 2.4-2.8 2.8-2.4-1.2-.6 2.6h-4l-.6-2.6-2.4 1.2-2.8-2.8 1.2-2.4-2.6-.6v-4l2.6-.6L4.2 6.8 7 4l2.4 1.2z"/>',
+  wide:'<path d="M6.5 17h11v-3.5l-2-4.5h-7l-2 4.5z"/><path d="M8.5 13.5h7"/><path d="M1.8 13.5h2.7M19.5 13.5h2.7M3.2 11.6l-1.4 1.9 1.4 1.9M20.8 11.6l1.4 1.9-1.4 1.9"/>',
+  lip:'<path d="M4 14v-3l3-4.5h10l3 4.5v3z"/><path d="M7.5 11h9"/><path d="M2.5 17.5h19" stroke-width="2.4"/>',
+  skirt:'<path d="M2.5 13.5h19v-2l-3-1.2-3.2-3.3H8.6L5.4 10.3l-2.9 1z"/><circle cx="7" cy="14.5" r="1.7"/><circle cx="17" cy="14.5" r="1.7"/><path d="M5 18.5h14" stroke-width="2.4"/>',
+  diff:'<path d="M3 7.5h18v5H3z"/><path d="M7.5 7.5v5M16.5 7.5v5"/><path d="M5.5 12.5L4 19M9.5 12.5L9 19M14.5 12.5L15 19M18.5 12.5L20 19"/>',
+  hood:'<path d="M6 21V8.5L8.5 3h7L18 8.5V21"/><path d="M9.5 10.5h5M9.5 13.5h5M9.5 16.5h5"/>',
+  aero:'<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9.3h5.3V4M14.7 4v5.3H20M4 14.7h5.3V20M14.7 20v-5.3H20M9.3 9.3h5.4v5.4H9.3z"/>',
+  neon:'<path d="M2.5 13.5h19v-2l-3-1.2-3.2-3.3H8.6L5.4 10.3l-2.9 1z"/><path d="M4 17h3M10.5 17h3M17 17h3M5.5 20h2.5M11 20h2M16 20h2.5"/>',
+  drl:'<path d="M3.5 7.5c4-1.2 7.5-1.2 9.5 0v9c-2 1.2-5.5 1.2-9.5 0z"/><path d="M6 10.5h4.5"/><path d="M16 8l5-1.2M16 12h5M16 16l5 1.2"/>',
+  camber:'<path d="M3.5 5h3.5l3 14H6.5z"/><path d="M20.5 5H17l-3 14h3.5z"/><path d="M10 12h4"/>',
+  lift:'<path d="M3 15.5h18v-2l-3-1-3-3H9l-3 3-3 1z"/><circle cx="7.5" cy="16.5" r="2"/><circle cx="16.5" cy="16.5" r="2"/><path d="M12 7V2.5M10 4.4l2-1.9 2 1.9"/>',
+  rack:'<path d="M3 17h18v-4H3z"/><path d="M5.5 13l2-4h9l2 4"/><circle cx="7" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/><path d="M5.5 5.5h13M8 5.5V9M16 5.5V9M11 5.5V9M13 5.5V9"/>',
+  winch:'<path d="M3 7h18v5.5H3z"/><path d="M7 7v5.5M17 7v5.5"/><path d="M12 12.5v4"/><path d="M12 16.5a2.2 2.2 0 1 1-2.2 2.2"/>',
+  fair:'<path d="M3.5 16c.6-5.6 5-10 11-10.5l3.5 3.5-2.8 7z"/><path d="M14.5 5.5L17 3"/><path d="M8 16l2.5-6h5"/>',
+  f1wing:'<path d="M2 15.5h20M3.5 15.5v-4h17v4"/><path d="M9 11.5V8h6v3.5"/><path d="M12 8V4.5"/>',
+  f1tyre:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5.5"/><circle cx="12" cy="12" r="1.6"/>',
+  f1brake:'<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="2.6"/><path d="M14.6 3.8a8.6 8.6 0 0 1 5.6 5.6L17.4 10.6a5.6 5.6 0 0 0-3.9-3.9z"/><path d="M8 9.5h.01M8.5 15h.01M13 17h.01"/>',
+  f1body:'<path d="M6 9.5h12l2 10.5H4z"/><path d="M9.5 9.5a2.5 2.5 0 1 1 5 0"/><path d="M9 15h6"/>',
+  f1map:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M6 15.5l3-4 3 2 3-5 3 3"/>'
+};
+Object.assign(TN_SLOT_ICON, {mexh:TN_ICON.exh, mrim:TN_ICON.wheel, rim:TN_ICON.wheel, low:TN_ICON.stance});
+const tnSvg = k => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round">${TN_SLOT_ICON[k] || TN_ICON[k]}</svg>`;
 const tnEl = document.createElement('div');
 tnEl.className = 'panel'; tnEl.id = 'tune'; tnEl.hidden = true; tnEl.setAttribute('role', 'dialog'); tnEl.setAttribute('aria-labelledby', 'tuneT');
 tnEl.innerHTML = `<button class="x" id="tunex" aria-label="关闭">×</button>
@@ -323,7 +352,7 @@ function tnRender(){
     const tier = it.tier !== 'n' ? `<i class="t-${it.tier}">${TN_TIERC[it.tier]}</i>` : '';
     const col = it.col ? ` style="background:${it.col}${s.id === 'neonc' || s.id === 'trailc' ? ';box-shadow:0 0 10px ' + it.col : ''}"` : '';
     return `<button type="button" role="option" class="wd-it tn-it${sel ? ' sel' : ''}${tr && !sel && !on ? ' tr' : ''} tier-${it.tier}" aria-selected="${sel}" data-k="${it.key}">
-      <span class="wd-sw tn-ic"${col}>${it.col ? '' : tnSvg(s.tab)}</span><b>${it.name}</b>${tier}${tag}</button>`;
+      <span class="wd-sw tn-ic"${col}>${it.col ? '' : tnSvg(TN_SLOT_ICON[s.id] ? s.id : s.tab)}</span><b>${it.name}</b>${tier}${tag}</button>`;
   }).join('') + '</div>').join('');
   $('#tuneList').innerHTML = h;
   tnFoot();

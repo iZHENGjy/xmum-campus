@@ -354,7 +354,8 @@ window.XQD = (() => {
       ['aming', '你就是卷卷说的那个室友 ah？来这么久还没出过校门？不行 lah。'],
       ['aming', '雪邦好吃的好玩的多的是。先坐下来喝杯拉茶，Roti Canai 也要试。'],
       ['aming', '然后我带你去夜市。听说榴莲哥那边有人在卖假的猫山王，你去帮我看看 lah。'],
-      ['aming', '还有麦当当的得来速、KIP 的超市，都去一遍。路上小心偷外卖的。']
+      ['aming', '还有麦当当的得来速、KIP 的超市，都去一遍。路上小心偷外卖的。'],
+      ['aming', '对了，卷卷说你生日快到了？……没什么，随便问问 lah。']
     ],
     outro:[
       ['aming', '得来速、夜市、KIP 都去过了？跑得不错嘛！'],
@@ -776,7 +777,21 @@ window.XQD = (() => {
       ['aming', '我表哥 Ben 在汽车游乐园开改装铺，只认圈速不认车价。'],
       ['aming', '他在一园入口等你，出校园往西开就到。别给我丢脸 lah。']
     ];
+    /* 仓库主人：「mamak到过生日的剧情衔接有点奇怪，吃完mamak突然就过生日了」. Steps can be done in any order, so for someone who had
+       done the others already, the shopping list used to turn up right after the teh tarik. Now: mum mentions the birthday halfway
+       through the chapter (ev_bday_mom), and before the list there is a step at the mamak where 阿明 brings it up himself. */
     c4.steps.push(
+      {id:'c4_bdaytalk', text:'回嘛嘛档，阿明有事找你', rm:10, isNew:true, at:() => npcAt0('aming'), r:0,
+        /* already shopping or past it (a save from before this step existed): it counts, nobody gets stopped halfway through the list */
+        talkTo:'aming', talkFlag:'q_bdaytalk', done:Q => Q.flag('q_bdaytalk') || Q.flag('q_bday') || G(() => Object.keys(XQuest.state.flags).some(k => /^er_bday_/.test(k) && k !== 'er_bday_hb'), false),
+        lines:[
+          ['aming', '来来来，坐。卷卷都跟我说了，下礼拜你生日。'],
+          ['aming', '在这边过的第一个生日，不能一个人吃泡面 lah。'],
+          ['aming', '宿舍火锅局！我叫人，你负责采购。单子我发你手机上了。'],
+          ['aming', '肉片和丸子是冷冻的，最后再买。买齐了送到 LY 宿舍楼下，大家在楼上等你。']
+        ],
+        hint:{pc:'回 Bell 嘛嘛档，走到阿明旁边按 <kbd>F</kbd>', touch:'回 Bell 嘛嘛档，走到阿明旁边点「说话」', flash:'#act-f'},
+        tip:'阿明好像在筹划什么。'},
       {id:'c4_shop', text:'生日火锅局：照采购单买齐东西', rm:50, isNew:true, errand:'bday', at:() => erAt('bday'), r:0,
         done:Q => Q.flag('er_bday_all'), count:() => erCount('bday'),
         hint:{pc:'走到店门口，卡片弹出来按 <kbd>F</kbd> 买下；买到的东西在任务条下面', touch:'走到店门口，点卡片买下；买到的东西在任务条下面'},
@@ -787,17 +802,19 @@ window.XQD = (() => {
         hint:{pc:'到 LY 宿舍楼下的黄圈，按 <kbd>F</kbd> 送到', touch:'到 LY 宿舍楼下的黄圈，点卡片送到'},
         tip:'大家都在楼上等着了。'}
     ); }
+  D.diary.c4_bdaytalk = '阿明从卷卷那儿知道了我下礼拜生日，非要在宿舍搞火锅局。我嘴上说不用，心里有点高兴。';
   D.diary.c4_shop = '照着阿明的采购单跑了半个雪邦：KIP、五金店、炸鸡、嘛嘛档，还有蛋糕。';
   D.diary.c4_party = '我的生日。小小的宿舍挤了五个人和一个鸳鸯锅，宿管阿姨来敲门，最后也坐下来吃了一碗。';
   Object.assign(D.msgs, {
     mom_bday:{from:'mom', text:'下礼拜你生日，一个人在那边记得吃好一点。'},
-    am_bday:{from:'aming', text:'生日？？那必须在宿舍搞火锅局！采购单发你了，买齐送到 LY 楼下 lah。'},
+    am_bday:{from:'aming', text:'采购单在这：KIP、五金、炸鸡、嘛嘛档、蛋糕、水果。买齐送到 LY 楼下 lah，冷冻的最后买！'},
     mom_bday2:{from:'mom', text:'生日快乐。吃火锅了？别吃太辣。红包收一下。'}
   });
   const stepIs = id => G(() => XQuest.step().id === id, false);
   D.events.push(
-    {id:'ev_bday_mom', when:() => chIs(4) && stepIs('c4_shop'), msg:'mom_bday'},
-    {id:'ev_bday_am', when:() => chIs(4) && stepIs('c4_shop') && G(() => XQuest.state.msgs.some(e => e.m === 'mom_bday'), false), msg:'am_bday'}
+    /* mum first, halfway through the chapter (three of its steps done) or at the latest when 阿明's talk comes up; the list after he has talked */
+    {id:'ev_bday_mom', when:() => chIs(4) && XQuest.ph === 'steps' && (stepIs('c4_bdaytalk') || stepIs('c4_shop') || G(() => D.chapters.find(c => c.n === 4).steps.filter(s => XQuest.state.done[s.id]).length >= 3, false)), msg:'mom_bday'},
+    {id:'ev_bday_am', when:() => chIs(4) && G(() => XQuest.state.flags.q_bdaytalk, false), msg:'am_bday'}
   );
 
   /* ---------- 第 3 章：陪卷卷在 A3 图书馆自习一整天（过场 library：大窗外的天从白天变成粉红色） ---------- */
@@ -954,7 +971,7 @@ window.XQD = (() => {
     {id:'adi_ice', npc:'adi', after:'c5', text:'一箱冰水送去汽车游乐园给 Ben 师傅', rm:100, errand:'ice', done:erDone('ice')}
   );
   /* ---------- 按钮指引：这一步要点哪些按钮，从「已经点到最里面」往外排；屏幕上能看到的第一个会发光，旁边写「点这里」（js/89-quest-ui.js） ---------- */
-  { const tune = [['#tuneGo', '点这里下单施工；完工后也是点这里提车'], ['#tune .tn-it.q-can:not(.sel)', '挑这个零件：道具和钱都够'], ['#tuneTabs .q-cantab', '换到这一栏，有现在就能做的零件'], ['#shop .tn-entry', '点「改装车间」'], ['#garageBtn', '点「车行」']];
+  { const tune = [['#tuneGo', '点这里下单施工；完工后也是点这里提车'], ['#tune .tn-it.q-pick:not(.sel)', '挑这个零件：道具和钱都够'], ['#tuneTabs .q-cantab', '换到这一栏，有现在就能做的零件'], ['#shop .tn-entry', '点「改装车间」'], ['#garageBtn', '点「车行」']];
     const PRESS = {
       c1_badge:[['#ward [data-id="badge"]', '点迎新工作牌戴上'], ['#wardTabs [data-tab="neck"]', '点「颈部」'], ['#wardBtn', '点「奶娃衣橱」']],
       c1_guide:[['#gxPauseBtn', '点「暂停」，再点「指南」', 'touch']],
