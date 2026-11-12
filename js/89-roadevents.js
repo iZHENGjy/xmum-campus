@@ -3,13 +3,16 @@
  * 奶娃模式里自由逛的时候（没在送外卖、没在挑战 / 比赛 / 小游戏、没被通缉、不在室内、不是主线第 1 章、没在和主线角色说话），
  * 每 30–60 秒在前面 60–130 米的路边冒出一件小事，小地图上一个点，头顶一个标签；离开 260 米或者超时就悄悄收掉：
  *   - 招手搭车：路边同学招手，就是原来的「顺风车」（js/85-activities.js），这里只是把人放到你前面；
- *   - 保安追小偷：两个保安在追一个偷了外卖的小偷（原来的小偷系统 thSpawn，js/89-outskirts-play.js，悬赏照给），
- *     你帮忙抓住，保安再给 RM 15「见义勇为」；
- *   - 猴子抢包：猴子抢了同学的包往外跑，水枪淋它或者追上去碰到它，包就掉了，捡起来还给同学：RM 20；
- *   - 社团摆摊：路边一个摊位，停下来（离摊位 6 米内、慢下来）领一份小礼物：奶茶社灌满水枪、车友会修车、动漫社送贴纸钱；
- *   - 外卖小哥翻车：电动车倒在路边，餐盒撒了一地，45 秒内捡回来（走过去或慢慢开过去碰到就算），每盒 RM 3，捡齐再加 RM 6；
+ *   - 保安追小偷：两个保安在追一个顺手牵羊的小毛贼（这里自己的小角色，不是通缉榜上的小偷：不给悬赏、不掉改装道具、不算通缉榜），
+ *     水枪淋他会踉跄，追上去碰到他就算抓住：保安给 RM 6；
+ *   - 猴子抢包：猴子抢了同学的包往外跑，水枪淋它或者追上去碰到它，包就掉了，捡起来还给同学：RM 8；
+ *   - 社团摆摊：路边一个摊位，停下来（离摊位 6 米内、慢下来）领一份小礼物：奶茶社灌满水枪、车友会修车（车况满了就给 RM 3）、动漫社送贴纸 RM 5；
+ *   - 外卖小哥翻车：电动车倒在路边，餐盒撒了一地，45 秒内捡回来（走过去或慢慢开过去碰到就算），每盒 RM 1，捡齐再加 RM 2；
  *   - 阵雨：下一场 40–55 秒的阵雨。路面湿了以后你开的车抓地力下降最多 30%（比赛里不算）。
  * 不会出现在主线目标 120 米以内。同一时间只有一件。
+ * 平衡（玩家已经在刷材料了）：都是小钱，不掉改装道具；每种事件每天有次数上限（见 PER_DAY），今天用完的那种就不再出现；
+ *   所有事件加起来每天最多 RM 40。次数在事件冒出来的时候就记上（走开再回来刷不出第二次），记在 localStorage「xmum-roadev-v1」，按天算，刷新页面也接着算。
+ *   每件事的奖励只给一次（摊位、餐盒、包都只领一次）。
  * 对外：window.XEvents = {now(), force(id), clear(), list}（测试用） */
 'use strict';
 (() => {
@@ -18,6 +21,20 @@
   const pick = a => a[(rnd() * a.length) | 0];
   const EV = {cd:35 + rnd() * 20, cur:null, last:'', msg:'', lbl:addLabel('', 0, 0, 0, true)};
   EV.lbl.dead = true;
+
+  /* ---------- balance: small rewards, a daily cap in all and per type ---------- */
+  const CAP_KEY = 'xmum-roadev-v1', DAY_RM = 40, PER_DAY = {lift:3, thief:2, monkey:2, stall:2, crash:2, rain:4};
+  const today = () => typeof dayKey === 'function' ? dayKey() : new Date().toDateString();
+  let CAP = {day:'', rm:0, n:{}};
+  try { const d = JSON.parse(localStorage.getItem(CAP_KEY) || 'null'); if (d && typeof d === 'object') CAP = {day:String(d.day || ''), rm:+d.rm || 0, n:d.n && typeof d.n === 'object' ? d.n : {}}; } catch(e){}
+  function capSave(){ try { localStorage.setItem(CAP_KEY, JSON.stringify(CAP)); } catch(e){} }
+  function capNow(){ if (CAP.day !== today()){ CAP = {day:today(), rm:0, n:{}}; capSave(); } return CAP; }
+  const typeLeft = id => (PER_DAY[id] || 2) - (capNow().n[id] | 0);
+  /* one more event of this type today: counted when it starts */
+  function capCount(id){ const C = capNow(); C.n[id] = (C.n[id] | 0) + 1; capSave(); }
+  /* the money for it: never past today's RM 40 in all */
+  function pay(rm){ const C = capNow(), v = Math.max(0, Math.min(rm, DAY_RM - C.rm)); if (v > 0){ C.rm += v; capSave(); earn(v); } return v; }
+  const paid = (v, what) => v > 0 ? `+RM ${v}` + (what ? ' · ' + what : '') : '今天的谢礼已经收够了，心意领了';
 
   /* ---------- when may something happen ---------- */
   function canSpawn(){
@@ -76,6 +93,7 @@
   }
   const lazy = f => { let v = null; return () => v || (v = f()); };
   const victimFig = lazy(() => student('#ff8fab'));
+  const thiefFig = lazy(() => { const F = student('#3b3b44'), bag = new THREE.Mesh(new THREE.BoxGeometry(.4, .38, .28), M('#ff8a3d', {roughness:.6})); bag.position.set(0, 1.22, -.3); bag.castShadow = true; F.body.add(bag); return F; });
   const riderFig = lazy(() => student('#f2c230'));
   const clubFigs = lazy(() => [student('#2d5d8a'), student('#27ae60')]);
   const guardFigs = lazy(() => typeof guardFig === 'function' ? [0, 1].map(() => { const G = guardFig({s:1.2}); scene.add(G.g); return G; }) : []);
@@ -117,9 +135,9 @@
 
   /* ---------- the events ---------- */
   const CLUBS = [
-    {name:'奶茶社 · 免费试喝', gift(){ if (typeof WG !== 'undefined' && typeof wgShow === 'function'){ WG.ammo = WG.max; wgShow(); } earn(3); return ['奶茶社请你喝了一杯', '水枪也顺手灌满了 · +RM 3']; }},
-    {name:'车友会 · 免费检修', gift(){ const c = driving; if (c && !c.wrecked && c.hp < 100){ c.hp = 100; return ['车友会帮你检修了一下', '车况回到 100%']; } earn(8); return ['车友会送你一张洗车券', '+RM 8']; }},
-    {name:'动漫社 · 送贴纸', gift(){ earn(10); const loot = window.XParts ? g(() => XParts.reward('activity', 3, '社团摆摊'), []) : []; return ['动漫社送你一张限定贴纸', '+RM 10' + (loot && loot.length ? ' · 改装：' + XParts.text(loot) : '')]; }}
+    {name:'奶茶社 · 免费试喝', gift(){ if (typeof WG !== 'undefined' && typeof wgShow === 'function'){ WG.ammo = WG.max; wgShow(); } return ['奶茶社请你喝了一杯', '水枪也顺手灌满了']; }},
+    {name:'车友会 · 免费检修', gift(){ const c = driving; if (c && !c.wrecked && c.hp < 100){ c.hp = 100; return ['车友会帮你检修了一下', '车况回到 100%']; } return ['车友会送你一张洗车券', paid(pay(3))]; }},
+    {name:'动漫社 · 送贴纸', gift(){ return ['动漫社送你一张限定贴纸', paid(pay(5))]; }}
   ];
   const TYPES = {
     lift:{name:'招手搭车', icon:'🙋', color:'#3fd6c6',
@@ -129,34 +147,49 @@
         gx.callout('有人招手', '前面路边的同学想搭车', '#3fd6c6'); return {done:true};
       }},
     thief:{name:'保安追小偷', icon:'🚨', color:'#e84d8a',
-      can:() => typeof thSpawn === 'function' && typeof TH !== 'undefined' && !TH.on && guardFigs().length === 2,
+      can:() => guardFigs().length === 2 && typeof guardPose === 'function',
       start(s){
-        const me = driving || nw, n0 = typeof opN === 'function' ? opN('o_thief') : 0;
-        if (!thSpawn('shop', me.x, me.z, {x:s.x, z:s.z, name:'路边'})) return null;
-        const G = guardFigs(); G.forEach((F, i) => { F.x = TH.x - Math.sin(TH.h) * (7 + i * 2) + (i ? 1.5 : -1.5); F.z = TH.z - Math.cos(TH.h) * (7 + i * 2); F.walk = 0; F.g.visible = true; guardRadio(F, 1.2); });
-        toast('两个保安在追小偷', '帮他们一把：水枪淋他、开车撞倒他，走到身边按 F', 3000);
-        return {n0, G, end:0, label:'保安：站住！'};
+        const T = thiefFig(), a = rnd() * 6.28;
+        const E = {st:'run', tx:s.x, tz:s.z, th:a, t:0, run:0, rest:0, slow:0, label:'保安：站住！'};
+        place(T.g, E.tx, E.tz, a);
+        guardFigs().forEach((F, i) => { F.x = s.x - Math.sin(a) * (9 + i * 2) + (i ? 1.5 : -1.5); F.z = s.z - Math.cos(a) * (9 + i * 2); F.walk = 0; F.g.visible = true; guardRadio(F, 1.2); });
+        toast('两个保安在追一个小毛贼', '帮他们一把：水枪淋他会踉跄，追上去碰到他就算抓住', 3000);
+        gx.callout('抓小毛贼！', '保安追不上了', '#e84d8a'); return E;
       },
-      tick(E, dt){
-        const G = E.G;
-        if (TH.on && !E.end){
-          for (const [i, F] of G.entries()){
-            const tx = TH.x - Math.sin(TH.h) * (3 + i * 2.2) + (i ? 1.2 : -1.2), tz = TH.z - Math.cos(TH.h) * (3 + i * 2.2), dx = tx - F.x, dz = tz - F.z, d = Math.hypot(dx, dz);
-            const v = Math.min(d, (TH.mode === 'bike' ? 9 : 7.4) * dt), h = steer(Math.atan2(dx, dz), F.x, F.z, 3, .6);
-            if (d > .5){ F.x += Math.sin(h) * v; F.z += Math.cos(h) * v; F.g.rotation.y = h; }
-            F.walk += dt * 11; F.g.position.set(F.x, groundAt(F.x, F.z), F.z); guardPose(F, dt, {walk:F.walk, run:true});
+      tick(E, dt, px, pz){
+        const T = thiefFig(), G = guardFigs(), me = driving || nw; E.t += dt;
+        if (E.st === 'run'){
+          E.slow = Math.max(0, E.slow - dt); E.run += dt;
+          if (E.rest > 0) E.rest -= dt;
+          else {
+            const h = steer(Math.atan2(E.tx - px, E.tz - pz), E.tx, E.tz, 3.5, .6); E.th += Math.atan2(Math.sin(h - E.th), Math.cos(h - E.th)) * Math.min(1, dt * 8);
+            const v = (E.slow > 0 ? 2.2 : 6.8) * dt; if (free(E.tx + Math.sin(E.th) * v, E.tz + Math.cos(E.th) * v, .5)){ E.tx += Math.sin(E.th) * v; E.tz += Math.cos(E.th) * v; }
+            if (E.run > 5){ E.run = 0; E.rest = .9; }   /* out of breath for a moment */
           }
-          E.x = TH.x; E.z = TH.z; return false;
+          const still = E.rest > 0 || E.slow > 0;
+          T.g.position.set(E.tx, groundAt(E.tx, E.tz) + (still ? 0 : Math.abs(Math.sin(E.t * 13)) * .12), E.tz); T.g.rotation.y = E.th;
+          T.legs.forEach((l, i) => { l.rotation.x = still ? 0 : Math.sin(E.t * 13) * .8 * (i ? 1 : -1); });
+          E.x = E.tx; E.z = E.tz;
+          if (Math.hypot(me.x - E.tx, me.z - E.tz) < (driving ? 3 : 1.8)){
+            E.st = 'caught'; E.t = 0; const v = pay(6); sfx.ding(); E.label = '保安：谢谢！';
+            for (const F of G) guardRadio(F, 2);
+            toast('抓住了！保安：多谢帮忙', paid(v, '见义勇为'), 2600);
+          } else if (E.t > 40){ E.st = 'lost'; E.t = 0; E.label = '保安：唉，跑了'; toast('小毛贼跑掉了', '保安追不动了', 2000); }
+        } else if (E.st === 'caught') T.arms.forEach(a => { a.rotation.x = -2.6; });   /* hands up */
+        /* the guards: run after him, then stand and catch their breath */
+        for (const [i, F] of G.entries()){
+          const tx = E.tx - Math.sin(E.th) * (3 + i * 2.2) + (i ? 1.2 : -1.2), tz = E.tz - Math.cos(E.th) * (3 + i * 2.2), dx = tx - F.x, dz = tz - F.z, d = Math.hypot(dx, dz);
+          if (E.st === 'run' || d > 1.5){
+            const v = Math.min(d, (E.st === 'run' ? 6.2 : 3) * dt), h = steer(Math.atan2(dx, dz), F.x, F.z, 3, .6);
+            if (d > .5){ F.x += Math.sin(h) * v; F.z += Math.cos(h) * v; F.g.rotation.y = h; }
+            F.walk += dt * 11; guardPose(F, dt, {walk:F.walk, run:E.st === 'run'});
+          } else guardPose(F, dt, {});
+          F.g.position.set(F.x, groundAt(F.x, F.z), F.z);
         }
-        if (!E.end){
-          E.end = 1; const won = typeof opN === 'function' && opN('o_thief') > E.n0;
-          if (won){ earn(15); setTimeout(() => toast('保安：多谢帮忙！', '见义勇为奖 +RM 15', 2600), 2200); for (const F of G) guardRadio(F, 2); E.label = '保安：谢谢！'; }
-          else { toast('小偷跑掉了', '保安追不动了', 2000); E.label = '保安：唉，跑了'; }
-        }
-        E.end += dt; for (const F of G){ guardPose(F, dt, {}); F.g.rotation.y += dt * .5; }
-        return E.end > 4.5;
+        return E.st !== 'run' && E.t > 4;
       },
-      clear(E){ for (const F of guardFigs()) F.g.visible = false; }},
+      hit(E){ if (E.st === 'run'){ E.slow = 3; gx.callout('淋到了', '小毛贼踉跄了，快追', '#4aa3ff'); } },
+      clear(){ thiefFig().g.visible = false; thiefFig().arms.forEach(a => { a.rotation.x = 0; }); for (const F of guardFigs()) F.g.visible = false; }},
     monkey:{name:'猴子抢包', icon:'🐒', color:'#93714d',
       can:() => true,
       start(s){
@@ -188,9 +221,9 @@
           E.t2 = (E.t2 || 0) + dt; const B = looseBag(); E.x = B.position.x; E.z = B.position.z;
           if (Mk.visible){ const h = Mk.rotation.y; E.mx += Math.sin(h) * 6 * dt; E.mz += Math.cos(h) * 6 * dt; Mk.position.set(E.mx, groundAt(E.mx, E.mz) + Math.abs(Math.sin(E.t * 16)) * .3, E.mz); if (E.t2 > 2){ Mk.visible = false; if (typeof mkLeaves === 'function') g(() => mkLeaves(E.mx, 1, E.mz, 5)); } }
           if (Math.hypot(me.x - B.position.x, me.z - B.position.z) < (driving ? 3 : 2)){
-            B.visible = false; E.st = 'done'; E.t = 0; earn(20); sfx.ding(); E.label = '谢谢你！';
+            B.visible = false; E.st = 'done'; E.t = 0; const v = pay(8); sfx.ding(); E.label = '谢谢你！';
             for (let i = 0; i < 6; i++) spawnPart('heart', E.vx + (rnd() - .5) * 2, 2.4 + rnd(), E.vz + (rnd() - .5) * 2, .8, {vy:2, life:1.3, op:1, color:'#ff6fa3'});
-            toast('同学：我的包！谢谢你！', '+RM 20 · 包里的电脑和作业都还在', 2600); if (typeof unlock === 'function') unlock('monkey1');
+            toast('同学：我的包！谢谢你！', paid(v, '包里的电脑和作业都还在'), 2600); if (typeof unlock === 'function') unlock('monkey1');
           }
           return false;
         }
@@ -241,8 +274,8 @@
         if (driving && sp >= 14) E.msg = '开慢点才捡得起餐盒';
         E.label = `帮忙捡餐盒 ${E.n}/6 · ${Math.max(0, Math.ceil(45 - E.t))} 秒`;
         if (E.n >= 6 || E.t > 45){
-          E.done = true; const pay = E.n * 3 + (E.n >= 6 ? 6 : 0); E.t = 0;
-          if (pay){ earn(pay); sfx.ding(); toast('外卖小哥：太感谢了！', `捡回 ${E.n} 盒 · 小费 RM ${pay}`, 2600); E.label = '谢谢！'; }
+          E.done = true; const tip = E.n + (E.n >= 6 ? 2 : 0); E.t = 0;
+          if (tip){ const v = pay(tip); sfx.ding(); toast('外卖小哥：太感谢了！', `捡回 ${E.n} 盒 · ` + paid(v, '小费'), 2600); E.label = '谢谢！'; }
           else { toast('外卖小哥自己收拾好走了', '', 1600); }
         }
         return false;
@@ -258,7 +291,7 @@
   function drop(E, why){
     const Mk = monkeyFig(), B = looseBag(); Mk.userData.bag.visible = false;
     B.position.set(E.mx, groundAt(E.mx, E.mz), E.mz); B.visible = true; E.st = 'drop'; E.t2 = 0; E.label = '捡起包还给同学';
-    sfx.sparkle(); gx.callout(why, '包掉了，捡起来', '#93714d'); addStunt('抢回包', 120);
+    sfx.sparkle(); gx.callout(why, '包掉了，捡起来', '#93714d');
   }
 
   /* ---------- running the current one ---------- */
@@ -268,11 +301,11 @@
     EV.cur = null; EV.lbl.dead = true; EV.msg = ''; EV.cd = 30 + rnd() * 30;
   }
   function start(id){
-    const T = TYPES[id]; if (!T || !T.can()) return false;
+    const T = TYPES[id]; if (!T || typeLeft(id) <= 0 || !T.can()) return false;
     const s = id === 'rain' ? {x:0, z:0} : spotAhead(id === 'thief' ? 45 : 60, id === 'thief' ? 110 : 130); if (!s) return false;
     let E = null; try { E = T.start(s); } catch(e){ E = null; }
     if (!E) return false;
-    EV.last = id;
+    EV.last = id; capCount(id);   /* counted when it starts: walking away and coming back cannot farm it */
     if (E.done){ EV.cd = 30 + rnd() * 30; return true; }
     E.type = id; E.T = 0; if (E.x == null){ E.x = s.x; E.z = s.z; }
     EV.cur = E; return true;
@@ -291,7 +324,7 @@
     }
     if (!canSpawn()) return;
     EV.cd -= dt; if (EV.cd > 0) return;
-    const ids = Object.keys(TYPES).filter(k => k !== EV.last && g(() => TYPES[k].can(), false));
+    const ids = Object.keys(TYPES).filter(k => k !== EV.last && typeLeft(k) > 0 && g(() => TYPES[k].can(), false));
     for (let k = 0; k < 3 && ids.length; k++){ const i = (rnd() * ids.length) | 0; if (start(ids[i])) return; ids.splice(i, 1); }
     EV.cd = 6;   /* nothing fitted here: try again soon */
   }
@@ -305,7 +338,12 @@
       leave(){ clear(); return b.leave.apply(this, arguments); }
     }); }
   /* the monkey can be soaked */
-  if (typeof wgAddTarget === 'function') wgAddTarget(() => { const E = EV.cur; return E && E.type === 'monkey' && E.st === 'run' ? [{x:E.mx, z:E.mz, r:.9, hit:() => TYPES.monkey.hit(E)}] : null; });
+  if (typeof wgAddTarget === 'function') wgAddTarget(() => {
+    const E = EV.cur; if (!E || E.st !== 'run') return null;
+    if (E.type === 'monkey') return [{x:E.mx, z:E.mz, r:.9, hit:() => TYPES.monkey.hit(E)}];
+    if (E.type === 'thief') return [{x:E.tx, z:E.tz, r:.9, hit:() => TYPES.thief.hit(E)}];
+    return null;
+  });
   /* wet roads: the car you drive grips up to 30 % less (not in races, which have their own rules) */
   if (typeof updateCar === 'function'){
     const u0 = updateCar;
@@ -316,5 +354,8 @@
     };
   }
 
-  window.XEvents = {now:() => EV.cur && EV.cur.type, force(id){ clear(); EV.last = ''; return start(id); }, clear, list:Object.keys(TYPES), state:EV};
+  window.XEvents = {now:() => EV.cur && EV.cur.type, list:Object.keys(TYPES), state:EV, cap:() => JSON.parse(JSON.stringify(capNow())), limits:{DAY_RM, PER_DAY}};
+  /* forcing an event and clearing today's count: local tests and the preview only */
+  if (window.XMUM_FIREBASE === null || /\/preview\//.test(location.pathname) || /^(localhost|127\.0\.0\.1)$/.test(location.hostname))
+    Object.assign(window.XEvents, {force(id){ clear(); EV.last = ''; return start(id); }, clear, capReset(){ CAP = {day:'', rm:0, n:{}}; capSave(); }});
 })();
