@@ -140,6 +140,11 @@ const WD_SW = {shirt:'#f4f3ef', police:'#a9c8ea', redvest:'#c8302a', santa:'#c42
 for (const id in WD_SW) if (WD.byId[id]) WD.byId[id].sw = WD_SW[id];
 const fmtP = v => 'RM ' + Math.round(v).toLocaleString();
 
+/* the tile's picture: a drawn outline of the item filled with its colour (js/ui-shop-icons.js), else the colour dot */
+const wardSwHTML = (it, sw) => {
+  const g = sw && typeof wdGlyph === 'function' ? wdGlyph(it) : null;
+  return g ? `<span class="wd-sw gly"><span class="gl" style="background:${sw};--m:url('${g}')"></span></span>` : `<span class="wd-sw${sw ? '' : ' none'}" style="${sw ? 'background:' + sw : ''}"></span>`;
+};
 function wardRender(){
   $('#wardMoney').textContent = fmtRM(money);
   $('#wardT').textContent = ward.kind === 'car' ? (ward.garage ? '喷漆车间 · ' : '喷漆店 · ') + (myCar ? myCar.T.name : '') : '奶娃衣橱';
@@ -152,7 +157,7 @@ function wardRender(){
     const sw = it ? wardSw(it) : null, tag = !it ? '' : on ? `<em class="on">${ward.kind === 'car' ? '在用' : '穿着'}</em>` : own ? '<em>已有</em>' : `<em class="p">${it.price ? fmtP(it.price) : '免费'}</em>`;
     const tier = it && it.tier !== 'n' ? `<i class="t-${it.tier}">${WD_TIER[it.tier]}</i>` : '';
     return `<button type="button" role="option" class="wd-it${sel ? ' sel' : ''}${it ? ' tier-' + it.tier : ''}" aria-selected="${sel}" data-id="${id}">
-      <span class="wd-sw${sw ? '' : ' none'}" style="${sw ? 'background:' + sw : ''}"></span><b>${it ? it.name : (ward.tab === 'outfit' ? '不穿' : '不戴')}</b>${tier}${tag}</button>`;
+      ${wardSwHTML(it, sw)}<b>${it ? it.name : (ward.tab === 'outfit' ? '不穿' : '不戴')}</b>${tier}${tag}</button>`;
   }).join('');
   wardFoot();
 }
