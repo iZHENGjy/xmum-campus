@@ -31,7 +31,7 @@ const XTone = (() => {
   T.tick = dt => {
     const out = tgt === P3.day || tgt === P3.dusk || tgt === P3.night;
     const want = out && typeof XClock !== 'undefined' ? XClock.live.ex : 1.08;
-    T.ex += (want - T.ex) * Math.min(1, dt * 2.5);
+    if (dt > 0) T.ex += (want - T.ex) * Math.min(1, dt * 2.5);
     renderer.toneMappingExposure = T.ex;
   };
   return T;
@@ -109,7 +109,7 @@ const XLight = (() => {
     const t1 = XQ.tier > 0, out = XWeather.outside();
     /* clouds drift east with the cloud meshes (js/90-main.js moves them 5 m/s) */
     const v = cloudU.k.value, sunK = Math.min(1, Math.max(0, (sun.intensity - .25) / .8));
-    v.x = (v.x - dt * 5 / 900) % 1; v.y = (v.y - dt * 1.2 / 900) % 1;
+    if (dt > 0){ v.x = (v.x - dt * 5 / 900) % 1; v.y = (v.y - dt * 1.2 / 900) % 1; }
     v.w = t1 && out && !REDUCED ? .55 * sunK * (1 - Math.max(wx.cloud, wx.storm, wx.haze * .7)) : 0;
     /* streaks: wet ground and lamps on */
     const lamp = Math.min(1, bulbMat.emissiveIntensity), st = XQ.cfg.glow && out && wx.wet > .05 && lamp > .1;
