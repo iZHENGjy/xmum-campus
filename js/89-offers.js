@@ -122,6 +122,7 @@ function offerJob(id, build){
   const O = OFFER;
   if (mode !== 'naiwa' || gx.paused || id == null) return false;
   if (qCalm() && !/^deliv:/.test(id)) return false;   /* story chapter 1: deliveries only */
+  if (window.XQuest && (XQuest.talking || XQuest.npcNear() || (XQuest.visiting && XQuest.visiting()))) return false;   /* next to a story character F is for talking (老周 and 阿明 stand by pick-up rings) */
   const sk = O.skip[id];
   if (sk){ sk.seen = O.frame; ofNote('这单跳过了 · 走开一下再回来可以重新看'); return false; }
   if (!O.on){ ofNote(TOUCH ? '现在不接单：点指南针旁的「不接单」打开' : '现在不接单：按 J 打开'); return false; }

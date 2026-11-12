@@ -42,6 +42,7 @@
     for (const k of ['done', 'paid', 'flags', 'sides', 'hints', 'nudged', 'stepT', 'fired']) if (!S[k] || typeof S[k] !== 'object') S[k] = {};
     for (const k of ['diary', 'msgs', 'days']) if (!Array.isArray(S[k])) S[k] = [];
     S.ch = Math.max(1, Math.min(CH.length + 1, S.ch | 0 || 1));
+    if (S.ph === 'done' && chOf(S.ch)) S.ph = 'meet';   /* a chapter added after they finished (chapter 8): it waits for them */
   }
   read();
   let ready = false, dirty = false;
@@ -86,7 +87,8 @@
     deco:() => g(() => Math.max(0, ...Object.values(XHouse.save.own).map(o => Object.values(o.s || {}).filter(Boolean).length)), 0),
     parts:id => g(() => XParts.count(id), 0),
     unlocked:k => unlocked(k),
-    ch:() => S.ch, today:dayKey
+    ch:() => S.ch, today:dayKey,
+    withMe:id => withMe(id)
   };
   const qDone = st => !!g(() => st.done(Q), false);
 
@@ -94,8 +96,12 @@
   const chapter = () => chOf(S.ch);
   const reportStep = c => ({id:c.id + '_report', text:c.report || ('回去找' + ((D.npcs[c.npc] || {}).name || '')), report:true, at:() => npcAt(c.npc), r:0});
   const stepsOf = c => c ? c.steps.concat([reportStep(c)]) : [];
+  /* just got the keys at the end of chapter 1: before anything else, get into the Myvi 小满 parked beside you */
+  const carStep = () => ({id:'c1_car0', solo:true, text:'坐上你的 Myvi（车就停在旁边）', at:() => { const c = g(() => myCar, null); return c ? [c.x, c.z] : null; }, r:0,
+    hint:{pc:'走到车旁按 <kbd>F</kbd> 上车；开车：<kbd>W</kbd><kbd>S</kbd> 油门刹车，<kbd>A</kbd><kbd>D</kbd> 转向', touch:'走到车旁点「上车」；左下摇杆开车', flash:'#act-f'}});
   function curStep(){
     const c = chapter(); if (!c) return null;
+    if (S.born === 'new' && S.ch === 2 && S.ph === 'meet' && S.done.c1_report && !S.flags.q_car1 && g(() => myCar, null)) return carStep();
     if (S.ph === 'meet') return {id:c.id + '_meet', text:'去找' + ((D.npcs[c.npc] || {}).name || '') + '（' + (c.place || '') + '）', meet:true, at:() => npcAt(c.npc), r:0};
     if (S.ph === 'report') return reportStep(c);
     return c.steps.find(s => !S.done[s.id]) || reportStep(c);
@@ -118,9 +124,13 @@
     if (!r || S.paid[id]) return '';
     S.paid[id] = now(); const out = [];
     if (r.rm > 0){ g(() => earn(r.rm)); out.push('RM ' + r.rm.toLocaleString()); }
-    if (r.car && giveCar(r.car, quiet)) out.push(g(() => SHOP.find(s => s.kind === r.car).name, r.car));
+    if (r.car){
+      if (giveCar(r.car, quiet)) out.push(g(() => SHOP.find(s => s.kind === r.car).name, r.car));
+      else { const p = g(() => SHOP.find(s => s.kind === r.car).price, 0); if (p > 0){ g(() => earn(p)); out.push('RM ' + p + '（这辆车你已经有了，折成钱）'); } }   /* bought it already (old builds let you in chapter 1) */
+    }
     if (r.parts) for (const id2 in r.parts){ const n = g(() => XParts.grant(id2, r.parts[id2], '主线奖励'), 0); if (n) out.push(g(() => (XParts.list.concat(XParts.bps).find(p => p.id === id2) || {}).name, id2) + ' ×' + r.parts[id2]); }
     if (r.items) for (const it of r.items){ if (g(() => { wardSave.own.add(it); wardWrite(); return true; }, false)) out.push(g(() => WD.byId[it].name, it)); }
+    if (r.decal && g(() => { if (wardSave.pOwn.has('d_' + r.decal)) return false; wardSave.pOwn.add('d_' + r.decal); wardWrite(); return true; }, false)) out.push(g(() => WD.byId['d_' + r.decal].name, r.decal));
     if (r.house && window.XHouse && XHouse.grant) g(() => XHouse.grant(r.house));
     if (r.title){ S.title = r.title; out.push('称号「' + r.title + '」'); }
     pay.items = out.filter(t => !/^RM /.test(t));
@@ -182,7 +192,7 @@
     const mid = [c.diaryStart].concat(c.steps.map(s => s.id), [c.diaryEnd]).filter(diaryLine).map(id => ['memo', D.diary[id]]);
     const lines = [['memo', '第 ' + c.n + ' 章 · ' + c.title]].concat(c.intro || [], mid.length ? [['memo', '……']].concat(mid, [['memo', '……']]) : [], c.outro || []);
     fillDiary(c);
-    say(lines, null, () => {   /* null: nobody to turn to, it is a memory (the npc may be across the map) */ if (c.endCine && window.XCine && XCine.play) g(() => XCine.play(c.endCine, {})); });
+    say(lines, null, () => {   /* null: nobody to turn to, it is a memory (the npc may be across the map) */ const cine = c.endCine || c.replayCine; if (cine && window.XCine && XCine.play) g(() => XCine.play(cine, {})); });
     return true;
   }
   function finishChapter(c){
@@ -211,6 +221,7 @@
   function npcMark(id){
     const c = chapter();
     if (c && c.npc === id && (S.ph === 'meet' || S.ph === 'report')) return '!';
+    { const st = S.ph === 'steps' ? curStep() : null; if (st && st.talkTo === id) return '!'; }
     if (sidesOf(id).some(s => !S.sides[s.id])) return '!';
     if (c && c.npc === id && S.ph === 'steps') return '…';
     return '';
@@ -221,7 +232,8 @@
     if (c) want.add(c.npc);
     for (const n of CH) if (S.ch > n.n) want.add(n.npc);   /* met before: they stay where they are (sides, chatter) */
     if (S.born === 'new' || S.ch > 1) want.add('xiaoman');
-    return [...want].filter(id => D.npcs[id]).slice(0, 6);
+    for (const id in D.npcs){ const a = D.npcs[id].appear; if (a && S.ch >= a) want.add(id); }   /* the shopkeepers and the freshman: from their chapter on */
+    return [...want].filter(id => D.npcs[id]).slice(0, 12);
   }
   function npcBuild(id){
     const n = D.npcs[id], at = npcAt(id); if (!at || typeof makeNaiwa !== 'function') return null;
@@ -241,12 +253,22 @@
     o.lbl.dead = true; o.lbl.el.remove(); const i = labels.indexOf(o.lbl); if (i >= 0) labels.splice(i, 1);
     delete NPC[id];
   }
+  /* an npc that walks with you (chapter 8: the freshman): D.npcs[id].follow() says when */
+  const following = id => { const n = D.npcs[id]; return !!(n && n.follow && g(n.follow, false)); };
   function npcSync(){
     const want = new Set(mode === 'naiwa' ? npcWanted() : []);
     for (const id in NPC) if (!want.has(id)) npcRemove(id);
     const [px, pz] = here(), inside = g(() => indoorNow(), false);
     for (const id of want){
       let o = NPC[id];
+      if (following(id)){
+        if (!o){ o = npcBuild(id); if (!o) continue; o.x = nw.x - Math.sin(nw.h) * 2.6; o.z = nw.z - Math.cos(nw.h) * 2.6; }
+        o.fol = true; o.vis = !inside; const n = D.npcs[id];
+        o.lbl.dead = !o.vis || o.inCar; const txt = n.short || n.name; if (o.lbl.el.textContent !== txt) o.lbl.el.textContent = txt;
+        o.lbl.el.classList.remove('q-bang', 'q-dots');
+        continue;
+      }
+      if (o && o.fol){ o.fol = false; o.inCar = false; o.x = NaN; }   /* stopped following: back to its spot */
       const at = npcAt(id); if (!at){ if (o) npcRemove(id); continue; }
       const far = Math.hypot(at[0] - px, at[1] - pz) > 60 || inside;
       if (!o){ if (far) continue; o = npcBuild(id); if (!o) continue; }
@@ -261,7 +283,9 @@
   /* idle: breathe, look at you when you are close, wave when there is something to say */
   function npcFrame(dt, T){
     for (const id in NPC){
-      const o = NPC[id]; if (!o.vis) continue;
+      const o = NPC[id];
+      if (o.fol && followFrame(o, dt)) continue;
+      if (!o.vis) continue;
       o.t += dt; const N = o.N, [px, pz] = here(), d = Math.hypot(px - o.x, pz - o.z);
       let want = o.h; if (d < 14 && !g(() => driving, null)) want = Math.atan2(px - o.x, pz - o.z);
       if (talking && talking.npc === id) want = Math.atan2(nw.x - o.x, nw.z - o.z);
@@ -277,6 +301,32 @@
       N.eyes[0].scale.y = N.eyes[1].scale.y = (o.t % 3.9) < .12 ? .1 : 1;
     }
   }
+  /* the follower: in a car it rides with you (hidden); on foot it walks beside and a little behind you, running to catch up */
+  function followFrame(o, dt){
+    const N = o.N, car = g(() => driving, null);
+    if (car){ o.inCar = true; N.root.visible = false; o.lbl.dead = true; o.x = car.x; o.z = car.z; return true; }
+    if (o.inCar){ o.inCar = false; o.x = nw.x + Math.cos(nw.h) * 2; o.z = nw.z - Math.sin(nw.h) * 2; }   /* gets out beside you */
+    if (!o.vis){ N.root.visible = false; return true; }
+    N.root.visible = !(talking && talking.hideNpc === o.id);
+    o.t += dt;
+    /* a step behind and to the right, so the camera behind you still sees you */
+    const bx = nw.x - Math.sin(nw.h) * 1.3 - Math.cos(nw.h) * 2, bz = nw.z - Math.cos(nw.h) * 1.3 + Math.sin(nw.h) * 2, dx = bx - o.x, dz = bz - o.z, d = Math.hypot(dx, dz);
+    if (d > 45){ o.x = bx; o.z = bz; }   /* left far behind (a jump, a fall): catch up at once */
+    const sp = d > 1 ? Math.min(11, 2.6 + d * 1.6) : 0, moving = sp > 0;
+    if (moving){ const s = Math.min(d, sp * dt); o.x += dx / d * s; o.z += dz / d * s; o.wph = (o.wph || 0) + dt * sp * 1.6; }
+    const want = moving ? Math.atan2(dx, dz) : Math.atan2(nw.x - o.x, nw.z - o.z);
+    N.root.rotation.y += Math.atan2(Math.sin(want - N.root.rotation.y), Math.cos(want - N.root.rotation.y)) * Math.min(1, dt * 8);
+    const gy = g(() => groundAt(o.x, o.z), 0); N.root.position.set(o.x, gy, o.z); o.lbl.pos.set(o.x, gy + 3.3, o.z);
+    const w = o.wph || 0, [aL, aR] = N.arms, [lL, lR] = N.legs, [eL, eR] = N.elbows || [];
+    if (moving){ lL.rotation.set(Math.sin(w) * .6, 0, 0); lR.rotation.set(-Math.sin(w) * .6, 0, 0); aL.rotation.set(-.25 - Math.sin(w) * .4, 0, .38); aR.rotation.set(-.25 + Math.sin(w) * .4, 0, -.38); N.body.position.y = Math.abs(Math.sin(w)) * .05; N.body.rotation.z = Math.sin(w) * .07; }
+    else { lL.rotation.set(0, 0, 0); lR.rotation.set(0, 0, 0); aL.rotation.set(-.32, 0, .36); aR.rotation.set(-.32, 0, -.36); N.body.position.y = Math.sin(o.t * 2) * .01; N.body.rotation.z = 0; }
+    if (eL){ eL.rotation.set(-1.22, 0, -.32); eR.rotation.set(-1.22, 0, .32); }
+    const talkNow = talking && talking.who === o.id; N.mouth.scale.y = talkNow ? .02 + Math.abs(Math.sin(o.t * 12)) * .05 : .018;
+    N.eyes[0].scale.y = N.eyes[1].scale.y = (o.t % 3.9) < .12 ? .1 : 1;
+    return true;
+  }
+  /* the follower is with you: beside you on foot, or riding in your car */
+  const withMe = id => { const o = NPC[id]; return !!(o && o.fol && (o.inCar || Math.hypot(o.x - nw.x, o.z - nw.z) < 9)); };
   function npcNearId(){
     if (mode !== 'naiwa' || g(() => driving, null)) return null;
     let best = null, bd = 4.2;
@@ -305,6 +355,11 @@
       });
       return;
     }
+    { const st = curStep();
+      if (c && S.ph === 'steps' && st && st.talkTo === id && !S.flags[st.talkFlag]){
+        say(st.lines || [[id, '……']], id, () => { flag(st.talkFlag); if (st.onTalk) g(st.onTalk); checkSteps(false); });
+        return;
+      } }
     const fresh = sidesOf(id).filter(s => !S.sides[s.id]);
     if (fresh.length){
       const lines = [[id, fresh.length > 1 ? '对了，还有几件事想拜托你：' : '对了，还有件事想拜托你：']].concat(fresh.map(s => [id, '· ' + s.text + (s.rm ? `（RM ${s.rm}）` : '')]));
@@ -355,6 +410,8 @@
         return '';
       },
       target(){
+        /* wanted and never shaken them off before: the compass goes straight to the paint shop at Bell (js/13-outskirts.js XSPRAY) */
+        const hs = heatSpray(); if (hs) return hs;
         const t = base.target(); if (t) return t;
         if (g(() => mission.on, false) || S.quiet === 'all') return null;
         return target();
@@ -384,6 +441,21 @@
   { let was = false, tLeft = 0;
     setInterval(() => { const on = g(() => mission.on, false); if (on) tLeft = g(() => mission.t, 99); if (was && !on && tLeft > 0 && tLeft < 15 && g(() => prog.life.deliv, 0) > 0) flag('lateDeliv'); was = on; }, 250); }
 
+  /* the story sends you to a person right now (meet, report, "go and talk to"): within 15 m of them no order cards, so F and the
+     ring by 老周 / 阿明 do not turn the visit into a delivery (js/89-offers.js asks) */
+  function visiting(){
+    const c = chapter(), st = curStep(); if (!c || !st) return false;
+    if (st.calmNear){ const a = typeof st.at === 'function' ? g(() => st.at(Q), null) : st.at; if (a){ const [px, pz] = here(); if (Math.hypot(px - a[0], pz - a[1]) < (st.r || 6) + 12) return true; } }
+    const who = st.meet || st.report ? c.npc : st.talkTo; if (!who) return false;
+    const o = NPC[who], a = o ? [o.x, o.z] : npcAt(who); if (!a) return false;
+    const [px, pz] = here(); return Math.hypot(px - a[0], pz - a[1]) < 15;
+  }
+  /* the first chase: until you have once driven into the paint shop, any wanted stars send the compass there, with one tip */
+  function heatSpray(){
+    if (!(g(() => heat, 0) >= 1) || g(() => prog.ach.repaint, true) || !window.XSPRAY) return null;   /* a real star (js/80-gta.js: stars = floor(heat)), not just a warning */
+    if (!S.flags.heat1){ flag('heat1'); g(() => toast('被保安盯上了！', '先拐几个弯、穿过树林，甩开保安的视线，再开进 Bell Avenue 的喷漆车间换个颜色。指南针带你去', 4600)); }
+    return {x:XSPRAY.door.x, z:XSPRAY.door.z, label:'甩开保安视线 · 再开进 Bell 喷漆车间'};
+  }
   /* where the compass points: the step's place, or the npc to see */
   function target(){
     const st = curStep(); if (!st || !st.at) return null;
@@ -441,8 +513,8 @@
     if (mode !== 'naiwa' || g(() => driving, null) || g(() => indoorNow(), true) || g(() => mission.on, true) || gx.busy() || gx.extBusy() || g(() => heat > 0, false) || gx.paused) return;
     if (nw.state !== 'idle' || nw.air || S.ph === 'done') return;
     const day = dayKey(), first = !S.flags.home1;
+    if ((S.home.n | 0) >= 2) return;   /* 仓库主人：一共两次就够了 */
     if (!first && S.home.day === day) return;
-    if (!first && S.ch < 3 && S.home.n >= 2) return;
     /* between steps: one just ticked, or the step now is "go somewhere" */
     const st = curStep(), between = performance.now() - lastTick < 90000 || !!(st && st.at);
     if (!between) return;
@@ -471,6 +543,7 @@
     const today = dayKey(); if (S.days[S.days.length - 1] !== today && !S.days.includes(today)){ S.days.push(today); if (S.days.length > 400) S.days.shift(); save(); }
     if (mode === 'naiwa'){
       if (S.ph === 'steps') checkSteps(false);
+      if (!S.flags.q_car1 && g(() => driving, null) && unlocked('drive')){ flag('q_car1'); emit('state'); }   /* first time behind the wheel */
       checkSides(false);
       /* the first-time events (diary lines, mum's messages) */
       for (const ev of D.events){
@@ -564,8 +637,8 @@
     get ready(){ return ready; }, get state(){ return S; }, get ch(){ return S.ch; }, get ph(){ return S.ph; }, get born(){ return S.born; },
     get talking(){ return !!talking; },
     data:D, chapters:CH, chapter, step:curStep, steps:() => stepsOf(chapter()), stepDone:id => !!S.done[id], Q, qDone,
-    unlocked, carLocked, ch1Deliv, ringsOff, calm, lockToast,
-    flag, talk, npcNear:npcNearId, npcAt, npcMark, npcs:NPC, sidesOf, diaryAdd, msg, save, dayNo,
+    unlocked, carLocked, ch1Deliv, ringsOff, calm, lockToast, visiting,
+    flag, talk, say, npcNear:npcNearId, npcAt, npcMark, npcs:NPC, sidesOf, diaryAdd, msg, save, dayNo, pay, withMe,
     on, target, playIntro, replay, chFinished, unlockedTitle:() => S.title,
     ui:null, dev
   };

@@ -8,7 +8,38 @@
    drag them with the mouse, turn the wheel to move them sideways, and fade the edge that has more tabs behind it */
 (function wdTabScroll(){
   const ROWS = '.wd-tabs, .tn-inv';   /* the tab rows, and the 改装车间 parts bar (配 毂 漆 … 核 钛), which runs off the right edge too */
-  const edge = el => { const m = el.scrollWidth - el.clientWidth > 2; el.classList.toggle('more-l', m && el.scrollLeft > 2); el.classList.toggle('more-r', m && el.scrollLeft < el.scrollWidth - el.clientWidth - 2); };
+  const edge = el => { const m = el.scrollWidth - el.clientWidth > 2, l = m && el.scrollLeft > 2, r = m && el.scrollLeft < el.scrollWidth - el.clientWidth - 2;
+    el.classList.toggle('more-l', l); el.classList.toggle('more-r', r);
+    const w = el.parentElement; if (w && w.classList.contains('sx-wrap')){ w.classList.toggle('sx-l', l); w.classList.toggle('sx-r', r); } };
+  /* most players never found out these rows move: each one gets ‹ › buttons at the ends that have more behind them; the first time a
+     row shows up it slides a little and back (a peek), and until the player has moved any row once, the › says 「拖动看更多」 */
+  const SXK = 'xmum-sxhint';
+  const sxSeen = () => { try { return localStorage.getItem(SXK) === '1'; } catch(e){ return true; } };
+  const sxDone = () => { try { localStorage.setItem(SXK, '1'); } catch(e){} document.body.classList.add('sx-known'); };
+  const wrap = el => {
+    if (el.parentElement && el.parentElement.classList.contains('sx-wrap')) return;
+    const w = document.createElement('div'); w.className = 'sx-wrap'; el.parentNode.insertBefore(w, el); w.appendChild(el);
+    for (const [cls, d, label] of [['sx-btn sx-bl', -1, '往左看'], ['sx-btn sx-br', 1, '往右看更多']]){
+      const b = document.createElement('button'); b.type = 'button'; b.className = cls; b.setAttribute('aria-label', label);
+      b.innerHTML = d < 0 ? '‹' : '<span class="sx-tip">拖动看更多</span>›';
+      b.addEventListener('click', e => {
+        e.stopPropagation(); const to = el.scrollLeft + d * Math.max(120, el.clientWidth * .7), from = el.scrollLeft;
+        el.scrollTo({left:to, behavior:'smooth'}); sxDone();
+        setTimeout(() => { if (Math.abs(el.scrollLeft - from) < 2) el.scrollLeft = to; edge(el); }, 400);   /* no smooth scrolling (a background tab): just jump */
+      });
+      w.appendChild(b);
+    }
+    el.addEventListener('scroll', () => { if (el.dataset.peeking !== '1' && el.scrollLeft > 8) sxDone(); }, {passive:true});
+  };
+  if (sxSeen()) document.body.classList.add('sx-known');
+  /* the peek: the first time a scrollable row is on screen (once per row per page load) */
+  setInterval(() => document.querySelectorAll(ROWS).forEach(el => {
+    if (el.dataset.peeked || !el.offsetParent || el.scrollWidth <= el.clientWidth + 2) return;
+    el.dataset.peeked = '1'; edge(el);
+    if (sxSeen() || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    el.dataset.peeking = '1'; el.scrollTo({left:Math.min(56, el.scrollWidth - el.clientWidth), behavior:'smooth'});
+    setTimeout(() => { el.scrollTo({left:0, behavior:'smooth'}); setTimeout(() => { delete el.dataset.peeking; edge(el); }, 500); }, 650);
+  }), 400);
   let drag = null;
   document.addEventListener('pointerdown', e => {
     const el = e.pointerType === 'mouse' && e.button === 0 && e.target.closest && e.target.closest(ROWS);
@@ -32,7 +63,7 @@
     const on = el.querySelector('[aria-selected="true"]'); if (on && el.scrollWidth > el.clientWidth){ const l = on.offsetLeft - el.offsetLeft, r = l + on.offsetWidth; if (l < el.scrollLeft) el.scrollLeft = l - 16; else if (r > el.scrollLeft + el.clientWidth) el.scrollLeft = r - el.clientWidth + 16; }
     edge(el); } });
   /* only the tab rows themselves are watched (the HUD changes every frame); the panels are all built by the time the page has loaded */
-  const watch = () => document.querySelectorAll(ROWS).forEach(el => { if (!el.dataset.wdWatch){ el.dataset.wdWatch = '1'; mo.observe(el, {childList:true, subtree:true, attributes:true, attributeFilter:['aria-selected']}); } });
+  const watch = () => document.querySelectorAll(ROWS).forEach(el => { if (!el.dataset.wdWatch){ el.dataset.wdWatch = '1'; wrap(el); edge(el); mo.observe(el, {childList:true, subtree:true, attributes:true, attributeFilter:['aria-selected']}); } });
   if (document.readyState === 'complete') setTimeout(watch, 0); else window.addEventListener('load', watch);
   window.addEventListener('resize', () => document.querySelectorAll(ROWS).forEach(edge));
 })();
@@ -86,7 +117,7 @@ const wTabs = {naiwa:WD_SLOTS, car:[['paint', '车漆'], ['decal', '贴花']]};
 const wdOptional = s => !['skin', 'shape', 'paint', 'decal'].includes(s);
 function wardItems(slot){
   if (slot === 'paint') return WD_PAINTS.map(p => WD.byId[p.id]);
-  if (slot === 'decal') return WD_DECALS.map(d => WD.byId['d_' + d.id]);
+  if (slot === 'decal') return WD_DECALS.filter(d => !d.quest || wardSave.pOwn.has('d_' + d.id)).map(d => WD.byId['d_' + d.id]);   /* quest:true = only once the story gives it */
   return WD_ITEMS.filter(it => it.slot === slot && (!it.quest || wardSave.own.has(it.id)));
 }
 const wardOwned = id => id == null || (ward.kind === 'car' ? wardSave.pOwn : wardSave.own).has(id);

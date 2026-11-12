@@ -7,7 +7,7 @@
  *   操作提示：电脑在屏幕下方写按键；手机不写按键，对应的按钮闪一圈黄边。做完就消失。
  *   对话框：屏幕下方，左边头像，右边名字和一句话；空格 / 回车 / F / 点一下翻下一句，Esc 或「跳过」直接跳完。对话时游戏不暂停，奶蛙站住。
  *   手机通知：右上角，图标 + 名字 + 一句话，3 秒收起；过场、对话、比赛、被保安追的时候先攒着。
- *   日记页底下的开关「收起任务条和提示」：关掉以后只留指南针，主线照样记进度。 */
+ *   日记页底下的开关「不显示操作提示」：只收起屏幕下方那条按键提示，任务条和指南针照常显示。 */
 'use strict';
 (() => {
   const XQ = window.XQuest; if (!XQ) return;
@@ -30,7 +30,9 @@
     box.querySelector('.q-who').textContent = p.name;
     T.full = l.text || ''; T.shown = 0; T.t0 = performance.now();
     box.querySelector('.q-line').textContent = '';
-    box.querySelector('.q-next').textContent = T.i < T.lines.length - 1 ? '▸' : '✓';
+    /* say which key goes on: F on a computer, a tap on a phone; the last line says it closes */
+    const last = T.i >= T.lines.length - 1;
+    box.querySelector('.q-next').innerHTML = TOUCH ? (last ? '点一下关闭 ✓' : '点一下继续 ▸') : (last ? '<kbd>F</kbd> 好的' : '<kbd>F</kbd> 继续');
     if (T.opt && T.opt.onLine) T.opt.onLine(l.who);
     g(() => tone('triangle', 520 + (T.i % 3) * 60, 560, .05, .04));
   }
@@ -93,10 +95,10 @@
   bar.addEventListener('click', () => { g(() => ac()); view = null; g(() => XGuide.open('diary')); });
   function barSync(){
     const c = XQ.chapter(), st = XQ.step();
-    const show = mode === 'naiwa' && !quiet() && !!c && S().ph !== 'done';
+    const show = mode === 'naiwa' && !!c && S().ph !== 'done';   /* always: the 收起 box only hides the operation tips */
     bar.hidden = !show; if (!show) return;
     const all = XQ.steps(), i = Math.max(0, all.findIndex(s => s.id === (st && st.id))), cnt = st && st.count ? g(() => st.count(XQ.Q), null) : null;
-    const t = `主线 ${c.n}/${XQ.chapters.length} · ${st ? st.text.replace(/（.*?）/g, '') : ''}` + (cnt ? ` ${cnt[0]}/${cnt[1]}` : st && !st.meet ? ` · ${i + 1}/${all.length}` : '');
+    const t = `主线 ${c.n}/${XQ.chapters.length} · ${st ? st.text.replace(/（.*?）/g, '') : ''}` + (cnt ? ` ${cnt[0]}/${cnt[1]}` : st && !st.meet && !st.solo ? ` · ${i + 1}/${all.length}` : '');
     if (bar.textContent !== t){ bar.textContent = t; bar.title = t + '（点开日记）'; }
     bar.classList.toggle('q-bang', !!st && (st.meet || st.report));
   }
@@ -105,7 +107,7 @@
   const hint = el('div', 'panel q-hint'); hint.id = 'qhint'; hint.hidden = true; document.body.appendChild(hint);
   let flashEl = null, hintId = '';
   function hintSync(force){
-    const st = XQ.step(), h = st && st.hint, busy = !box.hidden || g(() => XCine.busy, false) || mode !== 'naiwa' || quiet() || g(() => gx.paused, false) || S().ph !== 'steps';
+    const st = XQ.step(), h = st && st.hint, busy = !box.hidden || g(() => XCine.busy, false) || mode !== 'naiwa' || quiet() || g(() => gx.paused, false) || (S().ph !== 'steps' && !(st && st.solo));
     const want = !busy && h && !XQ.stepDone(st.id) ? st : null;
     const id = want ? want.id : '';
     if (id === hintId && !force) return;
@@ -174,7 +176,7 @@
   function welcomeTry(){
     const w = S().welcome; if (!w || !XQ.ready || mode !== 'naiwa' || !wel.hidden || g(() => XCine.busy, false) || g(() => XGuide.on, false) || document.querySelector('dialog[open]')) return;
     const chs = w.chs || [], last = chs.length ? chs[chs.length - 1] : 0, nx = XQ.chapter();
-    wel.querySelector('.q-wp').textContent = `学校新开了主线：七章，从报到一路到去 KLIA 接下一届新生。你来得早，${last > 1 ? `第 1–${last} 章` : '第 1 章'}已经算你完成了` + (nx ? `，接着从第 ${nx.n} 章「${nx.title}」开始。` : '。')
+    wel.querySelector('.q-wp').textContent = `学校新开了主线：${'零一二三四五六七八九十'[XQ.chapters.length] || XQ.chapters.length}章，从报到、过生日、当车手，一路到带下一届新生。你来得早，${last > 1 ? `第 1–${last} 章` : '第 1 章'}已经算你完成了` + (nx ? `，接着从第 ${nx.n} 章「${nx.title}」开始。` : '。')
       + (w.part && nx && w.part.n === nx.n && w.part.done ? `这一章 ${w.part.of} 件事你已经做过 ${w.part.done} 件，还差：${w.part.left.join('、')}。` : '');
     wel.querySelector('.q-wgift').textContent = '补发：' + ['RM ' + (w.rm || 0).toLocaleString()].concat(w.items ? [w.items] : []).join(' + ');
     wel.hidden = false; g(() => { gx.paused = true; }); wel.querySelector('[data-a="diary"]').focus({preventScroll:true});
@@ -249,7 +251,7 @@
     const lines = entries.map(e => `<p class="q-dl${e.r ? ' q-recap' : ''}">${esc(lineOf(e))}${e.r ? '<i>补记</i>' : ''}</p>`).join('');
     h += `<div class="q-dtext">${lines || `<p class="q-dl q-dim">${n === 0 ? '（还没写）' : isCur && st.ph === 'meet' ? '（还没开始。先去找' + esc((D.npcs[c.npc] || {}).name || '') + '。）' : '（这一页还空着。）'}</p>`}</div>`;
     if (n === 0) h += `<button type="button" class="btn q-replay">▶ 重看开场</button>`;
-    else if (XQ.chFinished(c)) h += `<button type="button" class="btn q-replay" data-ch="${n}">▶ 重温这一章${c.endCine ? '（含结尾动画）' : ''}</button>`;
+    else if (XQ.chFinished(c)) h += `<button type="button" class="btn q-replay" data-ch="${n}">▶ 重温这一章${c.endCine || c.replayCine ? '（含动画）' : ''}</button>`;
     /* today's list */
     if (c){
       const all = c.steps.concat([{id:c.id + '_report', text:c.report || '回去找' + ((D.npcs[c.npc] || {}).name || ''), report:true}]);
@@ -277,7 +279,7 @@
     const ms = st.msgs.filter(e => (e.c | 0) === n || (n === 0 && !e.c)).slice(-3);
     h += `<aside class="q-dphone"><span class="q-dph">手机</span>${ms.length ? ms.map(e => { const m = D.msgs[e.m]; if (!m) return ''; const p = person(m.from); return `<div class="q-msg"><i class="q-av" style="background:${p.color || '#888'}">${esc(p.icon)}</i><div><b>${esc(p.name)}</b><span>${esc(m.text)}</span></div></div>`; }).join('') : '<p class="q-dim">还没有消息</p>'}</aside>`;
     h += '</div>';
-    h += `<label class="q-quiet"><input type="checkbox" ${st.quiet ? 'checked' : ''}> 收起任务条和提示（只留指南针，主线照样记进度）</label>`;
+    h += `<label class="q-quiet"><input type="checkbox" ${st.quiet ? 'checked' : ''}> 不显示操作提示（任务条和指南针照常显示）</label>`;
     return h;
   }
   function diaryMount(sec){
@@ -335,6 +337,75 @@
     try { localStorage.setItem('xmum-guide-tip', '1'); } catch(e){}
     setTimeout(() => g(() => toast(TOUCH ? '要做的事都写在日记里' : '按 P 看日记', TOUCH ? '点钱包下面那行「主线」打开' : '要做的事、操作说明都在里面 · M 打开大地图', 3600)), 2600);
   });
+
+  /* ================= button guide: the step says which buttons to press (step.press, deepest first); the first one on screen
+     glows and gets a small 「点这里」 label beside it. Runs while panels are open too (they pause the game), so it walks the
+     player from the HUD button into the panel and on to the button inside. ================= */
+  const point = el('div', 'q-point'); point.hidden = true; point.setAttribute('aria-hidden', 'true'); document.body.appendChild(point);
+  let pressEl = null;
+  const shown = e => { if (!e || e.hidden || e.disabled) return false; const r = e.getBoundingClientRect(); if (r.width < 4 || r.height < 4) return false;
+    for (let p = e; p && p !== document.body; p = p.parentElement){ if (p.hidden) return false; const cs = getComputedStyle(p); if (cs.display === 'none' || cs.visibility === 'hidden') return false; } return true; };
+  function pressSync(){
+    const st = XQ.step(), list = st && st.press && !XQ.stepDone(st.id) && S().ph === 'steps' && mode === 'naiwa' && box.hidden && !g(() => XCine.busy, false) ? st.press : null;
+    let tgt = null, label = '';
+    if (list) for (const [sel, lab, only] of list){ if (only === 'touch' && !TOUCH) continue; const e = document.querySelector(sel); if (shown(e)){ tgt = e; label = lab; break; } }
+    if (pressEl !== tgt){ if (pressEl) pressEl.classList.remove('q-flash'); pressEl = tgt; if (tgt){ tgt.classList.add('q-flash'); if (tgt.closest('.panel')) g(() => tgt.scrollIntoView({block:'nearest', inline:'nearest'})); } }
+    if (!tgt){ point.hidden = true; return; }
+    if (point.textContent !== label) point.textContent = label;
+    point.hidden = false;
+    const r = tgt.getBoundingClientRect(), pw = point.offsetWidth, ph = point.offsetHeight, vw = innerWidth;
+    let x = r.left + r.width / 2 - pw / 2, y = r.top - ph - 10;
+    if (y < 6){ y = r.bottom + 10; point.classList.add('below'); } else point.classList.remove('below');
+    point.style.left = Math.max(6, Math.min(vw - pw - 6, x)) + 'px'; point.style.top = y + 'px';
+  }
+  setInterval(() => g(pressSync), 250);
+  /* the tuning list: mark the parts that can be ordered right now (materials, blueprint and money all there), and the tabs holding one,
+     so the guide can point at something that will actually start (js/93-tuning-ui.js decides the same things for its order button) */
+  function tuneMark(){
+    if (typeof tn === 'undefined' || !tn.on || typeof myCar === 'undefined' || !myCar) return;
+    const kind = myCar.kind, fit = g(() => tnCar(kind).fit, {});
+    const can = it => g(() => tnItemOk(kind, it) && tnBpOk(it) && !tnShort(it.need).length && money >= it.rm && !tnOwns(kind, it.key) && fit[it.slot] !== it.id && !tnJobOf(kind, it.key), false);
+    document.querySelectorAll('#tune .tn-it[data-k]').forEach(b => { const it = TN.byKey[b.dataset.k]; b.classList.toggle('q-can', !!it && can(it)); });
+    const tabs = new Set(); g(() => TN_SLOTS.forEach(s => { if (TN.bySlot[s.id].some(it => can(Object.assign({slot:s.id}, it)))) tabs.add(s.tab); }));
+    document.querySelectorAll('#tuneTabs [data-tab]').forEach(b => b.classList.toggle('q-cantab', tabs.has(b.dataset.tab) && b.getAttribute('aria-selected') !== 'true'));
+  }
+  if (typeof tnRender === 'function'){ const base = tnRender; tnRender = function(){ const r = base.apply(this, arguments); g(tuneMark); return r; }; }
+  { const st = document.createElement('style'); st.textContent = `
+.q-point{position:fixed;z-index:80;max-width:min(260px,70vw);padding:6px 10px;border-radius:10px;background:#ffc21a;color:#3a2a00;font:700 13px/1.35 var(--body, sans-serif);
+  box-shadow:0 6px 18px rgba(0,0,0,.25);pointer-events:none;animation:qPoint 1.2s ease-in-out infinite}
+.q-point::after{content:'';position:absolute;left:50%;bottom:-6px;margin-left:-6px;border:6px solid transparent;border-bottom:0;border-top-color:#ffc21a}
+.q-point.below::after{bottom:auto;top:-6px;border-top:0;border-bottom:6px solid #ffc21a}
+@keyframes qPoint{50%{transform:translateY(-3px)}}
+@media (prefers-reduced-motion: reduce){ .q-point{animation:none} }`; document.head.appendChild(st); }
+
+  /* ================= first visit to the car shop and to the tuning workshop: what this place is, in three lines ================= */
+  const INTRO = {
+    shop:{sel:'#shop', after:'.shop-h', title:'XMUM 车行能做什么',
+      lines:['<b>买车</b>：挑一辆点「买下」，钱从钱包里扣。买过的车随时点「开出来 / 叫来修好」，车会开到你身边，顺便修好。',
+        '<b>改装车间</b>、<b>喷漆店</b>：就是下面这排按钮。改装只给你自己的车：换轮毂、尾翼、涡轮……车会变快、变样子。',
+        '<b>水枪工坊</b>：往下翻到底，花钱升级水枪的水量和射程，打保安、赶猴子都用得上。']},
+    tune:{sel:'#tune', after:'.shop-h', title:'改装车间怎么用',
+      lines:['<b>① 道具</b>：最上面一排是你的改装道具（轮毂坯件、赛车漆料、碳纤维板……）。送外卖、挑战拿牌、每天打卡都会掉。',
+        '<b>② 下单施工</b>：下面选一个部位（轮毂、车身、尾翼……）、挑一个零件，点「下单施工」：花一点钱，用掉道具，零件进施工位。普通改装几十秒完工，越好的越久。',
+        '<b>③ 提车</b>：完工后回到这里点「提车」，零件就装到车上了。可以先下单，去送几单外卖再回来提车。']}
+  };
+  function introShow(k){
+    const I = INTRO[k], st = S(); if (!I || st.flags['intro_' + k]) return;
+    const panel = document.querySelector(I.sel); if (!panel || panel.querySelector('.q-intro')) return;
+    const box = el('div', 'q-intro'); box.setAttribute('role', 'note');
+    box.innerHTML = `<b class="q-ih">${esc(I.title)}</b>` + I.lines.map(l => `<p>${l}</p>`).join('') + '<button type="button" class="btn">知道了</button>';
+    box.querySelector('button').addEventListener('click', () => { XQ.flag('intro_' + k); box.remove(); g(() => ac()); });
+    const after = panel.querySelector(I.after); if (after) after.after(box); else panel.prepend(box);
+  }
+  { const st = document.createElement('style'); st.textContent = `
+.q-intro{margin:6px 0 10px;padding:10px 12px;border-radius:12px;background:rgba(255,210,58,.16);border:1px solid rgba(201,150,20,.4);font-size:13px;line-height:1.55;color:var(--ink)}
+.q-intro .q-ih{display:block;font-size:14px;margin-bottom:4px}
+.q-intro p{margin:2px 0}
+.q-intro .btn{margin-top:6px;min-height:34px;padding:4px 14px}
+#tune .q-intro{flex:none;max-height:none}
+.q-intro{flex-shrink:0}`; document.head.appendChild(st); }
+  if (typeof openShop === 'function'){ const base = openShop; openShop = function(){ const r = base.apply(this, arguments); g(() => introShow('shop')); return r; }; }
+  if (typeof tnOpen === 'function'){ const base = tnOpen; tnOpen = function(){ const r = base.apply(this, arguments); g(() => { if (tn.on) introShow('tune'); }); return r; }; }
 
   XQ.ui = {say:sayUI, frame, card:cardShow, get talkOpen(){ return !box.hidden; }, end:talkEnd, next:talkNext};
 })();
