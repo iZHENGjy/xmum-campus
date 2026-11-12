@@ -467,7 +467,15 @@ function rcProgress(r, dt){
   const cp = T.cps[r.next];
   if (cp != null){
     if (r.d > cp + 30) r.d = cp + 30;                                /* no progress past a checkpoint you skipped */
-    if (r.d >= cp - 2 && q.d < T.w / 2 + 14){
+    let hit = r.d >= cp - 2 && q.d < T.w / 2 + 14;
+    /* the summed progress can fall a few metres behind (an ignored jump, a 回赛道); the finish sits 4 m before the end of an open road,
+       where the projection stops growing, so it could never be reached. Standing at the checkpoint itself counts too, as long as
+       you have come most of the way along the road (no cutting across to it) */
+    if (!hit && r.d >= cp - 60){
+      const [px, pz] = rcAt(T.P, T.closed ? ((cp % T.P.L) + T.P.L) % T.P.L : cp);
+      if (Math.hypot(c.x - px, c.z - pz) < T.w / 2 + 8){ hit = true; r.d = Math.max(r.d, cp); }
+    }
+    if (hit){
       r.next++;
       if (T.closed && r.next % T.ncp === 0){
         const lt = RC.t - r.lapStart; r.lapStart = RC.t; if (r.best == null || lt < r.best) r.best = lt;
