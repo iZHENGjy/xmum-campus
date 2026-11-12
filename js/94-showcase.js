@@ -552,7 +552,8 @@ function scRefresh(){
 }
 /* I made the display: a toast when I get a better place than last time, and the achievement for the front three */
 function scCheckMine(){
-  if (window.XQuest && XQuest.carLocked && XQuest.carLocked()) return;   /* story chapter 1, no car yet: no 「你上了豪车展台」 over 小满's welcome; it comes once the keys do */
+  if (!owned.size) return;   /* no car yet (a new player in chapter 1): no 「你上了豪车展台 · 总资产 RM 0」 over 小满's welcome; it comes with the first car.
+                                (it used to ask XQuest.carLocked(), which is always false since the story locks were removed) */
   const i = SCX.list.findIndex(e => e && e.mine); if (i < 0) return;
   const rank = i + 1, e = SCX.list[i];
   if (rank <= SC_TOP && typeof unlock === 'function') unlock('showcase');
