@@ -1556,7 +1556,7 @@ body.titled:has(#embedTip:not([hidden])) #title .t-wrap{padding-top:56px}
   .hz-set{margin-bottom:6px;padding:4px 8px}
 }
 
-/* ---------- 主线（js/89-quest-ui.js）：对话框、任务条、操作提示、手机通知、章节卡、欢迎卡、奶蛙日记、便利贴 ---------- */
+/* ---------- 主线（js/89-quest-ui.js）：对话框、任务条、操作提示、手机通知、章节卡、欢迎卡、奶娃日记、便利贴 ---------- */
 .q-av{display:inline-grid;place-items:center;flex:none;width:40px;height:40px;border-radius:50%;color:#fff;font:900 17px/1 var(--display);font-style:normal;box-shadow:0 0 0 2px var(--card-bg),0 2px 6px var(--shadow)}
 #qtalk{position:fixed;z-index:9;left:50%;bottom:calc(var(--safe-b) + 18px);transform:translateX(-50%);width:min(600px,calc(100vw - 32px));box-sizing:border-box;
   display:flex;align-items:flex-start;gap:12px;padding:14px 16px 16px;border-radius:var(--r-lg);background:var(--panel-solid);cursor:pointer;-webkit-user-select:none;user-select:none;

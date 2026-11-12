@@ -1,4 +1,4 @@
-/* XMUM 校园漫游 · 主线剧情的核心：状态、轮询、奖励、存档、老玩家迁移、人机奶蛙、开车上锁
+/* XMUM 校园漫游 · 主线剧情的核心：状态、轮询、奖励、存档、老玩家迁移、人机奶娃、开车上锁
  *
  * 设计：docs/quests.md。数据（章节、步骤、台词、日记、消息）在 js/89-quest-data.js（window.XQD），界面在 js/89-quest-ui.js，过场在 js/89-cine.js。
  *
@@ -112,8 +112,12 @@
   /* just got the keys at the end of chapter 1: before anything else, get into the Myvi 小满 parked beside you */
   const carStep = () => ({id:'c1_car0', solo:true, text:'坐上你的 Myvi（车就停在旁边）', at:() => { const c = g(() => myCar, null); return c ? [c.x, c.z] : null; }, r:0,
     hint:{pc:'走到车旁按 <kbd>F</kbd> 上车；开车：<kbd>W</kbd><kbd>S</kbd> 油门刹车，<kbd>A</kbd><kbd>D</kbd> 转向', touch:'走到车旁点「上车」；左下摇杆开车', flash:'#act-f'}});
+  /* after the last chapter: the 大一 ending (js/89-yearend.js) — go to the A3 steps, everyone is there. Once (flag y1end) */
+  const Y1 = {id:'y1_end', solo:true, text:'大一的最后一天：去 A3 大台阶，大家都在', at:[105, 128], r:7,
+    hint:{pc:'期末考完了。走到 A3 大台阶前面（开着车就下车走过去），大家都在等你', touch:'期末考完了。走到 A3 大台阶前面（开着车就下车走过去），大家都在等你'}};
+  const yearStep = () => S.ph === 'done' && !S.flags.y1end ? Y1 : null;
   function curStep(){
-    const c = chapter(); if (!c) return null;
+    const c = chapter(); if (!c) return yearStep();
     if (S.born === 'new' && S.ch === 2 && S.ph === 'meet' && S.done.c1_report && !S.flags.q_car1 && g(() => myCar, null)) return carStep();
     if (S.ph === 'meet') return {id:c.id + '_meet', text:'去找' + ((D.npcs[c.npc] || {}).name || '') + '（' + (c.place || '') + '）', meet:true, at:() => npcAt(c.npc), r:0};
     if (S.ph === 'report') return reportStep(c);
