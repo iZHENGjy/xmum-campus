@@ -338,6 +338,46 @@
     setTimeout(() => g(() => toast(TOUCH ? '要做的事都写在日记里' : '按 P 看日记', TOUCH ? '点钱包下面那行「主线」打开' : '要做的事、操作说明都在里面 · M 打开大地图', 3600)), 2600);
   });
 
+  /* ================= button guide: the step says which buttons to press (step.press, deepest first); the first one on screen
+     glows and gets a small 「点这里」 label beside it. Runs while panels are open too (they pause the game), so it walks the
+     player from the HUD button into the panel and on to the button inside. ================= */
+  const point = el('div', 'q-point'); point.hidden = true; point.setAttribute('aria-hidden', 'true'); document.body.appendChild(point);
+  let pressEl = null;
+  const shown = e => { if (!e || e.hidden || e.disabled) return false; const r = e.getBoundingClientRect(); if (r.width < 4 || r.height < 4) return false;
+    for (let p = e; p && p !== document.body; p = p.parentElement){ if (p.hidden) return false; const cs = getComputedStyle(p); if (cs.display === 'none' || cs.visibility === 'hidden') return false; } return true; };
+  function pressSync(){
+    const st = XQ.step(), list = st && st.press && !XQ.stepDone(st.id) && S().ph === 'steps' && mode === 'naiwa' && box.hidden && !g(() => XCine.busy, false) ? st.press : null;
+    let tgt = null, label = '';
+    if (list) for (const [sel, lab, only] of list){ if (only === 'touch' && !TOUCH) continue; const e = document.querySelector(sel); if (shown(e)){ tgt = e; label = lab; break; } }
+    if (pressEl !== tgt){ if (pressEl) pressEl.classList.remove('q-flash'); pressEl = tgt; if (tgt){ tgt.classList.add('q-flash'); if (tgt.closest('.panel')) g(() => tgt.scrollIntoView({block:'nearest', inline:'nearest'})); } }
+    if (!tgt){ point.hidden = true; return; }
+    if (point.textContent !== label) point.textContent = label;
+    point.hidden = false;
+    const r = tgt.getBoundingClientRect(), pw = point.offsetWidth, ph = point.offsetHeight, vw = innerWidth;
+    let x = r.left + r.width / 2 - pw / 2, y = r.top - ph - 10;
+    if (y < 6){ y = r.bottom + 10; point.classList.add('below'); } else point.classList.remove('below');
+    point.style.left = Math.max(6, Math.min(vw - pw - 6, x)) + 'px'; point.style.top = y + 'px';
+  }
+  setInterval(() => g(pressSync), 250);
+  /* the tuning list: mark the parts that can be ordered right now (materials, blueprint and money all there), and the tabs holding one,
+     so the guide can point at something that will actually start (js/93-tuning-ui.js decides the same things for its order button) */
+  function tuneMark(){
+    if (typeof tn === 'undefined' || !tn.on || typeof myCar === 'undefined' || !myCar) return;
+    const kind = myCar.kind, fit = g(() => tnCar(kind).fit, {});
+    const can = it => g(() => tnItemOk(kind, it) && tnBpOk(it) && !tnShort(it.need).length && money >= it.rm && !tnOwns(kind, it.key) && fit[it.slot] !== it.id && !tnJobOf(kind, it.key), false);
+    document.querySelectorAll('#tune .tn-it[data-k]').forEach(b => { const it = TN.byKey[b.dataset.k]; b.classList.toggle('q-can', !!it && can(it)); });
+    const tabs = new Set(); g(() => TN_SLOTS.forEach(s => { if (TN.bySlot[s.id].some(it => can(Object.assign({slot:s.id}, it)))) tabs.add(s.tab); }));
+    document.querySelectorAll('#tuneTabs [data-tab]').forEach(b => b.classList.toggle('q-cantab', tabs.has(b.dataset.tab) && b.getAttribute('aria-selected') !== 'true'));
+  }
+  if (typeof tnRender === 'function'){ const base = tnRender; tnRender = function(){ const r = base.apply(this, arguments); g(tuneMark); return r; }; }
+  { const st = document.createElement('style'); st.textContent = `
+.q-point{position:fixed;z-index:80;max-width:min(260px,70vw);padding:6px 10px;border-radius:10px;background:#ffc21a;color:#3a2a00;font:700 13px/1.35 var(--body, sans-serif);
+  box-shadow:0 6px 18px rgba(0,0,0,.25);pointer-events:none;animation:qPoint 1.2s ease-in-out infinite}
+.q-point::after{content:'';position:absolute;left:50%;bottom:-6px;margin-left:-6px;border:6px solid transparent;border-bottom:0;border-top-color:#ffc21a}
+.q-point.below::after{bottom:auto;top:-6px;border-top:0;border-bottom:6px solid #ffc21a}
+@keyframes qPoint{50%{transform:translateY(-3px)}}
+@media (prefers-reduced-motion: reduce){ .q-point{animation:none} }`; document.head.appendChild(st); }
+
   /* ================= first visit to the car shop and to the tuning workshop: what this place is, in three lines ================= */
   const INTRO = {
     shop:{sel:'#shop', after:'.shop-h', title:'XMUM 车行能做什么',

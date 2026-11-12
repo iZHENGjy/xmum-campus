@@ -882,6 +882,17 @@ window.XQD = (() => {
     {id:'km_supper', npc:'kumar', after:'c4', text:'夜宵：拉茶和 Roti 趁热送到 A3 给卷卷', rm:60, errand:'supper', done:erDone('supper')},
     {id:'adi_ice', npc:'adi', after:'c5', text:'一箱冰水送去汽车游乐园给 Ben 师傅', rm:100, errand:'ice', done:erDone('ice')}
   );
+  /* ---------- 按钮指引：这一步要点哪些按钮，从「已经点到最里面」往外排；屏幕上能看到的第一个会发光，旁边写「点这里」（js/89-quest-ui.js） ---------- */
+  { const tune = [['#tuneGo', '点这里下单施工；完工后也是点这里提车'], ['#tune .tn-it.q-can:not(.sel)', '挑这个零件：道具和钱都够'], ['#tuneTabs .q-cantab', '换到这一栏，有现在就能做的零件'], ['#shop .tn-entry', '点「改装车间」'], ['#garageBtn', '点「车行」']];
+    const PRESS = {
+      c1_badge:[['#ward [data-id="badge"]', '点迎新工作牌戴上'], ['#wardTabs [data-tab="neck"]', '点「颈部」'], ['#wardBtn', '点「奶娃衣橱」']],
+      c1_guide:[['#gxPauseBtn', '点「暂停」，再点「指南」', 'touch']],
+      c1_map:[['#mini', '点小地图打开大地图', 'touch']],
+      c2_wg1:[['#shop .gx-wup .btn.buy', '点这里升级水枪'], ['#garageBtn', '点「车行」']],
+      c2_car:[['#shop [data-buy="p911"]', '买这辆保时洁 911'], ['#garageBtn', '点「车行」']],
+      c2_tune1:tune, c5_midtune:tune
+    };
+    for (const c of D.chapters) for (const s of c.steps) if (PRESS[s.id]) s.press = PRESS[s.id]; }
   /* CONTENT:END */
 
   return D;
