@@ -17,7 +17,9 @@ MINI = ['dorm', 'kipmart',
         'canteen', 'canteen_stack', 'canteen_rush', 'canteen_table', 'canteen_endless',
         'hoops_rush', 'hoops_duel',
         'bigeat_senior', 'bigeat_boss', 'bigeat_legend',
-        'race_campus', 'race_bell', 'race_ridge', 'race_offroad', 'race_estate']
+        'mcd_classic', 'mcd_rush', 'mcd_drive',
+        'sukiya', 'sukiya_spicy',
+        'race_campus', 'race_bell', 'race_ridge', 'race_offroad', 'race_estate', 'race_kart']
 TOP = 20
 
 
