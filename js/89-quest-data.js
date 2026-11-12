@@ -449,7 +449,7 @@ window.XQD = (() => {
       {id:'c5_seplap', text:window.XKart ? '二园卡丁车场跑一圈' : '二园雪邦赛道跑一圈', rm:60,
         at:window.XKart ? XKart.start.slice(0, 2) : G(() => XF1.PT[XF1.SF].slice(0, 2), [258.9, 912.2]), r:0,
         done:Q => window.XKart ? Q.best(XKart.lapKey) || Q.best('sepLap') || Q.best('kartRace') : Q.best('sepLap'),   /* kartRace: finished a kart race (js/92-kart-race.js) */
-        hint:window.XKart ? {pc:'二园维修区有免费的卡丁车：走到黄圈按 <kbd>F</kbd> 租一辆（开自己的车也行），从起点线出发跑一整圈', touch:'二园维修区有免费的卡丁车：走到黄圈点「租卡丁车」（开自己的车也行），从起点线出发跑一整圈'}
+        hint:window.XKart ? {pc:'二园维修区有免费的卡丁车：走到黄圈按 <kbd>F</kbd> 租一辆（开自己的车也行），从起点线出发顺着方向跑一整圈，别出界；或者去维修区的格子旗跑一场比赛', touch:'二园维修区有免费的卡丁车：走到黄圈点「租卡丁车」（开自己的车也行），从起点线出发顺着方向跑一整圈，别出界；或者去格子旗跑一场比赛'}
           : {pc:'开到二园的雪邦赛道，从主直道的起点线出发跑一整圈', touch:'开到二园的雪邦赛道，从主直道的起点线出发跑一整圈'},
         tip:window.XKart ? `一圈 ${(XKart.len / 1000).toFixed(1)} 公里、${XKart.turns} 个弯。卡丁车弯里灵、直道慢，跑车反过来。` : '一圈大约 3 公里、15 个弯，发卡弯前早点刹车。', guide:'tune',
         nudge:'二园在 Bell Avenue 东南边的油棕园公路两边，起点线在看台前面。'},
