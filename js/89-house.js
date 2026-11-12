@@ -213,7 +213,7 @@ hzBuildSigns();
 window.addEventListener('xmum-name', () => { if (hzOwnedList().length) hzPaintSigns(); });
 /* floating labels over the boards, only when you are near (phones would drown in them otherwise) */
 const hzLbls = HZ_HOUSES.map(h => { const l = addLabel('', h.ux + 3, 4.2, TWM.z0 + 1.2, true); l.dead = true; return l; });
-function hzLblText(h){ return hz.own[h.id] ? `${hzMyName()} 的家 · No. ${h.no}` : `出售 · No. ${h.no} · RM ${h.price.toLocaleString()}`; }
+function hzLblText(h){ return hz.own[h.id] ? `${hzMyName()} 的家 · No. ${h.no}` : `出售 · No. ${h.no} · RM ${h._pt || (h._pt = h.price.toLocaleString())}`; }
 
 /* ---------- inside: one shell for both floors, built the first time you walk in ---------- */
 const hzG = new THREE.Group(); hzG.visible = false; scene.add(hzG);
