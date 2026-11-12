@@ -39,7 +39,7 @@ function ndBang(big){ noise(.25, big ? .4 : .28, 1400, 'highpass'); tone('sawtoo
   const base = updateCar;
   updateCar = function(c, dt, inp){
     if (c !== driving || !(ND.mult > .001)) return base(c, dt, inp);
-    const T = c.T, v = T.maxV, a = T.acc; T.maxV = v * (1 + ND.mult); T.acc = a * (1 + ND.mult * 3.2);
+    const T = c.T, v = T.maxV, a = T.acc; if (!c._f1nos) T.maxV = v * (1 + ND.mult); T.acc = a * (1 + ND.mult * 3.2);   /* on a circuit js/94-f1-drive.js already put nitro into its cap */
     try { return base(c, dt, inp); } finally { T.maxV = v; T.acc = a; }
   };
 }
