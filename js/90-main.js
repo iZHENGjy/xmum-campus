@@ -221,7 +221,7 @@ function updateNaiwaMode(dt, T){
   let msg = '';
   if (driving) msg = TOUCH ? '' : 'W/S 油门刹车 · A/D 转向 · 按住空格漂移 · H 喇叭 · F 下车 · M 地图';
   else if (nw.state === 'fly') msg = '啊啊啊啊——';
-  else { const nc = nearestCar(); msg = nc ? (TOUCH ? '点「上车」开走这辆' : '按 F 上车') + ' · ' + nc.T.name : (TOUCH ? '' : 'WASD 走 · 空格跳 · E 水枪 · R 大笑 · F 上车 · M 地图 · P 指南'); }
+  else { const nc = nearestCar(); msg = nc ? (TOUCH ? '点「上车」开走这辆' : '按 F 上车') + ' · ' + nc.T.name : (TOUCH ? '' : 'WASD 走 · Shift 跑 · 空格跳 · E 水枪 · R 大笑 · F 上车 · M 地图 · P 指南'); }
   if (!driving && nw.state !== 'fly' && Math.hypot(nw.x - SHOWROOM[0], nw.z - SHOWROOM[1]) < 11) msg = TOUCH ? '点右上角「XMUM 车行」看车' : '按 G 打开 XMUM 车行';
   else if (driving && driving.wrecked) msg = TOUCH ? '这辆车报废了，点「下车」换一辆' : '这辆车报废了，按 F 下车换一辆';
   gx.update(dt, px, pz); msg = gx.prompt() || msg;
