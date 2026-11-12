@@ -8,7 +8,8 @@
  *   想家（约 6 秒）：奶娃停下抬头，镜头慢慢往上转，看奶娃航空的客机拖着两道白线飞过（晚上只看得见航行灯），中间浮出一句独白。
  *     用的就是 js/16-ambient.js 里本来就在飞的 naiwaAir，客机不在附近就把它这一趟改到头顶上来，零额外场景。按任意键或点屏幕立刻结束。
  *   结尾（约 45 秒）：和开场对称：到达大厅里举小旗的换成你（穿着你现在的衣服），一只新生东张西望；同一辆大巴，坐窗边「哇~~」的换成他；
- *     最后南门，把他交给小满学姐，客机从头顶飞过，奶娃抬头笑一下。字幕「第一年，完。」
+ *     最后南门，把他交给小满学姐，客机从头顶飞过，奶娃抬头笑一下。字幕「大一上学期，完。」
+ *   大一收尾（约 35 秒，第 8 章之后）：A3 大台阶前大家站成半圈 → 小满「一年前你站在南门」→ 客机飞过，「大一 · 完」「大二见」。
  * 镜头：播放时 gx.paused = true（js/90-main.js 就不跑 updateNaiwaMode，不抢相机，也不会弹暂停面板——那是 gxSetPause 才弹），
  *   在 gx.frame 外面包一层每帧摆相机；结束时 gx.paused 还原成原来的值。js/89-quest.js 看 XCine.busy 让奶娃站住、暂停通知。
  * 场景：机舱 + 油棕园 + 跑道、到达大厅、高速公路三套临时场景都放在地图外（z ≈ −5600，地面 8 km 见方的边外），
@@ -605,14 +606,14 @@ body.cine > *:not(canvas):not(.cine-ui):not(script):not(style):not(dialog):not(#
   function endingShots(){
     const S = skies(), fresh = g(() => (NW.look && NW.look.skin === 'orange') ? 'pink' : 'orange', 'orange');
     return [
-      { /* ① 一年后，到达大厅：举小旗的是你 */ dur:14, fadeIn:1, enter(){
+      { /* ① 半年后，到达大厅：举小旗的是你 */ dur:14, fadeIn:1, enter(){
           const H = need('hall', buildHall); inSet(S.hall); fov(54); hideActors();
           const hx = x => HX + x, hz = z => HZ + z;
           const P = C.A.me || (C.A.me = actor(g(() => NW.look, null))); scene.add(P.N.root); place(P, hx(4), 0, hz(-2), 0); giveFlagOnce(P); P.face = 0; P.sit = false;
           const F = C.A.fresh || (C.A.fresh = actor({skin:fresh, back:'bag'})); place(F, hx(-17), 0, hz(-3), Math.PI / 2); F.look = 0;
           walkTo(F, hx(-6), hz(1.5), 1.6); show('me', 'fresh');
         },
-        cues:[[.4, () => cap('一年后 · KLIA 到达大厅\nArrivals Hall', 3200)], [3.6, () => { C.A.fresh.look = 1; }],
+        cues:[[.4, () => cap('半年后 · KLIA 到达大厅\nArrivals Hall', 3200)], [3.6, () => { C.A.fresh.look = 1; }],
           [5, () => { C.A.me.talk = 3.6; sub('XMUM 的新同学到这边集合！大巴在外面等。', '我', 4200); }],
           [8.6, () => { const F = C.A.fresh; F.look = 0; walkTo(F, HX + 1.8, HZ + 1.6, 2.6); F.face = Math.atan2(4 - 1.8, -2 - 1.6); }],
           [11.4, () => { const P = C.A.me, F = C.A.fresh; P.face = null; F.face = null; walkTo(P, HX + 32, HZ + 1, 2.6); setTimeout(() => C.on && C.A.fresh && walkTo(C.A.fresh, HX + 30, HZ + 3, 2.6), 400); }]],
@@ -631,7 +632,7 @@ body.cine > *:not(canvas):not(.cine-ui):not(script):not(style):not(dialog):not(#
           g(() => noise(3.5, .03, 180));
         },
         cues:[[.5, () => cap('去学校的路上 · 雪邦\nSepang, Selangor', 3200)], [5.8, () => { const F = C.A.fresh; F.laughT = F.tt; F.roll0 = -.15; g(() => sfx.laugh()); sub('哇~~', null, 2600); }],
-          [8.6, () => { C.A.fresh.roll0 = 0; think('去年的我，也是这样。', 3200); C.A.me.smile = 1; }]],
+          [8.6, () => { C.A.fresh.roll0 = 0; think('半年前的我，也是这样。', 3200); C.A.me.smile = 1; }]],
         step(t, dt){
           busStep(C.set.bus, dt);
           if (t < 5){ const k = ease(t / 5); camTo(V(BX + 20 - 9 * k, 4.4, BZ - 24 + 2 * k), V(BX + 1 - 2 * k, 1.8, BZ - 3.6), t < .05 ? 1 : camK(dt, 3)); }
@@ -655,7 +656,7 @@ body.cine > *:not(canvas):not(.cine-ui):not(script):not(style):not(dialog):not(#
         },
         cues:[[1.4, () => { if (C.A.xm) C.A.xm.talk = 2.8; sub('交给我吧！欢迎来到 XMUM！', '小满学姐', 3400); }],
           [4.6, () => { const P = C.A.me; P.face = null; }], [5.2, () => g(() => noise(4.5, .05, 220))],
-          [10.6, () => { titleEl.textContent = '第一年，完。'; titleEl.classList.add('on'); }]],
+          [10.6, () => { titleEl.textContent = '大一上学期，完。'; titleEl.classList.add('on'); }]],
         step(t, dt){
           const G = C.gate, P = C.A.me, A = AIR();
           if (C.A.xm) C.A.xm.wave = t < 6 ? 1 : Math.max(0, C.A.xm.wave - dt);
@@ -669,6 +670,71 @@ body.cine > *:not(canvas):not(.cine-ui):not(script):not(style):not(dialog):not(#
     ];
   }
 
+
+  /* ================= 大一收尾：A3 大台阶，傍晚，大家都在（第 8 章之后，js/89-yearend.js 放） ================= */
+  /* 拍真实地图上的 A3 大台阶前（和结尾在南门那段一样 inWorld），天色用偏西的太阳（SKY.west）；人机奶娃临时造，播完释放。
+     ① 大家站成半圈，你从南边走过来 ② 小满、Ben、阿豆说话 ③ 客机从头顶飞过，抬头笑：「大一 · 完」「大二见」 */
+  function yearShots(){
+    const S = skies(), NP = g(() => XQD.npcs, {}), lookOf = id => Object.assign({shape:(NP[id] || {}).shape}, (NP[id] || {}).look || {});
+    const AX = 105, AZ = 127;   /* the plaza in front of the A3 steps (the chapter 1 / 8 target is 105, 120) */
+    const GANG = [['xm', 'xiaoman', -3.4, -1.2], ['jj', 'juanjuan', -1.6, -2.4], ['am', 'aming', 1.8, -2.4], ['bn', 'ben', 3.6, -1.1], ['lz', 'laozhou', 4.6, 1.2], ['ad', 'adou', -4.4, 1.3]];
+    const GN = {xm:'小满学姐', jj:'卷卷', am:'阿明', bn:'Ben 师傅', lz:'站长老周', ad:'阿豆', me:'我'};
+    const gy = (x, z) => g(() => groundAt(x, z), 0);
+    const say = (k, text, ms) => { const A = C.A[k]; if (A) A.talk = Math.min(4, (ms || 3200) / 1000); sub(text, GN[k] || '', ms || 3200); };
+    /* every shot can start cold: the gang in a half ring facing the middle, me in the middle (or walking in) */
+    const cast = walkIn => {
+      inWorld(); lightSet(S.west); NW.root.visible = false;
+      for (const [k, id, dx, dz] of GANG){
+        let A = C.A[k]; if (!A){ A = C.A[k] = actor(lookOf(id)); scene.add(A.N.root); }
+        if (A.home == null){ const x = AX + dx, z = AZ + dz; place(A, x, gy(x, z), z, Math.atan2(AX - x, AZ + .4 - z)); A.home = 1; }
+      }
+      const P = C.A.me || (C.A.me = actor(g(() => NW.look, null)));
+      if (!P.N.root.parent) scene.add(P.N.root);
+      if (P.home == null){ if (walkIn){ place(P, AX + .4, gy(AX, AZ + 14), AZ + 14, Math.PI); walkTo(P, AX, AZ + .4, 2.2); } else place(P, AX, gy(AX, AZ + .4), AZ + .4, Math.PI); P.home = 1; }
+      show('me', ...GANG.map(r => r[0]));
+    };
+    return [
+      { /* ① 大一的最后一天：大家站在 A3 台阶前，你走过来 */ dur:13, fadeIn:1.1, enter(){ hideActors(); fov(52); cast(true); },
+        cues:[[.4, () => cap('大一的最后一天 · 期末考完了\nA3 大台阶', 3400)],
+          [3.6, () => { const A = C.A.am; if (A){ A.laughT = A.tt; A.wave = 1; } say('am', '来了来了！考完了，今晚谁都别想走 lah！', 3400); }],
+          [7.2, () => say('jj', '这学期欠你三顿饭，今天先还一顿。', 3000)],
+          [10.2, () => say('lz', '暑假也来跑单，别让我等。', 2600)]],
+        step(t, dt){
+          const P = C.A.me; if (C.A.am) C.A.am.wave = Math.max(0, C.A.am.wave - dt * .4);
+          if (P && !P.to) P.face = Math.PI;
+          const k = ease(t / 13), y = gy(AX, AZ);
+          camTo(V(AX + 9 - 6 * k, y + 5.2 - 1.4 * k, AZ + 21 - 6 * k), V(AX, y + 1.8, AZ - 1.5 + 1.5 * k), t < .05 ? 1 : camK(dt, 2));
+        } },
+      { /* ② 小满：一年前；Ben：暑假来车队；阿豆：明年还带我吗 */ dur:11, cut:true, enter(){ cast(false); fov(46); },
+        cues:[[.3, () => { const X = C.A.xm; if (X) X.face = Math.atan2(C.A.me.x - X.x, C.A.me.z - X.z); say('xm', '一年前你站在南门，钱包里就几十块。', 3400); }],
+          [3.8, () => { C.A.me.smile = 1; think('现在……好像什么都有了。', 2600); }],
+          [6.4, () => say('bn', '暑假来车队帮忙。真正的雪邦，等你去跑。', 2600)],
+          [9.0, () => say('ad', '学长，明年你还带我吗？', 2000)]],
+        step(t, dt){
+          const X = C.A.xm, P = C.A.me, y = gy(AX, AZ);
+          const mx = (X.x + P.x) / 2;
+          if (t < 6.2) camTo(V(mx + 1.4, y + 2.2, AZ + 8), V(mx, y + 1.5, AZ - .6), t < .05 ? 1 : camK(dt, 3));
+          else camTo(V(AX + 1.5, y + 2.6, AZ + 10), V(AX + .5, y + 1.4, AZ - 1), camK(dt, 2.5));
+        } },
+      { /* ③ 客机从头顶飞过，大家抬头；我笑了：「大一 · 完」「大二见」 */ dur:11, enter(){
+          cast(false); fov(56); const P = C.A.me; P.smile = 0; P.face = Math.PI;
+          planeOver(AX, AZ + 45, 5, Math.PI * .5);   /* south of the plaza: open sky (the A3 colonnade fills the sky to the north) */
+        },
+        cues:[[.8, () => g(() => noise(4.5, .05, 220))], [3.2, () => think('这一次，我不想家了。', 3200)],
+          [7.0, () => { titleEl.innerHTML = '大一 · 完<small style="display:block;font-size:.42em;letter-spacing:.3em;margin-top:.5em;font-weight:700">大二见</small>'; titleEl.classList.add('on'); }]],
+        step(t, dt){
+          const P = C.A.me, A = AIR(), y = gy(AX, AZ);
+          for (const k in C.A){ const B = C.A[k]; if (B) B.up = ease((t - 1) / 1.8) * (t < 6.5 ? 1 : Math.max(0, 1 - (t - 6.5) / 1.2)); }
+          if (t > 5.2) P.smile = ease((t - 5.2) / .8);
+          if (t < 2.4) camTo(V(AX - 2, y + 1.4, AZ + 6), V(P.x, P.y + 2, P.z), t < .05 ? 1 : camK(dt, 3));
+          else if (t < 6.5){
+            /* from behind the gang, looking up past their heads into the sky the plane crosses */
+            const k = ease((t - 2.4) / 2.2), plane = A && A.on ? A.root.position : _a.set(AX, 480, AZ + 200);
+            camTo(V(AX + .6, y + 2.3, AZ - 4.5), _b.set(P.x, P.y + 2.4, P.z + 2).lerp(plane, k * .9), t < 2.45 ? 1 : camK(dt, 3));
+          } else { const k = ease((t - 6.5) / 3); camTo(V(AX + 2, y + 6 + 6 * k, AZ + 16 + 8 * k), V(AX, y + 1.6, AZ - 1), camK(dt, 3)); }
+        } }
+    ];
+  }
 
   /* ================= 临时场景四：LY 宿舍的寝室（生日火锅局） ================= */
   /* 奶娃大小的一间双人寝：9 × 7 米、层高 4.2 米（奶娃 2.4 米高）。北墙一扇窗（外面是夜景），西墙上下铺，东墙书桌和衣柜，
@@ -1126,16 +1192,18 @@ body.cine > *:not(canvas):not(.cine-ui):not(script):not(style):not(dialog):not(#
   function beamsHide(){
     if (beamsOff || typeof beamGeo === 'undefined') return; beamsOff = [];
     scene.traverse(o => { if (o.isMesh && o.geometry === beamGeo){ beamsOff.push([o, o.visible]); o.visible = false; } });
+    /* and the walk-mode check-in coins (js/10-world.js CPS): one floats 2.4 m over the A3 plaza, right where the 大一 ending stands everyone */
+    if (typeof CPS !== 'undefined') for (const cp of CPS) if (cp.g){ beamsOff.push([cp.g, cp.g.visible]); cp.g.visible = false; }
   }
   function beamsShow(){ if (!beamsOff) return; for (const [o, v] of beamsOff) o.visible = v; beamsOff = null; }
   function play(id, o){
     o = o || {};
-    if (C.on || !['intro', 'ending', 'birthday', 'f1', 'library'].includes(id)) return false;
+    if (C.on || !['intro', 'ending', 'birthday', 'f1', 'library', 'year1'].includes(id)) return false;
     if (id === 'f1' && !window.XF1) return false;
     if (typeof mode !== 'undefined' && mode !== 'naiwa') return false;
     if (g(() => titleOpen, false) || !K() || typeof makeNaiwa !== 'function') return false;
     begin('film'); C.id = id; C.onDone = typeof o.onDone === 'function' ? o.onDone : null;
-    C.shots = id === 'intro' ? introShots() : id === 'ending' ? endingShots() : id === 'f1' ? f1Shots() : id === 'library' ? libraryShots() : birthdayShots();
+    C.shots = id === 'intro' ? introShots() : id === 'ending' ? endingShots() : id === 'year1' ? yearShots() : id === 'f1' ? f1Shots() : id === 'library' ? libraryShots() : birthdayShots();
     /* straight to black (no fade from the game), then the first shot fades in */
     NW.root.visible = false; fadeEl.style.transition = 'none'; fade(1); void fadeEl.offsetWidth; fadeEl.style.transition = '';
     C.i = -1; C.next = 0; C.ph = 'out'; C.ft = 0;

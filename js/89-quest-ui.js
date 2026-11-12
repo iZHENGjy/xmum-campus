@@ -95,11 +95,12 @@
   bar.addEventListener('click', () => { g(() => ac()); view = null; g(() => XGuide.open('diary')); });
   function barSync(){
     const c = XQ.chapter(), st = XQ.step();
-    const show = mode === 'naiwa' && !!c && S().ph !== 'done';   /* always: the 收起 box only hides the operation tips */
+    const yr = st && st.id === 'y1_end';   /* the 大一 ending after the last chapter (js/89-yearend.js) */
+    const show = mode === 'naiwa' && (yr || (!!c && S().ph !== 'done'));   /* always: the 收起 box only hides the operation tips */
     bar.hidden = !show; if (!show) return;
     const all = XQ.steps(), i = Math.max(0, all.findIndex(s => s.id === (st && st.id))), cnt = st && st.count ? g(() => st.count(XQ.Q), null) : null;
     const why = st ? XQ.waitWhy(st).split('。')[0] : '';   /* the bar gets the first sentence; the diary's list has the whole of it */
-    const t = `主线 ${c.n}/${XQ.chapters.length} · ${st ? st.text.replace(/（.*?）/g, '') : ''}` + (why ? `（${why}）` : cnt ? ` ${cnt[0]}/${cnt[1]}` : st && !st.meet && !st.solo ? ` · ${i + 1}/${all.length}` : '');
+    const t = yr ? '尾声 · ' + st.text : `主线 ${c.n}/${XQ.chapters.length} · ${st ? st.text.replace(/（.*?）/g, '') : ''}` + (why ? `（${why}）` : cnt ? ` ${cnt[0]}/${cnt[1]}` : st && !st.meet && !st.solo ? ` · ${i + 1}/${all.length}` : '');
     if (bar.textContent !== t){ bar.textContent = t; bar.title = t + '（点开日记）'; }
     bar.classList.toggle('q-bang', !!st && (st.meet || st.report));
   }
@@ -152,7 +153,7 @@
       cardShow({tag:'主线完成', title:`第 ${c.n} 章 ${c.title}`, sub:o.got ? '奖励：' + o.got : '', ms:4600});
       const nx = XQ.chapter();
       if (nx){ const n = D.npcs[nx.npc] || {}; setTimeout(() => cardShow({tag:'下一章', title:`第 ${nx.n} 章 · ${nx.title}`, sub:`去${nx.place || ''}找${n.name || ''}，指南针会带你去`}), 400); }
-      else setTimeout(() => cardShow({tag:'主线', title:'第一年，完。', sub:'以后的新章节会接在后面', ms:5200}), 400);
+      else setTimeout(() => cardShow({tag:'尾声', title:'期末考完了', sub:'去 A3 大台阶，大家都在等你。指南针会带你去', ms:5200}), 400);
     }
   });
   XQ.on('side', ({s, got, quiet:q}) => { if (!q) g(() => gx.callout('✓ 支线 · ' + s.text, got ? '+' + got : '', '#ffc21a')); });
@@ -253,6 +254,7 @@
     h += `<div class="q-dtext">${lines || `<p class="q-dl q-dim">${n === 0 ? '（还没写）' : isCur && st.ph === 'meet' ? '（还没开始。先去找' + esc((D.npcs[c.npc] || {}).name || '') + '。）' : '（这一页还空着。）'}</p>`}</div>`;
     if (n === 0) h += `<button type="button" class="btn q-replay">▶ 重看开场</button>`;
     else if (XQ.chFinished(c)) h += `<button type="button" class="btn q-replay" data-ch="${n}">▶ 重温这一章${c.endCine || c.replayCine ? '（含动画）' : ''}</button>`;
+    if (c && c.n === XQ.chapters.length && S().flags.y1end && window.XYear) h += ` <button type="button" class="btn q-y1">🎓 我的大一</button>`;
     /* today's list */
     if (c){
       const all = c.steps.concat([{id:c.id + '_report', text:c.report || '回去找' + ((D.npcs[c.npc] || {}).name || ''), report:true}]);
@@ -292,6 +294,7 @@
     const p = q('.q-dprev'), n = q('.q-dnext');
     if (p) p.addEventListener('click', () => flip(-1));
     if (n) n.addEventListener('click', () => flip(1));
+    { const y = q('.q-y1'); if (y) y.addEventListener('click', () => { XGuide.close(); setTimeout(() => g(() => XYear.card()), 80); }); }
     const r = q('.q-replay'); if (r) r.addEventListener('click', () => { const ch = +r.dataset.ch || 0; XGuide.close(); setTimeout(() => ch ? XQ.replay(ch) : XQ.playIntro(true), 80); });
     sec.querySelectorAll('.q-more').forEach(b => b.addEventListener('click', () => XGuide.open ? (() => { const id = b.dataset.g, i = XGuide.pages.indexOf(id); if (i >= 0) XGuide.go(i); })() : 0));
     const cb = q('.q-quiet input'); if (cb) cb.addEventListener('change', () => { S().quiet = cb.checked; XQ.save(); barSync(); hintSync(true); });
@@ -323,7 +326,7 @@
     talkFrame();
     if (ring){
       const st = XQ.step(), a = mode === 'naiwa' && S().ph !== 'meet' && st && st.r !== 0 && !g(() => mission.on, false) ? stepAt(st) : null;
-      ring.visible = !!a && !quiet();
+      ring.visible = !!a && !quiet() && !g(() => XCine.busy, false);   /* not in a film shot on the real map (the 大一 ending stands everyone right on this spot) */
       if (a){ const r = (st.r || 6) / 4.5; ring.position.set(a[0], g(() => groundAt(a[0], a[1]), 0) + .1, a[1]); ring.scale.set(r, 1 + Math.sin(Tm * 3) * .15, r); }
     }
     if ((syncT += dt) > .25){
