@@ -96,7 +96,7 @@ const XClock = window.XClock = (() => {
     paint();
   }
   function tick(dt){
-    if (!S.paused && dt > 0){
+    if (!S.paused && dt > 0 && !(window.XPhoto && XPhoto.on)){   /* photo mode (js/89-photo.js) freezes the world, the sun too */
       const night = S.h >= 21 || S.h < 5.5;
       S.h = (S.h + dt / 60 * S.speed * (night ? 2 : 1)) % 24;
     }
