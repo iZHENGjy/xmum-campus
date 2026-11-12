@@ -256,8 +256,10 @@ if (acctBtn) acctBtn.addEventListener('click', async () => {
 (() => {
   const GO = '#title [data-go="naiwa"], #title [data-go="hole"]', KEY = 'xmum-login-gate';
   let shown = false; try { shown = !!sessionStorage.getItem(KEY); } catch(e){}
+  /* a brand-new player has nothing to lose yet: their first game starts straight away, and the card waits for a visit that has progress to save */
+  const hasProgress = () => { try { const d = JSON.parse(localStorage.getItem('xmum-gta-v1') || 'null'); return !!d && (+d.money > 0 || (d.owned || []).length > 0 || +(d.life || {}).deliv > 0); } catch(e){ return true; } };
   const want = () => {
-    if (shown) return false;
+    if (shown || !hasProgress()) return false;
     const N = window.XNet;
     if (UI_EMBEDDED) return true;                                   // in WeChat: always worth one card
     return !!(N && N.online && N.account && !N.account.google);    // browser guest (only when sign-in can actually work)
