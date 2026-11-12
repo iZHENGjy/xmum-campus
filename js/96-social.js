@@ -326,6 +326,7 @@ body.wd-open #socStat,body.wd-open #socMenu,body.wd-open #socCard,body.wd-open #
     }
     o.push({id:'hi', icon:'👋', title:'打招呼', sub:'冲他挥挥手', dis:false});
     for (const k in GAMES){ const G = GAMES[k]; o.push({id:'duel:' + k, icon:G.icon, title:'挑战 · ' + G.name, sub:dnd ? '免打扰中' : p.d.duel ? '他正在比赛' : busy ? '先做完手上的任务' : G.desc, dis:dnd || !!p.d.duel || busy}); }
+    for (const M of MENU_X){ const x = g(() => M.opt(p), null); if (x) o.push(Object.assign({}, x, {id:'x:' + M.id})); }   // 别的文件加的项（js/96-friends.js 的「加好友」）
     return o;
   }
   function openMenu(p){
@@ -346,7 +347,11 @@ body.wd-open #socStat,body.wd-open #socMenu,body.wd-open #socCard,body.wd-open #
     if (id === 'hi') sayHi(p);
     else if (id === 'ride') askRide(p);
     else if (id.startsWith('duel:')) askDuel(p, id.slice(5));
+    else if (id.startsWith('x:')){ const M = MENU_X.find(m => 'x:' + m.id === id); if (M) g(() => M.pick(p)); }
   }
+  /* 别的文件往菜单里加一项：{id, opt(p) → {icon, title, sub, dis} 或 null（不显示）, pick(p)}；p 是 peer(uid) */
+  const MENU_X = [];
+  function addMenuItem(M){ if (M && M.id && !MENU_X.some(m => m.id === M.id)) MENU_X.push(M); }
   menuEl.addEventListener('click', e => {
     ac();
     const b = e.target.closest('[data-o]'); if (b && !b.disabled){ pickMenu(b.dataset.o); return; }
@@ -556,6 +561,7 @@ body.wd-open #socStat,body.wd-open #socMenu,body.wd-open #socCard,body.wd-open #
   function askRide(p){
     if (driving){ toast('你自己在开车', '下车再搭别人的车', 1600); return; }
     if (S.duel){ toast('比赛中不能搭车', '', 1400); return; }
+    if (window.XQuest && XQuest.carLocked()){ XQuest.lockToast(); return; }   /* story chapter 1: no cars yet, not even a ride (js/89-quest.js) */
     invite(p.uid, 'ride', {}, {answer(ok, data){
       if (!ok) return;
       const q = peer(p.uid);
@@ -1034,6 +1040,7 @@ body.wd-open #socStat,body.wd-open #socMenu,body.wd-open #socCard,body.wd-open #
   Object.assign(XSocial, {
     send, on, defineInvite, invite, answer, peer, emote:i => fxSend('e', i), say:i => fxSend('s', i),
     openMenu:uid => openMenu(peer(uid)), openSheet, openWheel, block:toggleBlock,
+    blocked, addMenuItem, why:WHY,
     setDnd(v){ store.dnd = !!v; save(); },
     get target(){ return S.target ? S.target.uid : null; },
     _S:S

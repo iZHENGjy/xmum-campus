@@ -457,7 +457,7 @@ const DM_DOORS = infos.filter(i => i.tag === '宿舍' && /^LY/.test(i.name)).map
   const lbl = addLabel(info.name + ' 宿舍', p[0], 4.2, p[1], true); lbl.dead = true;
   return {name:info.name, x:p[0], z:p[1], h:Math.atan2(p[0] - info.wx, p[1] - info.wz), mark, lbl};
 }).filter(Boolean);
-const dmNearDoor = () => !driving && !DORM.in && nw.state !== 'fly' && DM_DOORS.find(d => Math.hypot(nw.x - d.x, nw.z - d.z) < 3.2);
+const dmNearDoor = () => !driving && !DORM.in && !qCalm() && nw.state !== 'fly' && DM_DOORS.find(d => Math.hypot(nw.x - d.x, nw.z - d.z) < 3.2);
 const dmBusyWhy = () => mission.on ? '先把手上的外卖送完' : gx.busy() ? '先把手上的挑战做完' : '';
 
 /* ---------- going in, coming out ---------- */
@@ -875,7 +875,8 @@ function dmUpdate(dt, px, pz){
   dmPrompt = '';
   if (!DORM.in){
     const T = performance.now();
-    for (const d of DM_DOORS){ d.mark.visible = true; d.lbl.dead = Math.hypot(px - d.x, pz - d.z) > 140; d.mark.userData.ring.scale.y = 1 + Math.sin(T / 300) * .15; }
+    const calm = qCalm();
+    for (const d of DM_DOORS){ d.mark.visible = !calm; d.lbl.dead = calm || Math.hypot(px - d.x, pz - d.z) > 140; d.mark.userData.ring.scale.y = 1 + Math.sin(T / 300) * .15; }
     const nd = dmNearDoor();
     if (nd){ const why = dmBusyWhy(); dmPrompt = why ? `${nd.name} 宿舍 · ${why}` : (TOUCH ? '点「进宿舍」' : '按 F ') + `进 ${nd.name} 宿舍搜一圈 · 23:00 门禁` + (prog.best.dorm ? ` · 纪录 RM ${prog.best.dorm}` : ''); }
     dmF(nd ? '进宿舍' : '');

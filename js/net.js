@@ -10,6 +10,9 @@
  *   XNet.top(board, n=10)    → Promise<[{name, value, ts}]>，最好的在前；离线返回 []
  *   XNet.submit(board, value) → Promise<boolean>，成绩比自己记录好才写入，写入成功为 true
  *   XNet.ready           Promise，联机初始化结束（成功或失败）后 resolve
+ *   XNet.blocked         配了数据库却连不上（国内不开 VPN 就是这样）；XNet.offText() → 排行榜/结算处「为什么没联机」的一句话
+ *   XNet.mirrorTop(board, n=20) → Promise<{ts, rows}|null>：data/boards.json 里的排行榜快照（部署时生成，.github/boards-snapshot.py），
+ *                         连不上数据库时给排行榜看；board 是 'rich' 这样的大榜或 'mini:<gameId>'；没有快照为 null。只在正式配置下有
  *   board: 'hole2'（黑洞 2.0 单局吞掉的 %）| 'hole'（旧版黑洞，只读保留）| 'stunt'（特技总分）| 'rich'（总资产 RM：现金 + 买过的东西，js/80-gta.js 的 netWorth()；以前只算现金，旧记录照常保留）
  *   XNet.miniTop(gameId, n=10)    → 同 top，读 B1 游戏厅某个小游戏的榜（js/91-arcade.js）
  *   XNet.miniSubmit(gameId, value) → 同 submit；gameId 要匹配 ^[a-z][a-z0-9_]{1,15}$，value 取整，0 到 1,000,000，越大越好
@@ -60,7 +63,7 @@
     top:async () => [], submit:async () => false, miniTop:async () => [], miniSubmit:async () => false,
     signInGoogle:async () => { throw new Error('联机未开启'); }, signOut:async () => {},
     now:() => Date.now(), peer:() => null, peers:() => new Map(), ref:() => null, fresh:() => false,
-    ready:Promise.resolve(false)
+    ready:Promise.resolve(false), blocked:false, mirrorTop:null, offText:() => '联机未开启，成绩只保存在本机'
   };
 
   /* ---------- 位置同步协议（纯函数；离线也定义，test/net-traffic.html 用同一套算流量） ----------
@@ -168,7 +171,29 @@
   const cfg = window.XMUM_FIREBASE;
   if (!cfg || typeof cfg !== 'object') return;          // 单机模式：什么都不做
 
+  /* ---------- 排行榜快照：国内不开 VPN 连不上 Google（SDK 和数据库都是），排行榜退回部署时抓的快照 ----------
+     同域名下的静态文件，只在真要看的时候才下载（十几 KB）；没下到下次再试 */
+  let mirrorP = null;
+  const loadMirror = () => mirrorP || (mirrorP = fetch('data/boards.json', {cache:'no-cache'})
+    .then(r => (r.ok ? r.json() : null)).then(j => (j && +j.ts > 0 ? j : null)).catch(() => null)
+    .then(j => { if (!j) mirrorP = null; return j; }));
+  XNet.mirrorTop = async (board, n = 20) => {
+    const m = await loadMirror(); if (!m) return null;
+    const k = /^mini:([a-z][a-z0-9_]{1,15})$/.exec(String(board || ''));
+    const rows = k ? m.mini && m.mini[k[1]] : m.boards && m.boards[board];
+    if (!Array.isArray(rows)) return null;
+    return {ts:+m.ts, rows:rows.slice(0, Math.max(1, n | 0)).map(r => ({name:String(r && r.name || '?'), value:+(r && r.value) || 0, ts:+(r && r.ts) || 0}))};
+  };
+  XNet.offText = () => (XNet.blocked ? '连不上联机服务器（国内网络要开 VPN），成绩先存在本机' : '正在连接联机服务器…成绩先存在本机');
+
   const SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
+  /* SDK 文件的指纹（SRI）：gstatic 上的文件被改过就不执行，联机失败、照常单机。升级 Firebase 版本要一起换：
+     curl -s 网址 | openssl dgst -sha384 -binary | openssl base64 -A */
+  const SDK_SRI = {
+    'firebase-app-compat.js':'sha384-AQ3POAMqIhwS81FrUH95ekxqBZHeP5tG2JfEL3+7GuTtfRLWnrRh32UxwzM+//A9',
+    'firebase-auth-compat.js':'sha384-TnlRYaR4JYz/lpaGuaiU61PjNberSA4vjLjtF+oRC/IkohkJqnWxw5EmDSOt1vA1',
+    'firebase-database-compat.js':'sha384-1/m+A1jVWbD3yiK3/vtFvm1+LjK1WLpSoDY+Kaxppwn/yP9BVSgdHTNQVOjrzUO5'
+  };
   const SEND_MS = 200, IDLE_HEARTBEAT = 2000, HIDDEN_HEARTBEAT = 4000;   // 旧协议（/presence）的节奏：只在退回旧协议时用
   const TICK = 100, STALE_GRID = 75000;                                   // 新协议：每 100 毫秒检查一次；心跳 30 秒，75 秒没消息算掉线（正常下线有 onDisconnect 马上删）
   const STALE_DRAW = 6000, STALE_COUNT = 15000, MAP = 1300, OLD_MAP = 700;   // 旧 /presence 的规则只认 ±700 米
@@ -188,7 +213,9 @@
   const timeout = (p, ms, what) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(what + ' 超时')), ms))]);
   function loadScript(src){
     return new Promise((res, rej) => {
-      const s = document.createElement('script'); s.src = src; s.async = false;
+      const s = document.createElement('script'), sri = SDK_SRI[src.slice(SDK.length)];
+      if (sri && src.startsWith(SDK)){ s.integrity = sri; s.crossOrigin = 'anonymous'; }
+      s.src = src; s.async = false;
       s.onload = res; s.onerror = () => rej(new Error('加载失败 ' + src)); document.head.appendChild(s);
     });
   }
@@ -1044,6 +1071,7 @@
     try { const d = JSON.parse(o['xmum-gta-v1'] || 'null') || {}; s += (+d.money || 0) + (Array.isArray(d.owned) ? d.owned.length : 0) * 500 + (+d.stunt || 0) / 50; } catch(e){}
     try { s += +(JSON.parse(o['xmum-wardrobe-v1'] || 'null') || {}).spent || 0; } catch(e){}
     try { s += +(JSON.parse(o['xmum-house-v1'] || 'null') || {}).spent || 0; } catch(e){}   // 买房装修花掉的钱（js/89-house.js），不然买了房云端进度反而像变少了
+    try { const q = JSON.parse(o['xmum-quest-v1'] || 'null') || {}; s += Math.max(0, (+q.ch || 1) - 1) * 300 + Object.keys(q.done || {}).length * 20; } catch(e){}   // 主线进度（js/89-quest.js），不然手机上做到第 3 章会被电脑上钱多一点的旧存档盖掉
     return s + (+o['xmum-hole2-best'] || 0) * 10 + (+o['xmum-hole-best'] || 0) * 10;
   }
   let lastPushed = '';
@@ -1309,16 +1337,21 @@
       recount(); emit();
       if (XNet.account.google){
         setInterval(cloudPush, 30000);                    // 断开时 cloudPush 自己会跳过
-        cloudSync().then(reloaded => {
+        syncP = cloudSync().then(reloaded => {
           let restored = false; try { restored = sessionStorage.getItem('xmum-restored') === '1'; sessionStorage.removeItem('xmum-restored'); } catch(e){}
           if (!reloaded && restored) g(() => toast('已从云端恢复进度', XNet.account.email || '', 2400));
+          return reloaded;
         });
       }
       return true;
     } catch(e){
+      XNet.blocked = true;                                  // 启动就没连上：多半是国内网络连不到 Google
       fail(e && e.message || '初始化失败', e);
       return false;
     }
   }
+  /* XNet.synced：联机初始化和云存档同步都结束以后 resolve（用云端覆盖了本机会刷新页面，就不会 resolve）。主线（js/89-quest.js）等它再写存档、补发 */
+  let syncP = null;
   XNet.ready = start();
+  XNet.synced = XNet.ready.then(() => syncP).catch(() => false);
 })();

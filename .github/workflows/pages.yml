@@ -7,12 +7,18 @@
 #     js/firebase-config.preview.js. It never gets the live project's config.
 #   - .github/preview/guard.js is injected first into every preview page and prefixes all
 #     localStorage keys (same origin as the live game), so preview saves never touch real ones.
+#
+# data/boards.json: a read-only snapshot of the public leaderboards (.github/boards-snapshot.py),
+# for players who cannot reach Firebase (mainland China without a VPN). Refreshed on every deploy
+# and every 15 minutes by the schedule below; js/net.js shows it when the live database is out of reach.
 name: 部署网站
 
 on:
   push:
     branches: [main, dev]
   workflow_dispatch:
+  schedule:
+    - cron: '7,22,37,52 * * * *'   # leaderboard snapshot; GitHub runs schedules on main and may start them late
 
 concurrency:
   group: pages
@@ -53,6 +59,8 @@ jobs:
         run: |
           set -euo pipefail
           GUARD=site/.github/preview/guard.js
+          mkdir -p site/data
+          python3 site/.github/boards-snapshot.py site/js/firebase-config.js site/data/boards.json || true
           mkdir -p site/preview
           ( cd dev && git log -1 --format='%h %cd' --date=format:'%Y-%m-%d %H:%M' ) > preview-version.txt
           rm -rf site/.git dev/.git dev/.github

@@ -82,13 +82,22 @@
 #xcheat input{width:18px;height:18px;accent-color:#e74c3c;flex:none}
 #xcheat p{margin:6px 0 0;color:#aab1bb;font-size:11.5px;line-height:1.5}
 #xcheat .xc-btn{all:unset;cursor:pointer;display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:6px 10px;border-radius:8px;background:#2e3440;color:#fff;text-align:center;font-weight:600}
-#xcheat .xc-btn:hover{background:#3b4352}`;
+#xcheat .xc-btn:hover{background:#3b4352}
+#xcheat .xc-q{margin-top:10px;padding-top:8px;border-top:1px solid #3b4352}
+#xcheat .xc-q select{margin:0 6px;font:inherit;border-radius:6px;padding:2px 4px}`;
   const box = document.createElement('div'); box.id = 'xcheat';
   box.innerHTML = `<button type="button" aria-expanded="false" aria-controls="xcheatPan"></button>
 <div class="xc-pan" id="xcheatPan" hidden>
   <label>无限金币和道具<input type="checkbox" data-k="on"></label>
   <label>改装立刻完工<input type="checkbox" data-k="fast"></label>
   <button type="button" class="xc-btn" data-cars>车行的车全部送我</button>
+  <div class="xc-q"><b>主线</b>
+    <button type="button" class="xc-btn" data-q="vet">模拟老玩家存档</button>
+    <button type="button" class="xc-btn" data-q="reset">清空主线进度（当新玩家）</button>
+    <label>跳到第<select data-qch>${[1, 2, 3, 4, 5, 6, 7, 8].map(n => `<option value="${n}">${n === 8 ? '全部做完' : n}</option>`).join('')}</select>章开头</label>
+    <button type="button" class="xc-btn" data-q="tick">这一章的步骤全部打勾</button>
+    <button type="button" class="xc-btn" data-q="home">强制「想家」一次</button>
+  </div>
   <p>只在预览版有。钱包补满 RM 9,999,999，改装道具每样 ${PART_N} 个、配方全开，装修的成就门槛也放开。关掉后钱包、道具和配方回到开之前的数量，买到的东西都留着。预览版不上排行榜。</p>
 </div>`;
   const pill = box.querySelector('button'), pan = box.querySelector('.xc-pan');
@@ -103,6 +112,16 @@
   box.addEventListener('pointerdown', e => e.stopPropagation());
   document.addEventListener('click', () => { if (!pan.hidden){ pan.hidden = true; pill.setAttribute('aria-expanded', 'false'); } });
   box.addEventListener('change', e => { const k = e.target.dataset && e.target.dataset.k; if (k === 'on') setOn(e.target.checked); else if (k === 'fast') setFast(e.target.checked); });
+  /* 主线测试（js/89-quest.js 的 XQuest.dev）：模拟老玩家会改本机存档并刷新（预览版的键有 xmum-preview: 前缀，正式存档不受影响） */
+  box.querySelectorAll('[data-q]').forEach(b => b.addEventListener('click', () => {
+    const D = g(() => XQuest.dev, null); if (!D) return g(() => toast('没有主线', '', 1500));
+    const k = b.dataset.q;
+    if (k === 'vet' && !confirm('把本机（预览版）存档换成一个老玩家存档并刷新？主线进度会清空。')) return;
+    if (k === 'reset' && !confirm('清空主线进度，当成新玩家？')) return;
+    const r = k === 'vet' ? D.vet() : k === 'reset' ? D.reset() : k === 'tick' ? D.tickAll() : D.homesick();
+    g(() => toast('主线测试', String(r || ''), 2200));
+  }));
+  { const sel = box.querySelector('[data-qch]'); if (sel) sel.addEventListener('change', () => { const r = g(() => XQuest.dev.skip(+sel.value), ''); g(() => toast('主线测试', String(r || ''), 2200)); }); }
   box.querySelector('[data-cars]').addEventListener('click', () => { const n = cars(); g(() => toast('车行的车都给你了', n ? `新到 ${n} 辆，去车行叫出来` : '本来就全有了', 2200)); });
 
   function setOn(v){

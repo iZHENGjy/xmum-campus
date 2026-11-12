@@ -843,7 +843,7 @@ body.wd-open #dmBag,body.wd-open #dmLoot,body.wd-open #dmPad{display:none!import
 @media (prefers-reduced-motion: reduce){ .brand-tog svg{transition:none} }
 /* 手机横屏（矮屏）的 HUD 在文件末尾「手机横屏 2.0」一段 */
 /* ---------- 矮的桌面窗口和横放的平板：三个按钮排成一行、小地图小一号，小地图不再压到右下的操作按钮 ---------- */
-@media (min-height:521px) and (max-height:820px) and (min-width:761px){
+@media (min-height:521px) and (max-height:820px) and (min-width:561px){
   body.naiwa #gstat{grid-template-columns:repeat(3,minmax(0,1fr))}
   body.naiwa #gstat>*{grid-column:1 / -1}
   body.naiwa #gstat>.gbtn{grid-column:auto;padding:0 2px;font-size:11.5px;white-space:nowrap}
@@ -1087,10 +1087,6 @@ body.wd-open #tnGain{top:auto;bottom:calc(var(--safe-b) + 24px);left:calc((100% 
 .rd-chk{display:flex;gap:8px;align-items:flex-start;color:#cfd5de;font-size:12.5px;line-height:1.4;cursor:pointer}
 .rd-chk input{margin-top:2px;accent-color:var(--rd)}
 .rd-off{color:#ff8a80}
-#acts #act-m{order:-1}
-body.rd-car #act-w{grid-column:auto}   /* in the car the water gun is off anyway: 电台 shares its row so the button stack stays as tall as before */
-#acts #act-m.rd-act-on{border-color:color-mix(in srgb,var(--rd) 70%,var(--line))}
-#acts #act-m.rd-act-on b{color:var(--rd);text-shadow:0 0 1px rgba(0,0,0,.35)}
 body.wd-open #radio,body.sp-run #radio,body.titled #radio{display:none!important}
 @media (pointer:coarse){
   #radio{left:50%;transform:translateX(-50%);bottom:auto;top:calc(var(--safe-t) + 190px);align-items:center}
@@ -1558,4 +1554,240 @@ body.titled:has(#embedTip:not([hidden])) #title .t-wrap{padding-top:56px}
   #house .shop-h{margin-bottom:6px}
   #house .shop-h h2{font-size:17px}
   .hz-set{margin-bottom:6px;padding:4px 8px}
+}
+
+/* ---------- 主线（js/89-quest-ui.js）：对话框、任务条、操作提示、手机通知、章节卡、欢迎卡、奶娃日记、便利贴 ---------- */
+.q-av{display:inline-grid;place-items:center;flex:none;width:40px;height:40px;border-radius:50%;color:#fff;font:900 17px/1 var(--display);font-style:normal;box-shadow:0 0 0 2px var(--card-bg),0 2px 6px var(--shadow)}
+#qtalk{position:fixed;z-index:9;left:50%;bottom:calc(var(--safe-b) + 18px);transform:translateX(-50%);width:min(600px,calc(100vw - 32px));box-sizing:border-box;
+  display:flex;align-items:flex-start;gap:12px;padding:14px 16px 16px;border-radius:var(--r-lg);background:var(--panel-solid);cursor:pointer;-webkit-user-select:none;user-select:none;
+  box-shadow:0 10px 30px var(--shadow);animation:qUp .22s ease-out}
+#qtalk[hidden]{display:none}
+#qtalk .q-av{width:52px;height:52px;font-size:22px}
+#qtalk .q-tx{flex:1;min-width:0}
+#qtalk .q-who{display:block;font:700 13px/1.3 var(--body);color:var(--tile);margin-bottom:3px}
+#qtalk .q-line{margin:0;font:600 16px/1.6 var(--body);color:var(--ink);min-height:3.2em}
+#qtalk .q-skip{all:unset;cursor:pointer;flex:none;align-self:flex-start;padding:8px 14px;border-radius:999px;background:var(--chip);color:var(--muted);font:600 13px/1.2 var(--body)}
+#qtalk .q-skip:focus-visible{outline:2px solid var(--tile)}
+#qtalk .q-next{position:absolute;right:16px;bottom:8px;color:var(--tile);font-size:13px;font-weight:700;animation:qNudge 1.4s infinite;display:flex;align-items:center;gap:5px;white-space:nowrap}
+#qtalk .q-next kbd{display:inline-block;min-width:22px;padding:1px 6px;border-radius:6px;border:1px solid currentColor;border-bottom-width:3px;font:inherit;font-size:13px;line-height:1.4;text-align:center;background:#fff}
+body.q-talking #prompt,body.q-talking #qhint{visibility:hidden}
+@keyframes qUp{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes qBlink{50%{opacity:.25}}
+@keyframes qNudge{50%{opacity:.55}}
+#qtalk .q-tx{padding-bottom:14px}
+.q-bar{all:unset;display:block;box-sizing:border-box;width:100%;cursor:pointer;font-size:12px;line-height:1.5;color:var(--ink);border-top:1px dashed var(--line);padding-top:6px;margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.q-bar::before{content:'★ ';color:#e0a400}
+.q-bar.q-bang{color:var(--tile)}
+.q-bar:focus-visible{outline:2px solid var(--tile);outline-offset:2px}
+.q-bar[hidden]{display:none}
+.q-bar{padding-right:26px}
+.q-barx{all:unset;position:absolute;right:8px;top:0;display:block;box-sizing:border-box;width:24px;height:22px;text-align:center;font-size:16px;line-height:22px;color:var(--muted);cursor:pointer;border-radius:6px;z-index:1}
+.q-barx:hover{background:var(--chip, rgba(0,0,0,.06));color:var(--ink)}
+.q-barx:focus-visible{outline:2px solid var(--tile)}
+.q-barx[hidden]{display:none}
+body:not(.naiwa) .q-barx{display:none}
+@media (pointer:coarse){ .q-barx{width:34px;height:30px;line-height:30px;font-size:18px;right:4px;margin-top:-4px} }
+body:not(.naiwa) .q-bar{display:none}
+#qhint{position:fixed;z-index:6;left:50%;bottom:calc(var(--safe-b) + 62px);transform:translateX(-50%);padding:7px 14px;font-size:13.5px;line-height:1.5;max-width:calc(100vw - 32px);box-sizing:border-box;
+  text-align:center;border:2px solid #ffc21a;background:var(--panel-solid);pointer-events:none}
+#qhint[hidden]{display:none}
+#qhint.in{animation:qHint .4s ease-out}
+#qhint kbd{display:inline-block;min-width:1.3em;padding:0 5px;margin:0 1px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;background:var(--card-bg);font:700 12px/1.6 var(--body);text-align:center}
+@keyframes qHint{from{opacity:0;transform:translate(-50%,8px)}to{opacity:1;transform:translate(-50%,0)}}
+.q-flash{box-shadow:0 0 0 3px #ffc21a,0 0 16px 4px rgba(255,194,26,.7)!important;animation:qFlash 1.1s ease-in-out infinite}
+@keyframes qFlash{50%{box-shadow:0 0 0 3px rgba(255,194,26,.4),0 0 4px 1px rgba(255,194,26,.2)}}
+#qphone{position:fixed;z-index:10;right:calc(var(--safe-r) + 12px);top:calc(var(--safe-t) + 12px);width:min(300px,calc(100vw - 32px));box-sizing:border-box;display:flex;gap:10px;align-items:center;
+  padding:10px 12px;border-radius:16px;background:var(--panel-solid);box-shadow:0 8px 24px var(--shadow);cursor:pointer;transform:translateX(calc(100% + 24px));transition:transform .28s ease}
+#qphone.in{transform:none}
+#qphone[hidden]{display:none}
+#qphone b{display:block;font-size:12.5px;color:var(--muted)}
+#qphone span{display:block;font-size:14px;line-height:1.45;color:var(--ink)}
+#qcard{position:fixed;z-index:8;left:50%;top:calc(var(--safe-t) + 110px);transform:translate(-50%,-14px);opacity:0;pointer-events:none;transition:opacity .3s,transform .3s;
+  display:grid;grid-template-columns:auto 1fr;gap:2px 12px;align-items:center;padding:12px 20px 12px 14px;border:2px solid #ffc21a;max-width:calc(100vw - 32px);box-sizing:border-box}
+#qcard.show{opacity:1;transform:translate(-50%,0)}
+#qcard[hidden]{display:none}
+#qcard i{grid-row:1 / 3;font-style:normal;font-size:11px;font-weight:700;color:#c58a00;writing-mode:vertical-rl;letter-spacing:.12em}
+#qcard b{font-family:var(--display);font-size:17px}
+#qcard small{font-size:12.5px;color:var(--muted);line-height:1.45}
+#labels .q-npc{pointer-events:auto;cursor:pointer;font-weight:700}
+#labels .q-npc.q-bang{color:#5a3c00;background:#ffd84d;border-color:#c58a00}
+.q-welcome{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:16px;background:rgba(10,20,30,.35)}
+.q-welcome[hidden]{display:none}
+.q-wbox{width:min(420px,100%);box-sizing:border-box;padding:16px 18px 18px;border-radius:var(--r-lg);background:var(--panel-solid);position:relative;animation:qPop .25s ease-out}
+.q-whead{display:flex;gap:12px;align-items:center;margin-bottom:8px}
+.q-whead b{display:block;font:900 20px/1.2 var(--display)}
+.q-whead span{font-size:12.5px;color:var(--muted)}
+.q-whead .x{margin-left:auto;position:static}
+.q-wp{margin:6px 0;font-size:14.5px;line-height:1.65}
+.q-wgift{margin:8px 0 14px;padding:8px 12px;border-radius:var(--r-md);background:rgba(255,194,26,.16);border:1px dashed #c58a00;font-weight:700;font-size:14px}
+.q-wbtns{display:flex;gap:8px;flex-wrap:wrap}
+.q-wbtns .btn{flex:1;min-height:44px}
+@keyframes qPop{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:none}}
+/* the diary page */
+.q-dh{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 8px;margin:0 0 8px;padding-bottom:8px;border-bottom:2px dashed var(--line)}
+.q-dh span{font-size:12.5px;color:var(--muted)}
+.q-dh b{grid-row:2;font:900 18px/1.3 var(--display)}
+.q-dnav{grid-row:1 / 3;grid-column:2;display:flex;gap:6px}
+.q-dnav button{all:unset;cursor:pointer;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--chip);font-size:22px;color:var(--ink)}
+.q-dnav button:disabled{opacity:.3;cursor:default}
+.q-dnav button:focus-visible{outline:2px solid var(--tile)}
+.q-dcols{display:grid;grid-template-columns:1fr 200px;gap:14px;align-items:start}
+.q-dtext{padding:6px 12px;border-radius:var(--r-md);background:repeating-linear-gradient(transparent 0 27px,var(--line) 27px 28px);background-color:var(--paper)}
+.q-dl{margin:0;font:600 15px/28px var(--display);color:var(--ink);position:relative}
+.q-dl.q-recap{color:var(--muted)}
+.q-dl i{font-style:normal;font:700 10px/1 var(--body);color:var(--tile);border:1px solid var(--tile);border-radius:4px;padding:2px 4px;margin-left:6px;vertical-align:2px}
+.q-dim{color:var(--muted)!important;font-weight:400!important}
+.q-replay{margin-top:10px;min-height:42px}
+.q-dh4{margin:14px 0 6px;font-size:13px;color:var(--muted)}
+.q-todo{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.q-todo li{display:flex;gap:8px;align-items:flex-start;padding:7px 10px;border-radius:var(--r-md);background:var(--chip);font-size:14px;line-height:1.5}
+.q-todo li b{font-weight:600}
+.q-todo li em{font-style:normal;font-size:12px;color:var(--muted)}
+.q-todo li em.q-rm{color:#a07000}
+.q-todo li em.q-opt{font-style:normal;font-size:11px;font-weight:700;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:0 6px;margin-left:4px;vertical-align:1px}
+.q-todo li small{display:block;font-size:13px;color:var(--muted);margin-top:3px;line-height:1.55}
+.q-todo li small.q-how{color:var(--ink)}
+.q-todo li small kbd{display:inline-block;padding:0 4px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;background:var(--card-bg);font-size:11.5px}
+.q-todo .q-done{opacity:.6}
+.q-todo .q-done b{text-decoration:line-through}
+.q-todo .q-now{background:rgba(255,194,26,.18);box-shadow:inset 3px 0 0 #ffc21a}
+.q-todo .q-later{opacity:.75}
+.q-box{flex:none;font-size:16px;line-height:1.35}
+.q-more{all:unset;cursor:pointer;display:inline-block;margin-top:6px;padding:6px 12px;border-radius:999px;background:var(--card-bg);border:1px solid var(--line);font-size:12.5px;font-weight:600;color:var(--tile)}
+.q-more:focus-visible{outline:2px solid var(--tile)}
+.q-drew{margin:10px 0 0;font-size:13px;color:#a07000;font-weight:600}
+.q-dphone{position:relative;padding:28px 10px 10px;border-radius:18px;background:#20252d;color:#fff;box-shadow:0 4px 12px var(--shadow);transform:rotate(1.5deg)}
+.q-dph{position:absolute;top:8px;left:50%;transform:translateX(-50%);font-size:11px;color:#9aa3ad;letter-spacing:.2em}
+.q-dphone .q-dim{color:#9aa3ad!important;font-size:12.5px;margin:4px 2px}
+.q-msg{display:flex;gap:8px;align-items:flex-start;margin-top:8px}
+.q-msg .q-av{width:28px;height:28px;font-size:13px;box-shadow:none}
+.q-msg b{display:block;font-size:11px;color:#9aa3ad;font-weight:600}
+.q-msg span{display:inline-block;padding:5px 9px;border-radius:4px 12px 12px 12px;background:#fff;color:#1f2a33;font-size:13px;line-height:1.45}
+.q-quiet{display:flex;gap:8px;align-items:center;margin-top:14px;padding-top:10px;border-top:1px solid var(--line);font-size:13px;color:var(--muted);cursor:pointer}
+.q-quiet input{width:18px;height:18px;flex:none;accent-color:var(--tile)}
+.q-notes{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.q-note{padding:10px 12px;background:var(--card-bg);border-top:4px solid var(--nc);box-shadow:0 3px 8px var(--shadow)}
+.q-note:nth-child(2n){transform:rotate(.8deg)}.q-note:nth-child(2n+1){transform:rotate(-.6deg)}
+.q-note b{display:block;font:900 15px/1.3 var(--display);margin-bottom:6px}
+.q-note b small{display:block;font:400 11.5px/1.4 var(--body);color:var(--muted)}
+.q-note ul{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:13.5px;line-height:1.5}
+.q-note li{display:flex;gap:6px;align-items:flex-start}
+.q-note li em{font-style:normal;font-size:12px;color:var(--muted)}
+.q-note .q-done{opacity:.55;text-decoration:line-through}
+.q-note .q-later{opacity:.7}
+@media (max-width:640px){
+  .q-dcols{grid-template-columns:1fr}
+  .q-dphone{transform:none}
+}
+@media (max-width:560px){
+  #qtalk{bottom:calc(var(--safe-b) + 10px);padding:12px 12px 14px;gap:10px}
+  #qtalk .q-av{width:42px;height:42px;font-size:18px}
+  #qtalk .q-line{font-size:15px}
+  #qhint{bottom:calc(var(--safe-b) + 212px);font-size:13px}
+  body.naiwa #gstat .q-bar{grid-column:1 / -1;font-size:11.5px;padding-top:4px}
+  #qcard{top:calc(var(--safe-t) + 150px)}
+  #qphone{top:calc(var(--safe-t) + 8px);right:calc(var(--safe-r) + 8px)}
+}
+@media (max-height:500px){
+  #qtalk{bottom:calc(var(--safe-b) + 6px);padding:8px 12px 10px}
+  #qtalk .q-line{min-height:0;font-size:14px;line-height:1.5}
+  #qhint{bottom:auto;top:calc(var(--safe-t) + 50px)}
+  #qcard{top:calc(var(--safe-t) + 60px)}
+}
+@media (prefers-reduced-motion: reduce){ #qtalk,.q-wbox,#qhint.in{animation:none} #qphone,#qcard{transition:none} .q-flash{animation:none} }
+.gd-txt ul.q-todo li,.q-note li{padding-left:10px}
+.gd-txt ul.q-todo li::before,.q-note li::before{content:none}
+.q-note li{padding-left:0!important}
+
+/* a mid-size window (561–900 wide, or 521–760 tall): the right column (top bar, wallet, minimap) used to run down into the
+   on-screen buttons. Shorter wallet rows, a smaller minimap, shorter buttons; on narrow ones the buttons go four to a row. */
+@media (min-width:561px) and (min-height:521px) and (max-height:760px), (min-width:561px) and (max-width:900px) and (min-height:521px){
+  body.naiwa #gstat .grow{padding-top:1px;padding-bottom:1px}
+  body.naiwa #gstat .grow span,body.naiwa #gstat .grow b{line-height:1.25}
+  body.naiwa #mini{width:96px;height:96px;border-width:2px}
+  #acts{gap:6px}
+  #acts button{min-height:40px;padding-top:4px;padding-bottom:4px}
+}
+@media (min-width:561px) and (max-width:900px) and (min-height:521px){
+  #acts{grid-template-columns:repeat(4,auto)}   /* 水枪 spans the top row, the other four sit in one row under it */
+}
+
+/* 761–960 wide: the top-left card and the top-right bar leave no room for the compass between them, and the key line at the bottom
+   runs into the buttons; both go where the narrow layout puts them, above the buttons in the lower middle */
+@media (min-width:761px) and (max-width:960px){
+  #compass{top:auto;bottom:calc(var(--safe-b) + 206px)}
+  #prompt{bottom:calc(var(--safe-b) + 162px)}
+}
+
+/* sideways rows (.wd-tabs, .tn-inv): ‹ › buttons at the ends that have more behind them (js/88-wardrobe-ui.js), the first-time label on › */
+.sx-wrap{position:relative;flex:none;min-width:0}
+.sx-btn{position:absolute;top:50%;z-index:2;display:none;align-items:center;gap:4px;height:30px;min-width:30px;padding:0 8px;margin-top:-15px;border-radius:999px;
+  border:1px solid var(--line);background:var(--panel-solid);color:var(--tile);font:800 18px/1 var(--body, sans-serif);box-shadow:0 2px 10px var(--shadow);cursor:pointer}
+.sx-wrap .wd-tabs + .sx-btn,.sx-wrap .wd-tabs ~ .sx-btn{margin-top:-17px}
+.sx-bl{left:-6px}.sx-br{right:-6px}
+.sx-wrap.sx-l .sx-bl,.sx-wrap.sx-r .sx-br{display:flex}
+.sx-btn:focus-visible{outline:2px solid var(--tile);outline-offset:2px}
+.sx-tip{font-size:12px;font-weight:700;white-space:nowrap}
+body.sx-known .sx-tip{display:none}
+body:not(.sx-known) .sx-wrap.sx-r .sx-br{animation:sxNudge 1.3s ease-in-out infinite}
+@keyframes sxNudge{50%{transform:translateX(3px)}}
+@media (prefers-reduced-motion: reduce){ body:not(.sx-known) .sx-wrap.sx-r .sx-br{animation:none} }
+
+/* 矮窗口（电脑窗口拉得很矮、手机竖屏但浏览器地址栏和键盘占掉一截）：改装车间整块面板一起滚，
+   关闭按钮和底下的「下单施工 / 提车」钉在面板里，永远点得到。原来零件栏、施工位、属性、分栏加起来比面板还高，底栏被挤出屏幕。 */
+@media (max-height:640px), (max-width:760px) and (max-height:820px){
+  #tune{overflow-y:auto;overscroll-behavior:contain;padding:10px 12px 8px;scroll-padding:36px 0 120px}   /* 指引把零件滚出来时，别停在钉住的底栏后面 */
+  #tune>*{flex:none}
+  #tune .tn-list{overflow:visible;margin:0;padding:0 0 4px}
+  #tune>.x{position:sticky;top:-2px;align-self:flex-end;margin:-4px -6px -30px 0;z-index:2;background:linear-gradient(var(--panel-solid),var(--panel-solid)),var(--panel-solid)}
+  #tune .wd-foot{position:sticky;bottom:-8px;z-index:1;margin:6px -12px -8px;padding:7px 12px 8px;background:linear-gradient(var(--panel-solid),var(--panel-solid)),var(--panel-solid)}
+  .tn-where{max-height:2.95em}
+  /* 底栏文字和按钮并排，别把按钮挤到第二行，多占一截高度 */
+  #tune .wd-foot{flex-wrap:nowrap}
+  #tune .wd-sel{flex:1 1 auto;min-width:0}
+  #tune .wd-btns{flex:none}
+}
+/* 窄又矮：面板本来只占下面 70% 高，太挤；拉高到只在顶上留出任务条那一截 */
+@media (max-width:560px) and (max-height:640px), (max-width:760px) and (min-height:521px) and (max-height:640px){ #tune{height:calc(100% - 64px - var(--safe-t) - var(--safe-b))} }
+
+/* ---------- 玩法闭环（js/89-loop.js）：钱包面板里「今日 1/3」+「下一个目标」一行，和点开的每日目标卡片 ---------- */
+.lp-row{display:flex;align-items:center;gap:6px;min-width:0;border-top:1px dashed var(--line);padding-top:6px;margin-top:2px}
+.lp-row[hidden]{display:none}
+body:not(.naiwa) .lp-row{display:none}
+.lp-day,.lp-goal{all:unset;box-sizing:border-box;cursor:pointer;font-size:12px;line-height:1.5;-webkit-tap-highlight-color:transparent}
+.lp-day{flex:none;padding:0 7px;border-radius:999px;border:1px solid var(--line);font-weight:700;color:var(--ink);white-space:nowrap;background:var(--card-bg, transparent)}
+.lp-day.lp-all{color:#2e9d5b;border-color:#4fd18b}
+.lp-goal{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;color:var(--ink)}
+.lp-goal::before{content:'目标 ';color:var(--tile);font-weight:700}
+@media (min-width:561px) and (min-height:521px){
+  .lp-row{align-items:flex-start}
+  .lp-goal{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+}
+.lp-goal.lp-ready{color:#2e9d5b}
+.lp-goal[hidden]{display:none}
+.lp-day:focus-visible,.lp-goal:focus-visible{outline:2px solid var(--tile);outline-offset:2px}
+.lp-card{position:fixed;z-index:31;right:calc(var(--safe-r, 0px) + 12px);top:calc(var(--safe-t, 0px) + 64px);width:min(320px,calc(100vw - 24px));box-sizing:border-box;padding:12px 14px 10px;font-size:13px;color:var(--ink)}
+.lp-card[hidden]{display:none}
+.lp-card .lp-x{position:absolute;right:6px;top:4px}
+.lp-h{display:block;font:900 15px/1.3 var(--display, inherit);margin:0 26px 8px 0}
+.lp-h small{font:400 12px/1.3 var(--body, inherit);color:var(--muted);margin-left:4px}
+.lp-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.lp-list li{display:grid;grid-template-columns:18px minmax(0,1fr) auto;align-items:baseline;gap:6px;padding:0!important}
+.lp-list li::before{content:none}
+.lp-list i{font-style:normal;color:var(--muted)}
+.lp-list em{font-style:normal;color:var(--tile);font-weight:700}
+.lp-list small{color:var(--muted);white-space:nowrap}
+.lp-list .lp-done{opacity:.6}
+.lp-list .lp-done i{color:#2e9d5b}
+.lp-list .lp-done span{text-decoration:line-through}
+.lp-foot{margin:8px 0 0;font-size:12px;line-height:1.5;color:var(--muted)}
+@media (max-width:560px){
+  body.naiwa #gstat .lp-row{grid-column:1 / -1;padding-top:4px}
+  .lp-day,.lp-goal{font-size:11.5px}
+}
+/* 手机横屏：钱包面板是顶上一条，这一行挤在里面，目标文字截短 */
+@media (max-height:520px) and (min-width:561px){
+  body.naiwa #gstat .lp-row{flex:0 6 auto;max-width:26vw;border-top:0;border-left:1px dashed var(--line);padding:0 0 0 7px;margin:0}
+  body.naiwa #gstat .grow:first-child{flex-shrink:0}   /* the money never gets cut for this row */
 }

@@ -110,7 +110,10 @@
         <dt>送外卖</dt><dd>D6 食堂、LY3 食堂、B1 餐厅门口的<b>橙色光圈</b>挑一单${K('（F 或 1 2 3 接，X 跳过，J 关掉接单）', '')}，限时送到绿点。每天有一家「加急」，第一单双倍；校门外还有两个取餐点，出入校门的单按路程加钱。</dd>
         <dt>挑战赛和竞速</dt><dd>环湖赛、早八冲刺、田径场漂移、飞跃挑战按成绩给奖牌和钱；带格子旗的赛事点开车进圈，选人机赛、道具赛或影线 1v1。</dd>
         <dt>特技分</dt><dd>漂移、飞跃、撞车连成一串，连击结束换成钱（50 分 = RM 1）。</dd>
-        <dt>校门外</dt><dd>麦当当得来速、蜜雪冰橙打工、KIP 超市大乱斗、山梁拉力；夜晚 Bell 后巷有夜市；傍晚起排屋南边的 Kota Warisan 大夜市开市，榴莲摊有猫山王挑战。正门对面 Bell 西头的 24 小时嘛嘛档 Al-Hajeera：走到空椅子旁按 F 坐下点餐（拉茶、Roti Canai、Maggi Goreng……），门口也是外卖取餐点。</dd>
+        <dt>校门外</dt><dd>麦当当得来速、蜜雪冰橙打工、KIP 超市大乱斗、山梁拉力；夜晚 Bell 后巷有夜市；傍晚起排屋南边的 Kota Warisan 大夜市开市，榴莲摊有猫山王挑战。正门对面 Bell 西头的 24 小时嘛嘛档 Al-Hajeera：走到空椅子旁按 F 坐下点餐（拉茶、Roti Canai、Maggi Goreng……），门口也是外卖取餐点。地图东北角的 IOI City Mall：SUKI-YA 门口红圈付钱进店，和阿明、卷卷抢一锅火锅：金圈时夹最香，慢了被夹走，看能不能吃回本。</dd>
+        <dt>麦当当配餐</dt><dd>麦当当正门外的黄圈${K('按 F', '点「打工」')}进后厨：看小票从下往上叠汉堡，再配薯条、饮料、玩具，打包交餐。经典、午高峰、得来速三个模式，按分数发工资。</dd>
+        <dt>卡丁车场</dt><dd>汽车游乐园二园（Bell Avenue 东南）：维修区黄圈${K('按 F', '点「租卡丁车」')}免费租一辆，过起点线开始计时，最快一圈上卡丁车排行榜。自己的车也能上去跑。维修区车道上的格子旗是卡丁车比赛：人机赛、道具赛、影线 1v1，跑 3 圈，大家都开一样的卡丁车（开赛自动给你一辆），奖金每天最多 RM 300。</dd>
+        <dt>IOI · SUKI-YA</dt><dd>地图东北角的 IOI City Mall，SUKI-YA 门口红圈${K('按 F', '点「吃火锅」')}：付自助餐钱，和阿明、卷卷抢一锅火锅，吃回本有奖牌和小额返还，辣锅另有一个榜。</dd>
         <dt>坐小火车</dt><dd>开到 Salak Tinggi ERL 站（地图上的紫色点），站厅门口紫圈${K('按 F', '点「上车」')}坐车，一站到 KLIA 机场：问讯台接「送机赶时间」跑腿单，还有 24 小时的すき家。</dd>
         <dt>抓小偷</dt><dd>送单时有人抢外卖：追上去用水枪淋或开车撞倒，走到身边${K('按 F', '点「上车」')}拿回来。Bell 路口的通缉榜能直接接悬赏。</dd>
         <dt>大活</dt><dd>LY 宿舍门口紫圈「宿舍撤离」、A3 门口红圈蓝圈「教学楼潜入」、猴山山顶「猴子大战」、B1 游戏厅的小游戏（得分换钱），掉的改装道具最好。</dd>
@@ -124,7 +127,7 @@
     {id:'cops', t:'被保安通缉了怎么办', art:'cops', body:() => `
       <p class="gd-lead">撞东西、吓到同学会让<b>保安警戒</b>（右上角的星）升级，巡逻车会追你；五星时还会在前面设路障。</p>
       <ol class="gd-steps">
-        <li><b>喷漆车间</b>：开着<b>自己的车</b>（车行买的）冲进正门对面 Bell 那排店屋西头的喷漆车间，卷帘门一关就换漆，警戒清零。每颗星 RM 50；同一间喷完要等 2 分钟。小地图上是<span class="gd-dot" style="--c:#e84d8a"></span>粉色的点，被通缉时会闪。</li>
+        <li><b>喷漆车间</b>：开着<b>自己的车</b>（车行买的）冲进正门对面 Bell 那排店屋西头的喷漆车间，卷帘门一关就换漆，警戒清零；但要<b>没有保安看着你开进去</b>，被盯着就先甩开视线。每颗星 RM 50；同一间喷完要等 2 分钟。小地图上是<span class="gd-dot" style="--c:#e84d8a"></span>粉色的点，被通缉时会闪。</li>
         <li><b>跑远</b>：离巡逻车 150 米以上（钻进树林只要 70 米）待一会儿，星一颗颗往下掉；甩掉保安还会掉改装道具。</li>
         <li><b>躲进室内</b>：教学楼、宿舍里保安抓不了你，巡逻车只能在门口等。</li>
         <li><b>水枪</b>${K('（E）', '')}：淋湿巡逻车，它会停下来擦玻璃。</li>
@@ -150,7 +153,7 @@
       <div class="gd-legend">${LEGEND.map(([c, t, sq]) => `<span><i class="${sq ? 'sq' : ''}" style="--c:${c}"></i>${t}</span>`).join('')}</div>`},
     {id:'radio', t:'换电台', art:'radio', body:() => `
       ${li(['上车自动开电台。点<b>电台小条</b>（电脑在左下角，手机竖着拿在上方）打开面板：选台（霓虹夜驾、芙蓉湖 Lo-fi、赛道 EDM）、下一首、单曲循环、收藏到这辆车（下次坐进这辆车接着放）、音量。',
-        '按钮栏里的<b>「电台」</b>一点换一个台，换到最后一个是关。',
+        '面板最下面的 <b>⏻ 关电台 / 开电台</b> 管开关，点任意一个台也会打开。',
         '<b>外放</b>：自己听免费；打开外放每分钟 RM 0.5，40 米内的玩家都听得到。',
         '可以勾「竞速和被保安追时自动切到赛道 EDM」。'])}`},
     {id:'save', t:'存档和登录', art:'save', body:() => `
@@ -166,6 +169,7 @@
         <dt>点小地图</dt><dd>大地图</dd>
         <dt>暂停</dt><dd>右上角「暂停」：这局战绩、成就，还有这本「游戏指南」</dd>
         <dt>车行 · 衣橱</dt><dd>右上角的按钮</dd>
+        <dt>左手模式</dt><dd>「暂停」或标题页的「操作」：摇杆和按钮左右对调，按钮大小、透明度、转视角快慢也在这里调</dd>
       </dl>` : `
       <dl class="gd-dl">
         <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>走路 / 开车，<kbd>Shift</kbd> 跑</dd>
@@ -181,7 +185,7 @@
         <dt>电台</dt><dd>点左下角的电台小条</dd>
       </dl>`}
   ];
-  const LEGEND = [['#1f2a33', '你（箭头）'], ['#ff8a3d', '外卖取餐'], ['#4fd18b', '送达点'], ['#ffd24a', '打卡点'], ['#e84d8a', '喷漆车间'], ['#e74c3c', '巡逻车', 1], ['#c9a0ff', '宿舍门口'], ['#ffd27a', '教学楼门口'], ['#ff6f61', '抢救期末卷'], ['#ff5fa2', 'B1 游戏厅'], ['#38c6d9', '出售的房子'], ['#a774ff', 'ERL 火车站']];
+  const LEGEND = [['#1f2a33', '你（箭头）'], ['#ffc21a', '主线（黄星）'], ['#ff8a3d', '外卖取餐'], ['#4fd18b', '送达点'], ['#ffd24a', '打卡点'], ['#e84d8a', '喷漆车间'], ['#e74c3c', '巡逻车', 1], ['#c9a0ff', '宿舍门口'], ['#ffd27a', '教学楼门口'], ['#ff6f61', '抢救期末卷'], ['#ff5fa2', 'B1 游戏厅'], ['#38c6d9', '出售的房子'], ['#a774ff', 'ERL 火车站'], ['#c2185b', 'SUKI-YA 火锅']];
 
   /* ---------- the guide sheet ---------- */
   const gd = document.createElement('dialog'); gd.id = 'guide'; gd.className = 'panel sheet gd'; gd.setAttribute('aria-labelledby', 'gdT');
@@ -215,6 +219,7 @@
     let i = 0;
     if (typeof page === 'string') i = Math.max(0, PAGES.findIndex(p => p.id === page));
     else if (typeof page === 'number') i = page;
+    else if (PAGES[0] && PAGES[0].home) i = 0;   /* the story diary (js/89-quest-ui.js) is always the first thing P opens */
     else { i = g(() => +localStorage.getItem('xmum-guide-page') || 0, 0); if (i >= PAGES.length - 1) i = 0; }   /* pick up where you stopped; read to the end = start over */
     go(i, true);
     gd.showModal ? gd.showModal() : gd.setAttribute('open', '');
@@ -279,7 +284,9 @@
     }
     if (MV.follow){ MV.cx = x; MV.cz = z; }
     miniNames.minor = MV.span <= 460;
-    g(() => drawMiniCampus(MV.cx, MV.cz, yaw, {g:cx2d, span:MV.span, u:MV.dpr * 1.15, names:MV.span <= 1500, me:[x, z], noN:true}));
+    const mo = {g:cx2d, span:MV.span, u:MV.dpr * 1.15, names:MV.span <= 1500, me:[x, z], noN:true};
+    g(() => drawMiniCampus(MV.cx, MV.cz, yaw, mo));
+    for (const fn of XGuide.mapLayers) g(() => fn(MV.cx, MV.cz, mo));   /* extra marks on the big map, e.g. the story's star (js/89-quest-ui.js) */
   }
   function loop(t){
     if (!bm.open){ MV.raf = 0; return; }
@@ -407,6 +414,7 @@
         const t = document.getElementById('toast');
         if (t && t.classList.contains('show') && n < 10){ setTimeout(tryTip, 1500, n + 1); return; }
         try { localStorage.setItem(TIP_KEY, '1'); } catch(e){}
+        if (window.XQuest) return;   /* the story's own hints teach P (js/89-quest-ui.js) */
         g(() => toast(TOUCH ? '不知道怎么玩？看游戏指南' : '按 P 看游戏指南', TOUCH ? '「暂停」和「菜单」里都有 · 点小地图看大地图' :'怎么赚钱、甩掉保安、改装车都写在里面 · M 打开大地图', 4200));
       };
       setTimeout(tryTip, 2500, 0);
@@ -414,5 +422,16 @@
     mo.observe(document.body, {attributes:true, attributeFilter:['class']});
   }
 
-  window.XGuide = {open:openGuide, close:closeGuide, map:openMap, closeMap, get on(){ return gd.open || bm.open; }, pages:PAGES.map(p => p.id)};
+  /* addPage: another file puts its own page in (js/89-quest-ui.js: the diary first, the sticky notes second). {id, t, art (svg string or ART key), body(), home, mount(el)}
+     mount(section) runs after each build, for pages with their own buttons. page: the page open now (-1 when closed). refresh(): rebuild the open page */
+  function addPage(p, at){
+    if (PAGES.some(x => x.id === p.id)) return;
+    if (p.art && !ART[p.art] && /^<svg/.test(p.art)){ ART['_' + p.id] = p.art; p.art = '_' + p.id; }
+    PAGES.splice(at == null ? PAGES.length : Math.max(0, Math.min(PAGES.length, at)), 0, p);
+    XGuide.pages = PAGES.map(x => x.id);
+  }
+  { const b0 = build; build = function(){ b0(); PAGES.forEach((p, i) => { if (p.mount){ const el = track.children[i]; if (el) g(() => p.mount(el)); } }); }; }
+  function refresh(){ if (!gd.open) return; const k = cur; build(); go(k, true); requestAnimationFrame(() => { track.style.transition = ''; }); }
+  window.XGuide = {open:openGuide, close:closeGuide, map:openMap, closeMap, get on(){ return gd.open || bm.open; }, get guideOn(){ return gd.open; }, get mapOn(){ return bm.open; },
+    get page(){ return gd.open ? cur : -1; }, get pageId(){ return gd.open && PAGES[cur] ? PAGES[cur].id : ''; }, pages:PAGES.map(p => p.id), addPage, refresh, go:i => go(i), mapLayers:[]};
 })();

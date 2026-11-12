@@ -12,6 +12,8 @@ B1 学生活动中心里是一个游戏厅（`js/91-arcade.js`，对外是 `wind
 | `js/minigames/canteen.js` 食堂端盘子 | 摇杆，在人群里穿行，五个模式 | `modes`、`ctx.player.walk`、`ctx.camera.fit`、`InstancedMesh` 人群 |
 | `js/minigames/kipmart.js` KIP 超市大乱斗 | 摇杆加一个键，和 AI 抢货、互撞 | 自己写的带惯性的移动、格子寻路的 AI、横竖屏换镜头方向、`ctx.ui` |
 | `js/minigames/bigeat.js` 大胃王争霸赛 | 狂点吃、别噎着、辣了喝水，和三档 AI 比吃 | 不用摇杆的点击游戏、把平台的两个按钮改成大圆按钮（`body` 加类名 + CSS）、两只奶娃都用 `ctx.actor`（自己摆姿势，玩家那只穿上衣橱的造型）、三个对手三个模式、`XMini.startAt` 从夜市进 |
+| `js/minigames/mcd.js` 麦当当配餐 | 只点按钮：看小票叠汉堡、配薯条饮料、打包交餐，三个模式 | 不用摇杆、不用平台按钮，全部操作在 `ctx.ui` 里的两排大按钮；按小票和按钮之间留出来的空当自动摆镜头；`ctx.screen` 摆客人的对话气泡；`XMini.startAt` 从麦当当门口进 |
+| `js/minigames/sukiya.js` SUKI-YA 火锅放题 | 点托盘下锅、金圈时点锅里那样夹走，和两个 AI 朋友抢一口锅，两个模式 | 三只奶娃（`ctx.actor`，朋友穿主线 NPC 的造型）、锅里的格子是 `ctx.screen` 摆的 HTML 按钮、自己的改装掉落表（每天有上限）、每天只发一次 RM 的 `reward`、模拟玩家在 `test/sukiya-bot.js`、`XMini.startAt` 从 IOI 门口付钱进 |
 
 ## 1. 最小示例
 
