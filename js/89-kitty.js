@@ -1,6 +1,6 @@
 /* XMUM 校园漫游 · 主线小剧情：遇到校园里的小猫，喂它小鱼干，拍张照发给妈妈
  *
- * 用的就是 js/16-ambient.js 里本来就在校园各处溜达的小猫（cats，人一靠近就跑）。主线走到这一步（步骤写 kitty:true）时：
+ * 用的就是 js/16-ambient.js 里本来就在校园各处溜达的小猫（cats，人一靠近就跑）。第 1、2 章还没喂过时（步骤 c1_cat 是第 2 章的可选步骤）：
  *   走路慢慢靠近，小猫不跑（跑步、开车照样吓跑它，提示里写着别跑）；走到身边按 F（手机点按钮）：
  *   小猫凑过来坐在你面前 → 几句旁白（蹲下来、它闻了闻、叼走一块小鱼干）→ 咔嚓一下闪白，弹出一张拍立得（就是当时的画面）
  *   → 「发给妈妈」：妈妈过一会儿回消息，日记记一句，这一步打勾。「不发了」也算做完，只是妈妈不回。
@@ -11,7 +11,8 @@
 (() => {
   if (typeof cats === 'undefined' || !window.XQuest || !window.XQD) return;
   const g = (f, d) => { try { return f(); } catch(e){ return d; } };
-  const on = () => { const s = g(() => XQuest.step(), null); return !!(s && s.kitty && XQuest.ph === 'steps' && !XQuest.state.flags.q_cat); };
+  /* the cat step is optional now (chapter 2's list; 小满 points the cat out at A3 in chapter 1): any time in chapters 1–2 you walk up to a ginger cat */
+  const on = () => !!(window.XQuest && !XQuest.state.flags.q_cat && ((XQuest.ch === 1 && XQuest.ph !== 'meet') || XQuest.ch === 2));
   const foot = () => mode === 'naiwa' && !g(() => driving, null) && !g(() => indoorNow(), false);
   function nearest(px, pz){
     let best = null, bd = 1e9;

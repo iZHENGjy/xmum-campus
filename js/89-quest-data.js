@@ -49,83 +49,65 @@ window.XQD = (() => {
     chat:['迷路了就按 M 看地图，我画得可清楚了。', '今天的外卖单多不多？D6 那边最旺。', '有事就来南门找我，我天天在这儿。']};
 
   /* ================= 第 1 章 新生报到（核心，js/89-quest.js 的作者负责） ================= */
+  /* 第 1 章（2026-11-12 提速）：数据说 401 个玩家里 250 个 5 分钟内就走了，所以前几分钟要尽快开上车、挣到钱。
+     小满学姐陪你走（follow），在 A3 当面教接单，送完第一单就在你身边交钥匙，不用回南门。
+     跑步留在这一章做可选；地图、指南、工作牌、秋千、小猫挪到第 2 章做可选（opt：不挡进度、不抢指南针，做了照样给钱）。 */
   D.chapters.push({n:1, id:'c1', title:'新生报到', npc:'xiaoman', place:'南门', unlock:'drive', unlockAt:'end',
-    guide:['keys', 'map', 'hello'], report:'回南门找小满学姐', diaryStart:'c1_start', diaryEnd:'c1_end', endMsg:'xm_ch1done',
-    recap:'（补记）那时候刚来，走路送外卖，跑得腿都软了。',
+    guide:['keys', 'map', 'hello'], report:'跟小满学姐拿车钥匙（她就在你旁边）', diaryStart:'c1_start', diaryEnd:'c1_end', endMsg:'xm_ch1done',
+    recap:'（补记）那时候刚来，小满学姐陪我走到 A3，教我走路送外卖。',
     intro:[
       ['xiaoman', '欢迎来到 XMUM！大巴一路晃过来累了吧？'],
-      ['xiaoman', '你就是今年最后一个报到的吧？钱包里……就这么点？'],
-      ['xiaoman', '这个迎新工作牌给你，挂上它大家就知道你是新来的，有事会帮你。'],
-      ['xiaoman', '先别想着开车啦，走路把学校认熟。迷路了就打开地图，忘了怎么做就按 P 翻手册，我都写在里面了。'],
-      ['xiaoman', '第一站：顺着屏幕上面的指南针，走到 A3 大台阶。去吧！']
+      ['xiaoman', '你就是今年最后一个报到的吧？钱包里……就这么点？没事，学姐教你挣。'],
+      ['xiaoman', () => K('走，我陪你走一段。先去 A3 大台阶，跟着屏幕上面的指南针走，按住 Shift 能跑。', '走，我陪你走一段。先去 A3 大台阶，跟着屏幕上面的指南针走，摇杆推到底就是跑。')]
     ],
     outro:[
-      ['xiaoman', '两单都送到了？还荡了秋千？可以啊，比我当年强多了。'],
+      ['xiaoman', '第一单就送到了？可以啊，比我当年强多了。'],
       ['xiaoman', '喏，这是一辆 Myvi 的钥匙，学长毕业留下的，旧是旧了点，跑得动。'],
       ['xiaoman', () => K('开车：W / S 油门刹车，A / D 转向，按住空格漂移，F 下车。车就停在你旁边。', '开车：左下摇杆推着走，右下「漂移」按住甩尾，「下车」下来。车就停在你旁边。')],
-      ['xiaoman', '还有，学校里那些发光的圈——比赛、潜入委托、宿舍搜刮、B1 游戏厅——从今天起都对你开放了，地图上都标着，想玩哪个去哪个。'],
-      ['xiaoman', '有车了就去 D6 食堂找站长老周，他那儿缺人跑单。我在南门，有事来找我！']
+      ['xiaoman', '学校里那些发光的圈——比赛、潜入委托、宿舍搜刮、B1 游戏厅——从今天起都对你开放了，地图上都标着。'],
+      ['xiaoman', '开车去 D6 食堂找站长老周，他那儿缺人跑单，开车送比走路挣得多。我回南门了，有事来找我！']
     ],
     reward:{rm:200, car:'myvi', note:'一辆 Myvi，从此能开车'},
     steps:[
       {id:'c1_a3', calmNear:true, text:'跟着指南针走到 A3 大台阶', rm:20, at:[105, 120], r:7, isNew:true,
         done:Q => Q.near(105, 120, 9),
-        hint:{pc:'<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 走路，跟着屏幕上方的指南针', touch:'左下摇杆走路，跟着指南针', flash:'#joy'},
+        hint:{pc:'<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 走路，按住 <kbd>Shift</kbd> 跑，跟着屏幕上方的指南针', touch:'左下摇杆走路，推到底就是跑，跟着指南针', flash:'#joy'},
         tip:'A3 是学校正中间那栋最高的楼，台阶很宽，顺着中轴线一直往北走就到了。', guide:'keys',
         nudge:'找不到 A3？出南门往回走，沿着中轴线一直往北，最高那栋就是。'},
-      {id:'c1_run', text:'跑起来（连续跑 3 秒）', rm:10, isNew:true,
-        done:Q => Q.flag('run3'),
-        hint:{pc:'走路时按住 <kbd>Shift</kbd> 就是跑', touch:'把摇杆推到最边上就是跑', flash:'#joy'},
-        tip:'跑步比走路快一倍，送外卖赶时间全靠它。', guide:'keys'},
-      {id:'c1_map', text:'打开大地图，找到 D6 食堂', rm:10, isNew:true,
-        done:Q => Q.flag('map'),
-        hint:{pc:'按 <kbd>M</kbd> 打开大地图，找到 D6 食堂', touch:'点右上角的小地图，打开大地图', flash:'#mini'},
-        tip:'大地图能拖、能缩放；橙色的点是外卖取餐，D6 食堂在东边。', guide:'map'},
-      {id:'c1_guide', text:'翻一翻游戏指南', rm:10, isNew:true,
-        done:Q => Q.flag('guide2'),
-        hint:{pc:'按 <kbd>P</kbd> 打开游戏指南，往后翻一页', touch:'点「暂停」，再点「指南」，往左滑一页', flash:'#gxPauseBtn'},
-        tip:'第一页就是这本日记，往后翻是各种玩法的说明。', guide:'hello'},
-      {id:'c1_badge', text:'打开衣橱，戴上迎新工作牌', rm:20, isNew:true,
-        done:Q => Q.ward('neck') === 'badge',
-        hint:{pc:'按 <kbd>C</kbd> 打开衣橱，在「颈部」里选迎新工作牌', touch:'点右上角「奶娃衣橱」，在「颈部」里选迎新工作牌', flash:'#wardBtn'},
-        tip:'工作牌是开学那天学姐给的，在衣橱「颈部」那一栏，不要钱。'},
-      /* 送外卖之前先回南门：小满讲怎么接单（橙色光圈、接单卡、接单开关），说完把接单开关打开 */
-      {id:'c1_xm', text:'回南门找小满学姐，学怎么接外卖', rm:10, isNew:true, at:() => npcAt0('xiaoman'), r:0,
+      /* 小满跟在你身边：到了 A3 她自己开口（下面的 D.watch），不用回南门 */
+      {id:'c1_xm', text:'听小满学姐讲怎么接外卖', rm:10, isNew:true, at:() => npcAt0('xiaoman'), r:0,
         talkTo:'xiaoman', talkFlag:'q_c1xm', done:Q => Q.flag('q_c1xm'),
         lines:[
-          ['xiaoman', '学校认得差不多了吧？接下来教你挣钱。'],
-          ['xiaoman', 'D6 食堂、LY3 食堂、B1 餐厅门口都有橙色的光圈。走进去会弹一张单子，挑一单就接。'],
-          ['xiaoman', () => K('接单开关在屏幕上面指南针的旁边，按 J 也能开关。要开着才会弹单子哦。', '接单开关在屏幕上面指南针的旁边，点一下就能开关。要开着才会弹单子哦。')],
-          ['xiaoman', '这个月只派校园里的单，时间也多给你一半，走路跑步都来得及。去吧！']
+          ['xiaoman', '这就是 A3，学校正中间。以后迷路了，就往这儿走。'],
+          ['xiaoman', '接下来教你挣钱：D6 食堂、LY3 食堂、B1 餐厅门口都有橙色的光圈，走进去会弹一张单子，挑一单就接。'],
+          ['xiaoman', () => K('接单开关在指南针旁边，按 J 也能开关，我先帮你打开了。这个月只派校园里的单，时间多给一半，走路来得及。', '接单开关在指南针旁边，点一下就能开关，我先帮你打开了。这个月只派校园里的单，时间多给一半，走路来得及。')],
+          ['xiaoman', '最近的是 LY3 食堂，就在北边。送完一单，我就把车钥匙给你。'],
+          ['xiaoman', '对了，台阶边那只橘猫叫小橘。有空慢慢走过去喂喂它，跑过去它就溜了。']
         ],
         onTalk:() => { if (typeof offerToggle === 'function' && typeof OFFER !== 'undefined' && !OFFER.on) offerToggle(true); },
-        hint:{pc:'回南门，走到小满学姐旁边按 <kbd>F</kbd> 说话', touch:'回南门，走到小满学姐旁边点「说话」', flash:'#act-f'},
-        tip:'小满在南门里面，校碑旁边。'},
+        hint:{pc:'小满学姐就在你旁边，按 <kbd>F</kbd> 跟她说话', touch:'小满学姐就在你旁边，点「说话」', flash:'#act-f'},
+        tip:'小满一路跟着你，到了 A3 她会自己开口。'},
       {id:'c1_deliv1', text:'走路送出第一单外卖', rm:30,
         done:Q => Q.ach('deliv1'),
         hint:{pc:'走进橙色光圈，按 <kbd>F</kbd> 或 <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> 接单', touch:'走进橙色光圈，点卡片上的单子接单', flash:'#mini'},
         tip:'这一章的外卖只派校园里的单，时间也多给一半，走路跑步都来得及。', guide:'earn',
-        nudge:'D6 食堂门口有橙色圈圈，从那儿接单最近。'},
-      /* 仓库主人：走路送两单意思一下就够了（id 还叫 c1_deliv5，存档里记的是 id，不改） */
-      {id:'c1_deliv5', text:'再送一单（一共 2 单）', rm:60,
-        done:Q => Q.life('deliv') >= 2, count:Q => [Math.min(2, Q.life('deliv')), 2],
-        hint:{pc:'看屏幕上方的倒计时，跟着指南针跑', touch:'看屏幕上方的倒计时，跟着指南针跑'},
-        tip:'送晚了顾客会给差评，跑起来！', guide:'earn',
-        nudge:'送单的时候摇杆推到底跑，时间很宽裕的。'},
-      {id:'c1_swing', text:'去音乐岛旁边荡一次秋千', rm:20, at:[-26, -58], r:5,
-        done:Q => Q.ach('swing'),
-        hint:{pc:'走到秋千旁按 <kbd>F</kbd> 坐上去，按住 <kbd>空格</kbd> 越荡越高', touch:'走到秋千旁点「上车」坐上去，按住「荡」越荡越高', flash:'#act-f'},
-        tip:'秋千在音乐岛西边的草坪上，荡高了松手能飞出去。',
-        nudge:'秋千在音乐岛西边，树林边的草坪上，地图上找「秋千」两个字。'},
-      /* 遇到校园里的小猫（js/89-kitty.js）：慢慢走过去，按 F 喂小鱼干，拍张照发给妈妈 */
-      {id:'c1_cat', calmNear:true, text:'喂喂校园里的小猫，拍张照发给妈妈', rm:20, isNew:true, kitty:true, at:() => window.XKitty ? XKitty.nearestAt() : null, r:0,
-        done:Q => Q.flag('q_cat'),
-        hint:{pc:'慢慢走过去（别按 <kbd>Shift</kbd> 跑），走到它旁边按 <kbd>F</kbd>', touch:'摇杆轻轻推，慢慢走过去，走到它旁边点「喂猫」', flash:'#act-f'},
-        tip:'校园里到处都有小猫，晒太阳、打盹。一跑过去它们就溜了。',
-        nudge:'指南针指着最近的一只小猫，慢慢走过去就不会把它吓跑。'}
+        nudge:'LY3 食堂就在 A3 北边，门口有橙色圈圈，从那儿接单最近。'},
+      {id:'c1_run', opt:true, text:'跑起来（连续跑 3 秒）', rm:10, isNew:true,
+        done:Q => Q.flag('run3'),
+        hint:{pc:'走路时按住 <kbd>Shift</kbd> 就是跑', touch:'把摇杆推到最边上就是跑', flash:'#joy'},
+        tip:'跑步比走路快一倍，送外卖赶时间全靠它。', guide:'keys'}
     ]});
-
-  D.diary.c1_start = '小满学姐塞给我一个工作牌，说先走路把学校认熟。';
+  /* 小满第 1 章跟着你走（新玩家）；到了 A3、送完第一单，她自己开口，不用找她按 F */
+  D.npcs.xiaoman.follow = () => !!(window.XQuest && XQuest.ch === 1 && G(() => XQuest.state.born === 'new', false) && (XQuest.ph === 'steps' || XQuest.ph === 'report'));
+  { let wait = 0;
+    D.watch.push((Q, flag, dt) => {
+      if (!window.XQuest || XQuest.ch !== 1 || XQuest.talking || G(() => XCine.busy, true) || G(() => gx.paused, true) || G(() => mission.on, false)) { wait = 0; return; }
+      const xmTalk = XQuest.ph === 'steps' && G(() => XQuest.step().id === 'c1_xm', false) && Q.near(105, 120, 16);
+      const keys = XQuest.ph === 'report';
+      if (!(xmTalk || keys) || !Q.withMe('xiaoman') || Q.driving()){ wait = 0; return; }
+      wait += dt || .5; if (wait >= 1) { wait = 0; XQuest.talk('xiaoman'); }
+    }); }
+  D.diary.c1_start = '小满学姐在南门接我，说陪我走一段，先去 A3 认认路。';
   D.diary.c1_a3 = 'A3 的台阶好宽，站在上面能看到整条中轴线。';
   D.diary.c1_deliv1 = '送出了第一单外卖，手心全是汗。';
   D.diary.c1_late = '送第一单外卖的时候差点迟到，跑得腿都软了。';
@@ -276,7 +258,31 @@ window.XQD = (() => {
         done:Q => Q.ach('tune1'),
         hint:{pc:'车行里点「改装车间」，挑一件轻改开工，做好了点「提车」', touch:'点「车行」里的「改装车间」，挑一件轻改开工，做好了点「提车」', flash:'#garageBtn'},
         tip:'第一件改装 30 秒就完工，零件包里的东西够用。', guide:'tune',
-        nudge:'改装车间在车行面板顶上，第一单 30 秒完工，记得回来点「提车」。'}
+        nudge:'改装车间在车行面板顶上，第一单 30 秒完工，记得回来点「提车」。'},
+      /* 第 1 章挪过来的可选小事（id 还叫 c1_…，存档记的是 id）：不挡进度，做了照样给钱 */
+      /* 遇到校园里的小猫（js/89-kitty.js）：慢慢走过去，按 F 喂小鱼干，拍张照发给妈妈 */
+      {id:'c1_cat', opt:true, calmNear:true, text:'喂喂校园里的小猫，拍张照发给妈妈', rm:20, isNew:true, kitty:true, at:() => window.XKitty ? XKitty.nearestAt() : null, r:0,
+        done:Q => Q.flag('q_cat'),
+        hint:{pc:'慢慢走过去（别按 <kbd>Shift</kbd> 跑），走到它旁边按 <kbd>F</kbd>', touch:'摇杆轻轻推，慢慢走过去，走到它旁边点「喂猫」', flash:'#act-f'},
+        tip:'校园里到处都有小猫，晒太阳、打盹。一跑过去它们就溜了。',
+        nudge:'指南针指着最近的一只小猫，慢慢走过去就不会把它吓跑。'},
+      {id:'c1_badge', opt:true, text:'打开衣橱，戴上迎新工作牌', rm:20, isNew:true,
+        done:Q => Q.ward('neck') === 'badge',
+        hint:{pc:'按 <kbd>C</kbd> 打开衣橱，在「颈部」里选迎新工作牌', touch:'点右上角「奶娃衣橱」，在「颈部」里选迎新工作牌', flash:'#wardBtn'},
+        tip:'迎新工作牌在衣橱「颈部」那一栏，不要钱。戴上它，大家就知道你是新来的。'},
+      {id:'c1_map', opt:true, text:'打开大地图，找到 D6 食堂', rm:10, isNew:true,
+        done:Q => Q.flag('map'),
+        hint:{pc:'按 <kbd>M</kbd> 打开大地图，找到 D6 食堂', touch:'点右上角的小地图，打开大地图', flash:'#mini'},
+        tip:'大地图能拖、能缩放；橙色的点是外卖取餐，D6 食堂在东边。', guide:'map'},
+      {id:'c1_guide', opt:true, text:'翻一翻游戏指南', rm:10, isNew:true,
+        done:Q => Q.flag('guide2'),
+        hint:{pc:'按 <kbd>P</kbd> 打开游戏指南，往后翻一页', touch:'点「暂停」，再点「指南」，往左滑一页', flash:'#gxPauseBtn'},
+        tip:'第一页就是这本日记，往后翻是各种玩法的说明。', guide:'hello'},
+      {id:'c1_swing', opt:true, text:'去音乐岛旁边荡一次秋千', rm:20, at:[-26, -58], r:5,
+        done:Q => Q.ach('swing'),
+        hint:{pc:'走到秋千旁按 <kbd>F</kbd> 坐上去，按住 <kbd>空格</kbd> 越荡越高', touch:'走到秋千旁点「上车」坐上去，按住「荡」越荡越高', flash:'#act-f'},
+        tip:'秋千在音乐岛西边的草坪上，荡高了松手能飞出去。',
+        nudge:'秋千在音乐岛西边，树林边的草坪上，地图上找「秋千」两个字。'}
     ]});
   D.diary.c2_start = '站长老周嫌我慢，说有车了就别磨蹭。我觉得他就是嘴硬。';
   D.diary.c2_early8 = '跑了一次早八冲刺，原来每天早上大家都是这么拼的。';
@@ -372,6 +378,14 @@ window.XQD = (() => {
         tip:'推着购物车抢特价，撞翻别人的车也行。', guide:'earn',
         nudge:'KIP 购物中心在学校西南边，商场门口按 F 就开始。'},
       {id:'c4_durian', text:'猫山王挑战走一遍', rm:50, at:G(() => XPasar.SPOT.durian.slice(0, 2), [499.8, 560.3]), r:0,
+        /* 夜市 17:00 开到第二天 07:00（js/17-clock.js 的 phase 不是 day 就开）：白天这一步排到后面，写明几点开 */
+        wait:() => {
+          if (!G(() => XClock.phase() === 'day', false)) return '';
+          /* the day runs one game hour per real minute (js/17-clock.js); the 白天 / 黄昏 / 夜晚 buttons are only on the desktop HUD */
+          const h = G(() => XClock.hour(), 12), min = Math.max(1, Math.ceil(17 - h));
+          if (G(() => XClock.paused, false)) return `夜市 17:00 才开（现在 ${G(() => XClock.text(), '')}，时间停住了）` + K('。点右上角的「黄昏」，或者解开时间的 🔒', '');
+          return `夜市 17:00 才开（现在 ${G(() => XClock.text(), '')}，约 ${min} 分钟后）` + K('。先做别的，等不及就点右上角的「黄昏」', '。先做别的，到点再去');
+        },
         done:Q => Q.best('pm_du'),
         hint:{pc:'夜市东头榴莲摊前的绿圈按 <kbd>F</kbd>，挑一颗真的猫山王再砍价', touch:'夜市东头榴莲摊前的绿圈点一下，挑一颗真的猫山王再砍价', flash:'#act-f'},
         tip:'看底部的星纹、看蒂头、摇一摇、闻一闻，五次机会别浪费。', guide:'earn',
@@ -857,7 +871,7 @@ window.XQD = (() => {
     intro:[
       ['adou', '学、学长好！我叫阿豆，是今年最后一个报到的……'],
       ['xiaoman', '今年的最后一个，我不带了，交给你。'],
-      ['xiaoman', '先别想着开车啦，走路带他把学校认熟——这句话耳熟吧？'],
+      ['xiaoman', '去年我陪你走过的路，今年换你陪他走一遍。还记得吗？先去 A3。'],
       ['adou', '学长，A3 在哪？我在飞机上就听说 A3 的台阶很宽……']
     ],
     outro:[

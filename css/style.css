@@ -1638,6 +1638,7 @@ body:not(.naiwa) .q-bar{display:none}
 .q-todo li b{font-weight:600}
 .q-todo li em{font-style:normal;font-size:12px;color:var(--muted)}
 .q-todo li em.q-rm{color:#a07000}
+.q-todo li em.q-opt{font-style:normal;font-size:11px;font-weight:700;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:0 6px;margin-left:4px;vertical-align:1px}
 .q-todo li small{display:block;font-size:13px;color:var(--muted);margin-top:3px;line-height:1.55}
 .q-todo li small.q-how{color:var(--ink)}
 .q-todo li small kbd{display:inline-block;padding:0 4px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;background:var(--card-bg);font-size:11.5px}

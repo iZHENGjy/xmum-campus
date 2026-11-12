@@ -104,8 +104,11 @@
     if (S.born === 'new' && S.ch === 2 && S.ph === 'meet' && S.done.c1_report && !S.flags.q_car1 && g(() => myCar, null)) return carStep();
     if (S.ph === 'meet') return {id:c.id + '_meet', text:'去找' + ((D.npcs[c.npc] || {}).name || '') + '（' + (c.place || '') + '）', meet:true, at:() => npcAt(c.npc), r:0};
     if (S.ph === 'report') return reportStep(c);
-    return c.steps.find(s => !S.done[s.id]) || reportStep(c);
+    const open = c.steps.filter(s => !S.done[s.id] && !s.opt);
+    return open.find(s => !waitWhy(s)) || open[0] || reportStep(c);
   }
+  /* a step that can't be done right now (the night market is shut in the day): it moves behind the others, and says why and when */
+  function waitWhy(st){ return st && st.wait && !S.done[st.id] ? g(() => st.wait(Q), '') || '' : ''; }
   function unlocked(k){
     if (k === 'drive') return S.born === 'vet' || S.ch > 1;
     const need = k === 'park' ? 5 : k === 'train' ? 7 : 0; if (!need) return true;
@@ -167,7 +170,7 @@
     const c = chapter(); if (!c || S.ph !== 'steps') return;
     const ticked = [];
     for (const st of c.steps) if (!S.done[st.id] && qDone(st)){ tickStep(c, st, quiet || ticked.length > 0); ticked.push(st); }
-    if (c.steps.every(s => S.done[s.id])){ S.ph = 'report'; save(); emit('report', c); emit('state'); }
+    if (c.steps.every(s => S.done[s.id] || s.opt)){ S.ph = 'report'; save(); emit('report', c); emit('state'); }
     else if (ticked.length) emit('state');
   }
   function beginChapter(c){
@@ -217,7 +220,7 @@
 
   /* ---------- the npcs ---------- */
   const NPC = {};   /* id -> {N, x, z, h, lbl, vis, mark} built on first need */
-  function npcAt(id){ const n = D.npcs[id]; if (!n) return null; const a = typeof n.at === 'function' ? g(n.at, null) : n.at; return a && isFinite(a[0]) ? a : null; }
+  function npcAt(id){ const n = D.npcs[id]; if (!n) return null; { const o = NPC[id]; if (o && o.fol && isFinite(o.x)) return [o.x, o.z, 0]; } const a = typeof n.at === 'function' ? g(n.at, null) : n.at; return a && isFinite(a[0]) ? a : null; }
   function npcMark(id){
     const c = chapter();
     if (c && c.npc === id && (S.ph === 'meet' || S.ph === 'report')) return '!';
@@ -330,7 +333,10 @@
   function npcNearId(){
     if (mode !== 'naiwa' || g(() => driving, null)) return null;
     let best = null, bd = 4.2;
-    for (const id in NPC){ const o = NPC[id]; if (!o.vis) continue; const d = Math.hypot(nw.x - o.x, nw.z - o.z); if (d < bd){ bd = d; best = id; } }
+    for (const id in NPC){
+      const o = NPC[id]; if (!o.vis) continue;
+      if (o.fol && npcMark(id) !== '!') continue;   /* someone walking with you only counts when they have something to say: F stays free for the order rings */
+      const d = Math.hypot(nw.x - o.x, nw.z - o.z); if (d < bd){ bd = d; best = id; } }
     return best;
   }
 
@@ -572,7 +578,7 @@
     let rm = 0, part = null; const items = [], chs = [];
     const add = (id, r) => { if (!r || S.paid[id]) return; rm += r.rm > 0 ? r.rm : 0; pay.items = []; pay(id, r, true); items.push(...pay.items); };
     for (const c of CH){
-      const ok = c.n === 1 || c.steps.every(s => s.isNew || qDone(s));
+      const ok = c.n === 1 || c.steps.every(s => s.isNew || s.opt || qDone(s));
       if (!ok){
         /* the chapter they stop in: what they have done already is ticked (and paid) now, so the diary and the card show it from the start */
         S.ch = c.n; S.ph = 'meet';
@@ -636,7 +642,7 @@
   window.XQuest = {
     get ready(){ return ready; }, get state(){ return S; }, get ch(){ return S.ch; }, get ph(){ return S.ph; }, get born(){ return S.born; },
     get talking(){ return !!talking; },
-    data:D, chapters:CH, chapter, step:curStep, steps:() => stepsOf(chapter()), stepDone:id => !!S.done[id], Q, qDone,
+    data:D, chapters:CH, chapter, step:curStep, steps:() => stepsOf(chapter()).filter(s => !s.opt), waitWhy, stepDone:id => !!S.done[id], Q, qDone,
     unlocked, carLocked, ch1Deliv, ringsOff, calm, lockToast, visiting,
     flag, talk, say, npcNear:npcNearId, npcAt, npcMark, npcs:NPC, sidesOf, diaryAdd, msg, save, dayNo, pay, withMe,
     on, target, playIntro, replay, chFinished, unlockedTitle:() => S.title,
