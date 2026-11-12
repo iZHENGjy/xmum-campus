@@ -209,7 +209,7 @@ function bankStunt(){
 function updateStunt(dt, sp){
   const c = driving;
   if (c && !c.air && c.slip > 5 && sp > 10){
-    stunt.pts += c.slip * dt * 8 * stunt.mult; stunt.label = '漂移'; stunt.idle = 0; stunt.mult = Math.min(8, stunt.mult + dt * .3);
+    stunt.pts += c.slip * dt * 8 * stunt.mult; stunt.label = wx.wet > .4 ? '雨中漂移' : '漂移'; stunt.idle = 0; stunt.mult = Math.min(8, stunt.mult + dt * .3);
     stunt.driftT += dt;
     if (stunt.driftT > 3 && !stunt.longDone){ stunt.longDone = true; addStunt('超长漂移', 250); gx.callout('超长漂移', '+250 × 连击'); }
   } else if (!c || c.slip < 3){ stunt.driftT = 0; stunt.longDone = false; }

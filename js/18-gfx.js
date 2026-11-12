@@ -409,7 +409,7 @@ function gfxRender(dt, T){
     if (!gfxNwBlob){ gfxNwBlob = gfxBlob(2.2, 2.2); NW.root.add(gfxNwBlob); }
     gfxNwBlob.visible = !renderer.shadowMap.enabled; gfxNwBlob.position.y = .07 - NW.root.position.y + (typeof groundAt === 'function' ? Math.max(0, groundAt(NW.root.position.x, NW.root.position.z)) : 0);
   }
-  for (const h of farHills) h.m.material.color.copy(h.col).multiplyScalar(.25 + .75 * Math.min(1, hemi.intensity * 1.4 - .35 + sun.intensity * .2)).lerp(skyU.hor.value, h.haze + rain * (1 - h.haze) * .8);
+  for (const h of farHills) h.m.material.color.copy(h.col).multiplyScalar(.25 + .75 * Math.min(1, hemi.intensity * 1.4 - .35 + sun.intensity * .2)).lerp(skyU.hor.value, h.haze + Math.max(rain, wx.haze, wx.cloud * .5) * (1 - h.haze) * .8);
   farHills.towers.emissiveIntensity = cur.win * .9;
   renderer.render(scene, camera);
   if (XQ.cfg.bloom && lamp > .05) gfxPost.bloom(Math.min(1, lamp) * .6);
