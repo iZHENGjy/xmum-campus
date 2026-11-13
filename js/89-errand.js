@@ -115,7 +115,8 @@
     for (const sid in SH){
       const a = atOf(SH[sid].at); if (!a || Math.hypot(a[0] - px, a[1] - pz) > 4.5) continue;
       const list = needs(sid, ACT); if (!list.length) continue;
-      if (!shopOpen(sid)){ shut = SH[sid].shut || '还没开门'; continue; }
+      /* shut (the night market by day): name the other shop only when what we need here is sold there too (老周's 猫山王 is only at the night market) */
+      if (!shopOpen(sid)){ shut = list.every(n => n.it.shops.some(s => s !== sid)) ? SH[sid].shut || '还没开门' : SH[sid].shutOnly || SH[sid].shut || '还没开门'; continue; }
       const sum = list.reduce((s, n) => s + (n.it.rm || 0), 0), cold = list.filter(n => n.it.cold);
       offerJob('er:' + sid, () => ({icon:SH[sid].verb ? '📦' : '🛒', title:SH[sid].name, accept:SH[sid].verb || (sum ? '买下' : '拿上'),
         desc:list.map(n => n.it.icon + ' ' + n.it.name + (n.it.rm ? ' RM ' + n.it.rm : '')).join('　'),
@@ -123,9 +124,14 @@
         onAccept:() => buy(sid)}));
       return;
     }
+    /* the drop-off: within 7 m of the spot, or within 6 m of the person it is for (to.npc: 老周, 卷卷, Ben), wherever you walk up to them.
+       Handing it over comes first: another card on the screen (the D6 pick-up ring, a 通缉榜 bounty) gives way once (js/89-offers.js keeps
+       the card that is up), and F on this card is "送到", not a chat with them (the offers key handler runs ahead of the talk) */
     for (const id of ACT){
       if (!allIn(id)) continue;
-      const a = atOf(E[id].to.at); if (!a || Math.hypot(a[0] - px, a[1] - pz) > 5.5) continue;
+      const to = E[id].to, a = atOf(to.at), n = to.npc ? g(() => XQuest.npcAt(to.npc), null) : null;
+      if (!(a && Math.hypot(a[0] - px, a[1] - pz) <= 7) && !(n && isFinite(n[0]) && Math.hypot(n[0] - px, n[1] - pz) <= 6)) continue;
+      if (g(() => OFFER.cur && OFFER.cur.id !== 'erto:' + id, false)) g(() => ofClose());
       const e = E[id], spent = +F()['er_' + id + '_spent'] || 0;
       offerJob('erto:' + id, () => ({icon:'✅', title:e.title + ' · 送到 ' + e.to.name, accept:'送到',
         desc:e.items.map(it => it.icon).join(' '), pay:e.refund && spent ? '报销 RM ' + spent : null, onAccept:() => deliver(id)}));
