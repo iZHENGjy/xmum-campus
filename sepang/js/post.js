@@ -27,7 +27,7 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
   vec2 off = vec2(0.0);
   if (uRain > 0.001){ off = drops(uv, uTime, vec2(10.0, 7.0), 0.04 + uSpeed * 0.4) * 0.045 + drops(uv * 1.7 + 0.31, uTime * 1.3, vec2(16.0, 11.0), 0.06 + uSpeed * 0.6) * 0.025; off *= uRain; }
   vec2 c = uv - 0.5; float r = length(c);
-  float blur = uSpeed * 0.05 * smoothstep(0.12, 0.62, r);
+  float blur = uSpeed * 0.05 * smoothstep(0.12, 0.62, r) * (1.0 + smoothstep(0.5, 0.0, uv.y));
   vec3 acc = vec3(0.0);
   for (int i = 0; i < 8; i++){ float t = float(i) / 7.0; acc += texture2D(inputBuffer, uv + off - c * t * blur).rgb; }
   acc /= 8.0;
@@ -39,7 +39,7 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
   float bin = floor(ang * 140.0), seed = h21(vec2(bin, 7.0));
   float dash = step(fract(r * 2.5 - uTime * (3.0 + 4.0 * seed) + seed * 9.0), 0.18);
   float st = step(0.93, seed) * dash * smoothstep(0.3, 0.7, r) * smoothstep(0.45, 1.0, uSpeed);
-  acc += vec3(st * 0.28);
+  acc += vec3(st * 0.06);
   outputColor = vec4(acc, inputColor.a);
 }`;
 class LensEffect extends Effect {
@@ -62,6 +62,9 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
   c = (c - 0.5) * uContrast + 0.5;
   outputColor = vec4(clamp(c, 0.0, 1.0), inputColor.a);
 }`;
+class ExposureEffect extends Effect {
+  constructor(){ super('ExposureEffect', 'uniform float uExposure;\nvoid mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor){ outputColor = vec4(inputColor.rgb * uExposure, inputColor.a); }', {uniforms:new Map([['uExposure', new THREE.Uniform(.85)]])}); }
+}
 class GradeEffect extends Effect {
   constructor(){
     super('GradeEffect', GRADE, {uniforms:new Map([['uLift', new THREE.Uniform(new THREE.Vector3())], ['uGamma', new THREE.Uniform(new THREE.Vector3(1, 1, 1))], ['uGain', new THREE.Uniform(new THREE.Vector3(1, 1, 1))], ['uSat', new THREE.Uniform(1)], ['uContrast', new THREE.Uniform(1)]])});
@@ -69,20 +72,20 @@ class GradeEffect extends Effect {
 }
 /* the looks (docs/sepang-plan.md §5): year-4 golden dusk, and the same dusk after rain */
 export const GRADES = {
-  dusk:{lift:[.012, .006, 0], gamma:[1.02, 1, .96], gain:[1.06, 1.0, .9], sat:1.08, contrast:1.06},
+  dusk:{lift:[0, .004, .014], gamma:[1.02, 1, .96], gain:[1.1, 1.0, .86], sat:1.0, contrast:1.05},
   rain:{lift:[0, .005, .014], gamma:[.97, 1, 1.04], gain:[.94, .98, 1.04], sat:.82, contrast:1.08}
 };
 
 export function makePost(renderer, scene, camera, Q){
   const composer = new EffectComposer(renderer, {frameBufferType:THREE.HalfFloatType, multisampling:Q.msaa});
   composer.addPass(new RenderPass(scene, camera));
-  const lens = new LensEffect(), grade = new GradeEffect();
-  const bloom = new BloomEffect({mipmapBlur:true, luminanceThreshold:1.4, luminanceSmoothing:.25, intensity:.7, radius:.65});
+  const lens = new LensEffect(), grade = new GradeEffect(), expo = new ExposureEffect();
+  const bloom = new BloomEffect({mipmapBlur:true, luminanceThreshold:2.0, luminanceSmoothing:.3, intensity:.45, radius:.65});
   bloom.resolution.scale = Q.bloomScale;
   const tone = new ToneMappingEffect({mode:ToneMappingMode.ACES_FILMIC});
   const vignette = new VignetteEffect({offset:.28, darkness:.55});
   const noise = new NoiseEffect({premultiply:true, blendFunction:BlendFunction.SCREEN}); noise.blendMode.opacity.value = .045;
-  composer.addPass(new EffectPass(camera, lens, bloom, tone, grade, vignette, noise));
+  composer.addPass(new EffectPass(camera, lens, bloom, expo, tone, grade, vignette, noise));
   const g = {cur:JSON.parse(JSON.stringify(GRADES.dusk))};
   function setGrade(a, b, t){
     const A = GRADES[a], B = GRADES[b], L = (x, y) => x + (y - x) * t, u = grade.uniforms;
@@ -92,7 +95,7 @@ export function makePost(renderer, scene, camera, Q){
   setGrade('dusk', 'dusk', 0);
   return {
     composer, bloom, lens, setGrade,
-    set(o){ const u = lens.uniforms; if (o.speed != null) u.get('uSpeed').value = o.speed; if (o.rain != null) u.get('uRain').value = o.rain; if (o.time != null) u.get('uTime').value = o.time; },
+    set(o){ const u = lens.uniforms; if (o.exposure != null) expo.uniforms.get('uExposure').value = o.exposure; if (o.speed != null){ u.get('uSpeed').value = o.speed; u.get('uChroma').value = .0012 * o.speed; } if (o.rain != null) u.get('uRain').value = o.rain; if (o.time != null) u.get('uTime').value = o.time; },
     setSize(w, h){ composer.setSize(w, h); },
     render(dt){ composer.render(dt); }
   };

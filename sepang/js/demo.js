@@ -10,12 +10,13 @@ import { makePost, GRADES } from './post.js';
 import { makeParticles, makeRain } from './fx.js';
 import { PTS } from './track-data.js';
 import { N, RT, HD, HW, clampI, LAMBO_MAX, makeCar, place, step, autoInput } from './physics.js';
+import { dressWorld } from './dress.js';
 
 /* ---------- quality: picked from the GPU, ?q=low|mid|high overrides ---------- */
 const TIERS = {
-  low:{name:'低', pr:.8, shadow:1024, shadowBox:120, msaa:0, bloomScale:.5, particles:1500, rain:900, palms:700},
-  mid:{name:'中', pr:1, shadow:2048, shadowBox:180, msaa:4, bloomScale:1, particles:4000, rain:2200, palms:1600},
-  high:{name:'高', pr:1.5, shadow:4096, shadowBox:240, msaa:4, bloomScale:1, particles:8000, rain:4000, palms:3000}
+  low:{name:'低', pr:.8, shadow:1024, shadowBox:120, msaa:0, bloomScale:.5, particles:1500, rain:900, palms:700, crowd:1200, lanterns:120, caps:150},
+  mid:{name:'中', pr:1, shadow:2048, shadowBox:180, msaa:4, bloomScale:1, particles:4000, rain:2200, palms:1600, crowd:3000, lanterns:300, caps:350},
+  high:{name:'高', pr:1.5, shadow:4096, shadowBox:240, msaa:4, bloomScale:1, particles:8000, rain:4000, palms:3000, crowd:4500, lanterns:500, caps:500}
 };
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({canvas, antialias:false, powerPreference:'high-performance', stencil:false, depth:true});
@@ -31,6 +32,7 @@ renderer.toneMapping = THREE.NoToneMapping; renderer.toneMappingExposure = .66;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, 1, .4, 12000);
 const W = buildWorld(renderer, scene, Q);
+const D = dressWorld(scene, W, Q);
 const post = makePost(renderer, scene, camera, Q);
 const parts = makeParticles(scene, Q.particles);
 const rainFx = makeRain(scene, Q.rain);
@@ -78,8 +80,12 @@ const gltf = await loader.loadAsync('assets/lambo.glb');
 const meRoot = gltf.scene, rivalRoot = gltf.scene.clone(true);
 const meDress = dressCar(meRoot, PAINT.me), rivalDress = dressCar(rivalRoot, PAINT.rival);
 scene.add(meRoot, rivalRoot);
+/* contact shadows: a soft dark patch under each car so they sit on the road */
+{ const cv = document.createElement('canvas'); cv.width = cv.height = 128; const g = cv.getContext('2d'), gr = g.createRadialGradient(64, 64, 8, 64, 64, 64); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+  const t = new THREE.CanvasTexture(cv), geo = new THREE.PlaneGeometry(2.6, 5.4); geo.rotateX(-Math.PI / 2);
+  for (const r of [meRoot, rivalRoot]){ const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({color:'#000', alphaMap:t, transparent:true, opacity:.62, depthWrite:false})); m.position.y = .1; m.renderOrder = 3; r.add(m); } }
 /* headlights on the player's car */
-for (const s of [-1, 1]){ const l = new THREE.SpotLight('#fff1d6', 35, 110, .34, .7, 1.8); l.position.set(s * .72, .72, 2.1); l.target.position.set(s * 1.5, 0, 40); meRoot.add(l, l.target); }
+for (const s of [-1, 1]){ const l = new THREE.SpotLight('#fff1d6', 8, 110, .34, .7, 2); l.position.set(s * .72, .72, 2.1); l.target.position.set(s * 1.5, 0, 40); meRoot.add(l, l.target); }
 const me = makeCar(LAMBO_MAX, GRID), rival = makeCar(LAMBO_MAX, GRID + 7);
 const cars = [[me, meRoot, meDress], [rival, rivalRoot, rivalDress]];
 function grid(){ place(me, GRID, 5); place(rival, GRID + 7, -5); me.e = rival.e = 1; me.pitch = me.roll = rival.pitch = rival.roll = 0; }
@@ -109,25 +115,29 @@ function trackPoint(i, lat, y){ const j = clampI(i); return v3(PTS[j][0] + RT[j]
 
 /* the 30-second film: shots on a timeline (seconds from the start) */
 const SHOTS = [
-  {t0:0, name:'headlight', cam(){ const k = S.t / 2.4; return {pos:carToWorld(me, 1.9 - k * .5, .55, 3.6 - k * .6), look:carToWorld(me, .55, .55, 1.7), fov:38, speed:0}; }},
-  {t0:2.4, name:'grid', cam(){ return {pos:carToWorld(me, -3.5, 2.6, -11), look:trackPoint(SF, 0, 9.5), fov:52, speed:0}; }},
-  {t0:4.8, name:'chase', cam(){ return chaseCam(me, 1); }},
-  {t0:11.2, name:'trackside', cam(){ return {pos:trackPoint(440, HW[440] + 7, 1.2), look:v3(me.x, .9, me.z), fov:40, speed:0}; }},
-  {t0:13.4, name:'T1', cam(){ return {pos:trackPoint(548, HW[548] + 14, 2.6), look:v3(me.x, 1, me.z), fov:26, speed:0}; }},   /* outside the hairpin, the sun behind the camera */
-  {t0:19, name:'backlit', cam(){ return {pos:carToWorld(me, -2.5, 1.0, 16), look:carToWorld(me, 0, .9, 0), fov:46, speed:0}; }},
-  {t0:24.5, name:'lake', cam(){ const k = (S.t - 24.5) / 6.5, L = W.lake; return {pos:carToWorld(me, -22 - k * 10, 6 + k * 12, -14 - k * 4), look:v3((me.x * 2 + L[0]) / 3, 2, (me.z * 2 + L[1]) / 3), fov:50, speed:0}; }},
+  {t0:0, name:'portrait', ev:1.0, cam(){ const k = S.t / 1.8; return {pos:carToWorld(me, 3.4 - k * .4, .85, 7.8), look:carToWorld(me, .3, .55, 1.3), fov:20, speed:0}; }},   /* long lens: crowd and flags soft behind */
+  {t0:1.8, name:'grid', ev:0.9, cam(){ return {pos:carToWorld(me, -2.2, 1.2, -9), look:trackPoint(SF + 6, 0, 7), fov:35, speed:0}; }},
+  {t0:4.6, name:'chase', ev:1.05, cam(){ return chaseCam(me, 1); }},
+  {t0:6.6, name:'bumper', ev:1.05, cam(){ return {pos:carToWorld(me, .55, .36, 2.55), look:carToWorld(me, .3, .3, 30), fov:80, speed:1, chase:true}; }},   /* low on the front bumper: the road rushes in */
+  {t0:8.1, name:'whip', ev:1.0, cam(){ return {pos:trackPoint(232, 6.5, .8), look:v3(me.x, .8, me.z), fov:32, speed:0, fixed:true}; }},
+  {t0:9.6, name:'drone', ev:1.0, cam(){ return {pos:carToWorld(me, -42, 28, -4), look:carToWorld(me, 22, 6, 34), fov:42, speed:.2, chase:true}; }},
+  {t0:11.6, name:'chase2', ev:1.05, cam(){ return chaseCam(me, 1); }},
+  {t0:13.2, name:'T1', ev:1.0, cam(){ return {pos:trackPoint(548, HW[548] + 14, 2.6), look:v3(me.x, 3, me.z), fov:24, speed:0, fixed:true}; }},   /* outside the hairpin, the sun behind the camera, kites behind the car */
+  {t0:16.6, name:'side', ev:1.0, cam(){ return {pos:carToWorld(me, 3.8, .75, 4.2), look:carToWorld(me, .4, .6, -.5), fov:48, speed:.5, chase:true}; }},   /* front-left looking back along the car's flank, the sun behind the camera */
+  {t0:18.6, name:'rainbow', ev:1.05, cam(){ return {pos:carToWorld(me, 1.2, 1.7, -10), look:carToWorld(me, 0, 9, 60), fov:55, speed:.3, chase:true}; }},
+  {t0:22.4, name:'lake', ev:1.05, cam(){ const k = (S.t - 22.4) / 5.4, L = W.lake; return {pos:carToWorld(me, -18 - k * 8, 5 + k * 10, -12 - k * 4), look:v3((me.x * 2 + L[0]) / 3, 4, (me.z * 2 + L[1]) / 3), fov:52, speed:0}; }},
   {t0:27.8, name:'end'}
 ];
 const camState = {pos:v3(0, 5, 0), look:v3(0, 0, 0), fov:60, speed:0, init:false};
 function chaseCam(c, k){
-  const v = Math.hypot(c.vx, c.vz), back = 8.2 + Math.min(3, v / 60), up = 2.25 + Math.min(.8, v / 200);
-  return {pos:carToWorld(c, 0, up, -back), look:carToWorld(c, 0, 1.0, 8), fov:58 + Math.min(20, Math.max(0, (v - 30) / 5)), speed:Math.max(0, Math.min(1, (v - 50) / 100)) * k, chase:true};
+  const v = Math.hypot(c.vx, c.vz), back = 5.8 + Math.min(1.2, v / 80), up = 1.55;
+  return {pos:carToWorld(c, 0, up, -back), look:carToWorld(c, 0, .9, 5), fov:58 + Math.min(12, Math.max(0, (v - 30) / 6)), speed:Math.max(0, Math.min(1, (v - 50) / 100)) * k, chase:true};
 }
 function bonnetCam(c){ const v = Math.hypot(c.vx, c.vz); return {pos:carToWorld(c, 0, 1.12, .2), look:carToWorld(c, 0, 1.0, 20), fov:70 + Math.min(14, v / 9), speed:Math.max(0, Math.min(1, (v - 50) / 100)) * .8, chase:true}; }
 
 /* ---------- modes ---------- */
-function startAuto(){ grid(); S.mode = 'auto'; S.t = 0; S.passed = false; hud.menu.hidden = true; document.body.classList.add('film'); camState.init = false; boards.visible = false; say('Ben 师傅', '四圈，一圈一年。先看这一圈。', 2.6); }
-function startFree(){ grid(); S.mode = 'free'; S.t = 0; S.passed = false; hud.menu.hidden = true; document.body.classList.remove('film'); camState.init = false; boards.visible = false; hud.hint.hidden = false; }
+function startAuto(){ grid(); D.caps.reset(); S.capsDone = S.smokeDone = false; S.mode = 'auto'; S.t = 0; S.passed = false; hud.menu.hidden = true; document.body.classList.add('film'); camState.init = false; boards.visible = false; say('Ben 师傅', '四圈，一圈一年。先看这一圈。', 2.6); }
+function startFree(){ grid(); D.caps.reset(); S.capsDone = false; S.mode = 'free'; S.t = 0; S.passed = false; hud.menu.hidden = true; document.body.classList.remove('film'); camState.init = false; boards.visible = false; hud.hint.hidden = false; }
 function startFlow(){ place(me, GRID - 10, 0); place(rival, N - 5, 0); S.mode = 'flow'; S.t = 0; hud.menu.hidden = true; document.body.classList.add('film'); boards.visible = true; S.look.yaw = 0; S.look.pitch = 0; camState.init = false; hud.hint.hidden = true; say('', '路在当下。', 3); }
 function toMenu(){ S.mode = 'menu'; hud.menu.hidden = false; document.body.classList.remove('film'); hud.hint.hidden = true; if (document.pointerLockElement) document.exitPointerLock(); }
 function onKey(e){
@@ -184,7 +194,7 @@ function updateCarMesh(c, root, dr, dt){
   const v = Math.abs(vf), smoke = Math.max(c.over > .25 ? c.over : 0, c.slip > 4 ? Math.min(1, (c.slip - 4) / 6) : 0, c.brakeHard > .7 && v > 30 ? .4 : 0);
   for (const s of [-1, 1]){
     const p = carToWorld(c, s * .9, .3, -1.3);
-    if (smoke > .05 && Math.random() < smoke * dt * 70) parts.spawn(p.x, .4, p.z, c.vx * .25 + (Math.random() - .5) * 2, .6 + Math.random(), c.vz * .25 + (Math.random() - .5) * 2, 1.6 + Math.random(), 3.2, 1.8 + Math.random(), .45, smokeCol);
+    if (smoke > .05 && Math.random() < smoke * dt * 140) parts.spawn(p.x, .4, p.z, c.vx * .08 + (Math.random() - .5) * 2, .5 + Math.random(), c.vz * .08 + (Math.random() - .5) * 2, 1.4 + Math.random(), 6, 2.2 + Math.random(), .2, smokeCol);
     if (S.wet > .3 && v > 15 && Math.random() < S.wet * Math.min(1, v / 60) * dt * 90) parts.spawn(p.x, .35, p.z, c.vx * .55 + (Math.random() - .5) * 3, .8 + Math.random() * 1.5, c.vz * .55 + (Math.random() - .5) * 3, 1.2 + Math.random(), 4, .8 + Math.random() * .5, .28 * S.wet, sprayCol);
   }
 }
@@ -201,11 +211,17 @@ function update(dt){
   /* rain eases in, the road gets wet slower, dries slower still */
   S.rainT += (S.rain - S.rainT) * Math.min(1, dt / 2.5);
   S.wet += (S.rain - S.wet) * Math.min(1, dt / (S.rain > S.wet ? 6 : 14));
-  W.setWet(S.wet); if (Math.abs((S.lastMood ?? -1) - S.rainT) > .08){ W.setMood(S.rainT); S.lastMood = S.rainT; post.setGrade('dusk', 'rain', S.rainT); }
+  W.setWet(S.wet); if (Math.abs((S.lastMood ?? -1) - S.rainT) > .08){ W.setMood(S.rainT); D.setRain(S.rainT); S.lastMood = S.rainT; post.setGrade('dusk', 'rain', S.rainT); }
   /* the start lights: five pairs, one by one, then all out */
   if (S.mode === 'auto'){ const on = S.t < 4.2 ? Math.min(5, Math.floor((S.t - .5) / .7) + 1) : 0; if (on !== lightsOn){ lightsOn = on; W.gateLights.forEach((m, k) => m.emissiveIntensity = k < on ? 7 : 0); }
     hud.count.textContent = S.t > 4.2 && S.t < 5.2 ? 'GO' : ''; }
   else if (lightsOn){ lightsOn = 0; W.gateLights.forEach(m => m.emissiveIntensity = 0); }
+  /* GO: coloured smoke (the flag's red, white, blue, yellow) from the foot of the gate towers */
+  if (S.mode === 'auto' && !S.smokeDone && S.t > 4.2){ S.smokeDone = true; const cols = ['#c8102e', '#f2f0ea', '#123f8c', '#f2c230'].map(c => new THREE.Color(c));
+    for (let k = 0; k < 140; k++){ const s = k % 2 ? 1 : -1, p = trackPoint(SF + Math.round((Math.random() - .5) * 4), s * (HW[SF] + 6 + Math.random() * 3), 1);
+      parts.spawn(p.x, 1 + Math.random() * 3, p.z, (Math.random() - .5) * 3, 1.5 + Math.random() * 2.5, (Math.random() - .5) * 3, 3 + Math.random() * 2, 4, 5 + Math.random() * 3, .32, cols[k % 4]); } }
+  /* the caps go up when the leader passes under the gate */
+  if (!S.capsDone && (S.mode === 'auto' || S.mode === 'free') && me.i >= SF && me.i < SF + 30){ S.capsDone = true; D.caps.burst(); }
   if (S.mode !== 'menu') driveStep(dt);
   if (S.fadeT > 0){ S.fadeT -= dt; if (S.fadeT <= 0){ grid(); hud.fade.classList.remove('on'); } }
   updateCarMesh(me, meRoot, meDress, dt); updateCarMesh(rival, rivalRoot, rivalDress, dt);
@@ -218,11 +234,14 @@ function update(dt){
     let k = 0; while (k + 1 < SHOTS.length && S.t >= SHOTS[k + 1].t0) k++;
     const sh = SHOTS[k]; if (sh !== shot){ shot = sh; camState.init = false; }
     if (sh.name === 'end'){ toMenu(); C = chaseCam(me, 0); } else C = sh.cam();
+    S.ev = sh.ev || .85;
   } else if (S.mode === 'flow'){
     const eye = carToWorld(me, 0, 1.3, 0), yaw = me.h + S.look.yaw, p = S.look.pitch;
     C = {pos:eye, look:v3(eye.x + Math.sin(yaw) * Math.cos(p) * 10, eye.y + Math.sin(p) * 10, eye.z + Math.cos(yaw) * Math.cos(p) * 10), fov:62, speed:0, fixed:true};
     if (S.t > 30) toMenu();
   } else C = S.cam === 'bonnet' ? bonnetCam(me) : chaseCam(me, 1);
+  if (S.mode !== 'auto') S.ev = 1.05;
+  S.evNow = S.evNow == null ? S.ev : S.evNow + (S.ev - S.evNow) * Math.min(1, dt / .3);
   if (!camState.init || C.fixed || C.chase){ camState.pos.copy(C.pos); camState.look.copy(C.look); camState.fov = C.fov; camState.init = true; }
   else { const k = C.chase ? Math.min(1, dt * 7) : Math.min(1, dt * 12); camState.pos.lerp(C.pos, k); camState.look.lerp(C.look, Math.min(1, dt * 10)); camState.fov += (C.fov - camState.fov) * Math.min(1, dt * 3); }
   camera.position.copy(camState.pos);
@@ -236,7 +255,8 @@ function update(dt){
   parts.update(dt); parts.mat.uniforms.uScale.value = renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
   parts.mat.uniforms.uLight.value.setScalar(.9 - .35 * S.rainT);
   rainFx.update(dt, camera.position, me.vx, me.vz, S.rainT, S.t);
-  post.set({speed:camState.speed, rain:S.rainT, time:S.t});
+  D.update(dt, S.t, camera.position);
+  post.set({speed:camState.speed, rain:S.rainT, time:S.t, exposure:S.evNow});
   hud.spd.textContent = S.mode === 'menu' || S.mode === 'flow' || (S.mode === 'auto' && S.t < 4.6) ? '' : Math.round(v * 3.6) + ' km/h' + (me.mult > .05 ? ' · 氮气' : '');
   if (subT > 0){ subT -= dt; if (subT <= 0) hud.sub.classList.remove('on'); }
 }
