@@ -4,7 +4,7 @@
  * 按键：Enter 自己开 · F 路流过来 · 空格（菜单里）再看一遍 · R 下雨 / 放晴 · Q 换画质 · C 换镜头 · Esc 回菜单
  *       开车：W/S 或方向键 油门刹车，A/D 转向，Shift 氮气，空格 手刹 */
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { makeHeroCar } from './hero-car.js';
 import { buildWorld, SF, GRID } from './world.js';
 import { makePost, GRADES } from './post.js';
 import { makeParticles, makeRain } from './fx.js';
@@ -59,26 +59,11 @@ const boards = new THREE.Group(); boards.visible = false; scene.add(boards);
 
 /* ---------- cars ---------- */
 const PAINT = {me:'#7d0a12', rival:'#0f3a27'};
-function dressCar(root, color){
-  const wheels = [], fronts = [], lights = {tail:null, head:null};
-  root.traverse(o => {
-    if (!o.isMesh){ if (o.name === 'wheelpiv') { if (o.position.z > 0) fronts.push(o); } return; }
-    o.castShadow = true; o.receiveShadow = true;
-    const n = o.name;
-    if (n === 'paint') o.material = new THREE.MeshPhysicalMaterial({color, metalness:.3, roughness:.45, clearcoat:.8, clearcoatRoughness:.06, envMapIntensity:.6});
-    else if (n === 'glass') o.material = new THREE.MeshPhysicalMaterial({color:'#0a0e12', metalness:.2, roughness:.04, envMapIntensity:1.7});
-    else if (n === 'head') o.material = lights.head = new THREE.MeshStandardMaterial({color:'#fff6e0', emissive:'#fff1c8', emissiveIntensity:3.5, roughness:.2});
-    else if (n === 'tail') o.material = lights.tail = new THREE.MeshStandardMaterial({color:'#5a0d09', emissive:'#ff2a1f', emissiveIntensity:2.5, roughness:.3});
-    else if (n === 'chrome') o.material = new THREE.MeshStandardMaterial({color:'#e4e7ea', metalness:1, roughness:.16});
-    else if (n === 'wheel'){ wheels.push(o); if (o.material) o.material.envMapIntensity = .8; }
-    else o.material = new THREE.MeshStandardMaterial({color:'#141518', roughness:.5, metalness:.1});
-  });
-  return {wheels, fronts, lights};
-}
-const loader = new GLTFLoader();
-const gltf = await loader.loadAsync('assets/lambo.glb');
-const meRoot = gltf.scene, rivalRoot = gltf.scene.clone(true);
-const meDress = dressCar(meRoot, PAINT.me), rivalDress = dressCar(rivalRoot, PAINT.rival);
+/* the procedural supercar (sepang/js/hero-car.js): body, glass, LED lights, rims with brake discs and calipers; 12 draw calls each */
+function heroCar(color){ const H = makeHeroCar({paint:color, quality:QK}); H.paintMat.envMapIntensity = .6; return {root:H.root, dress:{wheels:H.wheels, fronts:H.fronts, lights:H.lights}}; }
+const meCar = heroCar(PAINT.me), rivalCar = heroCar(PAINT.rival);
+const meRoot = meCar.root, rivalRoot = rivalCar.root;
+const meDress = meCar.dress, rivalDress = rivalCar.dress;
 scene.add(meRoot, rivalRoot);
 /* contact shadows: a soft dark patch under each car so they sit on the road */
 { const cv = document.createElement('canvas'); cv.width = cv.height = 128; const g = cv.getContext('2d'), gr = g.createRadialGradient(64, 64, 8, 64, 64, 64); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
