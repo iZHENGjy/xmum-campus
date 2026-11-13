@@ -113,10 +113,10 @@ const SHOTS = [
   {t0:2.4, name:'grid', cam(){ return {pos:carToWorld(me, -3.5, 2.6, -11), look:trackPoint(SF, 0, 9.5), fov:52, speed:0}; }},
   {t0:4.8, name:'chase', cam(){ return chaseCam(me, 1); }},
   {t0:11.2, name:'trackside', cam(){ return {pos:trackPoint(440, HW[440] + 7, 1.2), look:v3(me.x, .9, me.z), fov:40, speed:0}; }},
-  {t0:13.4, name:'T1', cam(){ return {pos:trackPoint(553, -(HW[553] + 6), 2.2), look:v3(me.x, 1, me.z), fov:24, speed:0}; }},
+  {t0:13.4, name:'T1', cam(){ return {pos:trackPoint(548, HW[548] + 14, 2.6), look:v3(me.x, 1, me.z), fov:26, speed:0}; }},   /* outside the hairpin, the sun behind the camera */
   {t0:19, name:'backlit', cam(){ return {pos:carToWorld(me, -2.5, 1.0, 16), look:carToWorld(me, 0, .9, 0), fov:46, speed:0}; }},
   {t0:24.5, name:'lake', cam(){ const k = (S.t - 24.5) / 6.5, L = W.lake; return {pos:carToWorld(me, -22 - k * 10, 6 + k * 12, -14 - k * 4), look:v3((me.x * 2 + L[0]) / 3, 2, (me.z * 2 + L[1]) / 3), fov:50, speed:0}; }},
-  {t0:29.6, name:'end'}
+  {t0:27.8, name:'end'}
 ];
 const camState = {pos:v3(0, 5, 0), look:v3(0, 0, 0), fov:60, speed:0, init:false};
 function chaseCam(c, k){
