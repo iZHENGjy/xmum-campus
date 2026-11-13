@@ -341,7 +341,8 @@
     if (money < p){ opClose(true); toast('钱不够', `放题一位 ${fmtRM(p)}，先去送几单外卖吧`, 2400); RING.rearm = true; return false; }
     opClose(true); money -= p; moneyChanged(); unlock('ioi1'); RING.rearm = true;
     /* the story's chapter 8 step 「请阿豆去 IOI 吃 SUKI-YA」 (js/89-quest-data.js) is done once you pay and sit down */
-    try { if (window.XQuest && XQuest.step && (XQuest.step() || {}).id === 'c8_suki' && XQuest.flag) XQuest.flag('q_suki8'); } catch(e){}
+    /* any time in chapter 8's steps, not only when it is the step shown: the steps tick in any order (js/89-quest.js checkSteps) */
+    try { if (window.XQuest && XQuest.ch === 8 && XQuest.ph === 'steps' && XQuest.flag) XQuest.flag('q_suki8'); } catch(e){}
     if (driving) leaveCar();
     return XMini.startAt(mode === 'spicy' ? 'sukiya_spicy' : 'sukiya', Object.assign({}, DOOR_OUT));
   }

@@ -246,7 +246,7 @@ window.XQD = (() => {
         done:Q => Q.ach('wg1'),
         hint:{pc:'在车行旁边按 <kbd>G</kbd> 打开车行，往下翻到「水枪工坊」', touch:'点右上角「车行」，往下翻到「水枪工坊」', flash:'#garageBtn'},
         tip:'水枪射程远一点，保安和猴子都好对付。', guide:'cops',
-        nudge:'水枪工坊在车行面板最下面，最便宜的回水泵 RM 80。'},
+        nudge:'水枪工坊在车行面板最下面，最便宜的是水箱，RM 60。'},
       {id:'c2_repaint', text:'被通缉时开车冲进喷漆车间', rm:50, at:G(() => [XSPRAY.door.x, XSPRAY.door.z], [115, 316]), r:0,
         done:Q => Q.ach('repaint'),
         hint:{pc:'先开车撞一下校园里巡逻的保安车，让他追你（钱包里出现星星），再甩开他的视线（拐弯、穿过树林），开进南门外 Bell 的喷漆车间', touch:'先开车撞一下校园里巡逻的保安车，让他追你（钱包里出现星星），再甩开他的视线（拐弯、穿过树林），开进南门外 Bell 的喷漆车间'},
@@ -302,7 +302,7 @@ window.XQD = (() => {
     intro:[
       ['juanjuan', '你可算来了！完了完了，DDL 今晚十二点，我作业还没交上去……'],
       ['juanjuan', '还有更惨的：我的期末卷被老师锁在 A3 的办公室里，明天就要用！'],
-      ['juanjuan', '你身手好，帮我一把？A3 门口那两个蓝圈就是，一个交作业，一个抢卷子。'],
+      ['juanjuan', '你身手好，帮我一把？A3 门口那两个圈就是：蓝圈交作业，红圈抢卷子。'],
       ['juanjuan', '事成了请你去 B1 游戏厅放松一下。宿舍那边还有好东西，就是别被宿管阿姨看见。']
     ],
     outro:[
@@ -331,7 +331,7 @@ window.XQD = (() => {
         done:Q => Q.ach('dorm1'),
         hint:{pc:'走到 LY 宿舍门口的紫圈按 <kbd>F</kbd> 进去，搜点东西再从门口撤出来', touch:'走到 LY 宿舍门口的紫圈点一下进去，搜点东西再撤出来', flash:'#act-f'},
         tip:'宿管阿姨在走廊里巡，躲在门后等她走过去再出来。', guide:'earn',
-        nudge:'LY 宿舍门口都有紫圈，LY2 离中轴线最近。'},
+        nudge:'LY 宿舍门口都有紫圈，哪栋都行；指南针指的是 LY2。'},
       {id:'c3_gold', at:() => nearChallenge(), r:0, text:'任意挑战拿一块金牌', rm:60,
         done:Q => Q.ach('gold'),
         hint:{pc:'挑战赛、潜入委托、蜜雪冰橙打工……任何一样拿到金牌都算', touch:'挑战赛、潜入委托、蜜雪冰橙打工……任何一样拿到金牌都算'},
@@ -372,7 +372,7 @@ window.XQD = (() => {
         nudge:'嘛嘛档在南门外 Bell Avenue 西头，露天座位的空椅子旁按 F。'},
       {id:'c4_dt', text:'麦当当得来速送达一单', rm:40, at:G(() => [DT.x, DT.z], [-747, 1149]), r:0,
         done:Q => Q.best('o_dt'),
-        hint:{pc:'开车到 KIP 那边的麦当当，从得来速窗口取餐再送出去', touch:'开车到 KIP 那边的麦当当，从得来速窗口取餐再送出去'},
+        hint:{pc:'开车到 KIP 那边的麦当当，开进得来速的黄圈点餐，再到绿圈窗口取餐送出去', touch:'开车到 KIP 那边的麦当当，开进得来速的黄圈点餐，再到绿圈窗口取餐送出去'},
         tip:'得来速的单子在麦当当窗口取，开车经过窗口就拿到。', guide:'earn',
         nudge:'麦当当在 KIP 那片的西南边，开车从得来速车道进去。'},
       {id:'c4_kip', text:'KIP 超市大乱斗玩一局', rm:40, at:G(() => [KM.door.x, KM.door.z], [-640, 929.6]), r:0,
@@ -380,7 +380,8 @@ window.XQD = (() => {
         hint:{pc:'走到 KIP 购物中心门口按 <kbd>F</kbd> 开始', touch:'走到 KIP 购物中心门口点一下开始', flash:'#act-f'},
         tip:'推着购物车抢特价，撞翻别人的车也行。', guide:'earn',
         nudge:'KIP 购物中心在学校西南边，商场门口按 F 就开始。'},
-      {id:'c4_durian', text:'猫山王挑战走一遍', rm:50, at:G(() => XPasar.SPOT.durian.slice(0, 2), [499.8, 560.3]), r:0,
+      /* the green ring is 4.4 m in front of the stall (js/89-pasar-malam.js: z + 4.4 * f), point there, not at the stall */
+      {id:'c4_durian', text:'猫山王挑战走一遍', rm:50, at:G(() => { const s = XPasar.SPOT.durian; return [s[0], s[1] + 4.4 * s[2]]; }, [499.8, 555.9]), r:0,
         /* 夜市 17:00 开到第二天 07:00（js/17-clock.js 的 phase 不是 day 就开）：白天这一步排到后面，写明几点开 */
         wait:() => {
           if (!G(() => XClock.phase() === 'day', false)) return '';
@@ -401,7 +402,7 @@ window.XQD = (() => {
       {id:'c4_race', text:'去格子旗跑完一场竞速', rm:40, at:() => nearFlag(), r:0,
         done:Q => Q.ach('race1'),
         hint:{pc:'开车到地图上的格子旗，进圈开始比赛', touch:'开车到地图上的格子旗，进圈开始比赛', flash:'#mini'},
-        tip:'地图上有五个格子旗，校园环线离得最近。', guide:'earn',
+        tip:'地图上每个格子旗都算，卡丁车场那个也算；指南针指最近的一个。', guide:'earn',
         nudge:'校园环线的格子旗在南门里面不远，开车进去就开始。'}
     ]});
   D.diary.c4_start = '阿明说我来这么久还没出过校门，「不行 lah」。他说得对。';
@@ -643,7 +644,8 @@ window.XQD = (() => {
       done:() => { const x = XNet.extra && XNet.extra(); return !!(x && x.fx) && XNet.peers().size > 0; }},
     {id:'lz_taxi5', npc:'laozhou', after:'c2', text:'顺风车拿一次五星好评', rm:80, done:Q => Q.ach('taxi5')},
     {id:'lz_cross', npc:'laozhou', after:'c2', text:'送满 10 单跨区外卖', rm:120, done:Q => Q.ach('cross')},
-    {id:'lz_supper', npc:'laozhou', after:'c2', text:'夜里送一单夜宵', rm:60, parts:{neon:2}, done:Q => Q.ach('supper')},
+    /* 成就 supper 只在得来速（js/89-outskirts-play.js）晚上的单子送到时给，校园外卖不算：文字写明去哪儿 */
+    {id:'lz_supper', npc:'laozhou', after:'c2', text:'夜里去麦当当得来速接一单夜宵，送回学校', rm:60, parts:{neon:2}, done:Q => Q.ach('supper')},
     {id:'lz_dthru', npc:'laozhou', after:'c2', text:'得来速送达 5 单', rm:100, done:Q => Q.ach('dthru')},
     {id:'jj_exall', npc:'juanjuan', after:'c3', text:'四种潜入委托各做一次', rm:120, done:Q => Q.ach('exall')},
     {id:'jj_arcade', npc:'juanjuan', after:'c3', text:'B1 游戏厅每个小游戏都玩一局', rm:80, done:Q => Q.ach('arcadeall')},
@@ -728,11 +730,12 @@ window.XQD = (() => {
     bellfruit:{name:'Bell 鲜果蔬菜', at:() => bellAt('鲜果蔬菜') || [153.25, 309.5]},
     mamak:{name:'Al-Hajeera 嘛嘛档', at:() => bellAt('Nasi Kandar Al-Hajeera') || [145.75, 309.5]},
     pasar:{name:'夜市水果摊', at:() => { const s = G(() => XPasar.SPOT.fruit || XPasar.SPOT.durian, null); return s ? [s[0] - 8, s[1]] : [491.8, 560.3];   /* 8 m west of the durian ring, so the two cards never share a spot */ },
-      open:() => G(() => XPasar.openG.visible, true), shut:'夜市天黑才开。水果也可以去 Bell 的「鲜果蔬菜」买。'},
+      open:() => G(() => XPasar.openG.visible, true), shut:'夜市天黑才开。水果也可以去 Bell 的「鲜果蔬菜」买。', shutOnly:'夜市天黑才开（17:00 到早上 7:00），到点再来'},
     petrol:{name:'加油站便利店', at:[-690, 1131]},
     lydorm:{name:'LY 宿舍楼下', at:lyDoor, verb:'搬上车'}
   };
   /* ---------- 采购单（js/89-errand.js）：买齐 → 送到 to → 报销（refund）→ onDone
+     to = {name, at, npc（可选：收件的人，走到他身边也能交）}
      item = {id, name, icon, rm, shops:[店 id], cold:秒（买了以后多久内要送到，过了就坏，要重买）, spoil:'坏了的说法'}
      gift = {店 id:[[谁, 台词]]} 在这家店买这一单的东西时，店里的人说的话（送东西） */
   const houseDoor = () => { const h = houseFirst(); return h ? [h.door.x, h.door.z] : [117.2, 415.1]; };
@@ -757,11 +760,11 @@ window.XQD = (() => {
       gift:{lydorm:[['juanjuan', '我们来帮你搬！……搬完了能在新家吃顿饭吗？'], ['aming', '圆桌带走 lah，以后火锅局在你家开。']]}},
     rice:{title:'罗丝阿姨的米', from:'rose', to:{name:'Taman Warisan Megah 8 号门口', at:[117.2, 412]},
       items:[{id:'rice', name:'一袋 10 公斤的米', icon:'🍚', rm:0, shops:['kipmart']}]},
-    durian:{title:'给老周的猫山王', from:'durian', refund:'老周把钱给你了，还说「下次挑熟一点的」', to:{name:'D6 外卖点（老周）', at:[344, -143]},
+    durian:{title:'给老周的猫山王', from:'durian', refund:'老周把钱给你了，还说「下次挑熟一点的」', to:{name:'D6 外卖点（老周）', at:[344, -143], npc:'laozhou'},
       items:[{id:'du', name:'一颗猫山王', icon:'🍈', rm:40, shops:['pasar'], cold:420, spoil:'在车里熏太久了，老周说不要'}]},
-    supper:{title:'给卷卷的夜宵', from:'kumar', refund:'卷卷把钱转给你了', to:{name:'A3 大台阶（卷卷）', at:[110, 123]},
+    supper:{title:'给卷卷的夜宵', from:'kumar', refund:'卷卷把钱转给你了', to:{name:'A3 大台阶（卷卷）', at:[110, 123], npc:'juanjuan'},
       items:[{id:'teh', name:'拉茶', icon:'🧋', rm:3, shops:['mamak'], cold:360, spoil:'凉了'}, {id:'roti', name:'Roti Canai', icon:'🫓', rm:2, shops:['mamak'], cold:360, spoil:'凉了'}]},
-    ice:{title:'给 Ben 师傅的冰水', from:'adi', refund:'Ben 师傅把钱给你了', to:{name:'汽车游乐园一园入口（Ben）', at:[-903, 249]},
+    ice:{title:'给 Ben 师傅的冰水', from:'adi', refund:'Ben 师傅把钱给你了', to:{name:'汽车游乐园一园入口（Ben）', at:[-903, 249], npc:'ben'},
       items:[{id:'ice', name:'一箱冰水', icon:'🧊', rm:12, shops:['petrol'], cold:300, spoil:'冰都化了'}]}
   };
   const erAt = id => G(() => XErrand.nextAt(id), null);
@@ -797,7 +800,8 @@ window.XQD = (() => {
         hint:{pc:'走到店门口，卡片弹出来按 <kbd>F</kbd> 买下；买到的东西在任务条下面', touch:'走到店门口，点卡片买下；买到的东西在任务条下面'},
         tip:'肉片和丸子是冷冻的，买了十分钟内要送到，最后再去 KIP。水果夜市天黑才开，白天去 Bell 的鲜果蔬菜。',
         nudge:'采购单上的店：KIP 超市、DIY 五金、上校炸鸡（都在 KIP 那边），嘛嘛档、秘方蛋糕、鲜果蔬菜（都在 Bell）。'},
-      {id:'c4_party', text:'把东西送到 LY 宿舍楼下', rm:0, isNew:true, errand:'bday', at:() => erAt('bday'), r:0,
+      /* r 5: the hint says 黄圈, and the errand itself draws nothing on the ground at the drop-off */
+      {id:'c4_party', text:'把东西送到 LY 宿舍楼下', rm:0, isNew:true, errand:'bday', at:() => erAt('bday'), r:5,
         done:Q => Q.flag('q_bday'),
         hint:{pc:'到 LY 宿舍楼下的黄圈，按 <kbd>F</kbd> 送到', touch:'到 LY 宿舍楼下的黄圈，点卡片送到'},
         tip:'大家都在楼上等着了。'}
@@ -965,8 +969,9 @@ window.XQD = (() => {
   const erDone = id => Q => Q.flag('er_' + id + '_done');
   D.sides.push(
     {id:'rose_rice', npc:'rose', after:'c4', text:'帮罗丝阿姨给 Taman Warisan Megah 8 号送一袋米', rm:60, errand:'rice', done:erDone('rice')},
-    {id:'rose_kip', npc:'rose', after:'c4', text:'KIP 超市大乱斗打到「大促场」', rm:100, done:() => G(() => XKipMart.tier() >= 2, false)},
-    {id:'du_send', npc:'durian', after:'c4', text:'挑一颗猫山王送到 D6 给老周', rm:80, errand:'durian', done:erDone('durian')},
+    /* XKipMart.tier() is {lv, n, ...} (js/minigames/kipmart.js), not a number: compare its lv (0 新手场, 1 周末场, 2 大促场, 3 双十一) */
+    {id:'rose_kip', npc:'rose', after:'c4', text:'KIP 超市大乱斗打到「大促场」', rm:100, done:() => G(() => XKipMart.tier().lv >= 2, false)},
+    {id:'du_send', npc:'durian', after:'c4', text:'挑一颗猫山王送到 D6 给老周（夜市天黑才开）', rm:80, errand:'durian', done:erDone('durian')},
     {id:'km_supper', npc:'kumar', after:'c4', text:'夜宵：拉茶和 Roti 趁热送到 A3 给卷卷', rm:60, errand:'supper', done:erDone('supper')},
     {id:'adi_ice', npc:'adi', after:'c5', text:'一箱冰水送去汽车游乐园给 Ben 师傅', rm:100, errand:'ice', done:erDone('ice')}
   );

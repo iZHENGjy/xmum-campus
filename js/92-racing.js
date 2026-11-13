@@ -465,6 +465,13 @@ function rcProgress(r, dt){
   if (Math.abs(ds) > 60) ds = 0;                                   /* teleport or a jump across the infield: ignore */
   r.d += ds;
   const cp = T.cps[r.next];
+  /* back on the road, trust where the car really is: the summed progress only ever falls behind (a drift wide past a checkpoint
+     leaves it held at checkpoint + 30 m, an ignored jump, a 回赛道) and could end up 100 m short of the finish you are standing on.
+     Never past the next checkpoint + 30 m, so checkpoints still have to be passed in order */
+  if (q.d < T.w / 2 + 6){
+    const base = T.closed ? Math.round((r.d - q.s) / T.P.L) * T.P.L : 0, cand = base + q.s;
+    if (cand > r.d && cand - r.d < 400 && (cp == null || cand <= cp + 30)) r.d = cand;
+  }
   if (cp != null){
     if (r.d > cp + 30) r.d = cp + 30;                                /* no progress past a checkpoint you skipped */
     let hit = r.d >= cp - 2 && q.d < T.w / 2 + 14;

@@ -182,11 +182,13 @@
     if (D.diary[st.id]) diaryAdd(st.id);
     save(); emit('step', {c, st, got, quiet});
   }
+  /* the optional steps (opt) still tick while you walk back to report: chapter 2's 小猫 / 秋千 / 地图 used to stay unticked for good
+     once the last required step was done first */
   function checkSteps(quiet){
-    const c = chapter(); if (!c || S.ph !== 'steps') return;
+    const c = chapter(); if (!c || (S.ph !== 'steps' && S.ph !== 'report')) return;
     const ticked = [];
-    for (const st of c.steps) if (!S.done[st.id] && qDone(st)){ tickStep(c, st, quiet || ticked.length > 0); ticked.push(st); }
-    if (c.steps.every(s => S.done[s.id] || s.opt)){ S.ph = 'report'; save(); emit('report', c); emit('state'); }
+    for (const st of c.steps) if (!S.done[st.id] && (S.ph === 'steps' || st.opt) && qDone(st)){ tickStep(c, st, quiet || ticked.length > 0); ticked.push(st); }
+    if (S.ph === 'steps' && c.steps.every(s => S.done[s.id] || s.opt)){ S.ph = 'report'; save(); emit('report', c); emit('state'); }
     else if (ticked.length) emit('state');
   }
   function beginChapter(c){
@@ -591,7 +593,7 @@
     const today = dayKey(); if (S.days[S.days.length - 1] !== today && !S.days.includes(today)){ S.days.push(today); if (S.days.length > 400) S.days.shift(); save(); }
     if (mode === 'naiwa'){
       if (S.born === 'new' && !S.intro) introNew();
-      if (S.ph === 'steps') checkSteps(false);
+      if (S.ph === 'steps' || S.ph === 'report') checkSteps(false);
       if (!S.flags.q_car1 && g(() => driving, null) && unlocked('drive')){ flag('q_car1'); emit('state'); }   /* first time behind the wheel */
       checkSides(false);
       /* the first-time events (diary lines, mum's messages) */
