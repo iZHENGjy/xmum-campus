@@ -113,5 +113,8 @@ export function makeSparks(scene, max){
     }
     for (const n of ['position', 'aSize', 'aAlpha', 'aColor']) g.attributes[n].needsUpdate = true;
   }
-  return {shell, update, mat};
+  /* one spark with its own velocity (scrapes, impacts): colour c is HDR */
+  function emit(x, y, z, vx, vy, vz, c, sz = .5, lf = .5){ const k = next; next = (next + 1) % max;
+    p[k * 3] = x; p[k * 3 + 1] = y; p[k * 3 + 2] = z; vel[k * 3] = vx; vel[k * 3 + 1] = vy; vel[k * 3 + 2] = vz; life[k] = 0; maxLife[k] = lf; s0[k] = sz; c0[k * 3] = c.r; c0[k * 3 + 1] = c.g; c0[k * 3 + 2] = c.b; }
+  return {shell, emit, update, mat};
 }
