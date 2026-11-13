@@ -2,7 +2,7 @@
  *   镜头效果（自己写的一个效果）：高速时画面边缘的径向模糊 + 速度线、轻微色差、下雨时镜头上的水滴（按车速往下滑）
  *   Bloom（mipmap 模糊）→ AgX 色调映射 → 调色（每圈一套：lift / gamma / gain、饱和度、对比度）→ 暗角 → 胶片颗粒 */
 import * as THREE from 'three';
-import { EffectComposer, RenderPass, EffectPass, Effect, EffectAttribute, BlendFunction, BloomEffect, ToneMappingEffect, ToneMappingMode, VignetteEffect, NoiseEffect } from 'postprocessing';
+import { EffectComposer, RenderPass, EffectPass, Effect, EffectAttribute, BlendFunction, BloomEffect, ToneMappingEffect, ToneMappingMode, VignetteEffect, NoiseEffect, DepthOfFieldEffect } from 'postprocessing';
 
 const LENS = /* glsl */`
 uniform float uSpeed;
@@ -29,7 +29,8 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
   vec2 c = uv - 0.5; float r = length(c);
   float blur = uSpeed * 0.05 * smoothstep(0.12, 0.62, r) * (1.0 + smoothstep(0.5, 0.0, uv.y));
   vec3 acc = vec3(0.0);
-  for (int i = 0; i < 8; i++){ float t = float(i) / 7.0; acc += texture2D(inputBuffer, uv + off - c * t * blur).rgb; }
+  float jt = h21(uv * 913.0 + uTime);   /* per-pixel jitter: no stepped ghosting on the edges */
+  for (int i = 0; i < 8; i++){ float t = (float(i) + jt) / 8.0; acc += texture2D(inputBuffer, uv + off - c * t * blur).rgb; }
   acc /= 8.0;
   float ca = uChroma * r * r;
   acc.r = mix(acc.r, texture2D(inputBuffer, uv + off - c * ca).r, 0.8);
@@ -72,18 +73,20 @@ class GradeEffect extends Effect {
 }
 /* the looks (docs/sepang-plan.md §5): year-4 golden dusk, and the same dusk after rain */
 export const GRADES = {
-  dusk:{lift:[0, .004, .014], gamma:[1.02, 1, .96], gain:[1.1, 1.0, .86], sat:1.0, contrast:1.05},
+  dusk:{lift:[.004, .004, .008], gamma:[1.02, 1, .96], gain:[1.1, 1.0, .86], sat:1.0, contrast:1.0},
   rain:{lift:[0, .005, .014], gamma:[.97, 1, 1.04], gain:[.94, .98, 1.04], sat:.82, contrast:1.08}
 };
 
 export function makePost(renderer, scene, camera, Q){
   const composer = new EffectComposer(renderer, {frameBufferType:THREE.HalfFloatType, multisampling:Q.msaa});
   composer.addPass(new RenderPass(scene, camera));
+  /* depth of field: its own pass (the lens effect samples the raw input), only on the still close-ups */
+  const dof = new DepthOfFieldEffect(camera, {focusDistance:8, focusRange:4, bokehScale:3.2, resolutionScale:.5}), dofPass = new EffectPass(camera, dof); dofPass.enabled = false; composer.addPass(dofPass);
   const lens = new LensEffect(), grade = new GradeEffect(), expo = new ExposureEffect();
   const bloom = new BloomEffect({mipmapBlur:true, luminanceThreshold:2.0, luminanceSmoothing:.3, intensity:.45, radius:.65});
   bloom.resolution.scale = Q.bloomScale;
   const tone = new ToneMappingEffect({mode:ToneMappingMode.ACES_FILMIC});
-  const vignette = new VignetteEffect({offset:.28, darkness:.55});
+  const vignette = new VignetteEffect({offset:.3, darkness:.35});
   const noise = new NoiseEffect({premultiply:true, blendFunction:BlendFunction.SCREEN}); noise.blendMode.opacity.value = .045;
   composer.addPass(new EffectPass(camera, lens, bloom, expo, tone, grade, vignette, noise));
   const g = {cur:JSON.parse(JSON.stringify(GRADES.dusk))};
@@ -95,7 +98,8 @@ export function makePost(renderer, scene, camera, Q){
   setGrade('dusk', 'dusk', 0);
   return {
     composer, bloom, lens, setGrade,
-    set(o){ const u = lens.uniforms; if (o.exposure != null) expo.uniforms.get('uExposure').value = o.exposure; if (o.speed != null){ u.get('uSpeed').value = o.speed; u.get('uChroma').value = .0012 * o.speed; } if (o.rain != null) u.get('uRain').value = o.rain; if (o.time != null) u.get('uTime').value = o.time; },
+    setDof(target){ if (target){ dof.target = target; dofPass.enabled = true; } else { dofPass.enabled = false; dof.target = null; } },
+    set(o){ const u = lens.uniforms; if (o.exposure != null) expo.uniforms.get('uExposure').value = o.exposure; if (o.speed != null){ u.get('uSpeed').value = o.speed; u.get('uChroma').value = .0006 * o.speed; } if (o.rain != null) u.get('uRain').value = o.rain; if (o.time != null) u.get('uTime').value = o.time; },
     setSize(w, h){ composer.setSize(w, h); },
     render(dt){ composer.render(dt); }
   };

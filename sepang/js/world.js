@@ -119,7 +119,7 @@ export function buildWorld(renderer, scene, Q){
   su.sunPosition.value.copy(sunDir);
   const sun = new THREE.DirectionalLight('#ffc98f', 3.2); sun.castShadow = true; scene.add(sun, sun.target);
   sun.shadow.bias = -.0004; sun.shadow.normalBias = .4;
-  const hemi = new THREE.HemisphereLight('#b9c9e6', '#4a4031', .55); scene.add(hemi);
+  const hemi = new THREE.HemisphereLight('#b9c9e6', '#4a4031', .85); scene.add(hemi);
   scene.fog = new THREE.FogExp2('#b3a594', .00026);
   /* rain: a grey overcast layer inside the sky (the sky model itself cannot do clouds) */
   const overcast = new THREE.Mesh(new THREE.SphereGeometry(3400, 32, 16), new THREE.MeshBasicMaterial({color:'#8a9097', side:THREE.BackSide, transparent:true, opacity:0, fog:false, depthWrite:false}));
@@ -218,10 +218,10 @@ export function buildWorld(renderer, scene, Q){
     const parts = [], roofs = [], cols = [], crowd = [];
     for (let i = 10; i < 400; i += 26){
       const [x, z] = P(i, HW[i] + 30), h = HD[i];
-      for (let t = 0; t < 8; t++){ const b = new THREE.BoxGeometry(26, 1.4, 3.2); b.translate(0, 1 + t * 1.4, t * 3.2 + 2); b.rotateY(h + Math.PI / 2); b.translate(x, 0, z); parts.push(b); }
-      const back = new THREE.BoxGeometry(26, 14, 2); back.translate(0, 7, 30); back.rotateY(h + Math.PI / 2); back.translate(x, 0, z); parts.push(back);
-      const r = hipRoof(26, 30, 5, 1.5); r.translate(0, 17, 15); r.rotateY(h + Math.PI / 2); r.translate(x, 0, z); roofs.push(r);
-      for (const cz of [1, 29]){ const c = new THREE.CylinderGeometry(.45, .55, 16, 10); c.translate(-12, 8, cz); c.rotateY(h + Math.PI / 2); c.translate(x, 0, z); cols.push(c); }
+      for (let t = 0; t < 12; t++){ const b = new THREE.BoxGeometry(26, 1.4, 3.2); b.translate(0, 1 + t * 1.4, t * 3.2 + 2); b.rotateY(h + Math.PI / 2); b.translate(x, 0, z); parts.push(b); }
+      const back = new THREE.BoxGeometry(26, 20, 2); back.translate(0, 10, 42); back.rotateY(h + Math.PI / 2); back.translate(x, 0, z); parts.push(back);
+      const r = hipRoof(26, 42, 6, 1.5); r.translate(0, 23, 21); r.rotateY(h + Math.PI / 2); r.translate(x, 0, z); roofs.push(r);
+      for (const cz of [1, 41]){ const c = new THREE.CylinderGeometry(.5, .6, 22, 10); c.translate(-12, 11, cz); c.rotateY(h + Math.PI / 2); c.translate(x, 0, z); cols.push(c); }
       for (let n = 0; n < 0; n++){ const t = Math.floor(rng() * 8), u = (rng() - .5) * 24; const b = new THREE.BoxGeometry(.5, .8, .4); b.translate(u, 2.1 + t * 1.4, t * 3.2 + 2.6); b.rotateY(h + Math.PI / 2); b.translate(x, 0, z);
         const col = new THREE.Color().setHSL(rng(), .5, .15 + rng() * .15), cnt = b.attributes.position.count, ca = new Float32Array(cnt * 3); for (let q = 0; q < cnt; q++) col.toArray(ca, q * 3); b.setAttribute('color', new THREE.BufferAttribute(ca, 3)); crowd.push(b); }
     }
@@ -275,6 +275,7 @@ export function buildWorld(renderer, scene, Q){
       const pa = l.attributes.position; for (let v = 0; v < pa.count; v++){ const x = pa.getX(v), t = x / len; pa.setZ(v, pa.getY(v)); pa.setY(v, -(t * t) * (1.6 + tier * .9)); pa.setY(v, pa.getY(v) + x * (.55 - tier * .35)); }
       l.computeVertexNormals(); l.rotateY(k / 12 * Math.PI * 2 + tier * .4); l.translate(0, 9 - tier * .25, 0); leaves.push(l); }
     const crownG = mergeGeometries(leaves);
+    { const nn = crownG.attributes.normal; for (let v = 0; v < nn.count; v++) nn.setXYZ(v, 0, 1, 0); }   /* lit from the sky, not black against the low sun */
     const pts = [];
     for (let tries = 0; tries < 30000 && pts.length < Q.palms; tries++){
       const i = Math.floor(rng() * N), s = rng() < .5 ? -1 : 1, off = s * (HW[i] + 34 + rng() * 520), [x, z] = P(i, off);
@@ -292,7 +293,7 @@ export function buildWorld(renderer, scene, Q){
 
   /* --- far away: the Kuala Lumpur skyline (real height twin towers) to the north-north-west, hazy in the fog --- */
   {
-    const fx = Math.sin(-2.75), fz = Math.cos(-2.75), cx = fx * 3600, cz = fz * 3600;
+    const fx = Math.sin(-2.2), fz = Math.cos(-2.2), cx = fx * 2300, cz = fz * 2300;
     const facade = new THREE.MeshStandardMaterial({color:'#7d8794', roughness:.6, metalness:0, emissive:'#ffffff', emissiveMap:TX.windows, emissiveIntensity:.0});
     const parts = [];
     const tower = (x, z, s) => { for (const [r, h, y] of [[24, 250, 0], [21, 70, 250], [17, 45, 320], [12, 30, 365], [7, 20, 395], [1.2, 60, 415]]){ const c = new THREE.CylinderGeometry(r * .92 * s, r * s, h * s, 8); c.translate(x, (y + h / 2) * s, z); parts.push(c); } };
@@ -301,7 +302,8 @@ export function buildWorld(renderer, scene, Q){
     const kl = new THREE.CylinderGeometry(6, 9, 330, 10); kl.translate(cx + 700, 165, cz + 250); parts.push(kl);
     const pod = new THREE.SphereGeometry(28, 16, 10); pod.scale(1, .5, 1); pod.translate(cx + 700, 300, cz + 250); parts.push(pod);
     for (let n = 0; n < 40; n++){ const w = 30 + rng() * 40, h = 80 + rng() * 230, b = new THREE.BoxGeometry(w, h, w * (.6 + rng() * .6)); b.translate(cx + (rng() - .5) * 1700, h / 2, cz + (rng() - .5) * 700); parts.push(b); }
-    const city = new THREE.Mesh(mergeGeometries(parts.map(g => g.index ? g.toNonIndexed() : g)), facade); world.add(city);
+    const cg = mergeGeometries(parts.map(g => g.index ? g.toNonIndexed() : g)); cg.translate(-cx, 0, -cz); cg.scale(2, 2, 2); cg.translate(cx, 0, cz);
+    const city = new THREE.Mesh(cg, facade); world.add(city);
     var cityMat = facade;
   }
 
@@ -326,7 +328,7 @@ export function buildWorld(renderer, scene, Q){
   /* --- time of day: dusk, a little darker when it rains; lamps and city windows come on --- */
   function setMood(rain){
     sun.intensity = 3.2 * (1 - .88 * rain); sun.color.set(rain > .5 ? '#c8b8a6' : '#ffc98f');
-    hemi.intensity = .55 + .75 * rain;
+    hemi.intensity = .85 + .5 * rain;
     scene.fog.color.set(rain > .5 ? '#7d8287' : '#b3a594'); scene.fog.density = .00026 + .00045 * rain;
     su.turbidity.value = 4 + 8 * rain; su.rayleigh.value = 1.6 - .6 * rain; overcast.material.opacity = rain > .5 ? 1 : 1.9 * rain; overcast.visible = rain > .01; updateEnv();
     lampM.emissiveIntensity = 2.2 + 2 * rain; cityMat.emissiveIntensity = .9 + .6 * rain;

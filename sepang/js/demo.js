@@ -7,16 +7,16 @@ import * as THREE from 'three';
 import { makeHeroCar } from './hero-car.js';
 import { buildWorld, SF, GRID } from './world.js';
 import { makePost, GRADES } from './post.js';
-import { makeParticles, makeRain } from './fx.js';
+import { makeParticles, makeRain, makeSparks } from './fx.js';
 import { PTS } from './track-data.js';
 import { N, RT, HD, HW, clampI, LAMBO_MAX, makeCar, place, step, autoInput } from './physics.js';
 import { dressWorld } from './dress.js';
 
 /* ---------- quality: picked from the GPU, ?q=low|mid|high overrides ---------- */
 const TIERS = {
-  low:{name:'低', pr:.8, shadow:1024, shadowBox:120, msaa:0, bloomScale:.5, particles:1500, rain:900, palms:700, crowd:1200, lanterns:120, caps:150},
-  mid:{name:'中', pr:1, shadow:2048, shadowBox:180, msaa:4, bloomScale:1, particles:4000, rain:2200, palms:1600, crowd:3000, lanterns:300, caps:350},
-  high:{name:'高', pr:1.5, shadow:4096, shadowBox:240, msaa:4, bloomScale:1, particles:8000, rain:4000, palms:3000, crowd:4500, lanterns:500, caps:500}
+  low:{dof:false, name:'低', pr:.8, shadow:1024, shadowBox:120, msaa:0, bloomScale:.5, particles:1500, rain:900, palms:700, crowd:1800, lanterns:120, caps:150},
+  mid:{dof:true, name:'中', pr:1, shadow:2048, shadowBox:180, msaa:4, bloomScale:1, particles:4000, rain:2200, palms:1600, crowd:4500, lanterns:300, caps:350},
+  high:{dof:true, name:'高', pr:1.5, shadow:4096, shadowBox:240, msaa:4, bloomScale:1, particles:8000, rain:4000, palms:3000, crowd:6500, lanterns:500, caps:500}
 };
 const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({canvas, antialias:false, powerPreference:'high-performance', stencil:false, depth:true});
@@ -34,7 +34,7 @@ const camera = new THREE.PerspectiveCamera(60, 1, .4, 12000);
 const W = buildWorld(renderer, scene, Q);
 const D = dressWorld(scene, W, Q);
 const post = makePost(renderer, scene, camera, Q);
-const parts = makeParticles(scene, Q.particles);
+const parts = makeParticles(scene, Q.particles), sparks = makeSparks(scene, Q.dof ? 1400 : 700);
 const rainFx = makeRain(scene, Q.rain);
 
 /* ---------- memory boards along the main straight (only for 「路流过来」) ---------- */
@@ -86,8 +86,16 @@ const playerInput = () => ({thr:((keys.KeyW || keys.ArrowUp) ? 1 : 0) - ((keys.K
 
 /* ---------- HUD ---------- */
 const $ = id => document.getElementById(id);
-const hud = {fps:$('fps'), spd:$('spd'), sub:$('sub'), menu:$('menu'), count:$('count'), hint:$('hint'), bars:document.body, fade:$('fade')};
+const hud = {loc:$('loc'), fps:$('fps'), spd:$('spd'), sub:$('sub'), menu:$('menu'), count:$('count'), hint:$('hint'), bars:document.body, fade:$('fade')};
 let subT = 0;
+/* a point on the line from the hall through the car, d metres beyond the car, slid sideways by s */
+function awayFromHall(d, s, y){ const H = D.hall, dx = me.x - H.x, dz = me.z - H.z, L = Math.hypot(dx, dz) || 1, ux = dx / L, uz = dz / L; return v3(me.x + ux * d - uz * s, y, me.z + uz * d + ux * s); }
+let locT = 0;
+function showLoc(t){ const [en, zh] = t.split('|'); hud.loc.innerHTML = `<span>${en}</span><b>${zh}</b>`; hud.loc.classList.add('on'); locT = 2.6; }
+/* fireworks over the hall at the end of the film */
+function firework(){ const H = D.hall, c = new THREE.Color().setHSL(Math.random(), .9, .55).multiplyScalar(4);
+  const cx = H.x + (Math.random() - .5) * 160, cy = 92 + Math.random() * 45, cz = H.z + (Math.random() - .5) * 160;
+  sparks.shell(cx, cy, cz, 220, 40, c, 2.8); }
 function say(who, text, secs = 3.2){ hud.sub.innerHTML = `<span>${who}</span>${text}`; hud.sub.classList.add('on'); subT = secs; }
 hud.fps.dataset.q = Q.name;
 
@@ -100,23 +108,34 @@ function trackPoint(i, lat, y){ const j = clampI(i); return v3(PTS[j][0] + RT[j]
 
 /* the 30-second film: shots on a timeline (seconds from the start) */
 const SHOTS = [
-  {t0:0, name:'portrait', ev:1.0, cam(){ const k = S.t / 1.8; return {pos:carToWorld(me, 3.4 - k * .4, .85, 7.8), look:carToWorld(me, .3, .55, 1.3), fov:20, speed:0}; }},   /* long lens: crowd and flags soft behind */
-  {t0:1.8, name:'grid', ev:0.9, cam(){ return {pos:carToWorld(me, -2.2, 1.2, -9), look:trackPoint(SF + 6, 0, 7), fov:35, speed:0}; }},
-  {t0:4.6, name:'chase', ev:1.05, cam(){ return chaseCam(me, 1); }},
-  {t0:6.6, name:'bumper', ev:1.05, cam(){ return {pos:carToWorld(me, .55, .36, 2.55), look:carToWorld(me, .3, .3, 30), fov:80, speed:1, chase:true}; }},   /* low on the front bumper: the road rushes in */
-  {t0:8.1, name:'whip', ev:1.0, cam(){ return {pos:trackPoint(232, 6.5, .8), look:v3(me.x, .8, me.z), fov:32, speed:0, fixed:true}; }},
-  {t0:9.6, name:'drone', ev:1.0, cam(){ return {pos:carToWorld(me, -42, 28, -4), look:carToWorld(me, 22, 6, 34), fov:42, speed:.2, chase:true}; }},
-  {t0:11.6, name:'chase2', ev:1.05, cam(){ return chaseCam(me, 1); }},
-  {t0:13.2, name:'T1', ev:1.0, cam(){ return {pos:trackPoint(548, HW[548] + 14, 2.6), look:v3(me.x, 3, me.z), fov:24, speed:0, fixed:true}; }},   /* outside the hairpin, the sun behind the camera, kites behind the car */
-  {t0:16.6, name:'side', ev:1.0, cam(){ return {pos:carToWorld(me, 3.8, .75, 4.2), look:carToWorld(me, .4, .6, -.5), fov:48, speed:.5, chase:true}; }},   /* front-left looking back along the car's flank, the sun behind the camera */
-  {t0:18.6, name:'rainbow', ev:1.05, cam(){ return {pos:carToWorld(me, 1.2, 1.7, -10), look:carToWorld(me, 0, 9, 60), fov:55, speed:.3, chase:true}; }},
-  {t0:22.4, name:'lake', ev:1.05, cam(){ const k = (S.t - 22.4) / 5.4, L = W.lake; return {pos:carToWorld(me, -18 - k * 8, 5 + k * 10, -12 - k * 4), look:v3((me.x * 2 + L[0]) / 3, 4, (me.z * 2 + L[1]) / 3), fov:52, speed:0}; }},
-  {t0:27.8, name:'end'}
+  /* opening: five quick cuts while the lights come on (benchmark: GT7 / FH5 race intros) */
+  {t0:0, name:'wheel', ev:1.0, dof:() => carToWorld(me, .85, .38, 1.35), cam(){ const k = S.t / .8; return {pos:carToWorld(me, 2.3 - k * .2, .5, 2.6), look:carToWorld(me, .85, .38, 1.35), fov:34, speed:0, hand:true}; }},
+  {t0:.8, name:'lights', ev:.95, cam(){ return {pos:trackPoint(SF - 5, 3, 1.1), look:trackPoint(SF, 0, 10.4), fov:30, speed:0, hand:true}; }},
+  {t0:1.6, name:'crowd', ev:1.1, loc:'SEPANG RACING CITY|雪邦赛车城 · 发车区', cam(){ return {pos:trackPoint(GRID + 24, HW[GRID] - 2, 1.4), look:trackPoint(GRID + 34, HW[GRID] + 46, 10), fov:42, speed:0, hand:true}; }},
+  {t0:2.4, name:'exhaust', ev:1.0, dof:() => carToWorld(me, 0, .45, -2.25), cam(){ return {pos:carToWorld(me, -1.2, .5, -3.9), look:carToWorld(me, -.3, .45, -2.2), fov:32, speed:0, hand:true}; }},
+  {t0:3.2, name:'grid', ev:.9, cam(){ return {pos:carToWorld(me, -2.2, 1.2, -9), look:trackPoint(SF + 6, 0, 7), fov:35, speed:0}; }},
+  /* the straight: the rival ahead, caps and confetti over the track */
+  {t0:4.6, name:'chase', ev:1.05, loc:'MAIN STRAIGHT 1.55 KM|主直道', cam(){ return chaseCam(me, 1); }},
+  {t0:6.6, name:'bumper', ev:.92, cam(){ return {pos:carToWorld(me, .55, .36, 2.55), look:carToWorld(me, .3, .3, 30), fov:80, speed:1, chase:true}; }},
+  {t0:8.0, name:'whip', ev:1.2, cam(){ return {pos:trackPoint(228, 6.5, .8), look:v3(me.x, .8, me.z), fov:32, speed:0, fixed:true, hand:true}; }},
+  {t0:9.4, name:'drone', ev:1.25, cam(){ return {pos:carToWorld(me, -42, 28, -4), look:carToWorld(me, 22, 6, 34), fov:42, speed:.2, chase:true}; }},
+  {t0:11.4, name:'chase2', ev:1.05, cam(){ return chaseCam(me, 1); }},
+  /* T1: the long lens zooms in as the two cars brake side by side */
+  {t0:13.2, name:'T1', ev:1.0, loc:'TURN 1|一号弯', cam(){ const k = Math.min(1, (S.t - 13.2) / 3); return {pos:trackPoint(548, HW[548] + 14, 2.6), look:v3(me.x, 1.6, me.z), fov:20 - 8 * k, speed:0, fixed:true, hand:true}; }},
+  {t0:16.2, name:'side', ev:1.0, cam(){ return {pos:carToWorld(me, 3.8, .75, 4.2), look:carToWorld(me, .4, .6, -.5), fov:48, speed:.5, chase:true}; }},
+  /* low past the night market, then the shophouses streaming by */
+  {t0:18.4, name:'stalls', ev:1.05, loc:'PASAR MALAM|夜市 · 娘惹老街', cam(){ return {pos:trackPoint(604, HW[604] + 60, 12), look:v3(me.x, -4, me.z), fov:46, speed:0, fixed:true, hand:true}; }},   /* up behind the stalls, over the catch fence */
+  {t0:20.4, name:'shophouses', ev:1.05, cam(){ return {pos:carToWorld(me, 3.2, .9, -6), look:carToWorld(me, 0, .8, 12), fov:55, speed:.4, chase:true}; }},
+  /* the lake: the car in front, the hall behind, then fireworks over the hall */
+  {t0:22.4, name:'lake', ev:1.05, loc:'JIANNAN HALL|芙蓉湖 · 建南大礼堂', dof:() => v3(me.x, .8, me.z), cam(){ const k = (S.t - 22.4) / 4; return {pos:awayFromHall(24, 7 - k * 14, 1.6), look:v3(me.x, 3.5, me.z), fov:24, speed:0, chase:true}; }},
+  {t0:26.4, name:'finale', ev:1.0, cam(){ const k = (S.t - 26.4) / 3.2, H = D.hall, c = v3(me.x, 1, me.z); return {pos:awayFromHall(20 + k * 8, 2.5, 2 + k * 2), look:c.lerp(v3(H.x, 110, H.z), .03 + k * .03), fov:34, speed:0, chase:true}; }},
+  {t0:29.6, name:'end'}
 ];
 const camState = {pos:v3(0, 5, 0), look:v3(0, 0, 0), fov:60, speed:0, init:false};
 function chaseCam(c, k){
   const v = Math.hypot(c.vx, c.vz), back = 5.8 + Math.min(1.2, v / 80), up = 1.55;
-  return {pos:carToWorld(c, 0, up, -back), look:carToWorld(c, 0, .9, 5), fov:58 + Math.min(12, Math.max(0, (v - 30) / 6)), speed:Math.max(0, Math.min(1, (v - 50) / 100)) * k, chase:true};
+  const punch = c.mult > .05 ? 6 * Math.min(1, c.mult / .45) : 0;   /* nitro kicks the field of view out */
+  return {pos:carToWorld(c, 0, up, -back), look:carToWorld(c, 0, .9, 5), fov:58 + Math.min(12, Math.max(0, (v - 30) / 6)) + punch, speed:Math.max(0, Math.min(1, (v - 50) / 100)) * k, chase:true};
 }
 function bonnetCam(c){ const v = Math.hypot(c.vx, c.vz); return {pos:carToWorld(c, 0, 1.12, .2), look:carToWorld(c, 0, 1.0, 20), fov:70 + Math.min(14, v / 9), speed:Math.max(0, Math.min(1, (v - 50) / 100)) * .8, chase:true}; }
 
@@ -151,9 +170,9 @@ function driveStep(dt){
     let inMe = {thr:0, steer:0, brake:true, nos:false}, inRival = {thr:0, steer:0, brake:true, nos:false};
     if (go){
       if (S.mode === 'free') inMe = playerInput();
-      else if (S.mode === 'auto') inMe = autoInput(me, {over:me.i > 700 ? .62 : 1.05, nos:me.i < 560, lat:0, wet:S.wet});
+      else if (S.mode === 'auto') inMe = autoInput(me, {over:me.i > 860 ? .42 : me.i > 700 ? .62 : 1.05, nos:me.i < 560, lat:0, wet:S.wet});
       else if (S.mode === 'flow'){ const v = Math.hypot(me.vx, me.vz); inMe = autoInput(me, {over:1, lat:0}); inMe.thr = v < 11 ? .25 : v > 12 ? -.15 : 0; inMe.nos = false; }
-      if (S.mode !== 'flow') inRival = autoInput(rival, {over:.97, nos:false, lat:-3, wet:S.wet});
+      if (S.mode !== 'flow') inRival = autoInput(rival, {over:.99, nos:rival.i < 520, lat:-3, wet:S.wet});   /* nitro too: a real fight down the straight, the pass comes on the brakes into T1 */
     }
     step(me, h, inMe, S.wet); if (S.mode !== 'flow') step(rival, h, inRival, S.wet);
     /* keep the two cars apart */
@@ -196,7 +215,7 @@ function update(dt){
   /* rain eases in, the road gets wet slower, dries slower still */
   S.rainT += (S.rain - S.rainT) * Math.min(1, dt / 2.5);
   S.wet += (S.rain - S.wet) * Math.min(1, dt / (S.rain > S.wet ? 6 : 14));
-  W.setWet(S.wet); if (Math.abs((S.lastMood ?? -1) - S.rainT) > .08){ W.setMood(S.rainT); D.setRain(S.rainT); S.lastMood = S.rainT; post.setGrade('dusk', 'rain', S.rainT); }
+  W.setWet(Math.max(S.wet, S.mode === 'auto' || S.mode === 'free' ? .42 : 0));   /* after the rain: the road still shines even when the grip is back */ if (Math.abs((S.lastMood ?? -1) - S.rainT) > .08){ W.setMood(S.rainT); D.setRain(S.rainT); S.lastMood = S.rainT; post.setGrade('dusk', 'rain', S.rainT); }
   /* the start lights: five pairs, one by one, then all out */
   if (S.mode === 'auto'){ const on = S.t < 4.2 ? Math.min(5, Math.floor((S.t - .5) / .7) + 1) : 0; if (on !== lightsOn){ lightsOn = on; W.gateLights.forEach((m, k) => m.emissiveIntensity = k < on ? 7 : 0); }
     hud.count.textContent = S.t > 4.2 && S.t < 5.2 ? 'GO' : ''; }
@@ -206,7 +225,7 @@ function update(dt){
     for (let k = 0; k < 140; k++){ const s = k % 2 ? 1 : -1, p = trackPoint(SF + Math.round((Math.random() - .5) * 4), s * (HW[SF] + 6 + Math.random() * 3), 1);
       parts.spawn(p.x, 1 + Math.random() * 3, p.z, (Math.random() - .5) * 3, 1.5 + Math.random() * 2.5, (Math.random() - .5) * 3, 3 + Math.random() * 2, 4, 5 + Math.random() * 3, .32, cols[k % 4]); } }
   /* the caps go up when the leader passes under the gate */
-  if (!S.capsDone && (S.mode === 'auto' || S.mode === 'free') && me.i >= SF && me.i < SF + 30){ S.capsDone = true; D.caps.burst(); }
+  if (!S.capsDone && (S.mode === 'auto' || S.mode === 'free') && me.i >= SF && me.i < SF + 30){ S.capsDone = true; D.caps.burst(me.i); }
   if (S.mode !== 'menu') driveStep(dt);
   if (S.fadeT > 0){ S.fadeT -= dt; if (S.fadeT <= 0){ grid(); hud.fade.classList.remove('on'); } }
   updateCarMesh(me, meRoot, meDress, dt); updateCarMesh(rival, rivalRoot, rivalDress, dt);
@@ -220,16 +239,20 @@ function update(dt){
     const sh = SHOTS[k]; if (sh !== shot){ shot = sh; camState.init = false; }
     if (sh.name === 'end'){ toMenu(); C = chaseCam(me, 0); } else C = sh.cam();
     S.ev = sh.ev || .85;
+    if (sh !== S.lastShot){ S.lastShot = sh; if (sh.loc) showLoc(sh.loc); }
+    post.setDof(sh.dof && Q.dof ? sh.dof() : null);
+    for (const ft of [26.7, 27.2, 27.8, 28.3, 28.9]) if (S.t >= ft && S.t - dt < ft) firework();
   } else if (S.mode === 'flow'){
     const eye = carToWorld(me, 0, 1.3, 0), yaw = me.h + S.look.yaw, p = S.look.pitch;
     C = {pos:eye, look:v3(eye.x + Math.sin(yaw) * Math.cos(p) * 10, eye.y + Math.sin(p) * 10, eye.z + Math.cos(yaw) * Math.cos(p) * 10), fov:62, speed:0, fixed:true};
     if (S.t > 30) toMenu();
   } else C = S.cam === 'bonnet' ? bonnetCam(me) : chaseCam(me, 1);
-  if (S.mode !== 'auto') S.ev = 1.05;
+  if (S.mode !== 'auto'){ S.ev = 1.05; post.setDof(null); }
   S.evNow = S.evNow == null ? S.ev : S.evNow + (S.ev - S.evNow) * Math.min(1, dt / .3);
   if (!camState.init || C.fixed || C.chase){ camState.pos.copy(C.pos); camState.look.copy(C.look); camState.fov = C.fov; camState.init = true; }
   else { const k = C.chase ? Math.min(1, dt * 7) : Math.min(1, dt * 12); camState.pos.lerp(C.pos, k); camState.look.lerp(C.look, Math.min(1, dt * 10)); camState.fov += (C.fov - camState.fov) * Math.min(1, dt * 3); }
   camera.position.copy(camState.pos);
+  if (C.hand){ camera.position.x += Math.sin(S.t * 1.3) * .045; camera.position.y += Math.sin(S.t * 1.9 + 1) * .03; camera.position.z += Math.sin(S.t * .9 + 2) * .03; }   /* a hand-held drift on the still shots */
   const v = Math.hypot(me.vx, me.vz);
   if (C.chase && v > 70){ const a = Math.min(1, (v - 70) / 90) * .05; camera.position.x += (Math.random() - .5) * a; camera.position.y += (Math.random() - .5) * a; }
   camera.lookAt(camState.look);
@@ -238,12 +261,14 @@ function update(dt){
   /* world bits that follow the player */
   W.followShadow(me.x, me.z, Q.shadowBox, Q.shadow); W.tick(S.t);
   parts.update(dt); parts.mat.uniforms.uScale.value = renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2));
+  sparks.update(dt); sparks.mat.uniforms.uScale.value = parts.mat.uniforms.uScale.value;
   parts.mat.uniforms.uLight.value.setScalar(.9 - .35 * S.rainT);
   rainFx.update(dt, camera.position, me.vx, me.vz, S.rainT, S.t);
   D.update(dt, S.t, camera.position);
   post.set({speed:camState.speed, rain:S.rainT, time:S.t, exposure:S.evNow});
-  hud.spd.textContent = S.mode === 'menu' || S.mode === 'flow' || (S.mode === 'auto' && S.t < 4.6) ? '' : Math.round(v * 3.6) + ' km/h' + (me.mult > .05 ? ' · 氮气' : '');
+  hud.spd.textContent = S.mode !== 'free' ? '' : Math.round(v * 3.6) + ' km/h' + (me.mult > .05 ? ' · 氮气' : '');
   if (subT > 0){ subT -= dt; if (subT <= 0) hud.sub.classList.remove('on'); }
+  if (locT > 0){ locT -= dt; if (locT <= 0) hud.loc.classList.remove('on'); }
 }
 /* tests: jump the film to t seconds at a fixed step, then draw one frame */
 function seek(t, opts = {}){ paused = true; if (opts.rain != null){ S.rain = opts.rain; S.rainT = S.wet = opts.rain; } if (opts.mode === 'free') startFree(); if (opts.mode === 'flow') startFlow(); if (opts.mode === 'auto') startAuto();

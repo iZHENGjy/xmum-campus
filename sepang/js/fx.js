@@ -75,3 +75,43 @@ export function makeRain(scene, count){
   }
   return {update};
 }
+
+/* fireworks: hot additive sparks with gravity, drag and a short trail (each spark drawn as TR points along its velocity), one draw call */
+export function makeSparks(scene, max){
+  const TR = 5, N = max * TR;
+  const pos = new Float32Array(N * 3), size = new Float32Array(N), alpha = new Float32Array(N), col = new Float32Array(N * 3);
+  const p = new Float32Array(max * 3), vel = new Float32Array(max * 3), life = new Float32Array(max).fill(1), maxLife = new Float32Array(max).fill(1), s0 = new Float32Array(max), c0 = new Float32Array(max * 3);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage));
+  g.setAttribute('aSize', new THREE.BufferAttribute(size, 1).setUsage(THREE.DynamicDrawUsage));
+  g.setAttribute('aAlpha', new THREE.BufferAttribute(alpha, 1).setUsage(THREE.DynamicDrawUsage));
+  g.setAttribute('aColor', new THREE.BufferAttribute(col, 3).setUsage(THREE.DynamicDrawUsage));
+  const mat = new THREE.ShaderMaterial({vertexShader:VS, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, fog:false,
+    fragmentShader:`varying float vAlpha; varying vec3 vColor; void main(){ float d = length(gl_PointCoord - 0.5); float a = (smoothstep(.5, .15, d) + smoothstep(.2, 0.0, d)) * vAlpha; if (a < .003) discard; gl_FragColor = vec4(vColor * a, 1.0); }`,
+    uniforms:{uScale:{value:600}}});
+  const pts = new THREE.Points(g, mat); pts.frustumCulled = false; pts.renderOrder = 6; scene.add(pts);
+  let next = 0;
+  /* one shell: n sparks from (x, y, z), speed sp, colour c (already HDR), with a few white glitter sparks mixed in */
+  function shell(x, y, z, n, sp, c, sz = 2.2){
+    for (let j = 0; j < n; j++){ const k = next; next = (next + 1) % max;
+      const a = Math.random() * 6.283, b = Math.acos(2 * Math.random() - 1), v = sp * (.85 + Math.random() * .3);
+      p[k * 3] = x; p[k * 3 + 1] = y; p[k * 3 + 2] = z; vel[k * 3] = Math.sin(b) * Math.cos(a) * v; vel[k * 3 + 1] = Math.cos(b) * v; vel[k * 3 + 2] = Math.sin(b) * Math.sin(a) * v;
+      life[k] = 0; maxLife[k] = 1.8 + Math.random() * .9; s0[k] = sz * (.8 + Math.random() * .4);
+      const w = j % 9 === 0; c0[k * 3] = w ? 4 : c.r; c0[k * 3 + 1] = w ? 3.6 : c.g; c0[k * 3 + 2] = w ? 3 : c.b; }
+  }
+  function update(dt){
+    const drag = Math.exp(-1.25 * dt);
+    for (let k = 0; k < max; k++){
+      const live = life[k] < maxLife[k];
+      if (live){ life[k] += dt; vel[k * 3] *= drag; vel[k * 3 + 1] = vel[k * 3 + 1] * drag - 7 * dt; vel[k * 3 + 2] *= drag;
+        p[k * 3] += vel[k * 3] * dt; p[k * 3 + 1] += vel[k * 3 + 1] * dt; p[k * 3 + 2] += vel[k * 3 + 2] * dt; }
+      const t = Math.min(1, life[k] / maxLife[k]), fade = live ? (1 - t * t) * (t > .6 ? .6 + .4 * Math.sin(life[k] * 40 + k) : 1) : 0;
+      for (let r = 0; r < TR; r++){ const v = k * TR + r, lag = r * .035;
+        pos[v * 3] = p[k * 3] - vel[k * 3] * lag; pos[v * 3 + 1] = p[k * 3 + 1] - vel[k * 3 + 1] * lag; pos[v * 3 + 2] = p[k * 3 + 2] - vel[k * 3 + 2] * lag;
+        size[v] = s0[k] * (1 - r * .15); alpha[v] = fade * (1 - r / TR);
+        col[v * 3] = c0[k * 3]; col[v * 3 + 1] = c0[k * 3 + 1]; col[v * 3 + 2] = c0[k * 3 + 2]; }
+    }
+    for (const n of ['position', 'aSize', 'aAlpha', 'aColor']) g.attributes[n].needsUpdate = true;
+  }
+  return {shell, update, mat};
+}
