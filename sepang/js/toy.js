@@ -23,7 +23,7 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(66, 1, .2, 2000);
 const trk = buildTrack();
 const room = buildRoom(scene, renderer, trk);
-const post = makeRacePost(renderer, scene, camera, {dof:!qs.has('nodof'), bloom:!qs.has('nobloom'), bokeh:3.0, focusRange:24, glow:.35, sat:1.04, warm:[1.02, 1, .97]});
+const post = makeRacePost(renderer, scene, camera, {ao:!qs.has('noao'), dof:!qs.has('nodof'), bloom:!qs.has('nobloom'), bokeh:3.0, focusRange:24, glow:.35, sat:1.04, warm:[1.02, 1, .97]});
 
 /* ---------------- die-cast cars ---------------- */
 const SPEC = {maxV:74, acc:24, nos:{cap:3.2, pow:.35, fill:1e9}};
@@ -210,7 +210,7 @@ function updateCamera(dt, rdt){
   camera.position.copy(cam.pos).addScaledVector(cam.up, (Math.sin(t * 43) + Math.sin(t * 71)) * .5 * a);
   camera.up.copy(cam.up); camera.lookAt(me.pos.clone().addScaledVector(me.fwd, 9).addScaledVector(cam.up, .2));
   G.boostV += ((me.mult > .05 ? 1 : 0) - G.boostV) * Math.min(1, rdt * 6);
-  post.set({speed:Math.min(.9, sp * .3 + G.boostV * .4 + (me.boostT > 0 ? .25 : 0) + G.shake * .1), boost:G.boostV * .8, exposure:.95 + G.flash * 1.2, focus:me.pos});
+  post.set({speed:Math.min(.75, sp * .28 + G.boostV * .3 + (me.boostT > 0 ? .2 : 0) + G.shake * .1), boost:G.boostV * .8, exposure:.95 + G.flash * 1.2, focus:me.pos});
 }
 
 /* ---------------- HUD ---------------- */

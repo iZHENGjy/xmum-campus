@@ -2,7 +2,7 @@
  *   速度镜头：中心清楚、四周强径向模糊（16 次采样，随速度变强）+ 放射状白色速度线 + 开氮气时屏幕两边的粉色光晕
  *   Bloom（低门槛：尾灯、霓虹、尾焰都会泛光）→ ACES → 暖色、饱和度高的调色 → 轻暗角 */
 import * as THREE from 'three';
-import { EffectComposer, RenderPass, EffectPass, Effect, EffectAttribute, BlendFunction, BloomEffect, ToneMappingEffect, ToneMappingMode, VignetteEffect, DepthOfFieldEffect } from 'postprocessing';
+import { EffectComposer, RenderPass, EffectPass, Effect, EffectAttribute, BlendFunction, BloomEffect, ToneMappingEffect, ToneMappingMode, VignetteEffect, DepthOfFieldEffect, NormalPass, SSAOEffect } from 'postprocessing';
 
 const SPEED = /* glsl */`
 uniform float uSpeed;
@@ -71,7 +71,10 @@ class Effect2 extends Effect { constructor(){ super('Look', LOOK, {uniforms:new 
 export function makeRacePost(renderer, scene, camera, opt = {}){
   const composer = new EffectComposer(renderer, {frameBufferType:THREE.HalfFloatType, multisampling:4});
   composer.addPass(new RenderPass(scene, camera));
+  const normalPass = opt.ao ? new NormalPass(scene, camera) : null; if (normalPass) composer.addPass(normalPass);
   composer.addPass(new EffectPass(camera, new SafeEffect()));
+  /* contact shadows where things touch (car on track, mug on desk, books on shelf): the cue that sells real objects */
+  if (normalPass) composer.addPass(new EffectPass(camera, new SSAOEffect(camera, normalPass.texture, {worldDistanceThreshold:160, worldDistanceFalloff:60, worldProximityThreshold:3, worldProximityFalloff:1.5, luminanceInfluence:.45, radius:.07, intensity:2.4, samples:16, rings:7, bias:.025, fade:.02, resolutionScale:.5, color:new THREE.Color('#2a1608')})));
   const speed = new SpeedEffect(), expo = new Effect1(), look = new Effect2(); if (opt.glow != null) speed.uniforms.get('uGlow').value = opt.glow; if (opt.sat != null) look.uniforms.get('uSat').value = opt.sat; if (opt.warm) look.uniforms.get('uWarm').value.set(...opt.warm);
   const bloom = new BloomEffect({mipmapBlur:true, luminanceThreshold:.95, luminanceSmoothing:.25, intensity:1.1, radius:.7});
   const tone = new ToneMappingEffect({mode:ToneMappingMode.ACES_FILMIC});

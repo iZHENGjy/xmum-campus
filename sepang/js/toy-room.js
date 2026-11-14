@@ -20,15 +20,15 @@ export function buildRoom(scene, renderer, trk){
     const win = new THREE.Mesh(new THREE.PlaneGeometry(5, 3), new THREE.MeshBasicMaterial({color:new THREE.Color(6, 5.6, 5)})); win.position.set(0, .8, -4.9); env.add(win);
     const lamp = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({color:new THREE.Color(3, 2.6, 2)})); lamp.position.set(0, 2.9, 0); lamp.rotation.x = Math.PI / 2; env.add(lamp);
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), new THREE.MeshBasicMaterial({color:'#7a5a3c'})); floor.rotation.x = -Math.PI / 2; floor.position.y = -2.9; env.add(floor);
-    const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(env, .02).texture; scene.environmentIntensity = .45;
+    const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(env, .02).texture; scene.environmentIntensity = .4;
   }
   scene.background = new THREE.Color('#b9a68c');
 
   /* ---------------- lights: warm sun through the window, a soft room fill, the desk lamp ---------------- */
-  const sun = new THREE.DirectionalLight('#ffd6a0', 2.8); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096);
+  const sun = new THREE.DirectionalLight('#ffc98a', 3.4); sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096);
   sun.position.set(40, 330, -330); sun.target.position.set(90, 0, -30);
   Object.assign(sun.shadow.camera, {left:-230, right:230, top:230, bottom:-230, near:50, far:900}); sun.shadow.bias = -.0002; sun.shadow.normalBias = .05; scene.add(sun, sun.target);
-  scene.add(new THREE.HemisphereLight('#ffeedd', '#7a5636', .6));
+  scene.add(new THREE.HemisphereLight('#a9c4e8', '#6a4a2c', .55));   /* cool sky fill against the warm sun */
   const lamp = new THREE.SpotLight('#ffcf8a', 5000, 160, .7, .6, 2); lamp.position.set(150, 110, -140); lamp.target.position.set(110, DESK_Y, -120); scene.add(lamp, lamp.target);
 
   /* ---------------- floor (parquet), rug, walls, window ---------------- */
@@ -39,12 +39,17 @@ export function buildRoom(scene, renderer, trk){
         g.fillStyle = 'rgba(40,22,10,.55)'; g.fillRect(x, y, 2, ph); g.fillRect(x, y, pw, 2); } });
     parquet.wrapS = parquet.wrapT = THREE.RepeatWrapping; parquet.repeat.set(8, 8);
     const floor = add(new THREE.PlaneGeometry(800, 800), M({map:parquet, roughness:.45, metalness:0}), 90, 0, 0); floor.rotation.x = -Math.PI / 2; floor.castShadow = false;
-    const rugT = tex(1024, 768, (g, w, h) => { g.fillStyle = '#1d3f7a'; g.fillRect(0, 0, w, h); g.strokeStyle = '#d8b24a'; g.lineWidth = 26; g.strokeRect(40, 40, w - 80, h - 80); g.lineWidth = 6; g.strokeRect(90, 90, w - 180, h - 180);
-      for (let k = 0; k < 9; k++){ g.fillStyle = k % 2 ? '#c8102e' : '#f2efe6'; g.beginPath(); g.arc(w / 2, h / 2, 260 - k * 26, 0, 7); g.fill(); }
-      g.fillStyle = '#1d3f7a'; g.font = '900 120px "Noto Serif SC",serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('XMUM', w / 2, h / 2);
-      for (let n = 0; n < 20000; n++){ g.fillStyle = `rgba(255,255,255,${rng() * .05})`; g.fillRect(rng() * w, rng() * h, 2, 2); } });
+    /* the rug: a songket-style weave (deep blue and maroon, gold lozenges), small repeating motifs so it never reads as flat colour */
+    const rugT = tex(2048, 1536, (g, w, h) => { g.fillStyle = '#7a2433'; g.fillRect(0, 0, w, h); g.fillStyle = '#2f55a0'; g.fillRect(90, 90, w - 180, h - 180);
+      g.strokeStyle = '#e2bf5a'; g.lineWidth = 10; g.strokeRect(60, 60, w - 120, h - 120); g.strokeRect(110, 110, w - 220, h - 220);
+      for (let y = 140; y < h - 130; y += 26) for (let x = 140 + ((y / 26) % 2) * 13; x < w - 130; x += 26){ g.fillStyle = ((x / 13 + y / 26) | 0) % 3 ? '#e2bf5a' : '#f2e2b0'; g.beginPath(); g.moveTo(x, y - 8); g.lineTo(x + 6, y); g.lineTo(x, y + 8); g.lineTo(x - 6, y); g.fill(); }
+      for (let x = 70; x < w - 60; x += 24){ g.fillStyle = '#e2bf5a'; for (const yy of [75, h - 85]){ g.beginPath(); g.moveTo(x, yy); g.lineTo(x + 12, yy + 10); g.lineTo(x, yy + 20); g.fill(); } }
+      for (let n = 0; n < 60000; n++){ g.fillStyle = `rgba(${rng() < .5 ? '0,0,0' : '255,240,210'},${rng() * .07})`; g.fillRect(rng() * w, rng() * h, 2, 2); } });
     const rug = add(new THREE.PlaneGeometry(200, 150), M({map:rugT, roughness:.95}), 100, .12, 0); rug.rotation.x = -Math.PI / 2; rug.castShadow = false;
-    const wallM = M({color:'#dccab0', roughness:.9}), base = M({color:'#f7f2e8', roughness:.6});
+    const paper = tex(512, 512, (g, w, h) => { g.fillStyle = '#e6d6bc'; g.fillRect(0, 0, w, h); for (let x = 0; x < w; x += 64){ g.fillStyle = 'rgba(255,255,255,.22)'; g.fillRect(x, 0, 22, h); g.fillStyle = 'rgba(150,110,60,.08)'; g.fillRect(x + 22, 0, 3, h); }
+      for (let y = 16; y < h; y += 64) for (let x = 43; x < w; x += 64){ g.fillStyle = 'rgba(180,90,60,.18)'; g.beginPath(); for (let k = 0; k < 4; k++){ const a = k * Math.PI / 2; g.ellipse(x + Math.cos(a) * 4, y + Math.sin(a) * 4, 3, 5, a, 0, 7); } g.fill(); } });
+    paper.wrapS = paper.wrapT = THREE.RepeatWrapping; paper.repeat.set(14, 5);
+    const wallM = M({map:paper, roughness:.92}), base = M({color:'#f7f2e8', roughness:.6});
     add(new THREE.BoxGeometry(520, 180, 2), wallM, 90, 90, -164); add(new THREE.BoxGeometry(2, 180, 420), wallM, -75, 90, 40); add(new THREE.BoxGeometry(2, 180, 420), wallM, 300, 90, 40);
     add(new THREE.BoxGeometry(520, 180, 2), wallM, 90, 90, 210); add(new THREE.BoxGeometry(520, 2, 420), wallM, 90, 181, 40);
     add(new THREE.BoxGeometry(520, 6, 2.6), base, 90, 3, -162.5); add(new THREE.BoxGeometry(2.6, 6, 420), base, -73.5, 3, 40); add(new THREE.BoxGeometry(2.6, 6, 420), base, 298.5, 3, 40);
@@ -97,6 +102,32 @@ export function buildRoom(scene, renderer, trk){
     const dg = new THREE.BufferGeometry(); dg.setAttribute('position', new THREE.BufferAttribute(dp, 3));
     const dust = new THREE.Points(dg, new THREE.PointsMaterial({color:new THREE.Color(2.2, 2, 1.6), size:.35, transparent:true, opacity:.6, depthWrite:false, blending:THREE.AdditiveBlending})); dust.renderOrder = 8; world.add(dust);
     world.userData.dust = dust;
+  }
+
+  /* ---------------- more of the room: wainscot, cork board with polaroids, a clock, the door, a ceiling lamp, a plant ---------------- */
+  {
+    const panel = M({color:'#8c5a34', roughness:.55}), trimM = M({color:'#6e4426', roughness:.5});
+    for (const [x, z, w, d] of [[90, -162.6, 520, 1], [-73.6, 40, 1, 420], [298.6, 40, 1, 420], [90, 208.6, 520, 1]]){ add(new THREE.BoxGeometry(w, 44, d), panel, x, 22, z).castShadow = false; add(new THREE.BoxGeometry(w + (d > w ? 1 : 0), 2, d + (d > w ? 0 : 1)), trimM, x, 44.5, z); }
+    /* cork board with polaroids of the four years */
+    const cork = tex(1024, 640, (g, w, h) => { g.fillStyle = '#b98a55'; g.fillRect(0, 0, w, h); for (let n = 0; n < 9000; n++){ g.fillStyle = `rgba(${rng() < .5 ? '90,55,25' : '230,190,140'},${rng() * .25})`; g.fillRect(rng() * w, rng() * h, 3, 3); }
+      const caps = ['大一 · 第一次到 KLIA', '大二 · mamak 看球', '大三 · 一个人看雨', '大四 · 雪邦最后一圈', '毕业典礼 2026', '宿舍 B4-12'];
+      caps.forEach((t, k) => { const x = 60 + (k % 3) * 320, y = 40 + Math.floor(k / 3) * 300, r = (rng() - .5) * .2; g.save(); g.translate(x + 120, y + 130); g.rotate(r); g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(-116, -126, 240, 270);
+        g.fillStyle = '#fbfaf6'; g.fillRect(-120, -130, 240, 270); const gr = g.createLinearGradient(0, -110, 0, 90); gr.addColorStop(0, ['#7fb6ec', '#f2b25a', '#5a7fa8', '#ff8a3a', '#c8102e', '#3f9a45'][k]); gr.addColorStop(1, '#2b2f36'); g.fillStyle = gr; g.fillRect(-104, -114, 208, 190);
+        g.fillStyle = '#2b2f36'; g.font = '600 22px "Noto Sans SC",sans-serif'; g.textAlign = 'center'; g.fillText(t, 0, 115); g.fillStyle = '#d8182a'; g.beginPath(); g.arc(0, -122, 9, 0, 7); g.fill(); g.restore(); }); });
+    add(new THREE.BoxGeometry(70, 44, 1.6), M({map:cork, roughness:.95}), 232, 110, -162.4);
+    add(new THREE.BoxGeometry(73, 47, 1.2), M({color:'#6e4426', roughness:.5}), 232, 110, -163);
+    /* wall clock on the left wall */
+    const clockT = tex(256, 256, (g, w, h) => { g.fillStyle = '#fbfaf6'; g.beginPath(); g.arc(128, 128, 120, 0, 7); g.fill(); g.fillStyle = '#2b2f36'; for (let k = 0; k < 12; k++){ const a = k / 12 * 6.283; g.fillRect(128 + Math.sin(a) * 100 - 3, 128 - Math.cos(a) * 100 - 10, 6, 20); }
+      g.strokeStyle = '#2b2f36'; g.lineWidth = 10; g.lineCap = 'round'; g.beginPath(); g.moveTo(128, 128); g.lineTo(178, 98); g.stroke(); g.lineWidth = 6; g.beginPath(); g.moveTo(128, 128); g.lineTo(108, 43); g.stroke(); g.fillStyle = '#d8182a'; g.font = '700 20px sans-serif'; g.textAlign = 'center'; g.fillText('XMUM', 128, 180); });
+    const clk = add(new THREE.CylinderGeometry(14, 14, 2.4, 40), [M({color:'#2b2f36', roughness:.4}), M({map:clockT, roughness:.4}), M({color:'#2b2f36'})], -72.5, 140, 30); clk.rotation.z = -Math.PI / 2;
+    /* the door on the front wall */
+    add(new THREE.BoxGeometry(60, 130, 2), M({color:'#f2ebdd', roughness:.6}), 230, 65, 208.6); add(new THREE.BoxGeometry(66, 134, 1.2), M({color:'#6e4426', roughness:.5}), 230, 66, 209.2); add(new THREE.SphereGeometry(2.2, 16, 12), M({color:'#d8b24a', metalness:.9, roughness:.25}), 205, 62, 206.8);
+    /* ceiling lamp, warm */
+    add(new THREE.CylinderGeometry(.5, .5, 22, 8), M({color:'#2b2f36'}), 110, 170, 10); add(new THREE.CylinderGeometry(14, 22, 10, 32, 1, true), M({color:'#f2ebdd', roughness:.6, side:THREE.DoubleSide}), 110, 156, 10);
+    add(new THREE.SphereGeometry(4, 16, 12), new THREE.MeshBasicMaterial({color:new THREE.Color(4, 3.4, 2.4)}), 110, 152, 10, world, false);
+    /* a potted plant in the corner */
+    add(new THREE.CylinderGeometry(9, 7, 16, 24), M({color:'#c4632a', roughness:.7}), -55, 8, -140);
+    for (let k = 0; k < 14; k++){ const leaf = add(new THREE.SphereGeometry(5, 12, 8), M({color:k % 2 ? '#3f9a45' : '#2c7a3a', roughness:.6}), -55 + Math.cos(k) * 6, 22 + (k % 5) * 5, -140 + Math.sin(k) * 6); leaf.scale.set(.6, 1.6, .25); leaf.rotation.set(Math.sin(k) * .6, k, Math.cos(k) * .5); }
   }
 
   /* ---------------- the desk ---------------- */
