@@ -197,11 +197,13 @@ function updateNaiwaMode(dt, T){
   if (!driving){ NW.root.position.set(nw.x, nw.y, nw.z); NW.root.rotation.y = nw.h; }
   const px = driving ? driving.x : nw.x, pz = driving ? driving.z : nw.z;
   const sp = driving ? Math.hypot(driving.vx, driving.vz) : 0;
-  { const t = Math.round(sp * 3.6) + ' km/h', el = $('#speed'); if (el.textContent !== t) el.textContent = t; }   /* only when it changes: a DOM write every frame costs phones a style pass */
+  /* sitting in a friend's car (js/96-social.js sets RIDE_CAM every frame): the passenger gets the driver's camera, speed readout and engine sound */
+  const rc = !driving && mode === 'naiwa' && window.RIDE_CAM && window.RIDE_CAM.car ? window.RIDE_CAM : null, vsp = rc ? rc.sp : sp;
+  { const t = Math.round(vsp * 3.6) + ' km/h', el = $('#speed'); if (el.textContent !== t) el.textContent = t; }   /* only when it changes: a DOM write every frame costs phones a style pass */
   updateStunt(dt, sp);
   { const t = driving ? Math.round(driving.hp) + '%' : '—', el = $('#hp'); if (el.textContent !== t){ el.textContent = t; el.style.color = driving && driving.hp < 30 ? 'var(--tile)' : ''; } }
   showCar.root.rotation.y += dt * .4;
-  engineUpdate(sp, driving ? driving.slip : 0, !!driving);
+  engineUpdate(vsp, driving ? driving.slip : 0, !!driving || !!rc);
   /* camera */
   camYawHold = Math.max(0, camYawHold - dt);
   let tx, ty, tz, dist, pitch;
@@ -211,6 +213,12 @@ function updateNaiwaMode(dt, T){
     tx = driving.x; ty = driving.y + driving.T.H * .6 + 1; tz = driving.z;
     dist = driving.T.L * .8 + 6 + sp * .08; pitch = .2;
     camera.fov += ((60 + sp * .35) - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix();
+  } else if (rc){
+    /* the yaw already follows the car (rideFrame); frame the whole car like the driver sees it, a little higher so the passenger is in shot */
+    const c = rc.car, T = c.T || {L:4.5, H:1.4}, p = c.root.position;
+    tx = p.x; ty = p.y + T.H * .6 + 1.3; tz = p.z;
+    dist = T.L * .8 + 7 + vsp * .08; pitch = .24;
+    camera.fov += ((60 + vsp * .35) - camera.fov) * Math.min(1, dt * 3); camera.updateProjectionMatrix();
   } else {
     tx = nw.x; ty = nw.y + 2.4; tz = nw.z; dist = camDist; pitch = camPitch;
     if (camera.fov !== 60){ camera.fov += (60 - camera.fov) * Math.min(1, dt * 4); camera.updateProjectionMatrix(); }
@@ -224,7 +232,7 @@ function updateNaiwaMode(dt, T){
   const cx = tx + Math.sin(camYaw) * d * cp, cz = tz + Math.cos(camYaw) * d * cp;
   camPos.set(cx, Math.max(.6, groundAt(cx, cz) + 1, ty + d * spch), cz);
   if (camShake > .01){ camPos.x += (rnd() - .5) * camShake; camPos.y += (rnd() - .5) * camShake; camPos.z += (rnd() - .5) * camShake; camShake *= Math.exp(-dt * 6); }
-  const k = driving ? 1 - Math.exp(-dt * 10) : 1;
+  const k = driving || rc ? 1 - Math.exp(-dt * (rc ? 6 : 10)) : 1;   /* a passenger's car comes over the network: a softer follow hides its small jumps */
   camera.position.lerp(camPos, k);
   { const gy = groundAt(camera.position.x, camera.position.z) + .6; if (camera.position.y < gy) camera.position.y = gy; }
   camLook.set(tx, ty, tz); camera.lookAt(camLook);
