@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="820" height="170" viewBox="0 0 820 170" role="img" aria-labelledby="t d"><title id="t">玩家数据总览</title><desc id="d">累计玩家 515 人；近 7 天玩家 498 人；累计游戏时长 148 小时；人均游戏时长 18 分钟</desc><style>
+.bg{fill:#fcfcfb}.ring{fill:none;stroke:rgba(11,11,11,.10)}
+.t1{fill:#0b0b0b}.t2{fill:#52514e}.mu{fill:#898781}
+.grid{stroke:#e1e0d9;stroke-width:1}.base{stroke:#c3c2b7;stroke-width:1}
+.s1{fill:#2a78d6}.s2{fill:#eb6834}.s0{fill:#c3c2b7}
+@media (prefers-color-scheme: dark){
+ .bg{fill:#1a1a19}.ring{stroke:rgba(255,255,255,.10)}
+ .t1{fill:#f0efec}.t2{fill:#c3c2b7}
+ .grid{stroke:#2c2c2a}.base{stroke:#383835}
+ .s1{fill:#3987e5}.s2{fill:#d95926}.s0{fill:#5c5b57}
+}
+text{font-family:system-ui,-apple-system,'PingFang SC','Microsoft YaHei','Noto Sans SC','Noto Sans CJK SC',sans-serif}
+</style><rect class="bg" x="0.5" y="0.5" width="819" height="169" rx="12"/><rect class="ring" x="0.5" y="0.5" width="819" height="169" rx="12"/><text x="24.0" y="46.0" class="t2" font-size="13" text-anchor="start" font-weight="400">累计玩家</text><text x="24.0" y="92" class="t1" font-size="34" font-weight="700">515<tspan class="t2" font-size="14" font-weight="400" dx="6">人</tspan></text><text x="220.0" y="46.0" class="t2" font-size="13" text-anchor="start" font-weight="400">近 7 天玩家</text><text x="220.0" y="92" class="t1" font-size="34" font-weight="700">498<tspan class="t2" font-size="14" font-weight="400" dx="6">人</tspan></text><text x="416.0" y="46.0" class="t2" font-size="13" text-anchor="start" font-weight="400">累计游戏时长</text><text x="416.0" y="92" class="t1" font-size="34" font-weight="700">148<tspan class="t2" font-size="14" font-weight="400" dx="6">小时</tspan></text><text x="612.0" y="46.0" class="t2" font-size="13" text-anchor="start" font-weight="400">人均游戏时长</text><text x="612.0" y="92" class="t1" font-size="34" font-weight="700">18<tspan class="t2" font-size="14" font-weight="400" dx="6">分钟</tspan></text><text x="24.0" y="132.0" class="mu" font-size="11.5" text-anchor="start" font-weight="400">玩家数包含统计上线前上过排行榜的人；游戏时长从 2025-07-08 开始算，只算网页在前台且有操作的时间，人均按这 490 人算</text><text x="24.0" y="152.0" class="mu" font-size="11.5" text-anchor="start" font-weight="400">更新于 2026-11-15 03:58（马来西亚时间）</text></svg>
