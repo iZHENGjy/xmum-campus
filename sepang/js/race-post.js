@@ -9,6 +9,7 @@ uniform float uSpeed;
 uniform float uBoost;
 uniform float uTime;
 uniform float uGlow;
+uniform float uFringe;
 float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor){
   float aspect = texelSize.y / texelSize.x;
@@ -22,7 +23,7 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
   for (int i = 0; i < 16; i++){ float t = (float(i) + jt) / 16.0; acc += texture2D(inputBuffer, uv - c * t * blur).rgb; }
   acc /= 16.0;
   /* a touch of colour fringing on the outer edge only */
-  float fr = uSpeed * 0.006 * k;
+  float fr = uSpeed * 0.006 * k * uFringe;
   acc.r = mix(acc.r, texture2D(inputBuffer, uv - c * fr).r, 0.6);
   acc.b = mix(acc.b, texture2D(inputBuffer, uv + c * fr).b, 0.6);
   /* speed lines: thin white streaks shooting out of the vanishing point */
@@ -45,7 +46,7 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
   outputColor = vec4(acc, inputColor.a);
 }`;
 class SpeedEffect extends Effect {
-  constructor(){ super('SpeedEffect', SPEED, {attributes:EffectAttribute.CONVOLUTION, uniforms:new Map([['uSpeed', new THREE.Uniform(0)], ['uBoost', new THREE.Uniform(0)], ['uTime', new THREE.Uniform(0)], ['uGlow', new THREE.Uniform(1.4)]])}); }
+  constructor(){ super('SpeedEffect', SPEED, {attributes:EffectAttribute.CONVOLUTION, uniforms:new Map([['uSpeed', new THREE.Uniform(0)], ['uBoost', new THREE.Uniform(0)], ['uTime', new THREE.Uniform(0)], ['uGlow', new THREE.Uniform(1.4)], ['uFringe', new THREE.Uniform(1)]])}); }
 }
 const GRADE = /* glsl */`
 uniform float uExposure;
@@ -75,8 +76,8 @@ export function makeRacePost(renderer, scene, camera, opt = {}){
   composer.addPass(new EffectPass(camera, new SafeEffect()));
   /* contact shadows where things touch (car on track, mug on desk, books on shelf): the cue that sells real objects */
   if (normalPass) composer.addPass(new EffectPass(camera, new SSAOEffect(camera, normalPass.texture, {worldDistanceThreshold:160, worldDistanceFalloff:60, worldProximityThreshold:3, worldProximityFalloff:1.5, luminanceInfluence:.45, radius:.07, intensity:2.4, samples:16, rings:7, bias:.025, fade:.02, resolutionScale:.5, color:new THREE.Color('#2a1608')})));
-  const speed = new SpeedEffect(), expo = new Effect1(), look = new Effect2(); if (opt.glow != null) speed.uniforms.get('uGlow').value = opt.glow; if (opt.sat != null) look.uniforms.get('uSat').value = opt.sat; if (opt.warm) look.uniforms.get('uWarm').value.set(...opt.warm);
-  const bloom = new BloomEffect({mipmapBlur:true, luminanceThreshold:.95, luminanceSmoothing:.25, intensity:1.1, radius:.7});
+  const speed = new SpeedEffect(), expo = new Effect1(), look = new Effect2(); if (opt.glow != null) speed.uniforms.get('uGlow').value = opt.glow; if (opt.fringe != null) speed.uniforms.get('uFringe').value = opt.fringe; if (opt.sat != null) look.uniforms.get('uSat').value = opt.sat; if (opt.warm) look.uniforms.get('uWarm').value.set(...opt.warm);
+  const bloom = new BloomEffect({mipmapBlur:true, luminanceThreshold:opt.bloomThreshold || .95, luminanceSmoothing:.25, intensity:opt.bloomIntensity || 1.1, radius:.7});
   const tone = new ToneMappingEffect({mode:ToneMappingMode.ACES_FILMIC});
   const vignette = new VignetteEffect({offset:.4, darkness:.3});
   /* miniature look: depth of field focused on the car, everything nearer and further melts (the tilt-shift cue) */

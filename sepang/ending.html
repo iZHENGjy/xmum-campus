@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>雪邦 · 路在当下</title>
+<!-- 雪邦结尾一圈「路在当下」，第一段：大一（方案 docs/sepang-ending.md）。只给电脑看；不读存档、不连数据库。
+     车（Lamborghini Centenario LP-770 Interior，作者 SDC PERFORMANCE，Sketchfab，CC BY 4.0，已去掉品牌标志）和天空/沥青（Poly Haven，CC0）放在 sepang/ending-assets/，体积大，暂不进 git。 -->
+<script>window.XMUM_FIREBASE = null;</script>
+<script type="importmap">
+{ "imports": {
+  "three": "./vendor/three/build/three.module.js",
+  "three/addons/": "./vendor/three/examples/jsm/",
+  "postprocessing": "./vendor/postprocessing/index.js"
+} }
+</script>
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden}
+canvas#c,canvas#hud{position:fixed;inset:0;display:block;width:100vw;height:100vh}
+canvas#hud{pointer-events:none}
+#status{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);color:rgba(244,237,224,.8);font:500 16px "Noto Sans SC",sans-serif}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<canvas id="hud"></canvas>
+<div id="status">载入中…</div>
+<script type="module" src="./js/ending.js"></script>
+</body>
+</html>
