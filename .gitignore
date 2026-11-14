@@ -18,3 +18,6 @@ test/rules/package-lock.json
 
 # leaderboard snapshot, made at deploy (.github/boards-snapshot.py)
 data/boards.json
+
+# 雪邦结尾的大素材（车 41MB、天空 HDR），太大不进 git；发布前要压缩后再决定放哪里
+sepang/ending-assets/
