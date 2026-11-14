@@ -17,9 +17,9 @@ const CTRL = (() => {
   /* desk, heading −x: start/finish line, round the mug and the laptop, onto the launch ramp at the desk's left edge */
   push(176, D, -124); push(150, D, -124); push(120, D, -124); push(96, D, -130); push(76, D, -122); push(58, D + .4, -114); push(46, D + 2.2, -112);
   /* the jump: lip at the desk edge, landing ramp in the air 26 m further on (the spline runs through the gap, nothing is built there) */
-  push(34, D + 2.8, -112); push(16, D - 1.2, -112); push(0, D - 7, -112);
+  push(34, D + 2.8, -112); push(16, D - 1.2, -112); push(-2, D - 4.5, -112); push(-18, D - 10, -110);
   /* spiral down to the floor */
-  push(-14, 33, -106); push(-22, 22, -88); push(-24, 11, -60); push(-14, T + .4, -32); push(8, T, -12);
+  push(-28, 28, -98); push(-30, 18, -78); push(-26, 9, -56); push(-14, T + .4, -32); push(8, T, -12);
   /* across the rug, a booster, then the loop */
   push(44, T, -2); push(84, T, 2); push(106, T, 3);
   const cx = 124, R = 15, z0 = 3, dz = 9;
@@ -138,14 +138,18 @@ function air(c, trk, dt, ev){
   if (best >= 0 && bd < 30 * 30){
     const p = trk.C[best], u = trk.U[best], r = trk.R[best], t = trk.T[best];
     const h = _w.copy(A.p).sub(p).dot(u), l = _w.copy(A.p).sub(p).dot(r);
-    if (h <= 0 && h > -6 && Math.abs(l) < HWT && A.v.dot(u) < 0){
+    /* toy-car magnet: in the air you are eased back over the track (sideways speed damped, pulled towards the middle) */
+    if (A.t < 2.5){ const vr = A.v.dot(r); A.v.addScaledVector(r, -vr * Math.min(1, dt * 3) - l * dt * 2.5); if (h > 0 && Math.abs(l) < HWT + 4) A.v.addScaledVector(u, -18 * dt); }
+    if (h <= 0 && h > -6 && Math.abs(l) < HWT + 1.5 && A.v.dot(u) < 0){
       c.s = best * trk.ds; c.l = Math.max(-HWT + 1.1, Math.min(HWT - 1.1, l));
       const vt = A.v.dot(t), vr = A.v.dot(r);
       c.v = Math.max(5, Math.hypot(vt, vr) * .95); c.yaw = Math.max(-.6, Math.min(.6, -Math.atan2(vr, Math.max(1, vt))));
       ev.push({type:'land', c, air:A.t, hard:-A.v.dot(u)}); c.air = null; c.airT = 0; return;
     }
   }
-  if (A.p.y < -5 || A.t > 5){ ev.push({type:'crash', c}); respawn(c, trk); }
+  /* missed: as soon as you touch the floor or the desk it is a crash, back on the track behind */
+  const gy = A.p.x > DESK.x0 && A.p.x < DESK.x1 && A.p.z > DESK.z0 && A.p.z < DESK.z1 ? DESK_Y : 0;
+  if (A.p.y < gy + .4 || A.t > 4){ ev.push({type:'crash', c}); respawn(c, trk); }
 }
 export function respawn(c, trk){
   c.air = null; c.s = c.good - 25; while (trk.inGap(trk.at(c.s))) c.s -= 10; c.l = 0; c.v = 18; c.yaw = 0; c.crashT = 1.2;
