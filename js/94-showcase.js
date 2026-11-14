@@ -524,6 +524,25 @@ function scMyName(){
   try { if (window.XUI && typeof XUI.playerName === 'function'){ const n = String(XUI.playerName() || ''); if (n) return n; } } catch(e){}
   try { return localStorage.getItem('xmum-name') || '我'; } catch(e){ return '我'; }
 }
+/* one player on two accounts (say a guest on a second device, whose name the game numbered 「卷耳 2」) puts up the same booth twice.
+   Same name apart from a trailing number, same car, look and outfit (and 总资产 within 1 % for a plain stock booth): show it once — yours if one of them is you,
+   otherwise the un-numbered name, otherwise the higher place. The list comes in sorted, so the higher place is the one already kept. */
+const scBase = n => String(n || '').replace(/\s\d+$/, '').toLowerCase();
+function scSame(a, b){
+  if (a.demo || b.demo || scBase(a.name) !== scBase(b.name) || a.kind !== b.kind || a.look !== b.look || a.wear !== b.wear) return false;
+  if (a.look || a.wear) return true;   /* the same paint job and outfit under the same name is the same player, even after the old account stopped updating */
+  return Math.abs(a.value - b.value) <= Math.max(20, Math.max(a.value, b.value) * .01);   /* stock car, nothing worn: only when 总资产 matches too */
+}
+function scDedupe(list){
+  const out = [];
+  for (const e of list){
+    const j = out.findIndex(o => scSame(o, e));
+    if (j < 0){ out.push(e); continue; }
+    const o = out[j], num = x => /\s\d+$/.test(x.name);
+    if (e.mine || (!o.mine && num(o) && !num(e))) out[j] = e;
+  }
+  return out;
+}
 function scRank(){
   const mine = scMine(), online = !!(window.XNet && XNet.online);
   const me = Object.assign({uid:online ? XNet.uid : 'me', name:(online && XNet.claimedName && XNet.claimedName()) || scMyName(), mine:true}, mine);
@@ -533,6 +552,7 @@ function scRank(){
     fill = SC_DEMOS.slice().sort((a, b) => b.value - a.value);
   } else real = SC_DEMOS.concat([me]);
   real.sort((a, b) => b.value - a.value || (a.ts || 0) - (b.ts || 0));
+  real = scDedupe(real);
   const out = real.slice(0, SC_N);
   /* offline you are always on show: if the demos crowd you out, you take the last place */
   if (!(online && SCX.remote) && !out.includes(me)) out[SC_N - 1] = me;
