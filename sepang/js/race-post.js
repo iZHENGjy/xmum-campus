@@ -9,22 +9,32 @@ uniform float uSpeed;
 uniform float uBoost;
 uniform float uTime;
 uniform float uGlow;
+uniform float uFringe;
+uniform vec2 uLineDen;
+uniform float uThin;
+uniform float uBlur;
+uniform float uEdge;
+uniform vec2 uAniso;
+uniform vec3 uKeep;
 float h21(vec2 p){ p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
 void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor){
   float aspect = texelSize.y / texelSize.x;
   /* the blur centre sits a little above the middle: on the road's vanishing point, where the eye is */
   vec2 ctr = vec2(0.5, 0.56), c = uv - ctr, ca = c * vec2(1.0 / aspect, 1.0) * vec2(aspect, 1.0);
   float r = length(c * vec2(aspect, 1.0)) / aspect;
-  float k = smoothstep(0.16, 0.75, length(c * vec2(1.0, 1.15)) * 1.3);
-  float blur = uSpeed * 0.2 * k * k;
+  float k = smoothstep(0.16, 0.75, length(c * uAniso) * 1.3);
+  /* uKeep (x, y, radius): a region kept sharp, the player's car */
+  if (uKeep.z > 0.0) k *= smoothstep(uKeep.z * 0.55, uKeep.z, length((uv - uKeep.xy) * vec2(aspect, 1.0) * vec2(0.8, 1.25)));
+  float blur = uSpeed * uBlur * k * k;
   vec3 acc = vec3(0.0);
   float jt = h21(uv * 913.0 + fract(uTime));
   for (int i = 0; i < 16; i++){ float t = (float(i) + jt) / 16.0; acc += texture2D(inputBuffer, uv - c * t * blur).rgb; }
   acc /= 16.0;
   /* a touch of colour fringing on the outer edge only */
-  float fr = uSpeed * 0.006 * k;
-  acc.r = mix(acc.r, texture2D(inputBuffer, uv - c * fr).r, 0.6);
-  acc.b = mix(acc.b, texture2D(inputBuffer, uv + c * fr).b, 0.6);
+  float fr = uSpeed * uFringe * k;
+  if (uFringe > 0.0){   /* with no fringe, skip it: mixing sharp red/blue into the blurred green would colour every edge */
+    acc.r = mix(acc.r, texture2D(inputBuffer, uv - c * fr).r, 0.6);
+    acc.b = mix(acc.b, texture2D(inputBuffer, uv + c * fr).b, 0.6); }
   /* speed lines: thin white streaks shooting out of the vanishing point */
   float ang = atan(c.y, c.x * aspect);
   float lines = 0.0;
@@ -35,17 +45,17 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
     float len = 0.12 + 0.25 * h21(vec2(bin, 9.0)), sp = 1.2 + 2.0 * seed;
     float d = length(c * vec2(aspect, 1.0));
     float ph = fract(d * 0.9 - uTime * sp + seed * 13.0);
-    float on = step(1.0 - (0.12 + 0.25 * uSpeed), seed) * smoothstep(0.0, 0.05, ph) * smoothstep(len, len - 0.06, ph);
-    lines += on * pow(thin, 6.0) * smoothstep(0.18, 0.55, d);
+    float on = step(1.0 - (uLineDen.x + uLineDen.y * uSpeed), seed) * smoothstep(0.0, 0.05, ph) * smoothstep(len, len - 0.06, ph);
+    lines += on * pow(thin, uThin) * smoothstep(0.18, 0.55, d);
   }
   acc += vec3(1.0, 0.98, 0.95) * lines * smoothstep(0.55, 1.1, uSpeed) * 0.4;
   /* nitro: a pink glow creeping in from both sides, stronger on the left */
-  float ex = uv.x, side = smoothstep(0.16, 0.0, ex) * 1.0 + smoothstep(0.84, 1.0, ex) * 0.7;
+  float ex = uv.x, side = smoothstep(uEdge, 0.0, ex) * 1.0 + smoothstep(1.0 - uEdge, 1.0, ex) * 0.7;
   acc += vec3(1.0, 0.25, 0.55) * side * uBoost * (0.75 + 0.25 * sin(uTime * 18.0)) * uGlow;
   outputColor = vec4(acc, inputColor.a);
 }`;
 class SpeedEffect extends Effect {
-  constructor(){ super('SpeedEffect', SPEED, {attributes:EffectAttribute.CONVOLUTION, uniforms:new Map([['uSpeed', new THREE.Uniform(0)], ['uBoost', new THREE.Uniform(0)], ['uTime', new THREE.Uniform(0)], ['uGlow', new THREE.Uniform(1.4)]])}); }
+  constructor(){ super('SpeedEffect', SPEED, {attributes:EffectAttribute.CONVOLUTION, uniforms:new Map([['uSpeed', new THREE.Uniform(0)], ['uBoost', new THREE.Uniform(0)], ['uTime', new THREE.Uniform(0)], ['uGlow', new THREE.Uniform(1.4)], ['uFringe', new THREE.Uniform(.006)], ['uLineDen', new THREE.Uniform(new THREE.Vector2(.12, .25))], ['uThin', new THREE.Uniform(6)], ['uBlur', new THREE.Uniform(.2)], ['uEdge', new THREE.Uniform(.16)], ['uAniso', new THREE.Uniform(new THREE.Vector2(1, 1.15))], ['uKeep', new THREE.Uniform(new THREE.Vector3(0, 0, 0))]])}); }
 }
 const GRADE = /* glsl */`
 uniform float uExposure;
@@ -55,18 +65,20 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
 }`;
 const LOOK = /* glsl */`
 uniform float uSat;
+uniform float uCon;
+uniform float uPow;
 uniform vec3 uWarm;
 void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor){
   vec3 c = inputColor.rgb;
   c = c * uWarm + vec3(0.012, 0.006, 0.0);          /* warm, sunny */
   float l = dot(c, vec3(0.2126, 0.7152, 0.0722)); c = mix(vec3(l), c, uSat);   /* saturated */
-  c = (c - 0.5) * 1.06 + 0.5;
+  c = uPow > 0.0 ? pow(max(c, 0.0) / 0.18, vec3(uPow)) * 0.18 : (c - 0.5) * uCon + 0.5;   /* uPow: contrast around mid grey that keeps blacks (the race chapter) */
   outputColor = vec4(clamp(c, 0.0, 1.0), inputColor.a);
 }`;
 /* NaN / Inf / negative guard, done on the bits (the D3D shader compiler optimises isnan() and NaN comparisons away): one bad pixel would otherwise be spread over the whole frame by the bloom's blur and turn it black */
 class SafeEffect extends Effect { constructor(){ super('Safe', 'void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor){ vec3 c = inputColor.rgb; uvec3 u = floatBitsToUint(c); bool bad = any(equal(u & uvec3(0x7f800000u), uvec3(0x7f800000u))) || any(notEqual(u & uvec3(0x80000000u), uvec3(0u))); c = bad ? vec3(0.0) : min(c, vec3(64.0)); outputColor = vec4(c, 1.0); }', {blendFunction:BlendFunction.SET}); } }   /* SET: the default blend mixes in the input, and Inf·0 is NaN again */
 class Effect1 extends Effect { constructor(){ super('Exposure', GRADE, {uniforms:new Map([['uExposure', new THREE.Uniform(1)]])}); } }
-class Effect2 extends Effect { constructor(){ super('Look', LOOK, {uniforms:new Map([['uSat', new THREE.Uniform(1.22)], ['uWarm', new THREE.Uniform(new THREE.Vector3(1.05, 1, .94))]])}); } }
+class Effect2 extends Effect { constructor(){ super('Look', LOOK, {uniforms:new Map([['uSat', new THREE.Uniform(1.22)], ['uCon', new THREE.Uniform(1.06)], ['uPow', new THREE.Uniform(0)], ['uWarm', new THREE.Uniform(new THREE.Vector3(1.05, 1, .94))]])}); } }
 
 export function makeRacePost(renderer, scene, camera, opt = {}){
   const composer = new EffectComposer(renderer, {frameBufferType:THREE.HalfFloatType, multisampling:4});
@@ -76,7 +88,10 @@ export function makeRacePost(renderer, scene, camera, opt = {}){
   /* contact shadows where things touch (car on track, mug on desk, books on shelf): the cue that sells real objects */
   if (normalPass) composer.addPass(new EffectPass(camera, new SSAOEffect(camera, normalPass.texture, {worldDistanceThreshold:160, worldDistanceFalloff:60, worldProximityThreshold:3, worldProximityFalloff:1.5, luminanceInfluence:.45, radius:.07, intensity:2.4, samples:16, rings:7, bias:.025, fade:.02, resolutionScale:.5, color:new THREE.Color('#2a1608')})));
   const speed = new SpeedEffect(), expo = new Effect1(), look = new Effect2(); if (opt.glow != null) speed.uniforms.get('uGlow').value = opt.glow; if (opt.sat != null) look.uniforms.get('uSat').value = opt.sat; if (opt.warm) look.uniforms.get('uWarm').value.set(...opt.warm);
-  const bloom = new BloomEffect({mipmapBlur:true, luminanceThreshold:.95, luminanceSmoothing:.25, intensity:1.1, radius:.7});
+  /* the race chapter (play.js) tunes these; the toy chapter keeps the defaults */
+  if (opt.fringe != null) speed.uniforms.get('uFringe').value = opt.fringe; if (opt.lineDen) speed.uniforms.get('uLineDen').value.set(...opt.lineDen); if (opt.thin != null) speed.uniforms.get('uThin').value = opt.thin; if (opt.con != null) look.uniforms.get('uCon').value = opt.con; if (opt.pow != null) look.uniforms.get('uPow').value = opt.pow;
+  if (opt.aniso) speed.uniforms.get('uAniso').value.set(...opt.aniso); if (opt.keep) speed.uniforms.get('uKeep').value.set(...opt.keep); if (opt.edge != null) speed.uniforms.get('uEdge').value = opt.edge; if (opt.blur != null) speed.uniforms.get('uBlur').value = opt.blur; if (opt.glow != null) speed.uniforms.get('uGlow').value = opt.glow;
+  const bloom = new BloomEffect({mipmapBlur:true, luminanceThreshold:opt.bloomThr ?? .95, luminanceSmoothing:.25, intensity:opt.bloomInt ?? 1.1, radius:.7});
   const tone = new ToneMappingEffect({mode:ToneMappingMode.ACES_FILMIC});
   const vignette = new VignetteEffect({offset:.4, darkness:.3});
   /* miniature look: depth of field focused on the car, everything nearer and further melts (the tilt-shift cue) */

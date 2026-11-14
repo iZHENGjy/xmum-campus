@@ -1,6 +1,11 @@
-/* 雪邦赛车城 · 灰盒试驾（手感优先，画面先停）
+/* 雪邦赛车城 · 主直道 → T1 的风格化赛车章节（默认）和灰盒试驾（?grey=1）
  *
- * 目的：先把「开起来爽不爽」调出来，再谈美术。这里只有灰盒：灰色路面、墙、灯柱、龙门架、隧道、方块楼。
+ * 风格化章节（默认）：写实打底 + 风格化电影感，对标一段别人用 Fable 5.2 做的赛车视频。场景在 toon-world.js，后处理在 race-post.js。
+ *   6 辆车比赛，你从第 4 位发车，两圈；对手围着你跑（各自在车群里有个位置，跑远了会追回来），录像机器人会让开对手；
+ *   蓝白尾焰、车底一阵阵的橙色火花、霓虹、泛光；四周径向模糊（左右强、上方弱，车身保持清楚）、放射速度线、开氮气时屏幕边缘的粉色光晕；
+ *   左上名次和小地图，右上圈速、圈数、车速，右下发光的氮气按钮，左下摇杆。
+ *
+ * 灰盒试驾（?grey=1）：先把「开起来爽不爽」调出来的版本：灰色路面、墙、灯柱、龙门架、隧道、方块楼。
  * 已有：
  *   1. 速度感：视野随速度变宽、镜头弹簧拖后、高速微抖、撞击震屏、放射模糊和速度线、引擎声随转速和挡位变（WebAudio 合成，按任意键后才出声）；
  *      路边贴得很近的东西：条纹护墙、每 21 米一根灯柱、龙门架、150 米隧道的柱子。
@@ -15,9 +20,11 @@ import { N, clampI, RT, HD, K, HW, KERB, kerbOn, LAMBO, LAMBO_MAX, makeCar, plac
 import { makePost } from './post.js';
 import { makeParticles, makeSparks } from './fx.js';
 import { makeHeroCar } from './hero-car.js';
+import { makeRacePost } from './race-post.js';
+import { buildToonWorld } from './toon-world.js';
 
 const Q = {msaa:4, bloomScale:1, dof:false};
-const qs = new URLSearchParams(location.search), BOT = qs.has('bot'), REC = qs.has('rec');
+const qs = new URLSearchParams(location.search), BOT = qs.has('bot'), REC = qs.has('rec'), TOON = !qs.has('grey');
 const WALL = 5;                       /* the barrier stands 5 m outside the white line: a street circuit, not a run-off desert */
 const GRID = 40;
 const rng = (() => { let s = 7; return () => (s = (s * 16807) % 2147483647) / 2147483647; })();
@@ -29,14 +36,15 @@ const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({canvas, antialias:false, powerPreference:'high-performance', preserveDrawingBuffer:REC});
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.25));
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFShadowMap;
-const scene = new THREE.Scene(); scene.background = new THREE.Color('#9fb3c8'); scene.fog = new THREE.FogExp2('#a9b7c4', .0011);
-const camera = new THREE.PerspectiveCamera(64, 1, .3, 4000);
-const post = makePost(renderer, scene, camera, Q);
-post.setGrade('dusk', 'dusk', 0);
+const scene = new THREE.Scene(); if (!TOON){ scene.background = new THREE.Color('#9fb3c8'); scene.fog = new THREE.FogExp2('#a9b7c4', .0011); }
+const camera = new THREE.PerspectiveCamera(64, 1, .3, TOON ? 12000 : 4000);
+const post = TOON ? makeRacePost(renderer, scene, camera, {fringe:0, lineDen:[.05, .14], thin:10, sat:1.25, pow:1.12, warm:[1.08, 1.01, .87], bloomThr:1.1, blur:.42, glow:.6, edge:.09, aniso:[1.25, .8], keep:[.5, .25, .4]}) : makePost(renderer, scene, camera, Q);
+if (!TOON) post.setGrade('dusk', 'dusk', 0);
+if (TOON) renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-const hemi = new THREE.HemisphereLight('#dfe8f2', '#5b5548', 1.1); scene.add(hemi);
-const sun = new THREE.DirectionalLight('#fff1dc', 2.2); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
-Object.assign(sun.shadow.camera, {left:-70, right:70, top:70, bottom:-70, near:1, far:400}); sun.shadow.bias = -.0004; scene.add(sun, sun.target);
+let sun = null;
+if (!TOON){ scene.add(new THREE.HemisphereLight('#dfe8f2', '#5b5548', 1.1)); sun = new THREE.DirectionalLight('#fff1dc', 2.2); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, {left:-70, right:70, top:70, bottom:-70, near:1, far:400}); sun.shadow.bias = -.0004; scene.add(sun, sun.target); }
 const SUN = v3(-.45, .75, -.35).normalize();
 
 /* ---------------- greybox world ---------------- */
@@ -50,7 +58,7 @@ function ribbon(lats, us, y, vScale, mat, from = 0, to = N - 1){
   const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
   const m = new THREE.Mesh(g, mat); m.receiveShadow = true; scene.add(m); return m;
 }
-{
+if (!TOON){
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000), new THREE.MeshStandardMaterial({color:'#7c8a6a', roughness:1}));
   ground.rotation.x = -Math.PI / 2; ground.position.y = -.05; ground.receiveShadow = true; scene.add(ground);
   /* road: run-off | white line | asphalt with lane dashes (they stream past: the first speed cue) | white line | run-off */
@@ -105,20 +113,74 @@ function ribbon(lats, us, y, vScale, mat, from = 0, to = N - 1){
   const bg = new THREE.BufferGeometry(); bg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); bg.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); bg.computeVertexNormals();
   const bm = new THREE.Mesh(bg, new THREE.MeshStandardMaterial({vertexColors:true, roughness:.9})); bm.castShadow = bm.receiveShadow = true; scene.add(bm);
 }
+const TW = TOON ? buildToonWorld(scene, {ribbon, P, S, WALL, rng, renderer}) : null;
+const FIN = 640, LAPS = 2;          /* the chapter is the main straight and T1: a lap ends after T1 and you are back on the straight */
 
 /* ---------------- cars ---------------- */
 /* tuned for feel, not the maxed main-game car (that one does 0–466 km/h in a second, which reads as a teleport, not speed):
    0–100 km/h in ~2 s, 340 km/h flat out, ~440 km/h on nitro; the pull fades near the top so the last 50 km/h are earned.
    Nitro never refills by itself: you earn it. */
 const PLAYER = Object.assign({}, LAMBO, {maxV:95, acc:16, grip:LAMBO_MAX.grip, steer:LAMBO_MAX.steer, nos:{cap:4.5, pow:.3, fill:1e9}});
-const me = makeCar(PLAYER, GRID); me.e = .35;
-const hero = makeHeroCar({paint:'#8a0f16', quality:'mid'}); scene.add(hero.root);
+const me = makeCar(PLAYER, GRID); me.e = .35; me.lap = 0;
+const hero = makeHeroCar({paint:TOON ? '#aeb6c0' : '#8a0f16', quality:'mid'}); scene.add(hero.root);
 hero.root.traverse(o => { if (o.isMesh) o.castShadow = true; });
+/* blue-white exhaust flames (additive cones that bloom) and cyan neon strips: the car glows like the benchmark's */
+const flameGeo = (() => { const h = 1.6, g = new THREE.ConeGeometry(.11, h, 16, 6, true); g.translate(0, h / 2, 0); g.rotateX(-Math.PI / 2 - .1); return g; })();
+const FLAME_VS = 'varying float vL; varying vec3 vN; varying vec3 vV; void main(){ vL = clamp(length(position) / 1.6, 0.0, 1.0); vN = normalize(normalMatrix * normal); vec4 mv = modelViewMatrix * vec4(position, 1.0); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }';
+const FLAME_FS = `varying float vL; varying vec3 vN; varying vec3 vV; uniform float uT, uP;
+  void main(){ float core = 1.0 - vL; float f = pow(abs(dot(vN, vV)), 1.5);
+    float flick = 0.75 + 0.25 * sin(uT * 70.0 + vL * 18.0) * sin(uT * 43.0);
+    vec3 c = mix(vec3(0.15, 0.55, 3.2), vec3(2.2, 2.8, 4.4), pow(core, 4.0));
+    float a = pow(core, 1.3) * f * flick * uP;
+    gl_FragColor = vec4(c * a, 1.0); }`;
+function dressCar(h, big){
+  const box = new THREE.Box3().setFromObject(h.root), zr = box.min.z + .06;
+  const neon = new THREE.MeshBasicMaterial({color:new THREE.Color(.08, 1.1, 1.6)});
+  for (const s of [-1, 1]){ const n = new THREE.Mesh(new THREE.BoxGeometry(.04, .04, 3.3), neon); n.position.set(s * (box.max.x - .02), .26, -.1); h.root.add(n); }
+  const rb = new THREE.Mesh(new THREE.BoxGeometry(.9, .02, .02), neon); rb.position.set(0, .42, zr - .01); h.root.add(rb);
+  /* a dark rear panel over the number plate with a cyan slot in it (the benchmark's tail: dark, neon accents) */
+  const pan = new THREE.Mesh(new THREE.BoxGeometry(.46, .13, .02), new THREE.MeshStandardMaterial({color:'#0b0d10', roughness:.4, metalness:.3})); pan.position.set(0, .545, zr - .012); h.root.add(pan);
+  const slot = new THREE.Mesh(new THREE.BoxGeometry(.22, .018, .02), neon); slot.position.set(0, .545, zr - .02); h.root.add(slot);
+  const rb2 = new THREE.Mesh(new THREE.BoxGeometry(.36, .02, .02), neon); rb2.position.set(0, .64, zr + .02); h.root.add(rb2);
+  h.lights.tail.emissiveIntensity = 5;
+  const mat = new THREE.ShaderMaterial({transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, side:THREE.DoubleSide, uniforms:{uT:{value:0}, uP:{value:1}}, vertexShader:FLAME_VS, fragmentShader:FLAME_FS});
+  const glowM = new THREE.MeshBasicMaterial({color:new THREE.Color(.5, 1.3, 4), transparent:true, opacity:.9});
+  h.flames = [];
+  for (const x of [-.42, .42]){ const g = new THREE.Group(); g.position.set(x, .545, zr - .02); const f = new THREE.Mesh(flameGeo, mat); f.renderOrder = 7; g.add(f);
+    const glow = new THREE.Mesh(new THREE.SphereGeometry(.075, 10, 8), glowM); g.add(glow); h.root.add(g); h.flames.push(g); }
+  h.flameMat = mat; h.big = big;
+}
+if (TOON) dressCar(hero, true);
 /* traffic: slower cars to thread through (near misses), plain grey boxes */
 const trafficG = new THREE.Group(); scene.add(trafficG);
 const traffic = [];
+const RIVALS = [['#f2f2f0', 'Kelvin'], ['#e0302a', 'Hafiz'], ['#2f6fd6', 'Jason'], ['#f2c230', 'Aisyah'], ['#24262c', 'Wei Ming']];
+const prog = c => (c.lap || 0) * (FIN - GRID) + c.i;
+/* the grid: 6 cars in two columns, you start 4th */
+function gridSlot(n){ return [GRID + (6 - n) * 5, n % 2 ? -4.5 : 4.5]; }
+function makeRivals(){
+  RIVALS.forEach(([paint, name], k) => {
+    const n = [1, 2, 3, 5, 6][k], [i, lat] = gridSlot(n);
+    const c = makeCar(Object.assign({}, PLAYER, {maxV:93 + k * .8, nos:{cap:2.5, pow:.22, fill:12}}), i); place(c, i, lat);
+    c.base = c.T.maxV; c.tgt = [10, 4, 1.5, -2.5, -6][k]; c.lane = lat * .8; c.ph = k * 1.7; c.over = .97 + k * .012; c.lap = 0; c.spin = 0; c.name = name; c.lat0 = lat;
+    const h = makeHeroCar({paint, quality:'mid'}); h.root.traverse(o => { if (o.isMesh) o.castShadow = true; }); dressCar(h, false); trafficG.add(h.root); c.mesh = h.root; c.hero = h;
+    c.ai = car => {
+      const gap = prog(car) - prog(me), v = Math.hypot(car.vx, car.vz);
+      car.T.maxV = car.base * (1 + Math.max(-.35, Math.min(gap < -40 ? .6 : .3, -(gap - car.tgt) / 10)));   /* rubber band around a slot in the pack (points of 3 m): the race stays around you, near and far */
+      if (rng() < .004) car.lane = (rng() - .5) * 2 * (HW[car.i] - 4);
+      /* give the player room: a rival alongside or just ahead in your lane drifts over (hard racing, not a pile-up) */
+      const ax = me.x - car.x, az = me.z - car.z, fx = Math.sin(car.h), fz = Math.cos(car.h), along = ax * fx + az * fz, side = ax * fz - az * fx;
+      if (along > -30 && along < 10 && Math.abs(side) < 4.5) car.lane -= (side > 0 ? 1 : -1) * 10 * (1 / 120);
+      car.lane = Math.max(-(HW[car.i] - 3), Math.min(HW[car.i] - 3, car.lane));
+      const o = autoInput(car, {over:car.over, lat:car.lane + Math.sin(G.t * .4 + car.ph) * 1.5, nos:false});
+      if (o.thr > 0) o.thr *= 1 - .7 * Math.min(1, (v / (car.T.maxV * (1 + car.mult))) ** 2);
+      o.nos = car.e > .15 && Math.abs(K[clampI(car.i + 40)]) < 1 / 500 && v > 40 && gap < car.tgt - 3;
+      return o; };
+    traffic.push(c); });
+}
 function makeTraffic(){
   for (const t of traffic) trafficG.remove(t.mesh); traffic.length = 0;
+  if (TOON){ makeRivals(); return; }
   [[150, -6], [215, 7], [330, -3], [430, 8], [610, -7], [690, 4], [790, -5], [860, 6]].forEach(([i, lat], k) => {
     const c = makeCar(Object.assign({}, LAMBO, {maxV:30 + (k % 3) * 6}), i); place(c, i, lat); c.lat0 = lat; c.spin = 0;
     const m = new THREE.Group(), body = new THREE.Mesh(new THREE.BoxGeometry(1.9, .9, 4.4), new THREE.MeshStandardMaterial({color:['#d8d8d2', '#2f4f7f', '#7a7f86', '#c9b46b'][k % 4], roughness:.5}));
@@ -138,14 +200,16 @@ const KINDS = {
 const props = [];
 function addProp(kind, i, lat, yaw = 0){ const [x, z] = P(i, lat); props.push({kind, k:KINDS[kind], i, lat, x0:x, z0:z, h0:HD[i] + yaw, x, y:0, z, h:HD[i] + yaw, vx:0, vy:0, vz:0, rx:0, rz:0, wx:0, wy:0, wz:0, hit:false}); }
 function layout(){
-  props.length = 0;
-  /* A: roadworks on the straight, cones squeeze the lane, signs in the middle */
+  props.length = 0; let seed = 11; const rng = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  /* A: roadworks on the straight, cones squeeze the lane, signs in the middle (not in the race: the straight is clean) */
+  if (!TOON){
   for (let k = 0; k < 14; k++) addProp('cone', 130 + k * 1.5, -HW[130] + 1 + k * .9);
   for (let k = 0; k < 14; k++) addProp('cone', 130 + k * 1.5, HW[130] - 1 - k * .5);
   addProp('sign', 152, -1); addProp('sign', 156, 3);
   /* B: a line of water barrels across half the road */
   for (let k = 0; k < 9; k++) addProp('barrel', 360, -HW[360] + 1.2 + k * 1.3);
   for (let k = 0; k < 6; k++) addProp('barrel', 372, 2 + k * 1.3);
+  }
   /* C: crash cushions outside T1, where you run wide if you are too greedy */
   for (let r = 0; r < 4; r++) for (let k = 0; k < 6; k++) addProp('barrel', 528 + r * 4 + k * .4, HW[530] + 1 + k * .7 + (r % 2) * .3);
   /* D: the night market spilling onto the road between T1 and T3 */
@@ -156,6 +220,7 @@ function layout(){
   /* F: the lake road: mixed, some right on the line */
   for (let i = 770; i < 930; i += 10){ const r = rng(); addProp(r < .35 ? 'stall' : r < .7 ? 'sign' : 'glass', i, (rng() - .5) * 2 * (HW[i] - 3), rng() < .5 ? Math.PI / 2 : 0); }
   for (let i = 760; i < 940; i += 3) addProp('cone', i, (i % 6 ? -1 : 1) * (HW[i] - .6));
+  if (TOON) for (let k = props.length - 1; k >= 0; k--) if (props[k].i > FIN - 25 || props[k].kind === 'stall' || props[k].kind === 'glass') props.splice(k, 1);
 }
 layout();
 const propMesh = {};
@@ -175,10 +240,10 @@ resetProps();
 
 /* ---------------- particles ---------------- */
 const smoke = makeParticles(scene, 3000), sparks = makeSparks(scene, 2400);
-const HOT = new THREE.Color(5, 2.6, .8), NOSC = new THREE.Color(.8, 2.2, 6);
+const HOT = new THREE.Color(5, 2.6, .8), NOSC = new THREE.Color(.8, 2.2, 6), SPARK = new THREE.Color(6, 2.6, .5);
 
 /* ---------------- game state, feel ---------------- */
-const G = {t:0, ts:1, stop:0, slow:0, shake:0, shakeT:0, events:[], combo:0, comboT:0, drift:0, skim:0, scrape:0, nosOn:0, gear:1, rpm:1000, shiftT:0, fov:64, last:null, ended:false};
+const G = {count:TOON ? 3.2 : 0, lapT:0, lapTimes:[], done:0, flash:0, boostV:0, steerIn:0, t:0, ts:1, stop:0, slow:0, shake:0, shakeT:0, events:[], combo:0, comboT:0, drift:0, skim:0, scrape:0, nosOn:0, gear:1, rpm:1000, shiftT:0, fov:64, last:null, ended:false};
 const cam = {pos:v3(0, 3, -8), vel:v3(), look:v3(), init:false};
 function award(text, amt){ me.e = Math.min(1, me.e + amt); G.combo++; G.comboT = 2.5; G.events.unshift({text, amt, t:0}); if (G.events.length > 5) G.events.pop(); }
 function kick(a){ G.shake = Math.max(G.shake, a); }
@@ -196,6 +261,13 @@ function playerInput(){
 }
 /* the recording bot: centre line through the obstacles, skims the walls in the tunnel, nitro whenever there is some */
 function botInput(){
+  if (TOON){ const i = me.i, v = Math.hypot(me.vx, me.vz); let lat = Math.sin(i * .011 + .6) * 6;
+    /* the recording bot races clean: a rival in the way ahead, pass it on the side with more room */
+    const fx = Math.sin(me.h), fz = Math.cos(me.h);
+    for (const c of traffic){ const ax = c.x - me.x, az = c.z - me.z, along = ax * fx + az * fz; if (along < 0 || along > 35) continue;
+      const W = locate({x:c.x, z:c.z, i:c.i}), d = W.lat - lat; if (Math.abs(d) < 4.2) lat = W.lat + (W.lat > 0 ? -4.6 : 4.6); }
+    const o = autoInput(me, {over:1.02, lat, nos:false});
+    o.nos = me.e > .06 && i > 70 && Math.abs(K[clampI(i + 40)]) < 1 / 500 && v > 30; return o; }
   const i = me.i; let lat = 0;
   if (i > 240 && i < 320) lat = -(HW[i] + WALL - 2.0);      /* tunnel: along the left wall */
   else if (i > 330 && i < 380) lat = -4;                       /* through the barrels */
@@ -240,33 +312,45 @@ const audio = (() => {
 })();
 
 /* ---------------- simulation ---------------- */
-function reset(){ place(me, GRID); me.e = .35; G.events.length = 0; G.combo = 0; makeTraffic(); resetProps(); cam.init = false; G.ended = false; }
+function reset(){ if (TOON){ const [i, lat] = gridSlot(4); place(me, i, lat); me.lap = 0; G.count = 3.2; G.lapT = 0; G.lapTimes.length = 0; G.done = 0; } else place(me, GRID); me.e = .35; G.events.length = 0; G.combo = 0; makeTraffic(); resetProps(); cam.init = false; G.ended = false; }
 
-function smash(p, spd, fx, fz){
-  const k = p.k; p.hit = true;
+function smash(p, spd, fx, fz, car = me){
+  const k = p.k; p.hit = true; const mine = car === me, cvx = car.vx, cvz = car.vz;
   const along = Math.max(10, spd);
-  p.vx = me.vx * (1.05 + rng() * .35) + (rng() - .5) * 6; p.vz = me.vz * (1.05 + rng() * .35) + (rng() - .5) * 6; p.vy = 4 + along * (.12 + rng() * .1);
+  p.vx = cvx * (1.05 + rng() * .35) + (rng() - .5) * 6; p.vz = cvz * (1.05 + rng() * .35) + (rng() - .5) * 6; p.vy = 4 + along * (.12 + rng() * .1);
   p.wx = (rng() - .5) * along * .4; p.wy = (rng() - .5) * 8; p.wz = (rng() - .5) * along * .4;
   /* the car pays for it */
-  const f = 1 - k.mass * (k.big ? 1 : .6); me.vx *= f; me.vz *= f;
+  const f = 1 - k.mass * (k.big ? 1 : .6); car.vx *= f; car.vz *= f;
   /* debris */
   const col = new THREE.Color(k.color);
   for (let n = 0; n < k.debris; n++){ const d = deb[debNext]; debNext = (debNext + 1) % DEB;
-    Object.assign(d, {x:p.x + (rng() - .5) * 2, y:.5 + rng() * 2, z:p.z + (rng() - .5) * 2, vx:me.vx * (.6 + rng() * .8) + (rng() - .5) * 14, vy:3 + rng() * 10, vz:me.vz * (.6 + rng() * .8) + (rng() - .5) * 14,
+    Object.assign(d, {x:p.x + (rng() - .5) * 2, y:.5 + rng() * 2, z:p.z + (rng() - .5) * 2, vx:cvx * (.6 + rng() * .8) + (rng() - .5) * 14, vy:3 + rng() * 10, vz:cvz * (.6 + rng() * .8) + (rng() - .5) * 14,
       rx:rng() * 6, ry:rng() * 6, wx:(rng() - .5) * 20, wy:(rng() - .5) * 20, live:6 + rng() * 4});
     d.s = p.kind === 'glass' ? [.15 + rng() * .5, .02, .15 + rng() * .4] : [.15 + rng() * .5, .1 + rng() * .3, .1 + rng() * .5];
     debM.setColorAt(debNext, n % 3 === 0 && p.kind === 'stall' ? _c.set('#f4f0e6') : col); }
   if (debM.instanceColor) debM.instanceColor.needsUpdate = true;
-  for (let n = 0; n < (k.big ? 40 : 12); n++) sparks.emit(p.x, 1, p.z, me.vx * .5 + (rng() - .5) * 20, rng() * 8, me.vz * .5 + (rng() - .5) * 20, p.kind === 'glass' ? new THREE.Color(2.5, 3.5, 5) : HOT, .35, .4 + rng() * .3);
-  smoke.spawn(p.x, 1, p.z, me.vx * .2, 1, me.vz * .2, 2.5, 3, 1.6, .25, new THREE.Color('#bdb6a8'));
+  for (let n = 0; n < (k.big ? 40 : 12); n++) sparks.emit(p.x, 1, p.z, cvx * .5 + (rng() - .5) * 20, rng() * 8, cvz * .5 + (rng() - .5) * 20, p.kind === 'glass' ? new THREE.Color(2.5, 3.5, 5) : HOT, .35, .4 + rng() * .3);
+  smoke.spawn(p.x, 1, p.z, cvx * .2, 1, cvz * .2, 2.5, 3, 1.6, .25, new THREE.Color('#bdb6a8'));
+  if (!mine) return;
   award(k.name + (G.combo > 0 ? ' ×' + (G.combo + 1) : ''), k.nos);
   kick(k.big ? .9 : .25 + spd / 300);
   if (k.big && spd > 25) bigHit(.07, .45); else if (spd > 40) bigHit(.03, 0);
   audio.hit(k.big ? 1 : .35, p.kind === 'glass');
 }
 
+function warp(c, ni){
+  const W = locate(c), dh = HD[ni] - HD[c.i], cs = Math.cos(dh), sn = Math.sin(dh), vx = c.vx, vz = c.vz;
+  c.vx = vx * cs + vz * sn; c.vz = vz * cs - vx * sn; c.h += dh; const [x, z] = P(ni, W.lat); c.x = x; c.z = z; c.i = c.good = c.prevI = ni;
+}
+function lapCheck(c){
+  if (c.i < FIN) return; c.lap = (c.lap || 0) + 1; warp(c, c.i - (FIN - GRID) + 4);
+  if (c === me){ G.lapTimes.push(G.lapT); G.flash = .35; cam.init = false; if (me.lap >= LAPS){ G.done = 4; } }
+}
+const HALT = {thr:0, steer:0, brake:true, nos:false};
 function physicsStep(dt){
-  const inp = BOT ? botInput() : playerInput();
+  const go = !TOON || G.count <= 0;
+  const inp = !go || G.done ? Object.assign({}, HALT, {thr:G.done ? -1 : 0}) : BOT ? botInput() : playerInput();
+  G.steerIn = inp.steer;
   const wasNos = me.mult > .05, v0 = Math.hypot(me.vx, me.vz), cap = PLAYER.maxV * (1 + me.mult);
   if (inp.thr > 0) inp.thr *= 1 - .7 * Math.min(1, (v0 / cap) ** 2);
   step(me, dt, inp, 0);
@@ -291,7 +375,8 @@ function physicsStep(dt){
   /* traffic */
   for (const c of traffic){
     if (c.spin > 0){ c.spin -= dt; c.h += c.yaw * dt; c.x += c.vx * dt; c.z += c.vz * dt; const f = Math.exp(-1.2 * dt); c.vx *= f; c.vz *= f; c.yaw *= Math.exp(-.8 * dt); locate(c); continue; }
-    step(c, dt, autoInput(c, {over:.8, lat:c.lat0}), 0);
+    step(c, dt, !go ? HALT : c.ai ? c.ai(c) : autoInput(c, {over:.8, lat:c.lat0}), 0);
+    if (TOON) lapCheck(c);
     const dx = c.x - me.x, dz = c.z - me.z, d = Math.hypot(dx, dz);
     if (d < 2.3){ const nx = dx / d, nz = dz / d, rel = (me.vx - c.vx) * nx + (me.vz - c.vz) * nz;
       if (rel > 0){ c.vx += nx * rel * 1.3 + me.vx * .25; c.vz += nz * rel * 1.3 + me.vz * .25; me.vx -= nx * rel * .35; me.vz -= nz * rel * .35;
@@ -303,13 +388,15 @@ function physicsStep(dt){
     if (!c.missed && Math.abs(along) < 2.5 && side > 2.0 && side < 3.4 && relV > 12){ c.missed = true; award('擦车而过', .1); kick(.2); }
     if (Math.abs(along) > 30) c.missed = false;
   }
+  if (TOON) lapCheck(me);
   /* smashables: the car is a capsule from the rear axle to the nose, 1 m radius */
   for (const p of props){
     if (p.hit){ if (p.y > 0 || Math.abs(p.vx) + Math.abs(p.vz) > .1){ p.vy -= 18 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt; p.rx += p.wx * dt; p.h += p.wy * dt; p.rz += p.wz * dt;
         if (p.y < 0){ p.y = 0; p.vy = -p.vy * .3; p.vx *= .6; p.vz *= .6; p.wx *= .5; p.wz *= .5; if (Math.abs(p.vy) < 1) p.vy = 0; } placeProp(p); } continue; }
-    const dx = p.x - me.x, dz = p.z - me.z; if (dx * dx + dz * dz > 64) continue;
-    const t = Math.max(-1.8, Math.min(2.2, dx * fx + dz * fz)), cx = me.x + fx * t, cz = me.z + fz * t, d = Math.hypot(p.x - cx, p.z - cz);
-    if (d < 1.0 + p.k.r) smash(p, v, fx, fz);
+    for (const car of TOON ? [me, ...traffic] : [me]){
+      const dx = p.x - car.x, dz = p.z - car.z; if (dx * dx + dz * dz > 64) continue;
+      const cfx = Math.sin(car.h), cfz = Math.cos(car.h), t = Math.max(-1.8, Math.min(2.2, dx * cfx + dz * cfz)), cx = car.x + cfx * t, cz = car.z + cfz * t, d = Math.hypot(p.x - cx, p.z - cz);
+      if (d < 1.0 + p.k.r){ smash(p, Math.hypot(car.vx, car.vz), cfx, cfz, car); break; } }
   }
   for (let k = 0; k < DEB; k++){ const d = deb[k]; if (d.live <= 0) continue; d.live -= dt; d.vy -= 18 * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.z += d.vz * dt; d.rx += d.wx * dt; d.ry += d.wy * dt;
     if (d.y < d.s[1] / 2){ d.y = d.s[1] / 2; d.vy = -d.vy * .25; d.vx *= .7; d.vz *= .7; d.wx *= .6; d.wy *= .6; } if (d.live <= 0) d.y = -50;
@@ -317,10 +404,15 @@ function physicsStep(dt){
   debM.instanceMatrix.needsUpdate = true;
   /* nitro flame and the screen: it has to feel like a different gear */
   G.nosOn = me.mult > .05 ? 1 : 0;
-  if (G.nosOn){ for (let n = 0; n < 3; n++) sparks.emit(me.x - fx * 2.5 + (rng() - .5) * .5, .45, me.z - fz * 2.5 + (rng() - .5) * .5, me.vx * .7 - fx * 14, rng(), me.vz * .7 - fz * 14, NOSC, .4, .12); kick(.08); }
+  /* the floor scraping at speed: bursts of orange sparks fanning out from under the rear, one side at a time (always on the nitro) */
+  if (TOON){ G.spk = Math.max(0, (G.spk || 0) - dt); if (v > 45 && G.spk <= 0 && rng() < dt * .55){ G.spk = .6 + rng() * 1.1; G.spkSide = rng() < .5 ? -1 : 1; } }
+  if (TOON && v > 30 && (G.spk > 0 || G.nosOn)){ const n = (G.nosOn ? 3 : 2.2) * dt * 120, rx = Math.cos(me.h), rz = -Math.sin(me.h);
+    for (let k = 0; k < n; k++){ const sd = G.spk > 0 ? G.spkSide : rng() < .5 ? -1 : 1, px = me.x - fx * 1.25 + rx * sd * .7, pz = me.z - fz * 1.25 + rz * sd * .7, fan = 2 + rng() * 7, back = 1 + rng() * 6;
+      sparks.emit(px, .08, pz, me.vx * .8 - fx * back + rx * sd * fan, .6 + rng() * 2.6, me.vz * .8 - fz * back + rz * sd * fan, SPARK, .045 + rng() * .05, .12 + rng() * .22); } }
+  if (G.nosOn && !TOON){ for (let n = 0; n < 3; n++) sparks.emit(me.x - fx * 2.5 + (rng() - .5) * .5, .45, me.z - fz * 2.5 + (rng() - .5) * .5, me.vx * .7 - fx * 14, rng(), me.vz * .7 - fz * 14, NOSC, .4, .12); kick(.08); }
   if (G.nosOn && !wasNos){ kick(.6); }
   audio.update(v, inp.thr, me.slip, G.scrape && v > 10, G.nosOn, G.ts);
-  if (me.i >= N - 12 && !G.ended){ G.ended = true; setTimeout(reset, REC ? 0 : 1200); }
+  if (!TOON && me.i >= N - 12 && !G.ended){ G.ended = true; setTimeout(reset, REC ? 0 : 1200); }
 }
 
 /* ---------------- camera: spring chase, FOV with speed, nitro punch, shake ---------------- */
@@ -331,13 +423,13 @@ function updateCamera(dt, rdt){
   const vf = me.vx * fx0 + me.vz * fz0, acc = dt > 0 ? (vf - (cam.vf ?? vf)) / dt : 0; if (dt > 0) cam.vf = vf;
   if (!cam.init){ cam.yaw = me.h; cam.back = 5.6; cam.bv = 0; cam.init = true; }
   let dy = me.h - cam.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); cam.yaw += dy * Math.min(1, dt * 7);
-  const backT = 5.4 + Math.min(1.6, v * .016) + Math.max(-1.2, Math.min(2.2, acc * .05));
+  const backT = (TOON ? 4.3 : 5.4) + (TOON ? Math.min(.9, v * .009) : Math.min(1.6, v * .016)) + Math.max(TOON ? -.45 : -1.2, Math.min(TOON ? 1.4 : 2.2, acc * .05));
   cam.bv += ((backT - cam.back) * 40 - cam.bv * 9) * dt; cam.back += cam.bv * dt;
-  const fx = Math.sin(cam.yaw), fz = Math.cos(cam.yaw), up = 1.55 - Math.min(.3, v * .003);
+  const fx = Math.sin(cam.yaw), fz = Math.cos(cam.yaw), up = (TOON ? 1.72 : 1.55) - Math.min(.3, v * .003);
   cam.pos.set(me.x - fx * cam.back, up, me.z - fz * cam.back);
-  const look = v3(me.x + fx0 * 6, .9, me.z + fz0 * 6);
+  const look = TOON ? v3(me.x + fx0 * 14, 1.18, me.z + fz0 * 14) : v3(me.x + fx0 * 6, .9, me.z + fz0 * 6);
   /* field of view: 64° parked, ~92° flat out, +12° on the nitro kick */
-  const sp = Math.max(0, Math.min(1, (v - 15) / 85)), target = 64 + 28 * Math.pow(sp, 1.3) + (G.nosOn ? 12 : 0);
+  const sp = Math.max(0, Math.min(1, (v - 15) / 85)), target = (TOON ? 60 : 64) + (TOON ? 16 : 28) * Math.pow(sp, 1.3) + (G.nosOn ? (TOON ? 9 : 12) : 0);
   G.fov += (target - G.fov) * Math.min(1, rdt * (G.nosOn ? 9 : 3));
   camera.fov = G.fov; camera.updateProjectionMatrix();
   /* shake: a constant buzz at speed + impulses that decay */
@@ -346,21 +438,31 @@ function updateCamera(dt, rdt){
   const sx = (Math.sin(t * 37) + Math.sin(t * 59 + 1)) * .5 * a, sy = (Math.sin(t * 43 + 2) + Math.sin(t * 71)) * .5 * a;
   camera.position.copy(cam.pos); camera.position.y += sy; camera.position.x += sx * fz; camera.position.z -= sx * fx;
   camera.lookAt(look); camera.rotateZ(-me.steer * .06 * sp + Math.sin(t * 29) * G.shake * .02);
-  post.set({speed:Math.min(1.6, sp * 1.1 + (G.nosOn ? .45 : 0) + G.shake * .2), exposure:1.05 + (G.nosOn ? .08 : 0) + (G.slow > 0 ? -.08 : 0)});
-  sun.position.set(me.x + SUN.x * 150, SUN.y * 150, me.z + SUN.z * 150); sun.target.position.set(me.x, 0, me.z);
+  G.boostV += ((G.nosOn ? 1 : 0) - G.boostV) * Math.min(1, rdt * 6);
+  if (TOON) post.set({speed:Math.min(1.5, sp * 1.15 + G.boostV * .35 + G.shake * .15), boost:G.boostV, exposure:1.0 + G.flash * 1.5});
+  else post.set({speed:Math.min(1.6, sp * 1.1 + (G.nosOn ? .45 : 0) + G.shake * .2), exposure:1.05 + (G.nosOn ? .08 : 0) + (G.slow > 0 ? -.08 : 0)});
+  if (TW) TW.follow(me.x, me.z, fx0, fz0); else { sun.position.set(me.x + SUN.x * 150, SUN.y * 150, me.z + SUN.z * 150); sun.target.position.set(me.x, 0, me.z); }
 }
 
+function flames(h, c, k){
+  const v = Math.hypot(c.vx, c.vz), p = (.25 + Math.min(1, v / 60) * .35 + (c.mult > .05 ? .9 : 0)) * k;
+  h.flameMat.uniforms.uT.value = G.t; h.flameMat.uniforms.uP.value = Math.min(1.6, p * 1.4);
+  for (const f of h.flames) f.scale.set(.8 + p * .45, .8 + p * .45, .35 + p * .75 + Math.sin(G.t * 50 + f.position.x * 9) * .08);
+}
 function placeCars(dt){
   hero.root.position.set(me.x, 0, me.z); hero.root.rotation.set(0, me.h, 0);
   hero.root.rotation.z = -me.steer * .05 * Math.min(1, Math.hypot(me.vx, me.vz) / 50); hero.root.rotation.x = me.brakeHard * .02;
   const spin = Math.hypot(me.vx, me.vz) / .36 * dt; for (const w of hero.wheels) w.rotation.x += spin;
   for (const f of hero.fronts) f.rotation.y = me.steer * .9;
-  for (const c of traffic){ c.mesh.position.set(c.x, 0, c.z); c.mesh.rotation.y = c.h; }
+  for (const c of traffic){ c.mesh.position.set(c.x, 0, c.z); c.mesh.rotation.y = c.h;
+    if (c.hero){ const sp = Math.hypot(c.vx, c.vz) / .36 * dt; for (const w of c.hero.wheels) w.rotation.x += sp; for (const f of c.hero.fronts) f.rotation.y = c.steer * .9; flames(c.hero, c, .45); } }
+  if (TOON) flames(hero, me, 1);
 }
 
 /* ---------------- HUD (a 2D canvas so the recorder can copy it) ---------------- */
 const hud = document.getElementById('hud'), hg = hud.getContext('2d');
 function drawHud(rdt){
+  if (TOON) return drawRaceHud(rdt);
   const W = hud.width, H = hud.height, s = H / 720, v = Math.hypot(me.vx, me.vz); hg.clearRect(0, 0, W, H);
   if (G.slow > 0){ const gr = hg.createRadialGradient(W / 2, H / 2, H * .3, W / 2, H / 2, H * .9); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.45)'); hg.fillStyle = gr; hg.fillRect(0, 0, W, H); }
   hg.textAlign = 'right'; hg.fillStyle = '#f4ede0'; hg.shadowColor = 'rgba(0,0,0,.6)'; hg.shadowBlur = 8 * s;
@@ -378,6 +480,57 @@ function drawHud(rdt){
     hg.fillText('↑↓←→ / WASD 开车 · Shift 氮气 · 空格 手刹 · R 重来 · M 静音（按任意键出声）', 24 * s, 34 * s); }
 }
 
+/* the race HUD, benchmark layout: position and minimap top-left, lap time / lap / speed top-right, nitro button bottom-right, stick bottom-left */
+const MINI = (() => { const pts = PTS.slice(0, FIN + 1); let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const [x, z] of pts){ x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
+  const sc = Math.min(150 / (x1 - x0), 100 / (z1 - z0)); return {pts, f:(x, z) => [(x - x0) * sc, (z - z0) * sc], w:(x1 - x0) * sc, h:(z1 - z0) * sc}; })();
+const fmt = t => { const m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(2); };
+function drawRaceHud(rdt){
+  const W = hud.width, H = hud.height, s = H / 720, v = Math.hypot(me.vx, me.vz), g = hg; g.clearRect(0, 0, W, H);
+  const ital = (w, px, f = '"Noto Sans SC",sans-serif') => `italic ${w} ${px * s}px ${f}`;
+  g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 6 * s;
+  /* position */
+  const order = [me, ...traffic].sort((a, b) => prog(b) - prog(a)), pos = order.indexOf(me) + 1;
+  const grd = g.createLinearGradient(0, 22 * s, 0, 70 * s); grd.addColorStop(0, '#ffb04a'); grd.addColorStop(1, '#ff5a2a');
+  g.textAlign = 'left'; g.fillStyle = grd; g.font = ital(900, 54); g.fillText(pos, 26 * s, 72 * s);
+  const nw = g.measureText(String(pos)).width; g.fillStyle = '#fff'; g.font = ital(800, 20); g.fillText('/6', 26 * s + nw + 3 * s, 72 * s);
+  /* minimap */
+  g.save(); g.translate(28 * s, 92 * s); g.scale(s * .62, s * .62); g.lineJoin = 'round';
+  g.beginPath(); MINI.pts.forEach(([x, z], k) => { const [a, b] = MINI.f(x, z); k ? g.lineTo(a, b) : g.moveTo(a, b); });
+  g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 9; g.stroke(); g.strokeStyle = 'rgba(140,230,255,.9)'; g.lineWidth = 4; g.stroke();
+  for (const c of traffic){ const [a, b] = MINI.f(c.x, c.z); g.fillStyle = '#ffffff'; g.beginPath(); g.arc(a, b, 5, 0, 7); g.fill(); }
+  { const [a, b] = MINI.f(me.x, me.z); g.fillStyle = '#ffd23a'; g.beginPath(); g.arc(a, b, 7.5, 0, 7); g.fill(); }
+  g.restore();
+  /* top right: time, lap, speed */
+  g.textAlign = 'right'; const rx = W - 70 * s;
+  g.fillStyle = '#ffffff'; g.font = ital(900, 30); g.fillText(fmt(G.lapT), rx, 46 * s);
+  g.font = ital(700, 11); g.fillStyle = 'rgba(255,255,255,.85)'; g.fillText('LAP', rx - 46 * s, 66 * s); g.font = ital(900, 19); g.fillStyle = '#fff'; g.fillText(Math.min(LAPS, (me.lap || 0) + 1) + '/' + LAPS, rx, 67 * s);
+  g.fillStyle = '#ffd23a'; g.font = ital(900, 24); g.fillText(Math.round(v * 3.6), rx - 34 * s, 96 * s); g.font = ital(700, 11); g.fillStyle = '#ffe58a'; g.fillText('KM/H', rx, 96 * s);
+  g.shadowBlur = 0; g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 2 * s; g.beginPath(); g.arc(W - 34 * s, 40 * s, 13 * s, 0, 7); g.stroke();
+  g.fillStyle = 'rgba(255,255,255,.75)'; g.fillRect(W - 39 * s, 34 * s, 3.5 * s, 12 * s); g.fillRect(W - 32 * s, 34 * s, 3.5 * s, 12 * s);
+  /* bottom right: the glowing yellow nitro button, its ring fills with your nitro; a second button for the handbrake */
+  const bx = W - 92 * s, by = H - 112 * s, br = 40 * s, ready = me.e > .05, pulse = .6 + .4 * Math.sin(G.t * 6);
+  g.save(); g.shadowColor = '#ffe23a'; g.shadowBlur = (ready ? 26 + 14 * pulse + G.boostV * 30 : 6) * s;
+  g.fillStyle = ready ? 'rgba(255,226,58,.20)' : 'rgba(0,0,0,.25)'; g.beginPath(); g.arc(bx, by, br, 0, 7); g.fill();
+  g.strokeStyle = 'rgba(255,240,150,.35)'; g.lineWidth = 6 * s; g.beginPath(); g.arc(bx, by, br - 2 * s, 0, 7); g.stroke();
+  g.strokeStyle = '#ffe23a'; g.lineWidth = 6 * s; g.beginPath(); g.arc(bx, by, br - 2 * s, -Math.PI / 2, -Math.PI / 2 + me.e * 6.283); g.stroke();
+  g.fillStyle = '#ffe23a'; g.beginPath(); const L = [[4, -20], [-9, 3], [-1, 3], [-5, 20], [10, -4], [2, -4], [7, -20]]; L.forEach(([x, y], k) => { k ? g.lineTo(bx + x * s, by + y * s) : g.moveTo(bx + x * s, by + y * s); }); g.closePath(); g.fill(); g.restore();
+  const hx = W - 190 * s, hy = H - 140 * s; g.strokeStyle = 'rgba(255,255,255,.6)'; g.lineWidth = 2 * s; g.beginPath(); g.arc(hx, hy, 24 * s, 0, 7); g.stroke();
+  g.fillStyle = 'rgba(255,255,255,.75)'; g.font = `700 ${14 * s}px sans-serif`; g.textAlign = 'center'; g.fillText('((·))', hx, hy + 5 * s);
+  /* bottom left: the stick, its knob follows your steering */
+  const jx = 96 * s, jy = H - 120 * s; g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = 2 * s; g.beginPath(); g.arc(jx, jy, 44 * s, 0, 7); g.stroke();
+  g.fillStyle = 'rgba(255,255,255,.18)'; g.beginPath(); g.arc(jx, jy, 44 * s, 0, 7); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.75)'; g.beginPath(); g.arc(jx - G.steerIn * 22 * s, jy, 15 * s, 0, 7); g.fill();
+  /* rewards (nitro for risk) */
+  g.textAlign = 'center'; G.events.forEach((e, k) => { e.t += rdt; const a = Math.max(0, 1 - e.t / 2); if (a <= 0) return; g.globalAlpha = a; g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 8 * s;
+    g.fillStyle = k === 0 ? '#ffe23a' : '#ffffff'; g.font = ital(k === 0 ? 900 : 700, k === 0 ? 24 : 16); g.fillText(e.text + '  +' + Math.round(e.amt * 100) + '%', W / 2, H * .2 + k * 28 * s); }); g.globalAlpha = 1;
+  /* countdown, lap flash, finish */
+  if (G.count > 0 || G.count > -.8){ const n = Math.ceil(G.count), txt = G.count > 0 ? String(n) : 'GO!', f = G.count > 0 ? G.count - Math.floor(G.count) : 1 + G.count / .8;
+    g.globalAlpha = Math.min(1, f * 2); g.font = ital(900, 120 * (1 + (1 - f) * .25)); g.fillStyle = G.count > 0 ? '#ffffff' : '#ffe23a'; g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 20 * s; g.fillText(txt, W / 2, H * .45); g.globalAlpha = 1; }
+  if (G.flash > 0){ g.fillStyle = `rgba(255,255,255,${G.flash})`; g.fillRect(0, 0, W, H); g.font = ital(900, 46); g.fillStyle = '#ffe23a'; g.fillText(me.lap >= LAPS ? 'FINISH · 第 ' + pos + ' 名' : 'LAP ' + Math.min(LAPS, me.lap + 1) + '/' + LAPS, W / 2, H * .4); }
+  if (G.done > 0){ g.font = ital(900, 52); g.fillStyle = '#ffe23a'; g.shadowBlur = 16 * s; g.fillText('FINISH · 第 ' + pos + ' 名', W / 2, H * .42); }
+  g.shadowBlur = 0;
+}
+
 /* ---------------- loop ---------------- */
 function resize(){ const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); post.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); hud.width = w * devicePixelRatio; hud.height = h * devicePixelRatio; }
 addEventListener('resize', resize); resize();
@@ -386,6 +539,7 @@ function frame(rdt){
   /* hit-stop freezes the world, slow motion scales it */
   let dt = rdt; if (G.stop > 0){ G.stop -= rdt; dt = 0; } else if (G.slow > 0){ G.slow -= rdt; dt = rdt * .28; }
   G.ts = dt / Math.max(1e-6, rdt); G.comboT -= rdt; if (G.comboT <= 0) G.combo = 0;
+  if (TOON){ G.count -= dt; if (G.count <= 0 && !G.done) G.lapT += dt; G.flash = Math.max(0, G.flash - rdt * 1.2); if (G.done > 0){ G.done -= rdt; if (G.done <= 0){ G.done = 0; reset(); } } }
   if (dt > 0){ const n = Math.ceil(dt / (1 / 120)); for (let k = 0; k < n; k++) physicsStep(dt / n); G.t += dt; }
   smoke.update(dt); sparks.update(dt);
   const uS = renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)); smoke.mat.uniforms.uScale.value = sparks.mat.uniforms.uScale.value = uS;
@@ -396,4 +550,5 @@ function loop(now){ requestAnimationFrame(loop); const rdt = Math.min(.05, (now 
   fpsN++; fpsT += rdt; if (fpsT > .5){ document.getElementById('fps').textContent = Math.round(fpsN / fpsT) + ' fps'; fpsN = fpsT = 0; } }
 if (!REC) requestAnimationFrame(loop);
 else { const still = () => { requestAnimationFrame(still); post.render(0); }; requestAnimationFrame(still); }   /* headless capture needs a frame drawn every rAF; the world does not move */
-window.XPlay = {G, me, frame, reset, renderer, hud, props, traffic};   /* for tests and the recorder */
+if (TOON) reset();
+window.XPlay = {G, me, frame, reset, renderer, hud, props, traffic, TOON, camera, scene, post, hero};   /* for tests and the recorder */
