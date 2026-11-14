@@ -601,7 +601,7 @@ body.wd-open #socStat,body.wd-open #socMenu,body.wd-open #socCard,body.wd-open #
   }
   function endRide(why, tell){
     const R = S.ride; if (!R) return;
-    S.ride = null;
+    S.ride = null; window.RIDE_CAM = null;
     if (tell) send(R.uid, 'bye', {});
     const p = peer(R.uid), c = p && p.car;
     if (c){
@@ -624,10 +624,14 @@ body.wd-open #socStat,body.wd-open #socMenu,body.wd-open #socCard,body.wd-open #
   const _sv = new THREE.Vector3();
   function rideFrame(dt){
     const R = S.ride, p = peer(R.uid);
-    if (!p || !p.live || !p.car || p.d.mode !== 'naiwa'){ const t = pnow(); R.lostAt = R.lostAt || t; if (t - R.lostAt > 1.2) endRide(p && p.live ? `${R.name} 下车了` : `${R.name} 掉线了`, false); return; }
+    if (!p || !p.live || !p.car || p.d.mode !== 'naiwa'){ window.RIDE_CAM = null; const t = pnow(); R.lostAt = R.lostAt || t; if (t - R.lostAt > 1.2) endRide(p && p.live ? `${R.name} 下车了` : `${R.name} 掉线了`, false); return; }
     R.lostAt = 0;
     const c = p.car, s = seatsOf(c.kind)[Math.min(R.seat, seatsOf(c.kind).length) - 1], h = c.root.rotation.y, cs = Math.cos(h), sn = Math.sin(h);
     const cp = c.root.position;
+    /* the car's speed from how far the (already smoothed) ghost moved, eased again so the readout and the camera don't flicker; js/90-main.js reads it */
+    if (dt > 0 && R.lx != null){ const v = Math.min(120, Math.hypot(cp.x - R.lx, cp.z - R.lz) / dt); R.sp = (R.sp || 0) + (v - (R.sp || 0)) * Math.min(1, dt * 4); }
+    R.lx = cp.x; R.lz = cp.z;
+    window.RIDE_CAM = {car:c, sp:R.sp || 0};
     nw.x = cp.x + cs * s[0] + sn * s[2]; nw.z = cp.z - sn * s[0] + cs * s[2]; nw.y = cp.y + s[1]; nw.h = h;
     nw.state = 'sit'; nw.air = false; nw.spd = 0; nw.vy = 0; nw.bike = !!(c.T && c.T.bike);
     if (camYawHold <= 0) camYaw += wrapA(h + Math.PI - camYaw) * Math.min(1, dt * 3);
