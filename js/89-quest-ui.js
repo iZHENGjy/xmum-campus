@@ -276,7 +276,7 @@
         if (cur){
           const ht = hintText(s.hint); if (ht && !why) li += `<small class="q-how">${ht}</small>`;
           const gp = s.guide || (c.guide || [])[0];
-          if (gp && g(() => XGuide.pages.includes(gp), false)) li += `<button type="button" class="q-more" data-g="${esc(gp)}">看说明 ›</button>`;
+          if (gp && g(() => XGuide.has ? XGuide.has(gp) : XGuide.pages.includes(gp), false)) li += `<button type="button" class="q-more" data-g="${esc(gp)}">看说明 ›</button>`;
         }
         return li + '</div></li>';
       };
@@ -323,7 +323,7 @@
     if (n) n.addEventListener('click', () => flip(1));
     { const y = q('.q-y1'); if (y) y.addEventListener('click', () => { XGuide.close(); setTimeout(() => g(() => XYear.card()), 80); }); }
     const r = q('.q-replay'); if (r) r.addEventListener('click', () => { const ch = +r.dataset.ch || 0; XGuide.close(); setTimeout(() => ch ? XQ.replay(ch) : XQ.playIntro(true), 80); });
-    sec.querySelectorAll('.q-more').forEach(b => b.addEventListener('click', () => XGuide.open ? (() => { const id = b.dataset.g, i = XGuide.pages.indexOf(id); if (i >= 0) XGuide.go(i); })() : 0));
+    sec.querySelectorAll('.q-more').forEach(b => b.addEventListener('click', () => { const id = b.dataset.g; if (XGuide.show) return XGuide.show(id); const i = XGuide.pages.indexOf(id); if (i >= 0) XGuide.go(i); }));
   }
   /* the sticky notes: side jobs, grouped by who gave them */
   function notesBody(){

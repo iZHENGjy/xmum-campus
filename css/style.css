@@ -1840,3 +1840,17 @@ body.fit-3.naiwa #mini{position:fixed}   /* js/ui-fit.js 把它放到钱包面�
 .q-dmsg .q-av{flex:none;width:24px;height:24px;font-size:12px}
 .q-dmsg b{flex:none;font-size:12px;color:#c9d1da;font-weight:600}
 .q-dmsg span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* the guide's 「我想……」 page (js/ui-guide.js): one question per row, the answer opens on a tap */
+.gd-wlead{margin:0 0 8px!important}
+.gd-qs{display:grid;gap:6px}
+.gd-q{border-radius:var(--r-md);background:var(--chip)}
+.gd-q summary{display:flex;align-items:center;gap:10px;min-height:44px;padding:4px 12px;cursor:pointer;list-style:none;font-weight:600;font-size:15px;color:var(--ink)}
+.gd-q summary::-webkit-details-marker{display:none}
+.gd-q summary::after{content:'▾';margin-left:auto;color:var(--muted);font-size:12px}
+.gd-q[open] summary::after{content:'▴'}
+.gd-q summary i{font-style:normal;width:24px;text-align:center;flex:none}
+.gd-q summary:focus-visible{outline:2px solid var(--tile);outline-offset:-2px;border-radius:var(--r-md)}
+.gd-q[open]{background:var(--paper);box-shadow:inset 3px 0 0 var(--tile)}
+.gd-a{padding:0 12px 10px 46px;font-size:14px}
+.gd-a>ul{margin:0}
+@media (max-width:420px){ .gd-a{padding-left:14px} }
