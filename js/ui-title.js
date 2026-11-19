@@ -99,8 +99,8 @@ function uiGta(){ try { return JSON.parse(uiGet('xmum-gta-v1') || 'null') || {};
 const UI_BOARDS = {
   hole2: {fmt:v => (+v || 0).toFixed(1) + '%', what:'黑洞 2.0（有道具和连吞）一局吞掉校园的最高比例', local:() => +uiGet('xmum-hole2-best') || 0, empty:'还没玩过黑洞 2.0，去吞一局'},
   hole:  {fmt:v => (+v || 0).toFixed(1) + '%', what:'旧版黑洞的成绩，已停止更新，留作纪念', local:() => +uiGet('xmum-hole-best') || 0, empty:'没有旧版黑洞的成绩'},
-  stunt: {fmt:v => Math.round(+v || 0).toLocaleString() + ' 分', what:'奶娃累计特技分', local:() => +uiGta().stunt || 0, empty:'还没攒到特技分，去漂移一下'},
-  rich:  {fmt:v => 'RM ' + (+v || 0).toFixed(2), what:'奶娃总资产：现金加上买过的车、改装、水枪、衣橱、喷漆、宿舍周边、房子和装修，按原价算', local:() => typeof netWorth === 'function' ? netWorth() : +uiGta().money || 0, empty:'还没有资产，去送外卖'}
+  stunt: {dedupe:true, fmt:v => Math.round(+v || 0).toLocaleString() + ' 分', what:'奶娃累计特技分', local:() => +uiGta().stunt || 0, empty:'还没攒到特技分，去漂移一下'},
+  rich:  {dedupe:true, fmt:v => 'RM ' + (+v || 0).toFixed(2), what:'奶娃总资产：现金加上买过的车、改装、水枪、衣橱、喷漆、宿舍周边、房子和装修，按原价算', local:() => typeof netWorth === 'function' ? netWorth() : +uiGta().money || 0, empty:'还没有资产，去送外卖'}
 };
 /* 小游戏榜（B1 游戏厅，js/91-arcade.js）：board 写成 'mini:<gameId>'，定义来自 XMini.board(id)；'mini' 表示上次看的那个小游戏 */
 let lbMini = '';
@@ -124,9 +124,27 @@ function uiDate(ts){
   const d = new Date(t < 1e12 ? t * 1000 : t); if (isNaN(d)) return '';
   return (d.getMonth() + 1) + '/' + d.getDate();
 }
+/* one player on two accounts (a guest copy of the same save, whose name the game numbered 「卷耳 2」) sits on the board twice with the very same score.
+   Same name apart from a trailing number and exactly the same score: list it once — yours if one of them is you, otherwise the un-numbered name.
+   Only on boards marked dedupe (总资产 has cents, 特技 runs into the millions), where two different players tying to the last digit is next to impossible. */
+function uiDedupe(rows){
+  /* the random default nicknames (「期末周幸存者 70」, 「期末周幸存者 29」…) share a base name between different people, and 总资产 does tie
+     (everything is counted at list price), so those are never merged */
+  const dflt = new Set(UI_NAMES.map(n => uiClean(n).replace(/\s/g, '').toLowerCase()));
+  const base = n => uiClean(n).replace(/\s\d+$/, '').toLowerCase(), num = r => /\s\d+$/.test(uiClean(r && r.name)), out = [];
+  for (const r of rows){
+    const b = r && base(r.name), j = r && !dflt.has(b.replace(/\s/g, '')) && !dflt.has(uiClean(r.name).replace(/\d+$/, '').toLowerCase()) ? out.findIndex(o => o && +o.value === +r.value && base(o.name) === b) : -1;
+    if (j < 0){ out.push(r); continue; }
+    const o = out[j];
+    if (uiClean(r.name) === uiName || (uiClean(o.name) !== uiName && num(o) && !num(r))) out[j] = r;
+  }
+  return out;
+}
 function uiRows(list, rows, B){
   list.textContent = '';
   rows = Array.isArray(rows) ? rows : [];
+  if (window.XNet && XNet.hiddenName) rows = rows.filter(r => !(r && XNet.hiddenName(uiClean(r.name))));   /* old copy accounts, also on the mirrored snapshot (js/net.js HIDE) */
+  if (B && B.dedupe) rows = uiDedupe(rows);
   if (!rows.length){ list.append(uiEl('li', 'lb-wait', '还没人上榜，去当第一个')); }
   rows.forEach((r, i) => {
     const li = uiEl('li', uiClean(r && r.name) === uiName ? 'me' : '');
