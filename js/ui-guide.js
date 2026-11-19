@@ -97,7 +97,7 @@
     return '<h4>改装道具 · 不能用钱买</h4><div class="gd-parts">' + P.map(p => `<div class="gd-part"><i style="background:${p.color}">${esc(p.ch)}</i><div><b>${esc(p.name)}</b><em style="color:${(R[p.rar] || {}).c || 'inherit'}">${esc((R[p.rar] || {}).name || '')}</em><span>${esc(p.from)}</span></div></div>`).join('') + '</div>'
       + (B.length ? '<h4>改装配方 · 拿到一次永久解锁，重复的换成改装图纸</h4><div class="gd-parts">' + B.map(b => `<div class="gd-part"><i class="bp">${esc(b.ch)}</i><div><b>${esc(b.name)}</b><em>解锁 ${esc(b.for)}</em><span>${esc(b.from)}</span></div></div>`).join('') + '</div>' : '');
   }
-  const PAGES = [
+  const ALL = [
     {id:'hello', t:'欢迎来到 XMUM 校园', art:'hello', body:() => `
       <p class="gd-lead">这是一座照平面图搭出来的雪邦校园。主玩法是<b>「开车 · 奶娃」</b>：你是奶娃，在校园里走路、开车、到处找事做。</p>
       ${li(['做各种事攒 <b>RM</b> 和<b>改装道具</b>：送外卖、挑战赛、校门外打工、抓小偷、宿舍撤离、教学楼潜入、B1 游戏厅小游戏……',
@@ -188,6 +188,9 @@
         <dt>电台</dt><dd>点左下角的电台小条</dd>
       </dl>`}
   ];
+  /* the pages shown: a page can have hide() (the sticky notes while there are no side jobs, js/89-quest-ui.js); worked out again at each build */
+  const vis = () => { const v = ALL.filter(p => !p.hide || !g(() => p.hide(), false)); return v.filter(p => !p.last).concat(v.filter(p => p.last)); };   /* last:true (设置) stays at the end */
+  let PAGES = ALL.slice();
   const LEGEND = [['#1f2a33', '你（箭头）'], ['#ffc21a', '主线（黄星）'], ['#ff8a3d', '外卖取餐'], ['#4fd18b', '送达点'], ['#ffd24a', '打卡点'], ['#e84d8a', '喷漆车间'], ['#e74c3c', '巡逻车', 1], ['#c9a0ff', '宿舍门口'], ['#ffd27a', '教学楼门口'], ['#ff6f61', '抢救期末卷'], ['#ff5fa2', 'B1 游戏厅'], ['#38c6d9', '出售的房子'], ['#a774ff', 'ERL 火车站'], ['#c2185b', 'SUKI-YA 火锅']];
 
   /* ---------- the guide sheet ---------- */
@@ -199,7 +202,8 @@
   const $g = id => gd.querySelector('#' + id), track = $g('gdTrack'), book = $g('gdBook');
   let cur = 0, built = false;
   function build(){
-    track.innerHTML = PAGES.map((p, i) => `<section class="gd-page" role="tabpanel" id="gdp-${p.id}" aria-label="${esc(p.t)}" tabindex="-1"><div class="gd-art">${ART[p.art] || ''}</div><div class="gd-txt"><h3><small>${i + 1}</small>${esc(p.t)}</h3>${p.body()}</div></section>`).join('');
+    PAGES = vis();
+    track.innerHTML = PAGES.map((p, i) => `<section class="gd-page${ART[p.art] ? '' : ' gd-noart'}" role="tabpanel" id="gdp-${p.id}" aria-label="${esc(p.t)}" tabindex="-1"><div class="gd-art">${ART[p.art] || ''}</div><div class="gd-txt"><h3><small>${i + 1}</small>${esc(p.t)}</h3>${p.body()}</div></section>`).join('');
     $g('gdDots').innerHTML = PAGES.map((p, i) => `<button type="button" role="tab" aria-label="${i + 1}. ${esc(p.t)}" aria-controls="gdp-${p.id}"></button>`).join('');
     $g('gdDots').querySelectorAll('button').forEach((b, i) => b.addEventListener('click', () => go(i)));
     built = true;
@@ -433,13 +437,13 @@
   /* addPage: another file puts its own page in (js/89-quest-ui.js: the diary first, the sticky notes second). {id, t, art (svg string or ART key), body(), home, mount(el)}
      mount(section) runs after each build, for pages with their own buttons. page: the page open now (-1 when closed). refresh(): rebuild the open page */
   function addPage(p, at){
-    if (PAGES.some(x => x.id === p.id)) return;
+    if (ALL.some(x => x.id === p.id)) return;
     if (p.art && !ART[p.art] && /^<svg/.test(p.art)){ ART['_' + p.id] = p.art; p.art = '_' + p.id; }
-    PAGES.splice(at == null ? PAGES.length : Math.max(0, Math.min(PAGES.length, at)), 0, p);
-    XGuide.pages = PAGES.map(x => x.id);
+    ALL.splice(at == null ? ALL.length : Math.max(0, Math.min(ALL.length, at)), 0, p);
+    PAGES = vis();
   }
   { const b0 = build; build = function(){ b0(); PAGES.forEach((p, i) => { if (p.mount){ const el = track.children[i]; if (el) g(() => p.mount(el)); } }); }; }
   function refresh(){ if (!gd.open) return; const k = cur; build(); go(k, true); requestAnimationFrame(() => { track.style.transition = ''; }); }
   window.XGuide = {open:openGuide, close:closeGuide, map:openMap, closeMap, get on(){ return gd.open || bm.open; }, get guideOn(){ return gd.open; }, get mapOn(){ return bm.open; },
-    get page(){ return gd.open ? cur : -1; }, get pageId(){ return gd.open && PAGES[cur] ? PAGES[cur].id : ''; }, pages:PAGES.map(p => p.id), addPage, refresh, go:i => go(i), mapLayers:[], mapRedraw:() => drawMap()};
+    get page(){ return gd.open ? cur : -1; }, get pageId(){ return gd.open && PAGES[cur] ? PAGES[cur].id : ''; }, get pages(){ return PAGES.map(p => p.id); }, addPage, refresh, go:i => go(i), mapLayers:[], mapRedraw:() => drawMap()};
 })();

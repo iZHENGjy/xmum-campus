@@ -1500,6 +1500,7 @@ body.titled:has(#embedTip:not([hidden])) #title .t-wrap{padding-top:56px}
   .gd-page{display:grid;grid-template-columns:minmax(150px,34%) 1fr;gap:14px;align-items:start;padding:10px 12px}
   .gd-art{margin:0;position:sticky;top:0}
   .gd-art svg{max-height:110px}
+  .gd-page.gd-noart{display:block}   /* a page without a picture (the diary, 设置) uses the whole width */
   .gd-nav{margin-top:6px}
   .gd-arr{height:32px}
 }
@@ -1822,3 +1823,20 @@ body.fit-3.naiwa #mini{position:fixed}   /* js/ui-fit.js 把它放到钱包面�
 
 /* 接单卡片（js/89-offers.js）在宽屏上和主线提示条都在屏幕下方正中，叠在一起；卡片开着时提示条先让开（卡片就是这一步要做的事） */
 @media (min-width:761px){ body:has(#offer:not([hidden]):not(.mini)) #qhint{visibility:hidden} }
+/* the diary page, slimmed (js/89-quest-ui.js): no picture, the guide's own title folds into the diary header, one step open */
+.gd-art:empty{display:none}
+#gdp-diary .gd-txt>h3{display:none}
+#gdp-diary .q-dh{margin-top:2px}
+#gdp-diary .q-dh span{font-size:12px}
+#gdp-diary .q-dtext{padding:2px 12px}
+.q-older summary,.q-rest summary{cursor:pointer;list-style:none;font-size:13px;color:var(--muted);font-weight:600;padding:6px 2px}
+.q-older summary::-webkit-details-marker,.q-rest summary::-webkit-details-marker{display:none}
+.q-older summary::after,.q-rest summary::after{content:' ▾'}
+.q-older[open] summary::after,.q-rest[open] summary::after{content:' ▴'}
+.q-older summary{font-family:var(--body);line-height:28px;padding:0}
+.q-rest{margin-top:8px;border-top:1px dashed var(--line)}
+.q-rest .q-todo{margin-bottom:4px}
+.q-dmsg{display:flex;align-items:center;gap:8px;margin:10px 0 0;padding:7px 10px;border-radius:var(--r-md);background:#20252d;color:#fff;font-size:13px;line-height:1.4}
+.q-dmsg .q-av{flex:none;width:24px;height:24px;font-size:12px}
+.q-dmsg b{flex:none;font-size:12px;color:#c9d1da;font-weight:600}
+.q-dmsg span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
