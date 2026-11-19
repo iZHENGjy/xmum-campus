@@ -1,0 +1,49 @@
+# 比赛和公司清单（冷启动）
+
+2026-11-19 上网核对过。日期会变，**报名前一定去官网再确认一遍**。查到新日期就更新这页。
+配合 [next-3-months.md](next-3-months.md) 一起看。
+
+## 比赛
+
+| 比赛 | 往年时间 | 适合度 | 状态（11-19） |
+|---|---|---|---|
+| [Global Game Jam 2027](https://www.pocketgamer.biz/events/global-game-jam-2027/) | 1 月 23～25 日（各场地不同），48 小时现场做一个新游戏 | 不能投校园版，但能认识同行，还能**试试和美术组队** | 12 月 1 日开个人报名（[来源](https://borderless.so/extracurricular-programs/global-game-jam/global-game-jam)），三个月内唯一能参加的 |
+| [SEA Game Awards](https://mdec.my/levelupkl/sea-game-awards)（[Level Up KL](https://www.mdec.my/levelupkl)，MDEC 办） | 2026 年报名到 7 月 3 日，10 月在吉隆坡颁奖 | **最对口**：有最佳学生游戏奖，面向东南亚高校学生（以官方条款为准） | 2027 年日期未公布 |
+| [腾讯游戏创作大赛](https://gameinstitute.qq.com/college/) | 2026 年 4 月 18 日～9 月 15 日；有 AI 游戏、自由创意等赛道 | 2025 年高校赛道要一份介绍 PPT 和至少 15 分钟可玩的 demo，我们的游戏够 | 2027 年未公布 |
+| [网易高校 MINI-GAME 挑战赛](https://game.academy.163.com/) | 2026 年 4 月 21 日～6 月 2 日 | 冠军 10 万元，还给 offer 直通卡；要看赛道主题合不合 | 2027 年未公布 |
+| [中国大学生计算机设计大赛](https://m.saikr.com/vse/58040) | 校赛和省赛 3～5 月，国赛 7～8 月；有「数媒游戏与交互设计」类 | XMUM 作为海外分校能不能参加，要问学院 | 2027 年未公布 |
+
+- 能拿现成游戏去投的比赛，最早要到 **2027 年 3～4 月** 才开报名。
+- 投比赛的目的是拿反馈、见到人、写进履历。比画面和打磨，大概率拼不过团队作品，获奖算额外收获。
+- 游戏里用了学校名字和真实品牌（麦当劳、Sukiya 等）。投公司办的比赛前，先看条款里关于知识产权的部分。
+
+## 公司（只要 15 分钟反馈，不要工作）
+
+| 公司 | 是做什么的 | 为什么找它 |
+|---|---|---|
+| Metronomik | 做了《No Straight Roads》，创始人以前在 Square Enix 和 Capcom | 小工作室，2026 年在 SEA Game Awards 拿了三个奖（[来源](https://malaymail.com/news/tech-gadgets/2026/10/16/malaysian-indie-studio-metronomik-steals-the-show-with-three-wins-at-level-up-sea-game-awards-2026/239315)），最可能回你 |
+| Kurechii | 马来西亚老牌独立手游工作室（[来源](https://vulcanpost.com/592609/kurechii-mobile-game-development-company-malaysia)） | 小团队，适合要反馈 |
+| Passion Republic Games | 给《艾尔登法环》《对马岛之魂》做过协同开发，自己的作品是《Gigabash》（[来源](https://vulcanpost.com/805259/passion-republic-malaysia-game-development-studio)） | 本地规模最大的工作室之一 |
+| Larian Studios KL | 《博德之门 3》的公司在吉隆坡的工作室 | 2026 年 9 月有实习岗位，偏程序方向 |
+| Streamline Studios | 吉隆坡的老牌工作室 | 以前招过策划、程序、美术实习生，现在还招不招要再查 |
+
+腾讯、网易这类大厂走比赛就行，不用发冷邮件。暑期实习往年大约 2～3 月开招，以各家校招页为准。
+
+## 材料
+
+- **2 分钟视频和一页介绍**，中英文各一份。
+- **数字**（`stats` 分支，2026-11-19）：累计 559 人；上线那周有一天新来 179 人、大家合计玩了 51 小时；手机占三分之二。写「累计」，不写「活跃」。
+- **同学自发发的抖音和小红书帖子**：截图存下来，帖子过几个月可能就找不到了。这是最有说服力的证据。
+- **把数据里的弱点写成观察**：「玩家 76% 的时间在开车，所以下一张地图（雪邦）只围绕开车做深。」
+
+## 团队
+
+不找一个团队，**最多找一个美术**，补「画面像玩具」这一块。玩法深不深由主人自己判断。网页形式不用改，点开链接就能玩，这是优势。先在 Game Jam 试一次组队再决定。
+
+## 顺序
+
+1. **现在到 12 月**：做材料，存好帖子截图。
+2. **12 月 1 日**：报名 Game Jam，找吉隆坡附近的场地。
+3. **12 月～1 月**：给 Metronomik、Kurechii、Passion Republic 各发一封短邮件，只要 15 分钟反馈。AI 可以起草，主人自己发。
+4. **1 月 23～25 日**：去 Game Jam。
+5. **3～4 月**：哪个比赛先开报名就投哪个，SEA Game Awards 最优先。
