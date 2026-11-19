@@ -3,6 +3,9 @@
 线上：https://izhengjy.github.io/xmum-campus/（`main`）
 预览：https://izhengjy.github.io/xmum-campus/preview/（`dev`，只给自己和测试同学）
 
+## 当前方向
+- 先读 [docs/next-3-months.md](docs/next-3-months.md)（2026-11-19 定的三个月计划）。跟它冲突的提议，先问主人。
+
 ## 分支
 - `main` = 线上版本，有分支保护，只接受 PR。只合并 bug 修复和紧急优化。
 - `dev` = 下一个版本，攒新功能。新功能的 PR 一律开到 `dev`。
