@@ -10,8 +10,8 @@
 <table>
 <tr>
 <td align="center"><img src="docs/screenshots/v26/gate-sunset.jpg" width="260" alt="校门口，远处是 A3"><br><sub>校门口，远处是 A3</sub></td>
-<td align="center"><img src="docs/screenshots/v26/naiwa-blue-hour.jpg" width="260" alt="蓝调时刻的主楼"><br><sub>蓝调时刻的主楼</sub></td>
-<td align="center"><img src="docs/screenshots/v26/lake-sunset.jpg" width="260" alt="和学长看晚霞"><br><sub>和学长看晚霞</sub></td>
+<td align="center"><img src="docs/screenshots/v26/naiwa-wave-a3.jpg" width="260" alt="A3 门前打个招呼"><br><sub>A3 门前打个招呼</sub></td>
+<td align="center"><img src="docs/screenshots/v26/chase-sunset.jpg" width="260" alt="晚霞里被保安追"><br><sub>晚霞里被保安追</sub></td>
 </tr>
 </table>
 
@@ -23,7 +23,7 @@
 <tr>
 <td align="center"><img src="docs/screenshots/v26/rain-drift.jpg" width="260" alt="雨夜漂移"><br><sub>雨夜漂移</sub></td>
 <td align="center"><img src="docs/screenshots/v26/hole.jpg" width="260" alt="黑洞吞掉校园"><br><sub>黑洞吞掉校园</sub></td>
-<td align="center"><img src="docs/screenshots/v26/bell-night.jpg" width="260" alt="Bell 街夜赛"><br><sub>Bell 街夜赛</sub></td>
+<td align="center"><img src="docs/screenshots/v26/bell-night.jpg" width="260" alt="Bell 街夜里飙车"><br><sub>Bell 街夜里飙车</sub></td>
 </tr>
 </table>
 
