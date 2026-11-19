@@ -447,7 +447,7 @@
         ? `<li class="on"><i>✓</i><div><b>${esc(J.name)}</b><span>${esc(J.hint)}</span></div></li>`
         : `<li><i>${i + 1}</i><div><b>？？？</b><span>${esc(J.hint)}</span></div></li>`).join('')}</ul>`;
   }
-  if (window.XGuide && XGuide.addPage) XGuide.addPage({id:'jumps', t:'隐藏特技跳台', art, body});
+  if (window.XGuide && XGuide.addPage) XGuide.addPage({id:'jumps', row:true, ic:'🛹', q:'找隐藏特技跳台', t:'隐藏特技跳台', art, body});   /* a row of the guide's 「我想……」 page */
   if (typeof gxRenderPause === 'function'){
     const r0 = gxRenderPause;
     gxRenderPause = function(){

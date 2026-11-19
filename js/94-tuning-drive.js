@@ -131,6 +131,7 @@ const trGeo = new THREE.BufferGeometry(), trPos = new Float32Array(TR_N * TR_MAX
   trGeo.attributes.position.setUsage(THREE.DynamicDrawUsage); trGeo.attributes.color.setUsage(THREE.DynamicDrawUsage);
 }
 const trMat = new THREE.MeshBasicMaterial({vertexColors:true, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false, side:THREE.DoubleSide, fog:false});
+const TR_POS0 = trPos, TR_COL0 = trCol;   /* trWrite writes here unless given another car's buffers */
 const trMesh = new THREE.Mesh(trGeo, trMat); trMesh.frustumCulled = false; trMesh.visible = false; trMesh.renderOrder = 3; scene.add(trMesh);
 const TR = {pts:[[], [], []], kind:'', car:null, spark:0, t:0};   /* t: the trail's own clock (game time, so a pause does not age it) */
 const TR_LOOK = {streak:{life:.5, w:.26, auto:'#ff3344'}, flame:{life:.24, w:.24, auto:'#ff9a2a'}, plasma:{life:.65, w:.55, auto:'#35e0ff'}};
@@ -140,7 +141,7 @@ const trC = new THREE.Color(), trV = new THREE.Vector3(), trD = new THREE.Vector
 /* write ribbon r from its points (newest first); width w, colour col times fade */
 const TR_EMBER = new THREE.Color('#ff2a10');
 /* flick: a flame — the width flickers and the colour cools to red toward the end */
-function trWrite(r, pts, w, col, life, now, gain, flick){
+function trWrite(r, pts, w, col, life, now, gain, flick, trPos = TR_POS0, trCol = TR_COL0){
   const base = r * TR_MAX * 2, cam = camera.position;
   let n = Math.min(pts.length, TR_MAX);
   for (let i = 0; i < TR_MAX; i++){
@@ -188,10 +189,56 @@ function trUpdate(dt, demo){
   }
 }
 
+/* ---------- other players' 尾焰 ----------
+   Their look string already carries the trail and its colour (tnApply on the ghost car, js/net.js), and js/net.js keeps
+   a smoothed speed for each ghost, so nothing new goes over the network. The nearest GT_MAX full-detail ghost cars within
+   GT_R metres get ribbons of their own (one mesh each, made on first use); no sparks, and none at all on 流畅 or when
+   your own 尾焰特效 switch is off. */
+const GT_MAX = 3, GT_R = 90;
+const GT = [];   /* slots: {mesh, geo, pos, col, pts:[[],[],[]], car, kind, t} */
+function gtSlot(i){
+  if (GT[i]) return GT[i];
+  const geo = new THREE.BufferGeometry(), pos = new Float32Array(trPos.length), col = new Float32Array(trCol.length);
+  geo.setIndex(trGeo.index); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  geo.attributes.position.setUsage(THREE.DynamicDrawUsage); geo.attributes.color.setUsage(THREE.DynamicDrawUsage);
+  const mesh = new THREE.Mesh(geo, trMat); mesh.frustumCulled = false; mesh.visible = false; mesh.renderOrder = 3; scene.add(mesh);
+  return (GT[i] = {mesh, geo, pos, col, pts:[[], [], []], car:null, kind:'', t:0});
+}
+const gtWorld = (c, t) => { const p = c.root.position, h = c.root.rotation.y, fx = Math.sin(h), fz = Math.cos(h); return [p.x + t[0] * fz + t[2] * fx, p.y + c.body.position.y + t[1], p.z - t[0] * fx + t[2] * fz]; };
+function gtUpdate(dt){
+  const low = typeof XQ !== 'undefined' && XQ.level === 'low', list = [];
+  if (!low && !tune.trailOff && window.XNet && XNet.online && typeof XNet.peers === 'function'){
+    const cam = camera.position;
+    for (const [, r] of XNet.peers()){
+      const G = r && r.g, c = G && G.car;
+      if (!G || !G.vis || !c || c.lite || !c.tn || !c.root.visible || !c.tn.fit || !TR_LOOK[c.tn.fit.trail]) continue;
+      const d = Math.hypot(c.root.position.x - cam.x, c.root.position.z - cam.z); if (d < GT_R) list.push([d, c, G]);
+    }
+    list.sort((a, b) => a[0] - b[0]); list.length = Math.min(list.length, GT_MAX);
+  }
+  for (let i = 0; i < Math.max(GT.length, list.length); i++){
+    const S = gtSlot(i), e = list[i];
+    if (!e){ if (S.mesh.visible){ S.mesh.visible = false; S.pts.forEach(a => a.length = 0); S.car = null; } continue; }
+    const [, c, G] = e, kind = c.tn.fit.trail, L = TR_LOOK[kind];
+    if (S.car !== c || S.kind !== kind){ S.car = c; S.kind = kind; S.pts.forEach(a => a.length = 0); }
+    S.t += dt; const now = S.t, life = L.life, col = trColOf(c, kind), lamp = typeof cur !== 'undefined' ? Math.min(1, cur.lamp || 0) : 0;
+    const gain = (kind === 'flame' ? .9 : 1.15) * (.75 + .6 * lamp), t0 = kind === 'flame' ? c.tn.rear : c.tn.tail, tails = t0.length > 2 ? [t0[0], t0[t0.length - 1]] : t0, sp = G.spd || 0;
+    for (let r = 0; r < Math.min(2, tails.length); r++){
+      const [x, y, z] = gtWorld(c, tails[r]), a = S.pts[r], h = a[0];
+      if (sp > 2 && (!h || Math.hypot(h[0] - x, h[2] - z) > .3)) a.unshift([x, y, z, now]); else if (h){ h[0] = x; h[1] = y; h[2] = z; }
+      while (a.length > TR_MAX || (a.length && now - a[a.length - 1][3] > life)) a.pop();
+    }
+    const ok = S.pts[0].length > 1; S.mesh.visible = ok; if (!ok) continue;
+    for (let r = 0; r < 2; r++) trWrite(r, S.pts[r], L.w * (tails.length > 1 || kind !== 'plasma' ? 1 : 1.5), col, life, now, gain, kind === 'flame', S.pos, S.col);
+    if (kind === 'plasma') trWrite(2, S.pts[0], L.w * .35, TR_WHITE, life * .7, now, .8 * gain, false, S.pos, S.col); else trWrite(2, [], 0, col, 1, now, 0, false, S.pos, S.col);
+    S.geo.attributes.position.needsUpdate = true; S.geo.attributes.color.needsUpdate = true;
+  }
+}
+
 /* ---------- hook into the frame ---------- */
 {
   const up = gx.update;
-  gx.update = function(dt, px, pz){ up.call(this, dt, px, pz); ndUpdate(dt); trUpdate(dt, false); };
+  gx.update = function(dt, px, pz){ up.call(this, dt, px, pz); ndUpdate(dt); trUpdate(dt, false); gtUpdate(dt); };
 }
 /* gx.update does not run while paused (the workshop pauses the game): keep the button and sounds honest */
 setInterval(() => { if (gx.paused){ ndHiss(false); ND.nosOn = false; ND.mult = 0; } }, 250);
