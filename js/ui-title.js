@@ -128,9 +128,12 @@ function uiDate(ts){
    Same name apart from a trailing number and exactly the same score: list it once — yours if one of them is you, otherwise the un-numbered name.
    Only on boards marked dedupe (总资产 has cents, 特技 runs into the millions), where two different players tying to the last digit is next to impossible. */
 function uiDedupe(rows){
+  /* the random default nicknames (「期末周幸存者 70」, 「期末周幸存者 29」…) share a base name between different people, and 总资产 does tie
+     (everything is counted at list price), so those are never merged */
+  const dflt = new Set(UI_NAMES.map(n => uiClean(n).replace(/\s/g, '').toLowerCase()));
   const base = n => uiClean(n).replace(/\s\d+$/, '').toLowerCase(), num = r => /\s\d+$/.test(uiClean(r && r.name)), out = [];
   for (const r of rows){
-    const j = r ? out.findIndex(o => o && +o.value === +r.value && base(o.name) === base(r.name)) : -1;
+    const b = r && base(r.name), j = r && !dflt.has(b.replace(/\s/g, '')) && !dflt.has(uiClean(r.name).replace(/\d+$/, '').toLowerCase()) ? out.findIndex(o => o && +o.value === +r.value && base(o.name) === b) : -1;
     if (j < 0){ out.push(r); continue; }
     const o = out[j];
     if (uiClean(r.name) === uiName || (uiClean(o.name) !== uiName && num(o) && !num(r))) out[j] = r;
