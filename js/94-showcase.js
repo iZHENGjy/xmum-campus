@@ -597,6 +597,7 @@ async function scFetch(){
   try {
     const snap = await scDb().ref('showcase').orderByChild('value').limitToLast(SC_N + 3).once('value'), out = [];
     snap.forEach(c => {
+      if (window.XNet && XNet.hidden && XNet.hidden(c.key)) return;   /* someone's old copy account (js/net.js HIDE) */
       const v = c.val() || {}, kind = String(v.car || ''), look = String(v.look || ''), wear = String(v.wear || '');
       if ((kind && !scOkCar(kind)) || !SC_LOOK_RE.test(look) || !SC_WEAR_RE.test(wear) || typeof v.name !== 'string' || !v.name) return;
       out.push({uid:c.key, name:v.name.slice(0, 16), kind, look:kind ? look : '', wear, pose:SC_POSES[v.pose] ? v.pose : 'auto', value:Math.max(0, Math.min(SC_MAX, +v.value || 0)), ts:+v.ts || 0});

@@ -65,6 +65,13 @@
     now:() => Date.now(), peer:() => null, peers:() => new Map(), ref:() => null, fresh:() => false,
     ready:Promise.resolve(false), blocked:false, mirrorTop:null, offText:() => '联机未开启，成绩只保存在本机'
   };
+  /* 同一个人被复制出来的旧分身账号（登录状态丢了、带着整份存档变成新游客，名字被编号；以后不会再有，见 ownerCheck）：
+     排行榜、小游戏榜、豪车展台上都不显示。数据库里的记录不动，从这里删掉一行就恢复显示 */
+  const HIDE = {
+    'DLGVCoaffBQqoItgIhiTtE06jBY2':'卷耳 2'                  // 「卷耳」（LZWrf…）的分身，2026-11
+  };
+  XNet.hidden = uid => Object.prototype.hasOwnProperty.call(HIDE, String(uid));
+  XNet.hiddenName = n => Object.values(HIDE).includes(String(n || ''));
 
   /* ---------- 位置同步协议（纯函数；离线也定义，test/net-traffic.html 用同一套算流量） ----------
    * 地图按 100 米分格，/pres/{格}/{uid} 只写自己所在的格，只订阅视点所在格和周围 8 格（至少 100 米内的人一定看得到）。
@@ -384,7 +391,7 @@
     try {
       const snap = await timeout(db.ref('boards/' + board).orderByChild('value').limitToLast(n).once('value'), 10000, '读取排行榜');
       const out = [];
-      snap.forEach(c => { const v = c.val() || {}; out.push({name:String(v.name || '?'), value:+v.value || 0, ts:+v.ts || 0, uid:c.key}); });
+      snap.forEach(c => { if (XNet.hidden(c.key)) return; const v = c.val() || {}; out.push({name:String(v.name || '?'), value:+v.value || 0, ts:+v.ts || 0, uid:c.key}); });
       return out.sort((a, b) => b.value - a.value || a.ts - b.ts);
     } catch(e){ console.warn('[XNet] 排行榜读取失败', e); return []; }
   };
@@ -413,7 +420,7 @@
     try {
       const snap = await timeout(db.ref('mini/' + game).orderByChild('value').limitToLast(n).once('value'), 10000, '读取排行榜');
       const out = [];
-      snap.forEach(c => { const v = c.val() || {}; out.push({name:String(v.name || '?'), value:+v.value || 0, ts:+v.ts || 0, uid:c.key}); });
+      snap.forEach(c => { if (XNet.hidden(c.key)) return; const v = c.val() || {}; out.push({name:String(v.name || '?'), value:+v.value || 0, ts:+v.ts || 0, uid:c.key}); });
       return out.sort((a, b) => b.value - a.value || a.ts - b.ts);
     } catch(e){ console.warn('[XNet] 小游戏排行榜读取失败', game, e); return []; }
   };
