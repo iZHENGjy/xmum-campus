@@ -9,11 +9,13 @@
 
 <table>
 <tr>
-<td align="center"><img src="docs/screenshots/v26/gate-sunset.jpg" width="260" alt="校门口的日落"><br><sub>校门口的日落</sub></td>
+<td align="center"><img src="docs/screenshots/v26/gate-sunset.jpg" width="260" alt="校门口，远处是 A3"><br><sub>校门口，远处是 A3</sub></td>
 <td align="center"><img src="docs/screenshots/v26/naiwa-blue-hour.jpg" width="260" alt="蓝调时刻的主楼"><br><sub>蓝调时刻的主楼</sub></td>
 <td align="center"><img src="docs/screenshots/v26/lake-sunset.jpg" width="260" alt="和学长看晚霞"><br><sub>和学长看晚霞</sub></td>
 </tr>
 </table>
+
+<p align="center"><img src="docs/screenshots/v26/naiwa-air.jpg" width="880" alt="奶娃航空飞过宿舍楼"><br><sub>奶娃航空飞过宿舍楼</sub></p>
 
 ## 🎮 能玩什么
 
@@ -22,6 +24,13 @@
 <td align="center"><img src="docs/screenshots/v26/rain-drift.jpg" width="260" alt="雨夜漂移"><br><sub>雨夜漂移</sub></td>
 <td align="center"><img src="docs/screenshots/v26/hole.jpg" width="260" alt="黑洞吞掉校园"><br><sub>黑洞吞掉校园</sub></td>
 <td align="center"><img src="docs/screenshots/v26/bell-night.jpg" width="260" alt="Bell 街夜赛"><br><sub>Bell 街夜赛</sub></td>
+</tr>
+</table>
+
+<table>
+<tr>
+<td align="center"><img src="docs/screenshots/v26/ioi-city-mall.jpg" width="420" alt="IOI City Mall"><br><sub>校外 · IOI City Mall</sub></td>
+<td align="center"><img src="docs/screenshots/v26/kip-mall.jpg" width="420" alt="KIP Mall"><br><sub>校外 · KIP Mall</sub></td>
 </tr>
 </table>
 
