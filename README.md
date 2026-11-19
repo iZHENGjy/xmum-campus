@@ -5,47 +5,34 @@
 
 <h3 align="center">👉 <a href="https://izhengjy.github.io/xmum-campus/">点这里开玩：izhengjy.github.io/xmum-campus</a></h3>
 
-<table>
-<tr>
-<td align="center"><img src="docs/screenshots/v26/sunset-gate.jpg" width="270" alt="日落 · 校门"><br><sub>日落 · 校门</sub></td>
-<td align="center"><img src="docs/screenshots/v26/sunset-aerial.jpg" width="270" alt="日落 · 俯瞰 A 区"><br><sub>日落 · 俯瞰 A 区</sub></td>
-<td align="center"><img src="docs/screenshots/v26/sunset-plane.jpg" width="270" alt="奶娃航空飞过宿舍楼"><br><sub>奶娃航空飞过宿舍楼</sub></td>
-</tr>
-<tr>
-<td align="center"><img src="docs/screenshots/v26/sunset-chase.jpg" width="270" alt="晚霞里被保安追"><br><sub>晚霞里被保安追</sub></td>
-<td align="center"><img src="docs/screenshots/v26/blue-hour.jpg" width="270" alt="蓝调时刻"><br><sub>蓝调时刻</sub></td>
-<td align="center"><img src="docs/screenshots/v26/thunderstorm.jpg" width="270" alt="午后雷阵雨"><br><sub>午后雷阵雨</sub></td>
-</tr>
-<tr>
-<td align="center"><img src="docs/screenshots/v26/night.jpg" width="270" alt="夜晚的校园"><br><sub>夜晚的校园</sub></td>
-<td align="center"><img src="docs/screenshots/v26/sunrise.jpg" width="270" alt="日出"><br><sub>日出</sub></td>
-<td align="center"><img src="docs/screenshots/v26/dawn-towers.jpg" width="270" alt="天快亮的宿舍楼"><br><sub>天快亮的宿舍楼</sub></td>
-</tr>
-</table>
-
-## ✨ 再看几张
+<p align="center"><a href="https://izhengjy.github.io/xmum-campus/"><img src="docs/screenshots/v26/hero-campus-dusk.jpg" width="880" alt="傍晚的 A 区台地"></a></p>
 
 <table>
 <tr>
-<td align="center"><img src="docs/screenshots/v26/rain-drift.jpg" width="200" alt="雨夜漂移"><br><sub>雨夜漂移</sub></td>
-<td align="center"><img src="docs/screenshots/v26/fireworks.jpg" width="200" alt="音乐厅放烟花"><br><sub>音乐厅放烟花</sub></td>
-<td align="center"><img src="docs/screenshots/v26/bell-night.jpg" width="200" alt="Bell 夜街"><br><sub>Bell 夜街</sub></td>
-<td align="center"><img src="docs/screenshots/v26/friends-car.jpg" width="200" alt="和同学一起玩"><br><sub>和同学一起玩</sub></td>
+<td align="center"><img src="docs/screenshots/v26/gate-sunset.jpg" width="260" alt="校门口，远处是 A3"><br><sub>校门口，远处是 A3</sub></td>
+<td align="center"><img src="docs/screenshots/v26/naiwa-blue-hour.jpg" width="260" alt="蓝调时刻的主楼"><br><sub>蓝调时刻的主楼</sub></td>
+<td align="center"><img src="docs/screenshots/v26/lake-sunset.jpg" width="260" alt="和学长看晚霞"><br><sub>和学长看晚霞</sub></td>
 </tr>
 </table>
+
+<p align="center"><img src="docs/screenshots/v26/naiwa-air.jpg" width="880" alt="奶娃航空飞过宿舍楼"><br><sub>奶娃航空飞过宿舍楼</sub></p>
 
 ## 🎮 能玩什么
 
-| | |
-|---|---|
-| ![五星警戒，巡逻车贴着车尾追](docs/screenshots/drive.jpg) | ![兰博鸡尼飞过芙蓉湖](docs/screenshots/jump.jpg) |
-| **五星警戒**：巡逻车贴到车尾，前面还在设路障 | **特技跳台**：182 km/h 飞过芙蓉湖 |
-| ![黑洞吞掉国际学术交流中心](docs/screenshots/hole.jpg) | ![竞速中撞车，奶娃被甩飞](docs/screenshots/race.jpg) |
-| **黑洞 2.0**：一口吞掉一栋楼 | **竞速**：撞上栏杆，奶娃飞了出去 |
-| ![教学楼潜入](docs/screenshots/heist-corridor.jpg) | ![宿管阿姨喊站住](docs/screenshots/dorm-2-chase.jpg) |
-| **教学楼潜入**：躲开保安，偷期末卷 | **宿舍撤离**：宿管阿姨在走廊那头喊「站住！」 |
-| ![大胃王争霸赛](docs/screenshots/bigeat-desktop.jpg) | ![豪车展台](docs/screenshots/carpet.jpg) |
-| **大胃王争霸赛**：和夜市老板比吃炒粿条 | **豪车展台**：全服总资产前七站上红毯 |
+<table>
+<tr>
+<td align="center"><img src="docs/screenshots/v26/rain-drift.jpg" width="260" alt="雨夜漂移"><br><sub>雨夜漂移</sub></td>
+<td align="center"><img src="docs/screenshots/v26/hole.jpg" width="260" alt="黑洞吞掉校园"><br><sub>黑洞吞掉校园</sub></td>
+<td align="center"><img src="docs/screenshots/v26/bell-night.jpg" width="260" alt="Bell 街夜赛"><br><sub>Bell 街夜赛</sub></td>
+</tr>
+</table>
+
+<table>
+<tr>
+<td align="center"><img src="docs/screenshots/v26/ioi-city-mall.jpg" width="420" alt="IOI City Mall"><br><sub>校外 · IOI City Mall</sub></td>
+<td align="center"><img src="docs/screenshots/v26/kip-mall.jpg" width="420" alt="KIP Mall"><br><sub>校外 · KIP Mall</sub></td>
+</tr>
+</table>
 
 - 🗺️ **按实景还原的校园**：A 区台地、芙蓉湖、图书馆、音乐厅、宿舍、Bell 商业街、IOI City Mall……时间会走，有雷阵雨和烟霾。
 - 📖 **大一主线**：8 章剧情加尾声，通关生成你的「我的大一」回顾卡。
