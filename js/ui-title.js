@@ -143,6 +143,7 @@ function uiDedupe(rows){
 function uiRows(list, rows, B){
   list.textContent = '';
   rows = Array.isArray(rows) ? rows : [];
+  if (window.XNet && XNet.hiddenName) rows = rows.filter(r => !(r && XNet.hiddenName(uiClean(r.name))));   /* old copy accounts, also on the mirrored snapshot (js/net.js HIDE) */
   if (B && B.dedupe) rows = uiDedupe(rows);
   if (!rows.length){ list.append(uiEl('li', 'lb-wait', '还没人上榜，去当第一个')); }
   rows.forEach((r, i) => {
