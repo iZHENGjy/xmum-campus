@@ -166,24 +166,81 @@
   /* the pages shown: a page can have hide() (the sticky notes while there are no side jobs, js/89-quest-ui.js); worked out again at each build */
   const shown = p => !p.hide || !g(() => p.hide(), false);
   const ROWS = () => ALL.filter(p => p.row && shown(p));
-  /* the rows all live on one page, 「我想……」, where the first row would have been; last:true (设置) stays at the end */
+  /* the rows all live on one page, 「我想……」, where the first row would have been; last:true (设置) stays at the end.
+     仓库主人 picked the tile look (B): the rows are icon tiles in four groups; a tap shows a one-or-two-line answer with a button
+     that does it (「📍 带我去……」 points the compass, 「打开车行」 opens it…), and the long answer folds under 「详细」. */
   let openRow = '';
-  const WANT = {id:'want', t:'我想……', body:() => `<p class="gd-hint gd-wlead">点一行看怎么做</p><div class="gd-qs">` + ROWS().map(p =>
-      `<details class="gd-q" data-id="${p.id}"${p.id === openRow ? ' open' : ''}><summary><i aria-hidden="true">${p.ic || '•'}</i><span>${esc(p.q || p.t)}</span></summary><div class="gd-a">${p.body()}</div></details>`).join('') + '</div>',
-    mount:sec => sec.querySelectorAll('.gd-q').forEach(d => d.addEventListener('toggle', () => {
-      if (!d.open){ if (openRow === d.dataset.id) openRow = ''; return; }
-      openRow = d.dataset.id; sec.querySelectorAll('.gd-q[open]').forEach(o => { if (o !== d) o.open = false; });   /* one answer open at a time */
-      requestAnimationFrame(() => g(() => rowTo(d.dataset.id, true)));
-    }))};
+  const WANT = {id:'want', t:'我想……', body:wantBody, mount:wantMount};
   const vis = () => {
     const v = [], rows = ROWS().length; let put = false;
     for (const p of ALL){ if (p.row){ if (rows && !put){ v.push(WANT); put = true; } continue; } if (shown(p)) v.push(p); }
     return v.filter(p => !p.last).concat(v.filter(p => p.last));
   };
   const isRow = id => ROWS().some(p => p.id === id);
-  /* scroll the 「我想……」 page (only that page, never the sliding track) so a row's question sits at the top */
+  /* 「📍 带我去」: the compass points at a place until you get there (14 m), 4 minutes pass, or a delivery / race wants the arrow.
+     gx.target is wrapped on first use, when every file has put its own target in, so this one is asked first. */
+  let way = null, wayHooked = false;
+  function goTo(at, label){
+    if (!at) return;
+    if (!wayHooked){
+      wayHooked = true; const base = gx.target;
+      gx.target = function(){
+        if (way && !g(() => mission.on, false) && !g(() => gx.busy(), false)){
+          const p = g(() => driving || nw, null);
+          if (Date.now() > way.until || (p && Math.hypot(way.x - p.x, way.z - p.z) < 14)) way = null;
+          else return {x:way.x, z:way.z, label:way.label};
+        }
+        return base.apply(this, arguments);
+      };
+    }
+    const p = g(() => driving || nw, null);
+    if (p && Math.hypot(at[0] - p.x, at[1] - p.z) < 20){ way = null; closeGuide(); g(() => toast('就在你旁边', label.replace('📍 ', '') + ' 就在这儿', 2200)); return; }
+    way = {x:at[0], z:at[1], label, until:Date.now() + 240000};
+    closeGuide(); g(() => toast('指南针指过去了', label, 2200));
+  }
+  const here = () => g(() => driving || nw, {x:0, z:0});
+  const nearPick = () => { const p = here(), c1 = g(() => XQuest.ch1Deliv(), false); let best = null, bd = 1e9;
+    for (const k of g(() => PICKUPS, [])){ if (!k || (c1 && k.out)) continue; const d = Math.hypot(k.x - p.x, k.z - p.z); if (d < bd){ bd = d; best = k; } }
+    return best ? [best.x, best.z] : null; };
+  const BROW = {
+    hello:{g:'刚来', b:'开车、送外卖、比赛、潜入，挣钱买车买房，冲总资产榜。', a:['📖 看主线', () => XGuide.show('diary')]},
+    map:{g:'刚来', b:`${K('按 M', '点右上角小地图')}打开大地图，⭐ 是主线，金圈是指南针指的地方。`, a:['🗺️ 打开大地图', () => { closeGuide(); openMap(); }]},
+    keys:{g:'刚来', b:K('WASD 走 / 开，空格跳 / 漂移，F 上车下车。', '左下摇杆走 / 开，右下按钮上车、跳、漂移。')},
+    earn:{g:'赚钱', b:'最快的是送外卖：食堂门口的橙色光圈接单。', a:['📍 带我去最近的取餐点', () => goTo(nearPick(), '📍 最近的取餐点')]},
+    jumps:{g:'赚钱', b:'全图藏着 20 个跳台，开车经过才升起来，快速正对着冲。'},
+    rich:{g:'赚钱', b:'总资产 = 现金 + 买过的东西。被保安抓到才会少。', a:['🏆 看排行榜', () => { closeGuide(); g(() => XUI.openLeaderboard('rich')); }]},
+    tune:{g:'车和房', b:'车行买车 → 改装车间。要钱，还要玩出来的改装道具。', a:['🚗 打开车行', () => { closeGuide(); g(() => openShop()); }]},
+    parts:{g:'车和房', b:'车间顶上的零件栏点一下，就写着去哪儿拿。', a:['🔧 打开改装车间', () => { closeGuide(); g(() => XTune.open()); }]},
+    house:{g:'车和房', b:'南门外排屋挂「出售」的四户，RM 7,400 起。', a:['📍 带我去看房', () => goTo(g(() => { const h = XHouse.houses.find(x => x.id === 'h8') || XHouse.houses[0]; return [h.door.x, h.door.z]; }, [117.2, 415.1]), '📍 出售的排屋')]},
+    cops:{g:'遇到事', b:'开自己的车冲进喷漆车间，警戒清零。没车就跑远、躲进楼里。', a:['📍 带我去喷漆车间', () => goTo(g(() => [XSPRAY.door.x, XSPRAY.door.z], [115, 316]), '📍 喷漆车间')]},
+    save:{g:'遇到事', b:'标题页点「用 Google 登录」。微信里先「在浏览器打开」。'},
+    radio:{g:'遇到事', b:'上车后点电台小条：选台、切歌、关掉。'}
+  };
+  const GROUPS = ['刚来', '赚钱', '车和房', '遇到事', '其他'];
+  function wantBody(){
+    const groups = GROUPS.map(n => ({n, r:ROWS().filter(p => ((BROW[p.id] || {}).g || '其他') === n)})).filter(G => G.r.length);
+    return `<div class="gb-wrap"><div class="gb-grps">` + groups.map(G => `<div class="gb-grp"><h5 class="gb-g">${esc(G.n)}</h5><div class="gb-tiles">` + G.r.map(p => `<button type="button" class="gb-t${p.id === openRow ? ' on' : ''}" data-id="${p.id}"><i aria-hidden="true">${p.ic || '•'}</i><span>${esc(p.q || p.t)}</span></button>`).join('') + '</div></div>').join('') + '</div>'
+      + `<div class="gb-ans" id="gbAns">${answer(openRow)}</div></div>`;
+  }
+  function answer(id){
+    const p = ROWS().find(x => x.id === id), b = BROW[id];
+    if (!p) return '<p class="gd-hint">点上面一个看看怎么做</p>';
+    return `<b class="gb-q">${p.ic || ''} ${esc(p.q || p.t)}</b>` + (b ? `<p class="gb-b">${b.b}</p>` : '') + (b && b.a ? `<button type="button" class="btn primary gb-go">${b.a[0]}</button>` : '')
+      + `<details class="gb-more"${b ? '' : ' open'}><summary>详细</summary><div class="gd-a">${p.body()}</div></details>`;   /* a row from another file with no short answer: open */
+  }
+  function wantMount(sec){
+    const ans = sec.querySelector('#gbAns'); if (!ans) return;
+    const wire = () => { const b = ans.querySelector('.gb-go'); if (b) b.addEventListener('click', () => { const r = BROW[openRow]; if (r && r.a) g(r.a[1]); }); };
+    sec.querySelectorAll('.gb-t').forEach(t => t.addEventListener('click', () => {
+      openRow = t.dataset.id; sec.querySelectorAll('.gb-t').forEach(x => x.classList.toggle('on', x === t));
+      ans.innerHTML = answer(openRow); wire();
+      requestAnimationFrame(() => g(() => rowTo(openRow, true)));
+    }));
+    wire();
+  }
+  /* scroll the 「我想……」 page (only that page, never the sliding track) so the answer sits at the top */
   function rowTo(id, smooth){
-    const d = track.querySelector(`.gd-q[data-id="${id}"]`), sec = d && d.closest('.gd-page'); if (!sec) return;
+    const d = track.querySelector('#gbAns'), sec = d && d.closest('.gd-page'); if (!sec) return;
     const y = sec.scrollTop + d.getBoundingClientRect().top - sec.getBoundingClientRect().top - 6;
     if (smooth && !REDUCED && sec.scrollTo) sec.scrollTo({top:y, behavior:'smooth'}); else sec.scrollTop = y;
   }
