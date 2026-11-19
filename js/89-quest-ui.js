@@ -7,7 +7,7 @@
  *   操作提示：电脑在屏幕下方写按键；手机不写按键，对应的按钮闪一圈黄边。做完就消失。
  *   对话框：屏幕下方，左边头像，右边名字和一句话；空格 / 回车 / F / 点一下翻下一句，Esc 或「跳过」直接跳完。对话时游戏不暂停，奶娃站住。
  *   手机通知：右上角，图标 + 名字 + 一句话，3 秒收起；过场、对话、比赛、被保安追的时候先攒着。
- *   日记页底下的开关「不显示操作提示」：只收起屏幕下方那条按键提示，任务条和指南针照常显示。 */
+ *   指南最后一页「设置」里的开关「不显示操作提示」：只收起屏幕下方那条按键提示，任务条和指南针照常显示。 */
 'use strict';
 (() => {
   const XQ = window.XQuest; if (!XQ) return;
@@ -94,10 +94,10 @@
   const bar = el('button', 'mission q-bar'); bar.type = 'button'; bar.id = 'qbar'; bar.hidden = true;
   /* 收起主线: a small × right of the bar. The bar, the hints, the compass target, the ground ring and the map star go away until
      the diary's switch brings them back (仓库主人：「剧情模式不要把玩家自己的探索限制太死」) */
-  const barX = el('button', 'q-barx'); barX.type = 'button'; barX.hidden = true; barX.textContent = '×'; barX.title = '收起主线（日记里可以再打开）'; barX.setAttribute('aria-label', '收起主线');
+  const barX = el('button', 'q-barx'); barX.type = 'button'; barX.hidden = true; barX.textContent = '×'; barX.title = '收起主线（指南最后一页「设置」里可以再打开）'; barX.setAttribute('aria-label', '收起主线');
   { const m = document.getElementById('mission'); if (m){ m.after(bar); bar.after(barX); } }
   barX.addEventListener('click', e => { e.stopPropagation(); g(() => ac()); S().hideQ = true; XQ.save(); barSync(); hintSync(true);
-    g(() => toast('主线收起了', TOUCH ? '想再看：暂停 → 指南 → 日记，打开「显示主线」' : '想再看：按 P 打开日记，打开「显示主线」', 3200)); });
+    g(() => toast('主线收起了', TOUCH ? '想再看：暂停 → 指南 → 最后一页「设置」，打开「显示主线」' : '想再看：按 P 翻到最后一页「设置」，打开「显示主线」', 3200)); });
   bar.addEventListener('click', () => { g(() => ac()); view = null; g(() => XGuide.open('diary')); });
   function barSync(){
     const c = XQ.chapter(), st = XQ.step();
@@ -239,11 +239,6 @@
     return rain ? '🌧 下雨' : t === 'night' ? '🌙 夜晚' : t === 'dusk' ? '🌇 黄昏' : '☀️ 晴';
   };
   var view = null;   /* which chapter page the diary shows; null = the current one */
-  const diaryArt = `<svg viewBox="0 0 240 120" aria-hidden="true"><rect x="40" y="10" width="160" height="104" rx="6" fill="var(--card-bg)" stroke="var(--ink)" stroke-width="2"/><path d="M120 12 V112" stroke="var(--line)" stroke-width="2"/>
-    <path d="M54 34 H108 M54 48 H104 M54 62 H110 M54 76 H96" stroke="var(--muted)" stroke-width="3" stroke-linecap="round" opacity=".55"/>
-    <rect x="132" y="26" width="54" height="30" rx="6" fill="#3f8fe6" opacity=".9"/><rect x="138" y="62" width="48" height="24" rx="6" fill="#e8708a" opacity=".9"/><path d="M140 36 H178 M140 44 H168 M144 72 H178" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
-    <ellipse cx="66" cy="100" rx="13" ry="12" fill="#f2c64a" stroke="var(--ink)" stroke-width="1.5"/><circle cx="61" cy="96" r="2" fill="var(--ink)"/><circle cx="71" cy="96" r="2" fill="var(--ink)"/><path d="M62 103 Q66 106 70 103" stroke="var(--ink)" stroke-width="1.4" fill="none"/>
-    <path d="M196 8 l6 10 -4 2 z" fill="var(--tile)"/></svg>`;
   function lineOf(e){
     let t = e.x || D.diary[e.s] || ''; if (e.v) t = t.replace(/\{(\w+)\}/g, (_, k) => e.v[k] != null ? e.v[k] : '');
     return t;
@@ -255,63 +250,84 @@
     view = n;
     const c = CH.find(x => x.n === n), entries = st.diary.filter(e => (e.c | 0) === n);
     const firstDay = entries.length ? entries[0].d : XQ.dayNo(), isCur = c && n === curN && st.ph !== 'done';
-    const head = n === 0 ? `<span>开学前一天 · ✈️ 飞往吉隆坡</span><b>开场 · 飞往吉隆坡</b>`
-      : `<span>开学第 ${isCur ? XQ.dayNo() : firstDay} 天 · ${isCur ? WEATHER() : '—'}</span><b>第 ${n} 章 · ${esc(c.title)}</b>`;
+    /* x/y counts what must be done: the steps that are not optional, and the hand-in at the end */
+    const must = c ? c.steps.filter(s => !s.opt).map(s => s.id).concat([c.id + '_report']) : [];
+    const head = n === 0 ? `<span>奶娃日记 · 开学前一天 · ✈️</span><b>开场 · 飞往吉隆坡</b>`
+      : `<span>奶娃日记 · 开学第 ${isCur ? XQ.dayNo() : firstDay} 天 · ${isCur ? WEATHER() : '—'}</span><b>第 ${n} 章 · ${esc(c.title)}</b>`;
     let h = `<div class="q-dh">${head}<div class="q-dnav"><button type="button" class="q-dprev" ${pages.indexOf(n) <= 0 ? 'disabled' : ''} aria-label="上一页日记">‹</button><button type="button" class="q-dnext" ${pages.indexOf(n) >= pages.length - 1 ? 'disabled' : ''} aria-label="下一页日记">›</button></div></div>`;
-    h += '<div class="q-dcols"><div class="q-dleft">';
-    /* the writing */
-    const lines = entries.map(e => `<p class="q-dl${e.r ? ' q-recap' : ''}">${esc(lineOf(e))}${e.r ? '<i>补记</i>' : ''}</p>`).join('');
-    h += `<div class="q-dtext">${lines || `<p class="q-dl q-dim">${n === 0 ? '（还没写）' : isCur && st.ph === 'meet' ? '（还没开始。先去找' + esc((D.npcs[c.npc] || {}).name || '') + '。）' : '（这一页还空着。）'}</p>`}</div>`;
+    /* progress: one bar per thing that must be done (gold = done, red = now), then x/y */
+    if (c && isCur && st.ph !== 'meet'){ const nowId = g(() => XQ.step().id, ''); h += `<div class="q-dotsB" aria-label="${must.filter(id => XQ.stepDone(id)).length}/${must.length}">` + must.map(id => `<i class="${XQ.stepDone(id) ? 'on' : id === nowId ? 'cur' : ''}"></i>`).join('') + `<span>${must.filter(id => XQ.stepDone(id)).length}/${must.length}</span></div>`; }
+    /* the writing: a sticky note under the step to do now. The chapter being played shows its latest line, the earlier ones fold away; a finished chapter reads in full */
+    const dl = e => `<p class="q-dl${e.r ? ' q-recap' : ''}">${esc(lineOf(e))}${e.r ? '<i>补记</i>' : ''}</p>`;
+    const cut = isCur && entries.length > 1 ? entries.length - 1 : 0;
+    const lines = (cut ? `<details class="q-older"><summary>前面还写了 ${cut} 句</summary>${entries.slice(0, cut).map(dl).join('')}</details>` : '') + entries.slice(cut).map(dl).join('');
+    const wr = `<div class="q-dtext q-noteB">${lines || `<p class="q-dl q-dim">${n === 0 ? '（还没写）' : isCur && st.ph === 'meet' ? '（还没开始。先去找' + esc((D.npcs[c.npc] || {}).name || '') + '。）' : '（这一页还空着。）'}</p>`}</div>`;
     if (n === 0) h += `<button type="button" class="btn q-replay">▶ 重看开场</button>`;
     else if (XQ.chFinished(c)) h += `<button type="button" class="btn q-replay" data-ch="${n}">▶ 重温这一章${c.endCine || c.replayCine ? '（含动画）' : ''}</button>`;
     if (c && c.n === XQ.chapters.length && S().flags.y1end && window.XYear) h += ` <button type="button" class="btn q-y1">🎓 我的大一</button>`;
-    /* today's list */
+    /* today's list: only the step to do now is open; the rest of the chapter folds into one line (仓库主人：「指南手册……太多东西了」) */
     if (c){
       const all = c.steps.concat([{id:c.id + '_report', text:c.report || '回去找' + ((D.npcs[c.npc] || {}).name || ''), report:true}]);
       const now = XQ.step(), meet = isCur && st.ph === 'meet';
-      h += `<h4 class="q-dh4">${isCur ? '今天要做的事' : '那时候做的事'}</h4><ul class="q-todo">`;
-      if (meet) h += `<li class="q-now"><span class="q-box">☐</span><div><b>去找${esc((D.npcs[c.npc] || {}).name || '')}</b><small>在${esc(c.place || '')}。指南针会带你去，${TOUCH ? '走近了点「说话」' : '走近了按 F 说话'}。</small></div></li>`;
-      for (const s of all){
-        const done = XQ.stepDone(s.id), cur = isCur && !meet && now && now.id === s.id;
-        const cnt = s.count && cur ? g(() => s.count(XQ.Q), null) : null;
-        const why = isCur && !done ? XQ.waitWhy(s) : '';
-        h += `<li class="${done ? 'q-done' : cur ? 'q-now' : 'q-later'}"><span class="q-box">${done ? '☑' : '☐'}</span><div><b>${esc(s.text)}${s.opt && !done ? ' <em class="q-opt">可选</em>' : ''}${cnt ? ` <em>${cnt[0]}/${cnt[1]}</em>` : ''}${s.rm && !done ? ` <em class="q-rm">RM ${s.rm}</em>` : ''}</b>`;
-        if (why) h += `<small class="q-how">${esc(why)}</small>`;
-        else if (s.opt && !done && !cur && s.hint) h += `<small>${hintText(s.hint)}</small>`;
+      const item = (s, cur) => {
+        const done = XQ.stepDone(s.id), cnt = s.count && cur ? g(() => s.count(XQ.Q), null) : null, why = isCur && !done ? XQ.waitWhy(s) : '';
+        let li = `<li class="${done ? 'q-done' : cur ? 'q-now' : 'q-later'}"><span class="q-box">${done ? '☑' : '☐'}</span><div><b>${esc(s.text)}${s.opt && !done ? ' <em class="q-opt">可选</em>' : ''}${cnt ? ` <em>${cnt[0]}/${cnt[1]}</em>` : ''}${s.rm && !done ? ` <em class="q-rm">RM ${s.rm}</em>` : ''}</b>`;
+        if (why) li += `<small class="q-how">${esc(why)}</small>`;
         if (cur){
-          const ht = hintText(s.hint);
-          if (ht) h += `<small class="q-how">${ht}</small>`;
-          if (s.tip) h += `<small>${esc(s.tip)}</small>`;
+          const ht = hintText(s.hint); if (ht && !why) li += `<small class="q-how">${ht}</small>`;
+          if (stepAt(s)) li += `<button type="button" class="q-goB">📍 带我去</button>`;   /* the compass already points there: this just closes the guide */
           const gp = s.guide || (c.guide || [])[0];
-          if (gp && g(() => XGuide.pages.includes(gp), false)) h += `<button type="button" class="q-more" data-g="${esc(gp)}">看说明 ›</button>`;
+          if (gp && g(() => XGuide.has ? XGuide.has(gp) : XGuide.pages.includes(gp), false)) li += `<button type="button" class="q-more" data-g="${esc(gp)}">看说明 ›</button>`;
         }
-        h += '</div></li>';
+        return li + '</div></li>';
+      };
+      let nowStep = null, rest = all;
+      if (isCur && !meet && now){ nowStep = all.find(s => s.id === now.id) || null; if (nowStep) rest = all.filter(s => s !== nowStep); }
+      if (isCur){
+        h += '<ul class="q-todo q-todoB">';
+        if (meet) h += `<li class="q-now"><span class="q-box">☐</span><div><b>去找${esc((D.npcs[c.npc] || {}).name || '')}</b><small class="q-how">在${esc(c.place || '')}，跟着指南针走，${TOUCH ? '走近了点「说话」' : '走近了按 F 说话'}</small><button type="button" class="q-goB">📍 带我去</button></div></li>`;
+        else if (nowStep) h += item(nowStep, true);
+        else if (now) h += item(now, true);   /* a step outside the chapter list (坐上你的 Myvi, the year end) */
+        h += '</ul>';
       }
-      h += '</ul>';
+      h += wr;
+      if (rest.length){
+        const open = rest.filter(s => !XQ.stepDone(s.id)), left = open.filter(s => !s.opt).length, opt = open.length - left, got = rest.length - open.length;
+        const sum = isCur ? (left ? `后面还有 ${left} 件` : '后面没有了') + (opt ? ` · ${opt} 件可选` : '') + (got ? ` · 做完 ${got} 件` : '') : `那时候做的 ${rest.length} 件事`;
+        h += `<details class="q-rest"><summary>${sum}</summary><ul class="q-todo">${rest.map(s => item(s, false)).join('')}</ul></details>`;
+      }
       if (c.reward && !XQ.stepDone(c.id + '_report')) h += `<p class="q-drew">本章奖励：${esc(c.reward.note || [c.reward.rm ? 'RM ' + c.reward.rm : '', c.reward.title ? '称号「' + c.reward.title + '」' : ''].filter(Boolean).join(' + '))}</p>`;
     }
-    h += '</div>';
-    /* the phone messages stuck on the right */
-    const ms = st.msgs.filter(e => (e.c | 0) === n || (n === 0 && !e.c)).slice(-3);
-    h += `<aside class="q-dphone"><span class="q-dph">手机</span>${ms.length ? ms.map(e => { const m = D.msgs[e.m]; if (!m) return ''; const p = person(m.from); return `<div class="q-msg"><i class="q-av" style="background:${p.color || '#888'}">${esc(p.icon)}</i><div><b>${esc(p.name)}</b><span>${esc(m.text)}</span></div></div>`; }).join('') : '<p class="q-dim">还没有消息</p>'}</aside>`;
-    h += '</div>';
-    h += `<label class="q-quiet q-show"><input type="checkbox" ${st.hideQ ? '' : 'checked'}> 显示主线（任务条、指南针、地上的光圈）。想自己逛就关掉</label>`;
+    if (!c) h += wr;
+    /* the phone: just the latest message of this page, one line (the full list stays in the phone pop-ups as they come) */
+    { const ms = st.msgs.filter(e => (e.c | 0) === n || (n === 0 && !e.c)), e = ms[ms.length - 1], m = e && D.msgs[e.m];
+      if (m){ const p = person(m.from); h += `<p class="q-dmsg"><i class="q-av" style="background:${p.color || '#888'}">${esc(p.icon)}</i><b>${esc(p.name)}</b><span>${esc(m.text)}</span></p>`; } }
+    return h;
+  }
+  /* the three switches that used to sit under the diary: a page of their own at the end of the guide */
+  function setBody(){
+    const st = S();
+    let h = `<label class="q-quiet q-show"><input type="checkbox" ${st.hideQ ? '' : 'checked'}> 显示主线（任务条、指南针、地上的光圈）。想自己逛就关掉</label>`;
     h += `<label class="q-quiet"><input type="checkbox" ${st.quiet ? 'checked' : ''}> 不显示操作提示（任务条和指南针照常显示）</label>`;
     if (window.XVoice) h += `<label class="q-quiet q-voice"><input type="checkbox" ${XVoice.on ? 'checked' : ''}> 说话时「叽叽咕咕」的声音</label>`;
     return h;
   }
+  function setMount(sec){
+    const q = s => sec.querySelector(s);
+    { const v = q('.q-voice input'); if (v) v.addEventListener('change', () => g(() => XVoice.set(v.checked))); }
+    const cb = q('.q-quiet:not(.q-show):not(.q-voice) input'); if (cb) cb.addEventListener('change', () => { S().quiet = cb.checked; XQ.save(); barSync(); hintSync(true); });
+    const sh = q('.q-show input'); if (sh) sh.addEventListener('change', () => { S().hideQ = !sh.checked; XQ.save(); barSync(); hintSync(true); });
+  }
   function diaryMount(sec){
     const q = s => sec.querySelector(s);
+    sec.querySelectorAll('.q-goB').forEach(b => b.addEventListener('click', () => g(() => XGuide.close())));   /* the compass already points there */
     const flip = d => { const st = S(), curN = Math.min(st.ch, XQ.chapters.length), pages = [0].concat(XQ.chapters.filter(c => c.n <= curN).map(c => c.n)); view = pages[Math.max(0, Math.min(pages.length - 1, pages.indexOf(view) + d))]; XGuide.refresh(); };
     const p = q('.q-dprev'), n = q('.q-dnext');
     if (p) p.addEventListener('click', () => flip(-1));
     if (n) n.addEventListener('click', () => flip(1));
     { const y = q('.q-y1'); if (y) y.addEventListener('click', () => { XGuide.close(); setTimeout(() => g(() => XYear.card()), 80); }); }
     const r = q('.q-replay'); if (r) r.addEventListener('click', () => { const ch = +r.dataset.ch || 0; XGuide.close(); setTimeout(() => ch ? XQ.replay(ch) : XQ.playIntro(true), 80); });
-    sec.querySelectorAll('.q-more').forEach(b => b.addEventListener('click', () => XGuide.open ? (() => { const id = b.dataset.g, i = XGuide.pages.indexOf(id); if (i >= 0) XGuide.go(i); })() : 0));
-    { const v = q('.q-voice input'); if (v) v.addEventListener('change', () => g(() => XVoice.set(v.checked))); }
-    const cb = q('.q-quiet:not(.q-show):not(.q-voice) input'); if (cb) cb.addEventListener('change', () => { S().quiet = cb.checked; XQ.save(); barSync(); hintSync(true); });
-    const sh = q('.q-show input'); if (sh) sh.addEventListener('change', () => { S().hideQ = !sh.checked; XQ.save(); barSync(); hintSync(true); });
+    sec.querySelectorAll('.q-more').forEach(b => b.addEventListener('click', () => { const id = b.dataset.g; if (XGuide.show) return XGuide.show(id); const i = XGuide.pages.indexOf(id); if (i >= 0) XGuide.go(i); }));
   }
   /* the sticky notes: side jobs, grouped by who gave them */
   function notesBody(){
@@ -330,8 +346,10 @@
   const notesArt = `<svg viewBox="0 0 240 120" aria-hidden="true"><g transform="rotate(-4 70 60)"><rect x="34" y="20" width="72" height="72" fill="#ffd24a"/><path d="M44 40 H96 M44 54 H90 M44 68 H94" stroke="#7a5a10" stroke-width="3" stroke-linecap="round" opacity=".6"/></g>
     <g transform="rotate(5 160 56)"><rect x="124" y="16" width="72" height="72" fill="#9fe0a8"/><path d="M134 36 H186 M134 50 H176 M134 64 H182" stroke="#2c6a36" stroke-width="3" stroke-linecap="round" opacity=".6"/></g><circle cx="70" cy="22" r="5" fill="var(--tile)"/><circle cx="160" cy="18" r="5" fill="#3f8fe6"/></svg>`;
   if (window.XGuide && XGuide.addPage){
-    XGuide.addPage({id:'diary', t:'奶娃日记', art:diaryArt, home:true, body:diaryBody, mount:diaryMount}, 0);
-    XGuide.addPage({id:'notes', t:'便利贴 · 支线', art:notesArt, body:notesBody}, 1);
+    XGuide.addPage({id:'diary', t:'奶娃日记', home:true, body:diaryBody, mount:diaryMount}, 0);   /* no picture: the page is for reading what to do now */
+    /* the sticky notes only once someone has given you a side job */
+    XGuide.addPage({id:'notes', t:'便利贴 · 支线', art:notesArt, body:notesBody, hide:() => !Object.keys(D.npcs).some(id => XQ.sidesOf(id).length)}, 1);
+    XGuide.addPage({id:'qset', t:'设置', body:setBody, mount:setMount, last:true});
   }
 
   /* ================= every frame (from gx.frame in js/89-quest.js) ================= */

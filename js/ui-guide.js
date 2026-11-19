@@ -97,74 +97,49 @@
     return '<h4>改装道具 · 不能用钱买</h4><div class="gd-parts">' + P.map(p => `<div class="gd-part"><i style="background:${p.color}">${esc(p.ch)}</i><div><b>${esc(p.name)}</b><em style="color:${(R[p.rar] || {}).c || 'inherit'}">${esc((R[p.rar] || {}).name || '')}</em><span>${esc(p.from)}</span></div></div>`).join('') + '</div>'
       + (B.length ? '<h4>改装配方 · 拿到一次永久解锁，重复的换成改装图纸</h4><div class="gd-parts">' + B.map(b => `<div class="gd-part"><i class="bp">${esc(b.ch)}</i><div><b>${esc(b.name)}</b><em>解锁 ${esc(b.for)}</em><span>${esc(b.from)}</span></div></div>`).join('') + '</div>' : '');
   }
-  const PAGES = [
-    {id:'hello', t:'欢迎来到 XMUM 校园', art:'hello', body:() => `
-      <p class="gd-lead">这是一座照平面图搭出来的雪邦校园。主玩法是<b>「开车 · 奶娃」</b>：你是奶娃，在校园里走路、开车、到处找事做。</p>
-      ${li(['做各种事攒 <b>RM</b> 和<b>改装道具</b>：送外卖、挑战赛、校门外打工、抓小偷、宿舍撤离、教学楼潜入、B1 游戏厅小游戏……',
-        '钱拿去买车、改装、升级水枪、买衣服和喷漆，攒够了去校门外<b>买房装修</b>，<b>总资产</b>（钱加上买过的东西）越滚越大。',
-        '冲<b>「总资产」排行榜</b>：全服前七名还会站上陈华春音乐厅门前的展台。',
-        '不知道下一步干嘛？就去右上角小地图上的<b>橙色点</b>接一单外卖。'])}
-      <p class="gd-hint">${K('← → 翻页 · P 或 Esc 关', '左右滑动翻页')}</p>`},
-    {id:'earn', t:'赚钱的门路', art:'earn', body:() => `
+  const ALL = [
+    /* 仓库主人：「指南手册……太多东西了」。The manual is one page, 「我想……」: a question per row, the answer opens on a tap.
+       row:true pages are the rows (q = the question, ic = its icon); the old page ids still work: XGuide.open('cops') opens that row. */
+    {id:'hello', row:true, ic:'🎮', q:'知道这游戏玩什么', t:'知道这游戏玩什么', body:() => `
+      ${li(['你是<b>奶娃</b>，在照平面图搭出来的雪邦校园里走路、开车、到处找事做。',
+        '做事攒 <b>RM</b> 和<b>改装道具</b> → 买车、改装、买房 → <b>总资产</b>越滚越大，冲排行榜。',
+        '不知道干嘛？跟着屏幕上的<b>主线</b>走，或者去小地图上的<b>橙色点</b>接一单外卖。'])}`},
+    {id:'earn', row:true, ic:'💰', q:'赚钱', t:'赚钱', body:() => `
       <dl class="gd-dl">
-        <dt>送外卖</dt><dd>D6 食堂、LY3 食堂、B1 餐厅门口的<b>橙色光圈</b>挑一单${K('（F 或 1 2 3 接，X 跳过，J 关掉接单）', '')}，限时送到绿点。每天有一家「加急」，第一单双倍；校门外还有两个取餐点，出入校门的单按路程加钱。</dd>
-        <dt>挑战赛和竞速</dt><dd>环湖赛、早八冲刺、田径场漂移、飞跃挑战按成绩给奖牌和钱；带格子旗的赛事点开车进圈，选人机赛、道具赛或影线 1v1。</dd>
-        <dt>特技分</dt><dd>漂移、飞跃、撞车连成一串，连击结束换成钱（50 分 = RM 1）。</dd>
-        <dt>校门外</dt><dd>麦当当得来速、蜜雪冰橙打工、KIP 超市大乱斗、山梁拉力；夜晚 Bell 后巷有夜市；傍晚起排屋南边的 Kota Warisan 大夜市开市，榴莲摊有猫山王挑战。正门对面 Bell 西头的 24 小时嘛嘛档 Al-Hajeera：走到空椅子旁按 F 坐下点餐（拉茶、Roti Canai、Maggi Goreng……），门口也是外卖取餐点。地图东北角的 IOI City Mall：SUKI-YA 门口红圈付钱进店，和阿明、卷卷抢一锅火锅：金圈时夹最香，慢了被夹走，看能不能吃回本。</dd>
-        <dt>麦当当配餐</dt><dd>麦当当正门外的黄圈${K('按 F', '点「打工」')}进后厨：看小票从下往上叠汉堡，再配薯条、饮料、玩具，打包交餐。经典、午高峰、得来速三个模式，按分数发工资。</dd>
-        <dt>卡丁车场</dt><dd>汽车游乐园二园（Bell Avenue 东南）：维修区黄圈${K('按 F', '点「租卡丁车」')}免费租一辆，过起点线开始计时，最快一圈上卡丁车排行榜。自己的车也能上去跑。维修区车道上的格子旗是卡丁车比赛：人机赛、道具赛、影线 1v1，跑 3 圈，大家都开一样的卡丁车（开赛自动给你一辆），奖金每天最多 RM 300。</dd>
-        <dt>IOI · SUKI-YA</dt><dd>地图东北角的 IOI City Mall，SUKI-YA 门口红圈${K('按 F', '点「吃火锅」')}：付自助餐钱，和阿明、卷卷抢一锅火锅，吃回本有奖牌和小额返还，辣锅另有一个榜。</dd>
-        <dt>坐小火车</dt><dd>开到 Salak Tinggi ERL 站（地图上的紫色点），站厅门口紫圈${K('按 F', '点「上车」')}坐车，一站到 KLIA 机场：问讯台接「送机赶时间」跑腿单，还有 24 小时的すき家。</dd>
-        <dt>抓小偷</dt><dd>送单时有人抢外卖：追上去用水枪淋或开车撞倒，走到身边${K('按 F', '点「上车」')}拿回来。Bell 路口的通缉榜能直接接悬赏。</dd>
-        <dt>大活</dt><dd>LY 宿舍门口紫圈「宿舍撤离」、A3 门口红圈蓝圈「教学楼潜入」、猴山山顶「猴子大战」、B1 游戏厅的小游戏（得分换钱），掉的改装道具最好。</dd>
-        <dt>成就</dt><dd>解锁就给钱，还送一张改装图纸。暂停面板里能看全部成就。</dd>
+        <dt>送外卖</dt><dd>食堂门口的<b>橙色光圈</b>接单${K('（F 或 1 2 3）', '')}，限时送到绿点；每天一家「加急」，第一单双倍。</dd>
+        <dt>挑战赛</dt><dd>环湖赛、早八冲刺、田径场漂移、飞跃挑战按成绩给钱；格子旗是竞速：人机赛、道具赛、影线 1v1。</dd>
+        <dt>特技</dt><dd>漂移、飞跃、撞车连成一串，连击结束换钱（50 分 = RM 1）。</dd>
+        <dt>打工 · 小游戏</dt><dd>麦当当配餐、蜜雪冰橙、B1 游戏厅、KIP 大乱斗、IOI 火锅、二园卡丁车。</dd>
+        <dt>大活</dt><dd>宿舍撤离、教学楼潜入、猴子大战、抓小偷，掉的改装道具最好。</dd>
+        <dt>校门外</dt><dd>夜市、嘛嘛档；坐 ERL 去 KLIA 接送机单。</dd>
+        <dt>成就</dt><dd>解锁就给钱，还送一张改装图纸。</dd>
       </dl>`},
-    {id:'rich', t:'总资产和排行榜', art:'rich', body:() => `
-      ${li(['<b>总资产</b> = 现金 + 买过的车、改装、水枪升级、衣橱、喷漆、宿舍周边、房子和装修，按原价算；改装道具和配方也有估值。',
-        '所以花钱不会让总资产变少，现金只是换成了同样值钱的东西。<b>被保安抓到</b>才会真的少：罚走身上现金的 30%。',
-        '标题页「排行榜」→「总资产」看全服排名；另外还有黑洞、特技和每个小游戏自己的榜。',
-        '上榜要联网，并在标题页填好<b>昵称</b>：昵称先到先得，注册后只有你能用。'])}`},
-    {id:'cops', t:'被保安通缉了怎么办', art:'cops', body:() => `
-      <p class="gd-lead">撞东西、吓到同学会让<b>保安警戒</b>（右上角的星）升级，巡逻车会追你；五星时还会在前面设路障。</p>
-      <ol class="gd-steps">
-        <li><b>喷漆车间</b>：开着<b>自己的车</b>（车行买的）冲进正门对面 Bell 那排店屋西头的喷漆车间，卷帘门一关就换漆，警戒清零；但要<b>没有保安看着你开进去</b>，被盯着就先甩开视线。每颗星 RM 50；同一间喷完要等 2 分钟。小地图上是<span class="gd-dot" style="--c:#e84d8a"></span>粉色的点，被通缉时会闪。</li>
-        <li><b>跑远</b>：离巡逻车 150 米以上（钻进树林只要 70 米）待一会儿，星一颗颗往下掉；甩掉保安还会掉改装道具。</li>
-        <li><b>躲进室内</b>：教学楼、宿舍里保安抓不了你，巡逻车只能在门口等。</li>
-        <li><b>水枪</b>${K('（E）', '')}：淋湿巡逻车，它会停下来擦玻璃。</li>
-      </ol>
-      <p class="gd-note">被抓到：罚款身上现金的 30%，警戒解除，回到校园里接着玩。</p>`},
-    {id:'tune', t:'改装车', art:'tune', body:() => `
-      ${li([`先在<b>XMUM 车行</b>（${K('按 G，或', '点')}右上角「车行」）买一辆自己的车，最便宜的 Myvi 只要 RM 60。车行里点<b>「改装车间」</b>。`,
-        '改装要钱 + <b>改装道具</b>。道具不能用钱买，只能玩出来；顶级改装还要先拿到<b>配方</b>。',
-        '车间顶上那排<b>零件栏</b>（配 毂 漆 灯 碳 …）：点一个就写着你有几个、<b>去哪儿拿</b>；最左边的「配」是<b>配方页</b>，写着每张配方解锁什么、去哪儿拿。',
-        '点一项改装预览时，缺东西会直接写<b>「缺的去哪儿拿」</b>。',
-        '下单后按真实时间施工（轻改几分钟，顶级要跨天），车照样能开，完工后回车行提车。'])}
-      <p class="gd-hint">下一页是全部道具和配方的来源速查。</p>`},
-    {id:'parts', t:'零件和配方去哪儿拿', art:'parts', body:partsHTML},
-    {id:'house', t:'买房装修', art:'house', body:() => `
-      ${li(['出南门往南走，Bell Avenue 后面那排带车棚的排屋（Taman Warisan Megah）有四户挂着<b>「出售」</b>牌子，小地图上是<span class="gd-dot" style="--c:#38c6d9"></span>青色点。',
-        `走到门口${K('按 F', '点「看房」')}看房：能先进去转一圈，买下要 RM 7,400–9,600（按附近真实成交价 ÷ 50）。买下后门牌写你的昵称，${K('按 F', '点「回家」')}进门。`,
-        `家里${K('按 F', '点「装修」')}：先选风格（学生宿舍风、北欧原木、中式红木、电竞房、奶娃主题），九个位置的家具一件件买，墙面和地板另外换。走到沙发、椅子、床、灶台旁边${K('按 F', '点按钮')}能<b>坐下、躺下、做饭</b>。电竞房有几件要<b>改装道具</b>，奶娃主题要解锁够多<b>成就</b>。`,
-        '房子、家具、墙面地板都按原价算进<b>总资产</b>。开着自己的车到车棚前下车，车自动停进车棚，下次上线还在。第一套房子自动设成<b>出生点</b>，打开游戏就在家门口（装修面板顶上能改）。'])}`},
-    {id:'map', t:'看地图', art:'map', body:() => `
-      ${li([`${K('按 <kbd>M</kbd> 打开大地图', '点右上角的小地图打开大地图')}：拖动平移，${K('滚轮或', '双指或')}「＋ −」缩放，「回到我」重新跟着你。${K('再按 M 或 Esc 关。', '')}`,
-        '大地图上每个地方都是一个<b>图标加名字</b>：🥡 外卖取餐、🚗 车行、🍔 麦当当、🚆 ERL 火车站……缩小时只写大地方的名字，放大看得更全。',
-        K('挤在一起的地方合成一个，右上角写着几个，鼠标停在上面或点一下就列出来。', '挤在一起的地方合成一个，右上角写着几个，点一下就列出来。'),
-        '<b>金色圆环</b>是指南针正在指的地方，⭐ 是主线。左上角「图例 · 筛选」按类别开关：主线、外卖、玩法、吃喝商店、交通、校园和住处。',
-        '屏幕上方的<b>指南针</b>指着现在的目标，旁边写着还有多远。',
-        '在教学楼、宿舍里面，小地图换成那层楼的平面图。小地图上的颜色：'])}
+    {id:'rich', row:true, ic:'🏆', q:'上排行榜', t:'上排行榜', body:() => `
+      ${li(['<b>总资产</b> = 现金 + 买过的东西（车、改装、衣服、房子……按原价算），花钱不会让它变少。被保安抓到会罚走现金的 30%。',
+        '标题页「排行榜」看全服排名，还有黑洞、特技和小游戏的榜。上榜要联网，并在标题页填好<b>昵称</b>（先到先得）。'])}`},
+    {id:'cops', row:true, ic:'🚨', q:'甩掉保安', t:'甩掉保安', body:() => `
+      ${li(['开<b>自己的车</b>冲进正门对面 Bell 西头的<b>喷漆车间</b>（小地图<span class="gd-dot" style="--c:#e84d8a"></span>粉色点），换漆就清零，每颗星 RM 50。别被保安看着开进去。',
+        `或者跑远（离巡逻车 150 米，钻树林 70 米）等星掉光；躲进教学楼、宿舍；用水枪${K('（E）', '')}淋巡逻车让它停下。`,
+        '被抓到：罚现金的 30%，接着玩。'])}`},
+    {id:'tune', row:true, ic:'🔧', q:'把车改快', t:'把车改快', body:() => `
+      ${li([`在 <b>XMUM 车行</b>（${K('按 G，或', '点')}右上角「车行」）买一辆车，点「改装车间」。`,
+        '改装要钱 + <b>改装道具</b>，道具只能玩出来，顶级改装还要<b>配方</b>。车间顶上的零件栏点一下就写着去哪儿拿。',
+        '下单后按真实时间施工，车照样能开，完工回车行提车。'])}`},
+    {id:'parts', row:true, ic:'🧩', q:'找改装零件和配方', t:'找改装零件和配方', body:partsHTML},
+    {id:'house', row:true, ic:'🏠', q:'买房装修', t:'买房装修', body:() => `
+      ${li(['出南门往南，Bell Avenue 后面挂<b>「出售」</b>牌的排屋（小地图<span class="gd-dot" style="--c:#38c6d9"></span>青色点），RM 7,400–9,600。',
+        `进门${K('按 F', '点「装修」')}选风格、一件件买家具；沙发、床、灶台旁边能坐、躺、做饭。都算进总资产，第一套自动设成出生点。`])}`},
+    {id:'map', row:true, ic:'🗺️', q:'找地方', t:'找地方', body:() => `
+      ${li([`${K('按 <kbd>M</kbd>', '点右上角的小地图')}打开大地图：拖动、缩放，「回到我」重新跟着你。`,
+        '<b>金色圆环</b>是指南针正指的地方，⭐ 是主线；左上角「图例 · 筛选」按类别开关。小地图上的颜色：'])}
       <div class="gd-legend">${LEGEND.map(([c, t, sq]) => `<span><i class="${sq ? 'sq' : ''}" style="--c:${c}"></i>${t}</span>`).join('')}</div>`},
-    {id:'radio', t:'换电台', art:'radio', body:() => `
-      ${li(['上车自动开电台。点<b>电台小条</b>（电脑在左下角，手机竖着拿在上方）打开面板：选台（霓虹夜驾、芙蓉湖 Lo-fi、赛道 EDM）、下一首、单曲循环、收藏到这辆车（下次坐进这辆车接着放）、音量。',
-        '面板最下面的 <b>⏻ 关电台 / 开电台</b> 管开关，点任意一个台也会打开。',
-        '<b>外放</b>：自己听免费；打开外放每分钟 RM 0.5，40 米内的玩家都听得到。',
-        '可以勾「竞速和被保安追时自动切到赛道 EDM」。'])}`},
-    {id:'save', t:'存档和登录', art:'save', body:() => `
-      ${li(['进度自动存在这台设备的浏览器里。换手机、清缓存就没了。',
-        '标题页昵称下面点<b>「用 Google 登录」</b>：进度存到云端，换设备登录同一个账号就同步回来；两边进度不一样时，以进度多的一边为准。',
-        '在微信、QQ 里打开的用不了 Google 登录：点右上角「···」→「在浏览器打开」。',
-        '昵称填好就会注册，先到先得；联网时排行榜和展台上显示的都是注册的昵称。'])}`},
-    {id:'keys', t:'按键速查', art:'keys', body:() => TOUCH ? `
+    {id:'radio', row:true, ic:'📻', q:'换电台', t:'换电台', body:() => `
+      ${li(['上车自动开电台。点<b>电台小条</b>打开面板：选台、下一首、收藏到这辆车、关电台。',
+        '<b>外放</b>每分钟 RM 0.5，40 米内的玩家都听得到；自己听免费。'])}`},
+    {id:'save', row:true, ic:'☁️', q:'换手机也不丢进度', t:'换手机也不丢进度', body:() => `
+      ${li(['进度存在这台设备的浏览器里，换手机、清缓存就没了。',
+        '标题页点<b>「用 Google 登录」</b>，进度存到云端；在微信、QQ 里先点右上角「···」→「在浏览器打开」。'])}`},
+    {id:'keys', row:true, ic:'⌨️', q:'看按键', t:'看按键', body:() => TOUCH ? `
       <dl class="gd-dl">
         <dt>左下摇杆</dt><dd>走路、开车、移动黑洞，推到底是跑</dd>
         <dt>右下按钮</dt><dd>上车 / 下车、跳 / 漂移、大笑 / 喇叭、撩头（潜入和宿舍里是蹲下）、水枪（按住拖动瞄准）、电台</dd>
@@ -188,6 +163,88 @@
         <dt>电台</dt><dd>点左下角的电台小条</dd>
       </dl>`}
   ];
+  /* the pages shown: a page can have hide() (the sticky notes while there are no side jobs, js/89-quest-ui.js); worked out again at each build */
+  const shown = p => !p.hide || !g(() => p.hide(), false);
+  const ROWS = () => ALL.filter(p => p.row && shown(p));
+  /* the rows all live on one page, 「我想……」, where the first row would have been; last:true (设置) stays at the end.
+     仓库主人 picked the tile look (B): the rows are icon tiles in four groups; a tap shows a one-or-two-line answer with a button
+     that does it (「📍 带我去……」 points the compass, 「打开车行」 opens it…), and the long answer folds under 「详细」. */
+  let openRow = '';
+  const WANT = {id:'want', t:'我想……', body:wantBody, mount:wantMount};
+  const vis = () => {
+    const v = [], rows = ROWS().length; let put = false;
+    for (const p of ALL){ if (p.row){ if (rows && !put){ v.push(WANT); put = true; } continue; } if (shown(p)) v.push(p); }
+    return v.filter(p => !p.last).concat(v.filter(p => p.last));
+  };
+  const isRow = id => ROWS().some(p => p.id === id);
+  /* 「📍 带我去」: the compass points at a place until you get there (14 m), 4 minutes pass, or a delivery / race wants the arrow.
+     gx.target is wrapped on first use, when every file has put its own target in, so this one is asked first. */
+  let way = null, wayHooked = false;
+  function goTo(at, label){
+    if (!at) return;
+    if (!wayHooked){
+      wayHooked = true; const base = gx.target;
+      gx.target = function(){
+        if (way && !g(() => mission.on, false) && !g(() => gx.busy(), false)){
+          const p = g(() => driving || nw, null);
+          if (Date.now() > way.until || (p && Math.hypot(way.x - p.x, way.z - p.z) < 14)) way = null;
+          else return {x:way.x, z:way.z, label:way.label};
+        }
+        return base.apply(this, arguments);
+      };
+    }
+    const p = g(() => driving || nw, null);
+    if (p && Math.hypot(at[0] - p.x, at[1] - p.z) < 20){ way = null; closeGuide(); g(() => toast('就在你旁边', label.replace('📍 ', '') + ' 就在这儿', 2200)); return; }
+    way = {x:at[0], z:at[1], label, until:Date.now() + 240000};
+    closeGuide(); g(() => toast('指南针指过去了', label, 2200));
+  }
+  const here = () => g(() => driving || nw, {x:0, z:0});
+  const nearPick = () => { const p = here(), c1 = g(() => XQuest.ch1Deliv(), false); let best = null, bd = 1e9;
+    for (const k of g(() => PICKUPS, [])){ if (!k || (c1 && k.out)) continue; const d = Math.hypot(k.x - p.x, k.z - p.z); if (d < bd){ bd = d; best = k; } }
+    return best ? [best.x, best.z] : null; };
+  const BROW = {
+    hello:{g:'刚来', b:'开车、送外卖、比赛、潜入，挣钱买车买房，冲总资产榜。', a:['📖 看主线', () => XGuide.show('diary')]},
+    map:{g:'刚来', b:`${K('按 M', '点右上角小地图')}打开大地图，⭐ 是主线，金圈是指南针指的地方。`, a:['🗺️ 打开大地图', () => { closeGuide(); openMap(); }]},
+    keys:{g:'刚来', b:K('WASD 走 / 开，空格跳 / 漂移，F 上车下车。', '左下摇杆走 / 开，右下按钮上车、跳、漂移。')},
+    earn:{g:'赚钱', b:'最快的是送外卖：食堂门口的橙色光圈接单。', a:['📍 带我去最近的取餐点', () => goTo(nearPick(), '📍 最近的取餐点')]},
+    jumps:{g:'赚钱', b:'全图藏着 20 个跳台，开车经过才升起来，快速正对着冲。'},
+    rich:{g:'赚钱', b:'总资产 = 现金 + 买过的东西。被保安抓到才会少。', a:['🏆 看排行榜', () => { closeGuide(); g(() => XUI.openLeaderboard('rich')); }]},
+    tune:{g:'车和房', b:'车行买车 → 改装车间。要钱，还要玩出来的改装道具。', a:['🚗 打开车行', () => { closeGuide(); g(() => openShop()); }]},
+    parts:{g:'车和房', b:'车间顶上的零件栏点一下，就写着去哪儿拿。', a:['🔧 打开改装车间', () => { closeGuide(); g(() => XTune.open()); }]},
+    house:{g:'车和房', b:'南门外排屋挂「出售」的四户，RM 7,400 起。', a:['📍 带我去看房', () => goTo(g(() => { const h = XHouse.houses.find(x => x.id === 'h8') || XHouse.houses[0]; return [h.door.x, h.door.z]; }, [117.2, 415.1]), '📍 出售的排屋')]},
+    cops:{g:'遇到事', b:'开自己的车冲进喷漆车间，警戒清零。没车就跑远、躲进楼里。', a:['📍 带我去喷漆车间', () => goTo(g(() => [XSPRAY.door.x, XSPRAY.door.z], [115, 316]), '📍 喷漆车间')]},
+    save:{g:'遇到事', b:'标题页点「用 Google 登录」。微信里先「在浏览器打开」。'},
+    radio:{g:'遇到事', b:'上车后点电台小条：选台、切歌、关掉。'}
+  };
+  const GROUPS = ['刚来', '赚钱', '车和房', '遇到事', '其他'];
+  function wantBody(){
+    const groups = GROUPS.map(n => ({n, r:ROWS().filter(p => ((BROW[p.id] || {}).g || '其他') === n)})).filter(G => G.r.length);
+    return `<div class="gb-wrap"><div class="gb-grps">` + groups.map(G => `<div class="gb-grp"><h5 class="gb-g">${esc(G.n)}</h5><div class="gb-tiles">` + G.r.map(p => `<button type="button" class="gb-t${p.id === openRow ? ' on' : ''}" data-id="${p.id}"><i aria-hidden="true">${p.ic || '•'}</i><span>${esc(p.q || p.t)}</span></button>`).join('') + '</div></div>').join('') + '</div>'
+      + `<div class="gb-ans" id="gbAns">${answer(openRow)}</div></div>`;
+  }
+  function answer(id){
+    const p = ROWS().find(x => x.id === id), b = BROW[id];
+    if (!p) return '<p class="gd-hint">点上面一个看看怎么做</p>';
+    return `<b class="gb-q">${p.ic || ''} ${esc(p.q || p.t)}</b>` + (b ? `<p class="gb-b">${b.b}</p>` : '') + (b && b.a ? `<button type="button" class="btn primary gb-go">${b.a[0]}</button>` : '')
+      + `<details class="gb-more"${b ? '' : ' open'}><summary>详细</summary><div class="gd-a">${p.body()}</div></details>`;   /* a row from another file with no short answer: open */
+  }
+  function wantMount(sec){
+    const ans = sec.querySelector('#gbAns'); if (!ans) return;
+    const wire = () => { const b = ans.querySelector('.gb-go'); if (b) b.addEventListener('click', () => { const r = BROW[openRow]; if (r && r.a) g(r.a[1]); }); };
+    sec.querySelectorAll('.gb-t').forEach(t => t.addEventListener('click', () => {
+      openRow = t.dataset.id; sec.querySelectorAll('.gb-t').forEach(x => x.classList.toggle('on', x === t));
+      ans.innerHTML = answer(openRow); wire();
+      requestAnimationFrame(() => g(() => rowTo(openRow, true)));
+    }));
+    wire();
+  }
+  /* scroll the 「我想……」 page (only that page, never the sliding track) so the answer sits at the top */
+  function rowTo(id, smooth){
+    const d = track.querySelector('#gbAns'), sec = d && d.closest('.gd-page'); if (!sec) return;
+    const y = sec.scrollTop + d.getBoundingClientRect().top - sec.getBoundingClientRect().top - 6;
+    if (smooth && !REDUCED && sec.scrollTo) sec.scrollTo({top:y, behavior:'smooth'}); else sec.scrollTop = y;
+  }
+  let PAGES = ALL.slice();
   const LEGEND = [['#1f2a33', '你（箭头）'], ['#ffc21a', '主线（黄星）'], ['#ff8a3d', '外卖取餐'], ['#4fd18b', '送达点'], ['#ffd24a', '打卡点'], ['#e84d8a', '喷漆车间'], ['#e74c3c', '巡逻车', 1], ['#c9a0ff', '宿舍门口'], ['#ffd27a', '教学楼门口'], ['#ff6f61', '抢救期末卷'], ['#ff5fa2', 'B1 游戏厅'], ['#38c6d9', '出售的房子'], ['#a774ff', 'ERL 火车站'], ['#c2185b', 'SUKI-YA 火锅']];
 
   /* ---------- the guide sheet ---------- */
@@ -199,7 +256,8 @@
   const $g = id => gd.querySelector('#' + id), track = $g('gdTrack'), book = $g('gdBook');
   let cur = 0, built = false;
   function build(){
-    track.innerHTML = PAGES.map((p, i) => `<section class="gd-page" role="tabpanel" id="gdp-${p.id}" aria-label="${esc(p.t)}" tabindex="-1"><div class="gd-art">${ART[p.art] || ''}</div><div class="gd-txt"><h3><small>${i + 1}</small>${esc(p.t)}</h3>${p.body()}</div></section>`).join('');
+    PAGES = vis();
+    track.innerHTML = PAGES.map((p, i) => `<section class="gd-page${ART[p.art] ? '' : ' gd-noart'}" role="tabpanel" id="gdp-${p.id}" aria-label="${esc(p.t)}" tabindex="-1"><div class="gd-art">${ART[p.art] || ''}</div><div class="gd-txt"><h3><small>${i + 1}</small>${esc(p.t)}</h3>${p.body()}</div></section>`).join('');
     $g('gdDots').innerHTML = PAGES.map((p, i) => `<button type="button" role="tab" aria-label="${i + 1}. ${esc(p.t)}" aria-controls="gdp-${p.id}"></button>`).join('');
     $g('gdDots').querySelectorAll('button').forEach((b, i) => b.addEventListener('click', () => go(i)));
     built = true;
@@ -218,6 +276,8 @@
     if (gd.open) return;
     if (bm.open) closeMap();
     pauseArcade(); grab('g');
+    if (typeof page === 'string' && isRow(page)){ openRow = page; page = 'want'; }   /* an old page id that is a row now: 「我想……」 with that row open */
+    else openRow = '';
     build();   /* rebuilt each time: the touch / computer wording and the parts table are read fresh */
     let i = 0;
     if (typeof page === 'string') i = Math.max(0, PAGES.findIndex(p => p.id === page));
@@ -226,6 +286,7 @@
     else { i = g(() => +localStorage.getItem('xmum-guide-page') || 0, 0); if (i >= PAGES.length - 1) i = 0; }   /* pick up where you stopped; read to the end = start over */
     go(i, true);
     gd.showModal ? gd.showModal() : gd.setAttribute('open', '');
+    if (openRow){ const r = openRow; requestAnimationFrame(() => g(() => rowTo(r))); }
     requestAnimationFrame(() => { track.style.transition = ''; $g('gdNext').disabled ? $g('gdPrev').focus({preventScroll:true}) : $g('gdNext').focus({preventScroll:true}); });
     try { localStorage.setItem(TIP_KEY, '1'); } catch(e){}
   }
@@ -433,13 +494,16 @@
   /* addPage: another file puts its own page in (js/89-quest-ui.js: the diary first, the sticky notes second). {id, t, art (svg string or ART key), body(), home, mount(el)}
      mount(section) runs after each build, for pages with their own buttons. page: the page open now (-1 when closed). refresh(): rebuild the open page */
   function addPage(p, at){
-    if (PAGES.some(x => x.id === p.id)) return;
+    if (ALL.some(x => x.id === p.id)) return;
     if (p.art && !ART[p.art] && /^<svg/.test(p.art)){ ART['_' + p.id] = p.art; p.art = '_' + p.id; }
-    PAGES.splice(at == null ? PAGES.length : Math.max(0, Math.min(PAGES.length, at)), 0, p);
-    XGuide.pages = PAGES.map(x => x.id);
+    ALL.splice(at == null ? ALL.length : Math.max(0, Math.min(ALL.length, at)), 0, p);
+    PAGES = vis();
   }
   { const b0 = build; build = function(){ b0(); PAGES.forEach((p, i) => { if (p.mount){ const el = track.children[i]; if (el) g(() => p.mount(el)); } }); }; }
   function refresh(){ if (!gd.open) return; const k = cur; build(); go(k, true); requestAnimationFrame(() => { track.style.transition = ''; }); }
   window.XGuide = {open:openGuide, close:closeGuide, map:openMap, closeMap, get on(){ return gd.open || bm.open; }, get guideOn(){ return gd.open; }, get mapOn(){ return bm.open; },
-    get page(){ return gd.open ? cur : -1; }, get pageId(){ return gd.open && PAGES[cur] ? PAGES[cur].id : ''; }, pages:PAGES.map(p => p.id), addPage, refresh, go:i => go(i), mapLayers:[], mapRedraw:() => drawMap()};
+    get page(){ return gd.open ? cur : -1; }, get pageId(){ return gd.open && PAGES[cur] ? PAGES[cur].id : ''; }, get pages(){ return PAGES.map(p => p.id); }, addPage,
+    /* has(id) / show(id): a page or a 「我想……」 row (the diary's 看说明 ›) */
+    has:id => PAGES.some(p => p.id === id) || isRow(id),
+    show:id => { if (!gd.open) return openGuide(id); if (isRow(id)){ openRow = id; build(); go(PAGES.indexOf(WANT), true); requestAnimationFrame(() => { track.style.transition = ''; g(() => rowTo(id)); }); return; } const i = PAGES.findIndex(p => p.id === id); if (i >= 0) go(i); }, refresh, go:i => go(i), mapLayers:[], mapRedraw:() => drawMap()};
 })();
