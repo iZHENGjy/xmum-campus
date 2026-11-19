@@ -302,7 +302,7 @@ function summon(kind){
   const [x, z, h] = spotNear(px, pz, kind, driving ? driving.h : nw.h);   /* parked facing the way you face */
   const item = spawnMine(kind, x, z, h);
   dustBurst(x, .5, z, 8, 3); sfx.ding(); saveGame();
-  toast(`${item.name} 到了`, '停在你旁边，走过去按 F 上车', 2400);
+  toast(`${item.name} 到了`, TOUCH ? '停在你旁边，走过去点「上车」' : '停在你旁边，走过去按 F 上车', 2400);
 }
 /* the car's picture in the list: a colour swatch here; js/ui-shop-icons.js swaps in a small render of the real model */
 let carIcon = it => `<div class="sw" style="background:${it.color}"></div>`;
