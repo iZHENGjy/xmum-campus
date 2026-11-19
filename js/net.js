@@ -1067,7 +1067,8 @@
   XNet.netInfo = () => ({gridOK, myCell, subs:[...subs.keys()], remotes:remotes.size, legacy:[...remotes.values()].filter(r => r.legacy).length, online:onSet.size, looks:lookSubs.size, traffic:Object.assign({}, TR)});
 
   /* ---------- 云存档（只给 Google 登录的人） ---------- */
-  const SAVE_KEY = k => /^xmum-/.test(k) && k !== 'xmum-guest' && k !== 'xmum-restored';
+  const OWNER_KEY = 'xmum-owner';
+  const SAVE_KEY = k => /^xmum-/.test(k) && k !== 'xmum-guest' && k !== 'xmum-restored' && k !== OWNER_KEY;
   function localBlob(){
     const o = {};
     try { for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (SAVE_KEY(k)) o[k] = localStorage.getItem(k); } } catch(e){}
@@ -1082,15 +1083,17 @@
     return s + (+o['xmum-hole2-best'] || 0) * 10 + (+o['xmum-hole-best'] || 0) * 10;
   }
   let lastPushed = '';
+  /* returns true when the cloud now holds exactly what this device has (only XNet.signOut looks) */
   async function cloudPush(){
-    if (!XNet.online || !XNet.account.google || (sleeping && sleepWhy !== 'queue')) return;
+    if (!XNet.online || !XNet.account.google || (sleeping && sleepWhy !== 'queue')) return false;
     const o = localBlob(), str = JSON.stringify(o);
-    if (str === lastPushed || str.length > 30000) return;
+    if (str === lastPushed) return true;
+    if (str.length > 30000) return false;
     borrowNet();
     try {
       await timeout(db.ref('saves/' + XNet.uid).set({data:str, score:Math.round(blobScore(o)), ts:firebase.database.ServerValue.TIMESTAMP}), 15000, '上传云存档');
-      lastPushed = str;
-    } catch(e){ console.warn('[XNet] 云存档上传失败', e); }
+      lastPushed = str; return true;
+    } catch(e){ console.warn('[XNet] 云存档上传失败', e); return false; }
   }
   async function cloudSync(){                             // 返回 true 表示用云端进度覆盖了本机并刷新了页面
     if (!XNet.online || !XNet.account.google) return false;
@@ -1115,6 +1118,74 @@
     } catch(e){ console.warn('[XNet] 云存档同步失败', e); }
     return false;
   }
+  /* ---------- 存档归属：这台设备上的存档是哪个账号的 ----------
+     localStorage 'xmum-owner' = {"u":uid, "g":1 是 Google 账号 / 0 是游客}。登录状态（Firebase 存在 IndexedDB）和存档（localStorage）是分开存的：
+     以前退出 Google、或者浏览器只清掉了登录状态，下次打开就成了一个新游客，却带着原来的整份存档。同一个人于是多出一个账号，
+     名字被编号成「卷耳 2」，排行榜和豪车展台上同一份成绩出现两次。
+     现在：存档原来属于一个 Google 账号、打开时却是新游客 → 先不上线（不注册名字、不交成绩），问玩家：用 Google 登录找回 /
+     这次先单机玩 / 清空这台设备重新开始。原来属于一个游客账号（登录状态丢了就再也找不回来）→ 只能让新账号接着用。
+     还没有这个记录的老设备：认现在的账号。Google 账号之间切换照旧（cloudSync）。 */
+  function ownerGet(){ try { const o = JSON.parse(localStorage.getItem(OWNER_KEY) || 'null'); return o && typeof o.u === 'string' ? o : null; } catch(e){ return null; } }
+  function ownerSet(uid, google){ try { localStorage.setItem(OWNER_KEY, JSON.stringify({u:uid, g:google ? 1 : 0})); } catch(e){} }
+  function clearLocalSave(){
+    try { const ks = []; for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); if (SAVE_KEY(k) || k === OWNER_KEY) ks.push(k); } ks.forEach(k => localStorage.removeItem(k)); } catch(e){}
+  }
+  async function ownerCheck(auth, me){
+    const o = ownerGet();
+    if (!o || o.u === me.uid || !o.g || !me.isAnonymous){ ownerSet(me.uid, XNet.account.google); return; }
+    const pick = await ownerAsk(auth, o);
+    if (pick === 'reset'){ clearLocalSave(); location.reload(); return new Promise(() => {}); }
+    throw Object.assign(new Error('这台设备上的存档属于一个 Google 账号，这次先单机玩'), {code:'xnet/foreign-save'});
+  }
+  XNet.ownerCheck = ownerCheck;                             // 测试用（test/offline.html 里可以直接调）
+  /* the question, over everything (the game behind keeps running offline). Resolves 'reset' or 'offline'; a Google sign-in reloads the page */
+  function ownerAsk(auth, o){
+    return new Promise(done => {
+      let nm = ''; try { nm = String(localStorage.getItem('xmum-name') || '').replace(/[<>&"']/g, ''); } catch(e){}
+      const inApp = /MicroMessenger|QQ\/|Weibo|FBAN|FBAV|Instagram|Line\/|DingTalk|AlipayClient|XiaoHongShu|aweme|Bytedance/i.test(navigator.userAgent);
+      const el = document.createElement('div'); el.id = 'xowner'; el.setAttribute('role', 'alertdialog'); el.setAttribute('aria-modal', 'true');
+      el.style.cssText = 'position:fixed;inset:0;z-index:2147482000;display:grid;place-items:center;padding:16px;background:rgba(18,20,24,.78);' +
+        'font:15px/1.6 system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:#1d1b18';
+      const btn = (id, bg, fg, t) => `<button type="button" id="${id}" style="all:unset;box-sizing:border-box;cursor:pointer;display:block;width:100%;margin-top:8px;padding:10px 16px;border-radius:999px;background:${bg};color:${fg};font-weight:700;text-align:center">${t}</button>`;
+      el.innerHTML = '<div style="max-width:420px;width:100%;box-sizing:border-box;padding:20px 22px;border-radius:16px;background:#fffdf8;box-shadow:0 12px 40px rgba(0,0,0,.35);text-align:center">' +
+        '<div style="font-size:30px;line-height:1">🔑</div>' +
+        `<h2 style="margin:8px 0 6px;font-size:19px">这台设备上是${nm ? '「' + nm + '」' : '一个 Google 账号'}的存档</h2>` +
+        '<p style="margin:0 0 6px;color:#5e5a52">它存在 Google 账号的云端。用 Google 登录就能接着玩；不登录直接玩，会多出一个重复的账号。</p>' +
+        (inApp ? '<p style="margin:0 0 6px;color:#b8432f;font-size:13.5px">在 App 里打不开 Google 登录：点右上角「···」→「在浏览器打开」。</p>' : '') +
+        btn('xoG', '#b8432f', '#fff', '用 Google 登录找回') +
+        btn('xoOff', '#efe9dd', '#1d1b18', '这次先单机玩') +
+        btn('xoNew', 'transparent', '#8a857b', '清空这台设备，重新开始') +
+        '<p id="xoMsg" style="margin:8px 0 0;font-size:12.5px;color:#8a857b;min-height:1em"></p></div>';
+      document.body.appendChild(el);
+      const $o = q => el.querySelector(q), msg = t => { $o('#xoMsg').textContent = t; };
+      const stop = e => { if (el.isConnected) e.stopPropagation(); };
+      const close = v => { el.remove(); window.removeEventListener('keydown', stop, true); done(v); };
+      window.addEventListener('keydown', stop, true);
+      $o('#xoOff').addEventListener('click', () => close('offline'));
+      $o('#xoNew').addEventListener('click', () => {
+        if (confirm('清空这台设备上的进度，从头开始玩？\n云端的存档不会删，以后用 Google 登录还能找回。')) close('reset');
+      });
+      $o('#xoG').addEventListener('click', async () => {
+        msg('正在登录…');
+        try {
+          const prov = new firebase.auth.GoogleAuthProvider(); prov.setCustomParameters({prompt:'select_account'});
+          const r = await auth.signInWithPopup(prov), u = r && r.user;
+          if (!u) throw new Error('没有返回用户');
+          if (u.uid !== o.u){
+            /* another Google account: it gets its own cloud save, not this device's */
+            if (!confirm('你登录的是另一个 Google 账号。换成这个账号自己的进度吗？\n这台设备上原来的存档还在原来那个账号的云端。')){ msg('已取消'); return; }
+            clearLocalSave();
+          }
+          ownerSet(u.uid, true); location.reload();
+        } catch(e){
+          const c = String(e && e.code || '');
+          msg(/popup-closed|cancelled-popup/.test(c) ? '登录已取消' : /popup-blocked/.test(c) ? '浏览器拦截了登录弹窗，请允许弹窗后再点一次'
+            : /web-storage|disallowed-useragent|operation-not-supported/.test(c) ? '这个浏览器不支持 Google 登录，换 Chrome 或 Safari 试试' : '登录没成功：' + (e && e.message || c));
+        }
+      });
+      try { $o('#xoG').focus(); } catch(e){}
+    });
+  }
   function setAccount(u){
     const google = !!u && !u.isAnonymous && (u.providerData || []).some(p => p && p.providerId === 'google.com');
     const gp = google ? u.providerData.find(p => p.providerId === 'google.com') : null;
@@ -1131,7 +1202,7 @@
     try {
       if (cur && cur.isAnonymous){
         const r = await cur.linkWithPopup(prov);         // 游客 → Google，uid 不变，排行榜记录跟着走
-        await r.user.getIdToken(true); setAccount(r.user); emit();
+        await r.user.getIdToken(true); setAccount(r.user); ownerSet(r.user.uid, true); emit();
         await cloudPush(); return 'linked';
       }
       const r = await auth.signInWithPopup(prov);
@@ -1143,7 +1214,7 @@
         if (!cred) throw e;
         await leaveAll();
         let r; try { r = await auth.signInWithCredential(cred); } catch(e2){ quitting = false; throw e2; }
-        XNet.uid = r.user.uid; setAccount(r.user); emit();
+        XNet.uid = r.user.uid; setAccount(r.user); ownerSet(r.user.uid, true); emit();
         if (!(await cloudSync())) location.reload();
         return 'switched';
       }
@@ -1153,9 +1224,13 @@
   window.addEventListener('xmum-name', () => { if (XNet.online) settleName(true); else cloudPush(); });   // 改名：先注册，成功了再存云端
   XNet.signOut = async () => {
     if (!XNet.online) return;
-    await cloudPush();
+    g(() => wake());                                       // 开场画面待久了会断开，先连回来，进度才传得上去
+    const saved = await cloudPush();
     await leaveAll();
     try { await firebase.auth().signOut(); } catch(e){ quitting = false; throw e; }
+    /* the progress is safe in this Google account's cloud save: leave the device empty, so the next guest is not a copy of this account
+       (sign in again to get it back). If the upload failed, keep it: the next start asks what to do (ownerCheck) */
+    if (saved) clearLocalSave();
     location.reload();                                     // 刷新后自动成为新的游客
   };
 
@@ -1285,6 +1360,7 @@
       if (!me) throw new Error('匿名登录没有返回用户');
       setAccount(me);
       XNet.uid = me.uid;
+      await ownerCheck(auth, me);                           // 这台设备的存档是别的 Google 账号的：先问清楚再上线
       db = app.database();
       /* 先读自己的最好成绩，顺便确认规则允许读写 */
       await timeout(Promise.all(Object.keys(BOARDS).map(b => db.ref('boards/' + b + '/' + me.uid).once('value').then(s => {
@@ -1352,7 +1428,7 @@
       }
       return true;
     } catch(e){
-      XNet.blocked = true;                                  // 启动就没连上：多半是国内网络连不到 Google
+      XNet.blocked = !(e && e.code === 'xnet/foreign-save'); // 启动就没连上：多半是国内网络连不到 Google（自己选了单机玩的不算）
       fail(e && e.message || '初始化失败', e);
       return false;
     }
