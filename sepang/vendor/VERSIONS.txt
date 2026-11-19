@@ -1,0 +1,6 @@
+雪邦赛车城（sepang/）用的第三方库，固定版本，原样从 npm 包里拷贝（jsDelivr），没有改动：
+- three 0.186.1（2026-09-24）· MIT · three/LICENSE
+  build/three.module.js、build/three.core.js、examples/jsm 里的 Sky、BufferGeometryUtils
+- postprocessing 6.39.5（2026-09-09）· Zlib · postprocessing/LICENSE.md
+  build/index.js（要求 three >= 0.168 < 0.187）
+升级时两个一起换，并在 demo.html 的 importmap 里核对路径。
