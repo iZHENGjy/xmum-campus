@@ -121,6 +121,7 @@ function offerJob(id, build){
   if (id && typeof id === 'object'){ const spec = id; build = () => spec; id = spec.id || spec.title; }
   const O = OFFER;
   if (mode !== 'naiwa' || gx.paused || id == null) return false;
+  if (window.XFirst && XFirst.hold()) return false;   /* just got the keys: get into the car first, then the 「现在你能玩」 card (js/89-firstplay.js) */
   if (qCalm() && !/^deliv:/.test(id)) return false;   /* story chapter 1: deliveries only */
   /* next to a story character F is for talking (老周 and 阿明 stand by pick-up rings). Except the hand-over card of a shopping list
      (js/89-errand.js 'erto:'): those are delivered to that very person (卷卷's supper stands 3 m from her, 老周's durian 4 m from him) */

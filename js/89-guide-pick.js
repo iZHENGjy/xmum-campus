@@ -129,7 +129,7 @@
   document.head.appendChild(tipSt);
   function tipHide(){ if (tipEl) tipEl.hidden = true; clearTimeout(tipT); }
   function tipShow(){
-    if (tipN >= TIP_MAX || !comp || comp.hidden || !btn.offsetParent) return false;
+    if (tipN >= TIP_MAX || !comp || comp.hidden || !btn.offsetParent || g(() => XFirst.hold(), false)) return false;
     if (!tipEl){
       tipEl = document.createElement('div'); tipEl.id = 'gPickTip'; tipEl.setAttribute('role', 'status');
       tipEl.innerHTML = '<span>🎯 点指南针左边的 <b>🎯</b> 可以换它指什么：主线、某条支线、外卖、每日目标，或者关掉。</span><button type="button">知道了</button>';
@@ -159,7 +159,7 @@
     const now = tasks();
     if (last){
       let fresh = false; for (const k of now) if (!last.has(k)){ fresh = true; break; }
-      const calm = !g(() => XQuest.talking, false) && !g(() => XCine.busy, false) && !g(() => gx.paused, false);
+      const calm = !g(() => XQuest.talking, false) && !g(() => XCine.busy, false) && !g(() => gx.paused, false) && !g(() => XFirst.hold(), false);
       if (fresh && calm) setTimeout(tipShow, 1200);
       else if (fresh) { last = null; return; }   /* in a talk or a film: try again once it is over */
     }

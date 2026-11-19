@@ -76,7 +76,7 @@
   document.body.appendChild(ph);
   const phQ = []; let phT = 0, phBusy = false;
   /* phone notes wait: a film, a talk, a chase, an activity (gx.extBusy covers the door games), a mini-game (XMini.active), the guide open */
-  const holdNotes = () => g(() => XCine.busy, false) || !!g(() => XMini.active, null) || !box.hidden || g(() => heat > 0, false) || g(() => gx.extBusy(), false) || g(() => XGuide.on, false) || mode !== 'naiwa' || !!document.querySelector('.q-welcome:not([hidden])');
+  const holdNotes = () => g(() => XCine.busy, false) || !!g(() => XMini.active, null) || !box.hidden || g(() => heat > 0, false) || g(() => gx.extBusy(), false) || g(() => XGuide.on, false) || mode !== 'naiwa' || !!document.querySelector('.q-welcome:not([hidden])') || g(() => XFirst.hold(), false);
   function phShow(){
     if (phBusy || !phQ.length || holdNotes()) return;
     const e = phQ.shift(), m = D.msgs[e.m]; if (!m) return;
@@ -160,7 +160,8 @@
     if (o.end){
       cardShow({tag:'主线完成', title:`第 ${c.n} 章 ${c.title}`, sub:o.got ? '奖励：' + o.got : '', ms:4600});
       const nx = XQ.chapter();
-      if (nx){ const n = D.npcs[nx.npc] || {}; setTimeout(() => cardShow({tag:'下一章', title:`第 ${nx.n} 章 · ${nx.title}`, sub:`去${nx.place || ''}找${n.name || ''}，指南针会带你去`}), 400); }
+      /* a new player's chapter 1: the next chapter is the big button on the 「现在你能玩」 card once they sit in the Myvi (js/89-firstplay.js) */
+      if (nx){ if (!(c.n === 1 && S().born === 'new' && window.XFirst)){ const n = D.npcs[nx.npc] || {}; setTimeout(() => cardShow({tag:'下一章', title:`第 ${nx.n} 章 · ${nx.title}`, sub:`去${nx.place || ''}找${n.name || ''}，指南针会带你去`}), 400); } }
       else setTimeout(() => cardShow({tag:'尾声', title:'期末考完了', sub:'去 A3 大台阶，大家都在等你。指南针会带你去', ms:5200}), 400);
     }
   });
@@ -168,7 +169,7 @@
   XQ.on('unlock', k => {
     if (k === 'drive'){
       setTimeout(() => {
-        g(() => toast('可以开车了！', TOUCH ? '走到 Myvi 旁边，点「上车」' : '走到 Myvi 旁边按 F 上车，WASD 开，空格漂移', 4200));
+        /* no toast here: the car's own 「Myvi 到了」 toast (js/80-gta.js summon) and this hint already say it */
         hint.innerHTML = TOUCH ? '走到车旁边，点「上车」' : '走到车旁边按 <kbd>F</kbd> 上车 · <kbd>W</kbd><kbd>S</kbd> 油门刹车 · <kbd>A</kbd><kbd>D</kbd> 转向 · 按住 <kbd>空格</kbd> 漂移';
         hint.hidden = quiet(); hint.classList.remove('in'); void hint.offsetWidth; hint.classList.add('in'); hintId = '_drive';
         if (TOUCH){ flashEl = document.getElementById('act-f'); if (flashEl) flashEl.classList.add('q-flash'); }
