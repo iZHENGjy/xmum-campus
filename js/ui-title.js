@@ -267,6 +267,22 @@ if (UI_EMBEDDED) (() => {
   const put = () => document.body.appendChild(bar);
   if (document.body) put(); else document.addEventListener('DOMContentLoaded', put);
 })();
+/* on a phone or tablet in a normal browser: the same slim strip once per visit, for the first 3 visits — the game looks and plays
+   best on a computer (bigger view, keyboard, 高清 graphics). Inside WeChat / QQ the strip above says something more urgent instead */
+if (!UI_EMBEDDED && matchMedia('(pointer: coarse)').matches) (() => {
+  const SEEN = 'xmum-pc-tip', MAX = 3;
+  let n = 0; try { if (sessionStorage.getItem(SEEN)) return; n = +localStorage.getItem(SEEN) || 0; } catch(e){}
+  if (n >= MAX) return;
+  try { sessionStorage.setItem(SEEN, '1'); localStorage.setItem(SEEN, String(n + 1)); } catch(e){}
+  const bar = document.createElement('div'); bar.id = 'embedTip'; bar.className = 'pc'; bar.setAttribute('role', 'note');
+  bar.innerHTML = '<span></span><button type="button" aria-label="关掉提示">×</button>';
+  bar.querySelector('span').textContent = '💻 用电脑打开游玩效果更佳：画面更大，键盘操作更顺手，还能开高清画质';
+  const close = e => { if (e){ e.preventDefault(); e.stopPropagation(); } bar.hidden = true; bar.style.display = 'none'; };
+  bar.querySelector('button').addEventListener('click', close);
+  setTimeout(() => { if (!bar.hidden) close(); }, 15000);
+  const put = () => document.body.appendChild(bar);
+  if (document.body) put(); else document.addEventListener('DOMContentLoaded', put);
+})();
 function uiLoginError(e){
   const c = String(e && e.code || '');
   if (/popup-closed|cancelled-popup/.test(c)) return '登录已取消';
