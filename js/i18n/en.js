@@ -13,6 +13,7 @@ XI18N.add({
 '换一个':'Shuffle',
 '随机换一个昵称':'Random nickname',
 '用 Google 登录':'Sign in with Google',
+'💻 用电脑打开游玩效果更佳：画面更大，键盘操作更顺手，还能开高清画质':'💻 Best played on a computer: a bigger view, keyboard controls and HD graphics',
 '选一种玩法':'Pick a mode',
 '开车 · 奶娃':'Drive · Naiwa',
 '偷车、送外卖、甩掉保安、漂移攒特技分':'Deliveries, car thefts, chases and drifts',
